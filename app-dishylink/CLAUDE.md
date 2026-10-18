@@ -99,6 +99,19 @@ separate exporter, not in this add-on.
   editing `apparmor.txt`, uninstall and reinstall the app, or bump `version`
   and Update.
 
+## Releasing
+
+Images are built by `.github/workflows/builder.yaml` (calls `build-app.yaml`,
+both modelled on home-assistant/apps-example with the home-assistant/builder
+actions). Pushes and PRs test-build changed apps; a published GitHub release
+tagged `app-dishylink-<version>` builds this app on native amd64 and arm64
+runners and pushes `ghcr.io/cyberjunky/app-dishylink:<version>` and `:latest`
+(a multi-arch manifest over `amd64-app-dishylink` and `aarch64-app-dishylink`).
+The image tag comes from `version:` in config.yaml, so bump that, add the
+CHANGELOG entry, commit, push, then create the release with the matching tag.
+The GHCR packages must be public for the Supervisor to pull them anonymously;
+check the package settings after the first publish.
+
 ## Local install and test on the Home Assistant host
 
 - The Samba share `//192.168.1.251/addons` (mapped as drive `Z:`) is `/addons`

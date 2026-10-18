@@ -48,6 +48,12 @@ Each app is versioned on its own, following [Semantic Versioning](https://semver
 version in an app's `config.yaml` is what Home Assistant offers as an update; the
 matching entry in its `CHANGELOG.md` describes what changed.
 
+Images are built by GitHub Actions and published to the GitHub Container Registry.
+Publishing a GitHub release tagged `<app folder>-<version>`, for example
+`app-dishylink-1.0.3`, builds that app for every architecture it supports and pushes
+`ghcr.io/cyberjunky/<app>:<version>` plus `latest`. Pushes and pull requests only
+test-build the apps whose files changed.
+
 ## 💖 Support This Project
 
 If you find these apps useful, please consider supporting their continued development

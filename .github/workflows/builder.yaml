@@ -1,0 +1,115 @@
+name: Builder
+
+# Test-builds every changed app on pushes and pull requests, and builds and
+# publishes images to GHCR when a GitHub release is published. A release
+# whose tag is "<app folder>-<version>" (for example app-dishylink-1.0.3)
+# builds only that app; any other release tag builds every app. The image
+# tags come from the version in each app's config.yaml, not from the git tag.
+# Layout and actions follow https://github.com/home-assistant/apps-example.
+
+env:
+  MONITORED_FILES: "config.yaml Dockerfile rootfs ha-ingress.js apparmor.txt translations"
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Push the images to GHCR"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  init:
+    name: Initialize builds
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.filter.outputs.changed }}
+      changed_apps: ${{ steps.filter.outputs.changed_apps }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Get changed files
+        id: changed_files
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        uses: tj-actions/changed-files@v47
+
+      - name: Find app directories
+        id: apps
+        uses: home-assistant/actions/helpers/find-addons@master
+
+      - name: Select apps to build
+        id: filter
+        env:
+          APPS: ${{ steps.apps.outputs.addons }}
+          CHANGED_FILES: ${{ steps.changed_files.outputs.all_changed_files }}
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          selected=()
+
+          if [[ "${EVENT_NAME}" == "release" ]]; then
+            # "<app>-<version>" selects one app; anything else builds all.
+            for app in ${APPS}; do
+              if [[ "${RELEASE_TAG}" == "${app}-"* ]]; then
+                selected=("${app}")
+                break
+              fi
+            done
+            if [[ ${#selected[@]} -eq 0 ]]; then
+              selected=(${APPS})
+            fi
+          elif [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            selected=(${APPS})
+          elif [[ "${CHANGED_FILES}" =~ \.github/workflows/(builder|build-app)\.yaml ]]; then
+            # The workflow itself changed: rebuild everything.
+            selected=(${APPS})
+          else
+            for app in ${APPS}; do
+              for file in ${MONITORED_FILES}; do
+                if [[ "${CHANGED_FILES}" =~ ${app}/${file} ]]; then
+                  selected+=("${app}")
+                  break
+                fi
+              done
+            done
+          fi
+
+          if [[ ${#selected[@]} -gt 0 ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "changed_apps=$(jq -nc '$ARGS.positional' --args "${selected[@]}")" >> "$GITHUB_OUTPUT"
+            echo "Building: ${selected[*]}"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Nothing to build"
+          fi
+
+  build-app:
+    name: Build ${{ matrix.app }}
+    needs: init
+    if: needs.init.outputs.changed == 'true'
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(needs.init.outputs.changed_apps) }}
+    uses: ./.github/workflows/build-app.yaml
+    with:
+      app: ${{ matrix.app }}
+      publish: ${{ github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.publish) }}
+    secrets: inherit
