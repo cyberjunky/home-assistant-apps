@@ -1,0 +1,48 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Start PgAgent service if enabled
+# ==============================================================================
+declare UPDATE
+declare VERSION_FILE
+declare BUILD_TIMESTAMP
+
+UPDATE=false;
+VERSION_FILE=/data/version
+BUILD_TIMESTAMP="$(cat /build-timestamp)"
+
+# Check for updates
+if [[ $(< "${VERSION_FILE}") != "${BUILD_TIMESTAMP}" ]]; then
+	UPDATE=true
+fi
+
+# Wait for postgres to become available..
+while ! psql -U "postgres" postgres -c "" 2> /dev/null; do
+	sleep 1
+done
+
+# Check if we need to update..
+if bashio::var.true "${UPDATE}"; then
+	bashio::log.info "PgAgent: Waiting for update to complete.."
+	while [[ $(< "${VERSION_FILE}") != "${BUILD_TIMESTAMP}" ]]; do
+		sleep 3
+		bashio::log.info "PgAgent: Waiting for update to complete.."
+	done
+
+	bashio::log.info "Updating PgAgent Extension.."
+	psql -U "postgres" -d "postgres" -X -c "ALTER EXTENSION pgagent UPDATE;" || true >> /var/log/pgagent.run.log
+fi
+
+# Enable pgAgent extension on postgres database
+if ! (psql -X -U postgres -d "postgres" -c "select 1 from pg_extension where extname = 'pgagent';" | grep -q 1); then
+	bashio::log.info "Enabling PgAgent Extension.."
+	psql -U "postgres" -d "postgres" -c "CREATE EXTENSION IF NOT EXISTS pgagent;" || true >> /var/log/pgagent.run.log
+fi;
+
+# Create a tmpfs for the pgagent log
+mkdir -p "/data/tmp/pgagent"
+export TMPDIR=/data/tmp/pgagent
+
+# And run the daemon in the foreground
+bashio::log.info "Starting PgAgent.."
+/usr/local/bin/pgagent hostaddr=127.0.0.1 dbname=postgres user=postgres -f -l 1 #-s /var/log/pgagent

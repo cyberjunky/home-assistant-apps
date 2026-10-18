@@ -1,0 +1,172 @@
+---
+name: Build TimescaleDB dependencies
+
+# Builds the prebuilt extension images referenced by the FROM lines in
+# app-timescaledb/Dockerfile and pushes them to
+# ghcr.io/<repository owner>/timescaledb/dependency/<component>:<version>.
+# Run it whenever a component version in that Dockerfile changes, before
+# releasing the app.
+#
+# Each platform is built natively on its own runner (no QEMU); the resulting
+# digests are then merged into one multi-platform manifest per component.
+
+# yamllint disable-line rule:truthy
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        description: "Component to build ('all' builds every component)"
+        required: true
+        default: "all"
+        type: string
+      platforms:
+        description: "Comma separated list of platforms to build (amd64,arm64)"
+        required: true
+        default: "amd64,arm64"
+        type: string
+
+env:
+  REGISTRY: ghcr.io/${{ github.repository_owner }}/timescaledb/dependency
+  APP_DIR: app-timescaledb
+
+jobs:
+  matrix:
+    name: Prepare build matrix
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.set.outputs.build }}
+      merge: ${{ steps.set.outputs.merge }}
+      timescaledb_version: ${{ steps.set.outputs.timescaledb_version }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Compose matrix
+        id: set
+        env:
+          COMPONENT: ${{ inputs.component }}
+          PLATFORMS: ${{ inputs.platforms }}
+        run: |
+          # Component versions are defined once, as ARG lines at the top of the app Dockerfile
+          ver() { sed -n "s/^ARG $1=//p" "${APP_DIR}/Dockerfile"; }
+          echo "timescaledb_version=$(ver TIMESCALEDB_VERSION)" >> "${GITHUB_OUTPUT}"
+
+          components=$(jq -nc \
+            --arg pgagent "$(ver PGAGENT_VERSION)" \
+            --arg toolkit "$(ver TIMESCALEDB_TOOLKIT_VERSION)" \
+            --arg postgis "$(ver POSTGIS_VERSION)" \
+            --arg sysstat "$(ver SYSTEM_STATS_VERSION)" \
+            --arg pgvector "$(ver PGVECTOR_VERSION)" \
+            --arg pgcron "$(ver PG_CRON_VERSION)" \
+            '[{component: "timescaledb-tools", version: "latest"}]
+             + [ ("pg17", "pg18") as $pg |
+                 {component: "pgagent-\($pg)",                          version: $pgagent},
+                 {component: "timescaledb-toolkit-\($pg)",              version: $toolkit},
+                 {component: "postgis-\($pg)",                          version: $postgis},
+                 {component: "postgresql-extension-system-stat-\($pg)", version: $sysstat},
+                 {component: "pgvector-\($pg)",                         version: $pgvector},
+                 {component: "pg-cron-\($pg)",                          version: $pgcron} ]')
+          runners='{"amd64": "ubuntu-latest", "arm64": "ubuntu-24.04-arm"}'
+
+          merge=$(echo "${components}" | jq -c --arg c "${COMPONENT}" \
+            '[ .[] | select($c == "all" or .component == $c) ]')
+          build=$(echo "${merge}" | jq -c --argjson r "${runners}" --arg p "${PLATFORMS}" \
+            '[ .[] as $c | ($p | split(",") | map(gsub(" "; "")) | .[]) as $platform
+               | $c + {platform: $platform, runner: $r[$platform]} ]')
+
+          echo "build={\"include\": ${build}}" >> "${GITHUB_OUTPUT}"
+          echo "merge={\"include\": ${merge}}" >> "${GITHUB_OUTPUT}"
+          echo "${build}" | jq .
+
+  build:
+    name: Build ${{ matrix.component }} (${{ matrix.platform }})
+    needs: matrix
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 240
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.matrix.outputs.build) }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.APP_DIR }}
+          file: ${{ env.APP_DIR }}/docker-dependencies/${{ matrix.component }}
+          platforms: linux/${{ matrix.platform }}
+          build-args: |
+            VERSION=${{ matrix.version }}
+            TIMESCALEDB_VERSION=${{ needs.matrix.outputs.timescaledb_version }}
+          cache-from: type=gha,scope=${{ matrix.component }}-${{ matrix.platform }}
+          cache-to: type=gha,scope=${{ matrix.component }}-${{ matrix.platform }},mode=max
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ matrix.component }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.component }}-${{ matrix.platform }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Publish ${{ matrix.component }}:${{ matrix.version }}
+    needs:
+      - matrix
+      - build
+    # Publish the components that did build, even if another component failed
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.matrix.outputs.merge) }}
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-${{ matrix.component }}-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create multi-platform manifest
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create \
+            --tag "${REGISTRY}/${{ matrix.component }}:${{ matrix.version }}" \
+            $(printf "${REGISTRY}/${{ matrix.component }}@sha256:%s " *)
+          docker buildx imagetools inspect "${REGISTRY}/${{ matrix.component }}:${{ matrix.version }}"

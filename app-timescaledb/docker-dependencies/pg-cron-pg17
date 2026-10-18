@@ -1,0 +1,39 @@
+# Version of the timescale/timescaledb image to build against (passed by project.sh / the workflow)
+ARG TIMESCALEDB_VERSION=2.29.2
+FROM timescale/timescaledb:${TIMESCALEDB_VERSION}-pg17 AS timescale-pg17
+
+FROM timescale-pg17 AS pg-cron
+ARG VERSION
+ARG TARGETARCH
+ARG TARGETVARIANT
+
+# --------------------------------------------
+# pg_cron - build and install
+# --------------------------------------------
+# hadolint ignore=DL3018, DL3003
+RUN --mount=type=cache,id=apk-${TARGETARCH}-${TARGETVARIANT},sharing=locked,target=/var/cache/apk \
+    set -ex \
+    && apk update \
+    && apk add --virtual .fetch-deps \
+                ca-certificates \
+                git \
+    && apk add --virtual .build-deps \
+                coreutils \
+                gcc \
+                make \
+                build-base \
+                clang21 \
+                llvm21 \
+    && mkdir -p /build \
+    && cd /build \
+    && git clone --branch v${VERSION} https://github.com/citusdata/pg_cron.git \
+    && cd pg_cron \
+    && make \
+    && make install \
+    && cd ~ \
+    && apk del .fetch-deps .build-deps \
+    && rm -rf /build
+
+# Labels
+LABEL \
+    org.opencontainers.image.source="https://github.com/cyberjunky/home-assistant-apps"

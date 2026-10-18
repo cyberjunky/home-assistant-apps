@@ -1,0 +1,26 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Handles the exit of the pgAgent service.
+#
+# pgAgent is an auxiliary service: a failure of pgAgent must never take down
+# PostgreSQL (and with it the whole add-on). We only log the exit and let s6
+# restart the service, unless the container is shutting down (SIGTERM).
+# ==============================================================================
+readonly exit_code_service="${1}"
+readonly exit_code_signal="${2}"
+readonly service="pgagent"
+
+bashio::log.info \
+  "Service ${service} exited with code ${exit_code_service}" \
+  "(by signal ${exit_code_signal})"
+
+# Terminated by SIGTERM: the container is shutting down, nothing to do.
+if [[ "${exit_code_service}" -eq 256 ]] && [[ "${exit_code_signal}" -eq 15 ]]; then
+  exit 0
+fi
+
+if [[ "${exit_code_service}" -ne 0 ]]; then
+  bashio::log.warning "pgAgent failed; restarting it in 10 seconds. PostgreSQL keeps running."
+  sleep 10
+fi

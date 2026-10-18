@@ -1,0 +1,8 @@
+TimescaleDB app for Home Assistant
+Copyright 2026 Ron Klinkien
+
+Derived from hassos-addon-timescaledb by Hans van Essen (Expaso BV), licensed
+under the Apache License, Version 2.0. Modified by Ron Klinkien.
+
+PostgreSQL, TimescaleDB, TimescaleDB Toolkit, PostGIS, pgvector, pg_cron,
+pgAgent and system_stats are distributed under their own licenses.

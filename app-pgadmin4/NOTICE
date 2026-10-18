@@ -1,0 +1,8 @@
+pgAdmin 4 app for Home Assistant
+Copyright 2026 Ron Klinkien
+
+Derived from hassos-addon-pgadmin4 by Hans van Essen (Expaso BV), licensed
+under the Apache License, Version 2.0. Modified by Ron Klinkien.
+
+pgAdmin 4 is Copyright (C) 2013 - 2026, The pgAdmin Development Team and is
+distributed under the PostgreSQL licence.

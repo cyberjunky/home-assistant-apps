@@ -1,0 +1,54 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Home Assistant Add-on: TimescaleDB
+# Displays a simple add-on banner on startup (based on the base image banner,
+# extended with the "Provided by" line and a standalone/docker mode).
+# ==============================================================================
+declare BUILD_TIMESTAMP
+declare VERSION
+
+BUILD_TIMESTAMP="$(cat /build-timestamp)"
+
+bashio::log.blue \
+    '-----------------------------------------------------------'
+bashio::log.blue " Add-on: TimescaleDB"
+bashio::log.blue " An open-source database built on PostgreSQL for analyzing time-series data with the power and convenience of SQL"
+bashio::log.blue \
+    '-----------------------------------------------------------'
+bashio::log.blue " Provided by: Ron Klinkien <ron@cyberjunky.nl>"
+bashio::log.blue \
+    '-----------------------------------------------------------'
+
+if bashio::supervisor.ping 2>/dev/null; then
+    # The version can only be read when the Supervisor grants API access to the add-on
+    VERSION=$(bashio::app.version 2>/dev/null || true)
+    if [[ -n "${VERSION}" ]] && [[ "${VERSION}" != "null" ]]; then
+        bashio::log.blue " Add-on version: ${VERSION}"
+        if bashio::var.true "$(bashio::app.update_available 2>/dev/null || echo false)"; then
+            bashio::log.magenta ' There is an update available for this add-on!'
+            bashio::log.magenta " Latest add-on version: $(bashio::app.version_latest 2>/dev/null || true)"
+            bashio::log.magenta ' Please consider upgrading as soon as possible.'
+        else
+            bashio::log.green ' You are running the latest version of this add-on.'
+        fi
+    else
+        bashio::log.blue " Add-on build: ${BUILD_TIMESTAMP}"
+    fi
+    bashio::log.blue " System: $(bashio::info.operating_system)" \
+        " ($(bashio::info.arch) / $(bashio::info.machine))"
+    bashio::log.blue " Home Assistant Core: $(bashio::info.homeassistant)"
+    bashio::log.blue " Home Assistant Supervisor: $(bashio::info.supervisor)"
+else
+    bashio::log.magenta " Add-on running in standalone mode (no Supervisor)."
+    bashio::log.magenta " Add-on build: ${BUILD_TIMESTAMP}"
+fi
+
+bashio::log.blue \
+    '-----------------------------------------------------------'
+bashio::log.blue \
+    ' Please, share the above information when looking for help'
+bashio::log.blue \
+    ' or support in, e.g., GitHub, forums or the Discord chat.'
+bashio::log.blue \
+    '-----------------------------------------------------------'

@@ -1,0 +1,48 @@
+# Version of the timescale/timescaledb image to build against (passed by project.sh / the workflow)
+ARG TIMESCALEDB_VERSION=2.29.2
+FROM timescale/timescaledb:${TIMESCALEDB_VERSION}-pg17
+ARG VERSION
+ARG TARGETARCH
+ARG TARGETVARIANT
+
+# --------------------------------------------
+# pgAgent - build pached version and install
+# --------------------------------------------
+RUN mkdir -p /build
+COPY pgagent.patch /build/
+
+# hadolint ignore=DL3018, DL3003
+RUN --mount=type=cache,id=apk-${TARGETARCH}-${TARGETVARIANT},sharing=locked,target=/var/cache/apk \
+    set -ex \
+    && apk update \
+    && apk add --virtual .fetch-deps \
+                ca-certificates \
+                git \
+                openssl \
+                openssl-dev \
+                tar \
+    && apk add -u musl \
+    && apk add --virtual .build-deps \
+                coreutils \
+                gcc \
+                make \
+                cmake \
+                build-base \
+                boost-dev \
+                openldap-dev \
+    && git clone https://github.com/pgadmin-org/pgagent /build/pgagent \
+    && cd /build/pgagent \
+    && git checkout ${VERSION} \
+    && git apply -v ../pgagent.patch \
+    # pgAgent 4.2.3 still declares a cmake minimum < 3.5, which CMake 4 refuses without this policy
+    && cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 . \
+    && make && make install \
+    && cd ~ \
+    && apk del .fetch-deps .build-deps \
+    && rm -rf /build \
+    && apk add \
+                boost-libs
+
+# Labels
+LABEL \
+    org.opencontainers.image.source="https://github.com/cyberjunky/home-assistant-apps"

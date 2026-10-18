@@ -1,0 +1,6 @@
+# Not needed inside the add-on image (the dependency builders use the repository root as context)
+docker-dependencies/
+pgagent/
+config.yaml
+.README.j2
+*.md

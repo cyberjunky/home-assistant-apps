@@ -41,6 +41,28 @@ keeps flash writes low by recording in RAM.
 
 [:books: Documentation](app-dishylink/DOCS.md) · [:memo: Changelog](app-dishylink/CHANGELOG.md) · [:lock: Security](app-dishylink/SECURITY.md)
 
+### [pgAdmin 4](app-pgadmin4/)
+
+![Version][pgadmin4-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+Web-based administration for PostgreSQL, opened from the sidebar. Registers the TimescaleDB
+app automatically. Apache 2.0, derived from an earlier add-on (see its NOTICE).
+
+[:books: Documentation](app-pgadmin4/DOCS.md) · [:memo: Changelog](app-pgadmin4/CHANGELOG.md)
+
+### [TimescaleDB](app-timescaledb/)
+
+![Version][timescaledb-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+PostgreSQL with the TimescaleDB time-series extension plus PostGIS, pgvector, pg_cron,
+pgAgent and TimescaleDB Toolkit. Apache 2.0, derived from an earlier add-on (see its NOTICE).
+
+[:books: Documentation](app-timescaledb/DOCS.md) · [:memo: Changelog](app-timescaledb/CHANGELOG.md)
+
 ## Releases
 
 Each app is versioned on its own, following [Semantic Versioning](https://semver.org/):
@@ -88,4 +110,6 @@ software each app packages keeps its own license, noted in the app's README.
 [maintenance-shield]: https://img.shields.io/badge/maintainer-cyberjunky-blue.svg?style=for-the-badge
 [aarch64-shield]: https://img.shields.io/badge/aarch64-yes-green.svg?style=for-the-badge
 [amd64-shield]: https://img.shields.io/badge/amd64-yes-green.svg?style=for-the-badge
+[pgadmin4-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-pgadmin4%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[timescaledb-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-timescaledb%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [dishylink-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-dishylink%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
