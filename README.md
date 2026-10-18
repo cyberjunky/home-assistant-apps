@@ -75,9 +75,10 @@ Every contribution, no matter the size, makes a difference and is greatly apprec
 
 ## License
 
-This repository is licensed under the MIT License - see the [LICENSE](LICENSE) file for
-details. The software each app packages keeps its own license, noted in the app's
-README.
+Unless an app folder contains its own `LICENSE` file, this repository is licensed under the
+MIT License - see the [LICENSE](LICENSE) file for details. Apps derived from other projects
+keep that project's license and a `NOTICE` file with attribution in their own folder. The
+software each app packages keeps its own license, noted in the app's README.
 
 ---
 
