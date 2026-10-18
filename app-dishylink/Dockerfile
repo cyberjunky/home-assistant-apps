@@ -80,7 +80,8 @@ RUN chmod a+x /etc/services.d/*/run /etc/services.d/*/finish /usr/bin/historian-
 
 # /api/health is answered by the embedded history recorder. The Supervisor
 # watchdog acts on this health status.
-HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3     CMD curl -fsS http://127.0.0.1:8080/api/health > /dev/null || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:8080/api/health > /dev/null || exit 1
 
 LABEL \
     org.opencontainers.image.title="Home Assistant App: Dishylink" \
