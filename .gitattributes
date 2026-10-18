@@ -1,0 +1,5 @@
+# Shell scripts and configs inside the apps run on Linux: always LF, even on Windows checkouts.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
