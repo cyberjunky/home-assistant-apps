@@ -29,7 +29,7 @@ nginx, s6 scripts) and document why here.
 
 - Upstream entry point: `docker/browserHost.mts` with `HISTORIAN_EMBED=1`. It
   serves `BROWSER_DIST` on `BROWSER_HOST_PORT` (8080), embeds the recorder from
-  `collector/historian.mts`, and answers `/api/health` (used by the watchdog).
+  `collector/historian.mts`, and answers `/api/health` (used by the Dockerfile `HEALTHCHECK`; the linter rejects the old `watchdog:` key).
 - Env vars set in the run script: `NODE_ENV`, `HISTORIAN_EMBED`,
   `HISTORIAN_DATA_DIR`, `HISTORIAN_PROTOSET`, `BROWSER_DIST`,
   `BROWSER_HOST_PORT`, `STARLINK_COOKIE_FILE`, and optionally `HOST_LAN_IP`,

@@ -1,6 +1,6 @@
 # https://developers.home-assistant.io/docs/apps/configuration
 name: Dishylink
-version: "1.0.3"
+version: "1.0.4"
 slug: app-dishylink
 description: Starlink dish and router dashboard with recorded history, powered by Dishylink
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-dishylink"
@@ -8,20 +8,15 @@ arch:
   - aarch64
   - amd64
 init: false
-startup: application
-boot: auto
 stage: experimental
-# The dashboard is served through Home Assistant ingress (nginx on 8099 in
-# front of the Dishylink browser host on 8080). Port 8080 can optionally be
+# The dashboard is served through Home Assistant ingress (nginx on the default
+# ingress port 8099 in front of the Dishylink browser host on 8080). Port 8080 can optionally be
 # published for access without ingress, for example from a phone on the LAN.
 ingress: true
-ingress_port: 8099
 panel_icon: mdi:satellite-uplink
 panel_title: Dishylink
 ports:
   8080/tcp: null
-# /api/health is answered by the embedded history recorder.
-watchdog: "http://[HOST]:[PORT:8080]/api/health"
 # Default role only: the start script reads the host's LAN address and MAC
 # from /network/interface/default/info so the dashboard knows "this device".
 hassio_api: true

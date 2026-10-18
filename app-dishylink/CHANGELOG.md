@@ -1,4 +1,12 @@
 <!-- https://developers.home-assistant.io/docs/apps/presentation#keeping-a-changelog -->
+## 1.0.4
+
+- Health check moved from the obsolete `watchdog` option to a Docker
+  `HEALTHCHECK` on the recorder's `/api/health`.
+- Config cleanup: removed keys that only restated defaults (startup, boot,
+  ingress_port), as required by the Home Assistant app linter.
+- Images are now built and published to GHCR by GitHub Actions.
+
 ## 1.0.3
 
 - The dashboard follows Home Assistant's dark/light mode when opened through
