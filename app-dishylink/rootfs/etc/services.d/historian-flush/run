@@ -1,0 +1,25 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Timer: flush the recorder's RAM data folder to /data on an interval
+# s6-overlay docs: https://github.com/just-containers/s6-overlay
+# ==============================================================================
+
+declare minutes
+minutes=$(bashio::config 'history_flush_minutes')
+
+if [[ "${minutes}" -le 0 ]]; then
+  bashio::log.info "History is written straight to /data/historian; flush timer not needed"
+  s6-svc -O /run/service/historian-flush
+  exit 0
+fi
+
+bashio::log.info "Flushing recorder history to /data/historian every ${minutes} minute(s)"
+
+# sleep runs in the background so SIGTERM from s6 ends the loop at once
+# instead of after the current interval.
+trap 'exit 0' TERM INT
+while true; do
+  sleep "$((minutes * 60))" &
+  wait $! || exit 0
+  historian-flush
+done

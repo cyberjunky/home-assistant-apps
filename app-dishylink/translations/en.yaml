@@ -1,0 +1,42 @@
+configuration:
+  detect_host_identity:
+    name: Detect host network identity
+    description: >-
+      Ask the Supervisor for the Home Assistant host's LAN address and MAC so the
+      dashboard can tell which router client is "this device". That is what keeps
+      the app from pausing its own connection and from counting its own polling as
+      that device's data usage. Turn off to set the values by hand below, or to
+      leave them unset.
+  history_flush_minutes:
+    name: Write history to disk every (minutes)
+    description: >-
+      The recorder rewrites several megabytes of snapshots every minute. With a
+      value above 0 it works in RAM and the history is copied to the app's data
+      folder on this interval and whenever the app stops, which keeps writes to
+      SD cards and eMMC low. A power cut loses at most this many minutes of
+      history. 0 writes straight to disk, as Dishylink does on its own.
+  host_lan_ip:
+    name: Host LAN IP address
+    description: >-
+      The Home Assistant host's address on the Starlink LAN, for example
+      192.168.1.45. Overrides the detected value. Several addresses may be
+      separated by commas.
+  host_mac:
+    name: Host MAC address
+    description: >-
+      The Home Assistant host's MAC address on the Starlink LAN, for example
+      aa:bb:cc:dd:ee:ff. Overrides the detected value.
+  dish_url:
+    name: Dish address
+    description: >-
+      Where the dish's grpc-web API is reached. Leave empty for the default
+      http://192.168.100.1:9201. Only change this if your network reaches the dish
+      on another address.
+  router_url:
+    name: Router address
+    description: >-
+      Fixed address for the Starlink router's API, for example http://192.168.1.1.
+      Leave empty to use the default, which can also be changed from the
+      dashboard's settings.
+network:
+  8080/TCP: Direct access to the dashboard without ingress (optional, e.g. from a phone on the LAN)

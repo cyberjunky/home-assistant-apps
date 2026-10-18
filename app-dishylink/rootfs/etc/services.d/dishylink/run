@@ -1,0 +1,108 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Start the Dishylink browser host (web dashboard + history recorder + proxies)
+# s6-overlay docs: https://github.com/just-containers/s6-overlay
+# ==============================================================================
+
+declare disk_dir=/data/historian
+declare ram_dir=/tmp/historian
+declare data_dir="${disk_dir}"
+declare flush_minutes
+declare host_lan_ip=""
+declare host_mac=""
+declare interface_info=""
+
+# ------------------------------------------------------------------------------
+# Where the recorder writes. Upstream rewrites its telemetry and per-client
+# snapshots in full every minute (several MB), which wears SD/eMMC storage.
+# With history_flush_minutes > 0 the recorder works in /tmp (tmpfs, RAM) and
+# the historian-flush service copies that folder to /data/historian on the
+# interval and at shutdown. The upstream code is unchanged either way.
+# ------------------------------------------------------------------------------
+flush_minutes=$(bashio::config 'history_flush_minutes')
+if [[ "${flush_minutes}" -gt 0 ]]; then
+    data_dir="${ram_dir}"
+fi
+
+# Same layout and environment as Dishylink's own Docker image, with the
+# recorder's data kept beside (not on top of) Home Assistant's options.json.
+# The pasted starlink.com session always stays on persistent storage.
+export NODE_ENV=production
+export HISTORIAN_EMBED=1
+export HISTORIAN_DATA_DIR="${data_dir}"
+export HISTORIAN_PROTOSET=/app/public/dish.protoset
+export BROWSER_DIST=/app/dist
+export BROWSER_HOST_PORT=8080
+export STARLINK_COOKIE_FILE="${disk_dir}/.starlink-cookie"
+
+# ------------------------------------------------------------------------------
+# Host network identity: the router sees this app's polling as traffic from the
+# Home Assistant host, so Dishylink needs the host's LAN address and MAC to find
+# its own row in the client list (pause self-protection, own-usage accounting).
+# Ask the Supervisor for the primary interface unless the user set them by hand.
+# ------------------------------------------------------------------------------
+if bashio::config.true 'detect_host_identity'; then
+    if interface_info=$(bashio::api.supervisor GET "/network/interface/default/info" false); then
+        host_lan_ip=$(bashio::jq "${interface_info}" \
+            '[.ipv4.address[]? | split("/")[0]] | join(",")')
+        host_mac=$(bashio::jq "${interface_info}" '.mac // empty')
+    else
+        bashio::log.warning "Could not read the host's network interface from the Supervisor"
+    fi
+fi
+
+if bashio::config.has_value 'host_lan_ip'; then
+    host_lan_ip=$(bashio::config 'host_lan_ip')
+fi
+if bashio::config.has_value 'host_mac'; then
+    host_mac=$(bashio::config 'host_mac')
+fi
+
+if bashio::var.has_value "${host_lan_ip}"; then
+    export HOST_LAN_IP="${host_lan_ip}"
+fi
+if bashio::var.has_value "${host_mac}"; then
+    export HOST_MAC="${host_mac}"
+fi
+
+if bashio::var.has_value "${host_lan_ip}" || bashio::var.has_value "${host_mac}"; then
+    bashio::log.info "Host identity on the Starlink LAN: ip=${host_lan_ip:-?} mac=${host_mac:-?}"
+else
+    bashio::log.notice "No host identity known; choose this device under Settings > App in the dashboard"
+fi
+
+# Optional endpoint overrides (defaults: dish 192.168.100.1:9201, router 192.168.1.1).
+if bashio::config.has_value 'dish_url'; then
+    DISH_URL=$(bashio::config 'dish_url')
+    export DISH_URL
+    bashio::log.info "Dish endpoint override: ${DISH_URL}"
+fi
+if bashio::config.has_value 'router_url'; then
+    ROUTER_URL=$(bashio::config 'router_url')
+    export ROUTER_URL
+    bashio::log.info "Router endpoint override: ${ROUTER_URL}"
+fi
+
+# Persistent recordings and the optional pasted starlink.com session. Owned by
+# the unprivileged user the browser host runs as.
+mkdir -p "${disk_dir}"
+chown -R dishylink:dishylink "${disk_dir}"
+
+if [[ "${data_dir}" == "${ram_dir}" ]]; then
+    # Seed RAM from the last flush so history survives restarts. --delete so a
+    # stale copy left by a previous run of this container cannot resurrect rows
+    # the recorder already compacted away.
+    mkdir -p "${ram_dir}"
+    if ! rsync -a --delete --exclude='.starlink-cookie' --exclude='historian.lock' "${disk_dir}/" "${ram_dir}/"; then
+        bashio::exit.nok "Could not restore recorder history from ${disk_dir}"
+    fi
+    chown -R dishylink:dishylink "${ram_dir}"
+    bashio::log.info "Recorder history kept in RAM, flushed to ${disk_dir} every ${flush_minutes} minute(s) and at shutdown"
+fi
+
+# The Node process has no business with the Supervisor token.
+unset SUPERVISOR_TOKEN
+
+bashio::log.info "Starting Dishylink ${DISHYLINK_VERSION:-} browser host on port 8080"
+cd /app || bashio::exit.nok "Could not enter /app"
+exec s6-setuidgid dishylink node --import tsx docker/browserHost.mts

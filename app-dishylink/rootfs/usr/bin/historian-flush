@@ -1,0 +1,29 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Copy the recorder's RAM data folder (/tmp/historian) to persistent storage
+# (/data/historian). Used by the historian-flush timer service and by the
+# dishylink service's finish script.
+#
+# rsync writes each file to a temp name and renames it over the target, so a
+# power cut mid-flush leaves whole old or whole new files, never torn ones.
+# The pasted starlink.com session lives in /data/historian directly and is
+# excluded, so --delete never touches it.
+# ==============================================================================
+declare ram_dir=/tmp/historian
+declare disk_dir=/data/historian
+
+if [[ ! -d "${ram_dir}" ]]; then
+  exit 0
+fi
+
+mkdir -p "${disk_dir}"
+if rsync -a --delete \
+    --exclude='*.tmp' \
+    --exclude='historian.lock' \
+    --exclude='.starlink-cookie' \
+    "${ram_dir}/" "${disk_dir}/"; then
+  bashio::log.debug "Flushed recorder history to ${disk_dir}"
+else
+  bashio::log.warning "Flushing recorder history to ${disk_dir} failed"
+  exit 1
+fi

@@ -1,0 +1,10 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Start the nginx ingress proxy in front of the Dishylink browser host
+# s6-overlay docs: https://github.com/just-containers/s6-overlay
+# ==============================================================================
+
+mkdir -p /run/nginx
+
+bashio::log.info "Starting ingress proxy on port 8099"
+exec nginx -c /etc/nginx/nginx.conf -g "daemon off;"
