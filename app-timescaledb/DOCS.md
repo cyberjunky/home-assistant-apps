@@ -108,6 +108,41 @@ pg_hba_config:
 A wrong `pg_hba.conf` can lock you out. Keep at least one working rule before adding
 restrictions.
 
+## Moving from the Expaso add-on
+
+This app is derived from the Expaso TimescaleDB add-on and uses the same data layout, so it
+takes over an existing installation in place: databases, users, passwords and settings stay,
+and a PostgreSQL 17 cluster is upgraded to 18 on the first start. The two add-ons have
+different hostnames, so the switch is a copy of the data folder plus a hostname change in
+the clients.
+
+1. Make a Home Assistant backup of the Expaso add-on (`77b2833f_timescaledb`), then **stop**
+   it. Its data must not change while it is copied.
+2. Install this app from the store and give it the **same options** as the old one
+   (`databases`, `timescale_enabled`, `timescaledb`, `max_connections`, ...). Do not start it
+   yet. Leave the host port unmapped until the old add-on is gone.
+3. Copy the old data folder into the new one. From the Terminal add-on with *Protection
+   mode* off (the host paths are reached through Docker):
+
+   ```bash
+   docker run --rm \
+     -v /mnt/data/supervisor/addons/data/77b2833f_timescaledb:/old:ro \
+     -v /mnt/data/supervisor/addons/data/1b41fb55_timescaledb:/new \
+     alpine sh -c "cp -a /old/. /new/ && rm -f /new/options.json && ls -la /new /new/postgres | head -20"
+   ```
+
+   `/new/postgres/PG_VERSION` must exist afterwards. The copy needs as much free disk space
+   as the old folder; the upgrade itself links the files and needs little extra.
+4. Start this app and watch its log: "Upgrading PostgreSql from 17 to 18" ends with
+   "PostgreSQL upgraded succesfully!". If it fails, the log says why; the old add-on's data
+   is untouched, so starting the old add-on again is the way back.
+5. Point the clients at the new hostname: `77b2833f-timescaledb` becomes
+   `1b41fb55-timescaledb` in the Home Assistant recorder's `db_url`, in the DSMR Reader,
+   TeslaMate, LTSS or Grafana configuration, and so on. Clients that use the host's IP
+   address keep working once the port mapping is moved to this app. pgAdmin 4 registers
+   the new server by itself on its next start.
+6. Once everything runs against the new app, uninstall the Expaso add-on.
+
 ## Backup and restore
 
 Home Assistant backups do not copy the raw PostgreSQL data directory. Before each backup
