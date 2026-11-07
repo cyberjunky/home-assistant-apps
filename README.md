@@ -41,6 +41,18 @@ keeps flash writes low by recording in RAM.
 
 [:books: Documentation](app-dishylink/DOCS.md) · [:memo: Changelog](app-dishylink/CHANGELOG.md) · [:lock: Security](app-dishylink/SECURITY.md)
 
+### <img src="app-meldkamer/icon.png" alt="" width="36" align="absmiddle"> [Meldkamer](app-meldkamer/)
+
+![Version][meldkamer-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+P2000 FLEX pager decoder dashboard for Dutch emergency services, opened from the sidebar.
+Decodes an RTL-SDR, HackRF or network `rtl_tcp` stream onto a live incident map with
+street-level pins, statistics, Home Assistant sensors, events and text-to-speech.
+
+[:books: Documentation](app-meldkamer/DOCS.md) · [:memo: Changelog](app-meldkamer/CHANGELOG.md) · [:lock: Security](app-meldkamer/SECURITY.md)
+
 ### <img src="app-pgadmin4/icon.png" alt="" width="36" align="absmiddle"> [pgAdmin 4](app-pgadmin4/)
 
 ![Version][pgadmin4-version-shield]
@@ -135,4 +147,5 @@ software each app packages keeps its own license, noted in the app's README.
 [pgadmin4-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-pgadmin4%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [timescaledb-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-timescaledb%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [dishylink-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-dishylink%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[meldkamer-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-meldkamer%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [teslameter-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-teslameter%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge

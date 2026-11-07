@@ -16,6 +16,7 @@ updates:
   - package-ecosystem: docker
     directories:
       - /app-dishylink
+      - /app-meldkamer
       - /app-pgadmin4
       - /app-teslameter
       - /app-timescaledb

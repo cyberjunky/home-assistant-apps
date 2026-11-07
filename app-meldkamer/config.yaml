@@ -1,0 +1,144 @@
+name: Meldkamer
+version: "1.4.5"
+slug: app-meldkamer
+description: "P2000 FLEX pager decoder dashboard for Home Assistant - decode Dutch emergency services messages using RTL-SDR or HackRF"
+url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-meldkamer"
+# The dashboard map needs core's map_tiles proxy (added in 2026.9)
+homeassistant: "2026.9.0"
+init: false
+arch:
+  - aarch64
+  - amd64
+# Prebuilt by the repository Builder workflow; bump `version` to publish a new image
+image: "ghcr.io/cyberjunky/app-meldkamer"
+startup: application
+boot: auto
+# MQTT TLS certificate files (mqtt.tls_ca / tls_cert / tls_keyfile)
+map:
+  - ssl:ro
+udev: true
+usb: true
+host_network: false
+ports:
+  5000/tcp: null
+ports_description:
+  5000/tcp: P2000 TCP broadcast server for integrations (optional)
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:headset
+panel_title: Meldkamer
+homeassistant_api: true
+hassio_api: true
+services:
+  - mqtt:want
+
+options:
+  receiver:
+    type: rtl-sdr
+    network_host: ""
+    network_port: 1234
+    sdr_gain: 40
+    ppm_correction: 0
+    hackrf_lna_gain: 40
+    hackrf_vga_gain: 30
+    hackrf_amp_enable: true
+    bias_tee: false
+    offline_after_minutes: 10
+    backup_host: ""
+    backup_port: 1234
+    backup_ppm_correction: 0
+  geocoding:
+    enabled: false
+    opencage_token: ""
+    only_sensor_matches: false
+  repeat_window_seconds: 60
+  incident_window_minutes: 15
+  ha_events: true
+  announce:
+    tts_entity: ""
+    media_players: ""
+    language: nl
+    quiet_hours: ""
+  sensors_enabled: false
+  sensors:
+    - name: Thuis
+      icon: mdi:home
+      zone: zone.home
+    - name: GRIP
+      icon: mdi:magnify
+      text_contains: "GRIP"
+    - name: Brandweer
+      icon: mdi:fire-truck
+      disciplines: "Brandweer"
+  mqtt:
+    enabled: false
+    host: ""
+    port: 1883
+    user: ""
+    password: ""
+    client_id: p2000_rtlsdr
+    base_topic: p2000_rtlsdr
+    ha_autodiscovery: true
+    ha_autodiscovery_topic: homeassistant
+    retain: false
+    tls_enabled: false
+  log_level: info
+
+schema:
+  receiver:
+    type: list(rtl-sdr|hackrf|soapysdr|network)?
+    network_host: 'match(^[A-Za-z0-9.:\[\]-]*$)?'
+    network_port: int?
+    sdr_gain: int(0,50)?
+    ppm_correction: int?
+    hackrf_lna_gain: int(0,40)?
+    hackrf_vga_gain: int(0,62)?
+    hackrf_amp_enable: bool?
+    bias_tee: bool?
+    offline_after_minutes: int(1,120)?
+    backup_host: 'match(^[A-Za-z0-9.:\[\]-]*$)?'
+    backup_port: int?
+    backup_ppm_correction: int?
+  geocoding:
+    enabled: bool
+    opencage_token: password
+    only_sensor_matches: bool?
+  repeat_window_seconds: int(0,3600)?
+  incident_window_minutes: int(1,240)?
+  ha_events: bool?
+  announce:
+    tts_entity: 'match(^(tts\.[a-z0-9_]+)?$)?'
+    media_players: str?
+    language: str?
+    quiet_hours: 'match(^\s*(\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2})?\s*$)?'
+  sensors_enabled: bool?
+  sensors:
+    - name: str
+      icon: str?
+      disciplines: str?
+      cities: str?
+      capcodes: str?
+      priorities: str?
+      text_contains: str?
+      incident_types: str?
+      region: str?
+      zone: 'match(^(zone\.[a-z0-9_]+)?$)?'
+      announce: bool?
+      mqtt_id: str?
+  mqtt:
+    enabled: bool?
+    host: str?
+    port: int?
+    user: str?
+    password: password?
+    client_id: str?
+    base_topic: str?
+    ha_autodiscovery: bool?
+    ha_autodiscovery_topic: str?
+    retain: bool?
+    tls_enabled: bool?
+    tls_ca: str?
+    tls_cert: str?
+    tls_keyfile: str?
+    tls_insecure: bool?
+  log_level: list(debug|info|warning|error)?
