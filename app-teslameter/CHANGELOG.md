@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.2
+
+**After updating:** nothing to do.
+
+- The map's heat map opens much faster, especially for "all time" on a long history — it now reads only the points it draws instead of loading every recorded position. The heat map looks exactly the same.
+
 ## 0.5.1
 
 **After updating:** nothing to do — unless you imported history before this version, in which case start fresh (remove the database or reinstall) and import again, then fetch the charging history. The old import put sessions at the wrong time (see below), so some may appear twice until you re-import.

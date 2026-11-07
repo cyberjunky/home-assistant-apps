@@ -400,12 +400,31 @@ class Database:
 
     def heat_positions(self, car_id: int, since_ts: int, max_points: int = 5000) -> list[list]:
         """Thinned [lat, lon, weight] points for a heatmap. Stationary points weigh more (that's where the car spends time)."""
-        rows = self.query(
-            "SELECT lat, lon, speed_kmh FROM positions WHERE car_id = ? AND ts >= ? AND lat IS NOT NULL ORDER BY ts, id",
+        # Choose the sample from the row ids first — an index-only read of plain
+        # integers — then read lat/lon only for the ~max_points rows we keep. This
+        # yields exactly the same points as striding the full result (the ids are in
+        # the same ts, id order), but avoids pulling the whole position history —
+        # millions of rows for "all time" — into memory just to discard almost all of it.
+        ids = [row["id"] for row in self.query(
+            "SELECT id FROM positions WHERE car_id = ? AND ts >= ? AND lat IS NOT NULL ORDER BY ts, id",
             (car_id, since_ts),
-        )
-        rows = _stride(rows, max_points)
-        return [[row["lat"], row["lon"], 1.0 if not row["speed_kmh"] else 0.4] for row in rows]
+        )]
+        ids = _stride(ids, max_points)
+        if not ids:
+            return []
+        by_id: dict[int, dict] = {}
+        chunk_size = 900  # keep within SQLite's default host-parameter limit
+        for start in range(0, len(ids), chunk_size):
+            chunk = ids[start : start + chunk_size]
+            placeholders = ",".join("?" * len(chunk))
+            for row in self.query(
+                f"SELECT id, lat, lon, speed_kmh FROM positions WHERE id IN ({placeholders})", tuple(chunk)
+            ):
+                by_id[row["id"]] = row
+        return [
+            [row["lat"], row["lon"], 1.0 if not row["speed_kmh"] else 0.4]
+            for row in (by_id[i] for i in ids if i in by_id)
+        ]
 
     # ------------------------------------------------------------------
     # Drives
