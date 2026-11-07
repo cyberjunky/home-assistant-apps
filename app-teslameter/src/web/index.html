@@ -125,14 +125,14 @@
                         <div class="panel"><div class="panel-body"><div class="chart-title"><span>Energy charged</span><span class="hint">kWh added</span></div><div id="chart-charged" class="chart"></div><div class="legend"><span><i style="background:var(--series-1)"></i>AC</span><span><i style="background:var(--series-2)"></i>DC fast charging</span></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="chart-title"><span>Consumption</span><span class="hint" id="chart-consumption-hint"></span></div><div id="chart-consumption" class="chart"></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="chart-title"><span>Consumption by outside temperature</span><span class="hint" id="chart-temp-hint"></span></div><div id="chart-temp" class="chart"></div></div></div>
-                        <div class="panel wide"><div class="panel-body"><div class="chart-title"><span>Battery health</span><span class="hint">range a full battery would give, after each charge · all time</span></div><div id="battery-facts" class="tiles" style="margin-bottom:12px"></div><div id="chart-battery" class="chart"></div></div></div>
+                        <div class="panel wide"><div class="panel-body"><div class="chart-title"><span>Battery health</span><span class="hint">the car's own rated range at 100%, after each charge in this period · it drops in cold weather and with BMS drift; not temperature-corrected</span></div><div id="battery-facts" class="tiles" style="margin-bottom:12px"></div><div id="chart-battery" class="chart"></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="chart-title"><span>Where the time went</span><span class="hint" id="states-hint"></span></div><div id="states-share"></div><div id="states-legend" class="legend"></div><div id="standby" style="margin-top:14px"></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="chart-title"><span>When you drive</span><span class="hint">trips started per weekday and hour</span></div><div id="rhythm"></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="chart-title"><span>Most visited</span><span class="hint">trips ending there</span></div><div id="destinations" class="bars-list"></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="chart-title"><span>Where you charge</span><span class="hint">kWh added</span></div><div id="charge-places" class="bars-list"></div></div></div>
                         <div class="panel wide"><div class="panel-body"><div class="chart-title"><span>Records</span><span class="hint">click to open</span></div><div id="records" class="records"></div></div></div>
                         <div class="panel wide"><div class="panel-body"><div class="chart-title"><span>Where you've been</span><span class="hint">every road driven in the period</span></div><div id="visited-map" class="visited-map"></div></div></div>
-                        <div class="panel wide"><div class="panel-body"><div class="chart-title"><span>Software versions</span><span class="hint">first seen</span></div><div id="updates"></div></div></div>
+                        <div class="panel wide"><div class="panel-body"><div class="chart-title"><span>Software versions</span><span class="hint">first seen in this period</span></div><div id="updates"></div></div></div>
                     </div>
                 </div>
 
@@ -150,6 +150,11 @@
                                 <button type="button" class="btn" onclick="openHistoryImport()">Import from TeslaMate</button>
                             </div>
                             <p class="panel-sub" style="margin-top:10px">Fetch charging history adds past Supercharge sessions from Tesla's records (energy, place and billed cost). The backup holds all recorded data; your Tesla sign-in is stored separately and is never part of a download.</p>
+                            <div class="danger-zone">
+                                <div class="section-title">Danger zone</div>
+                                <p class="panel-sub">Deletes every recorded trip, charging session, position, state and software version. Your cars, your Tesla sign-in and your charging prices stay, so logging simply continues. Download a backup first; this cannot be undone.</p>
+                                <button type="button" class="btn btn-danger" onclick="deleteAllData()">Delete all recorded data</button>
+                            </div>
                         </div></div>
                         <div class="panel"><div class="panel-body"><div class="section-title">Charging prices</div><div id="charge-tags"></div>
                             <p class="panel-sub" style="margin-top:10px">Tag where you charge and give each tag a price per kWh. A charging session is priced by its location's tag; untagged locations use the default price from the add-on configuration, and Superchargers keep the amount Tesla billed. Assign a location's tag on any session in the Charging view.</p>

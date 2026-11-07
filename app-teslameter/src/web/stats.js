@@ -101,14 +101,14 @@ function renderBattery(battery) {
     const chart = document.getElementById('chart-battery');
     if (missing(battery.now_km)) {
         facts.hidden = true;
-        emptyChart(chart, 'Shows up after a few charging sessions');
+        emptyChart(chart, missing(battery.new_km) ? 'Shows up after a few charging sessions' : 'Needs at least three charging sessions in this period');
         return;
     }
     facts.hidden = false;
     facts.innerHTML = [
-        tile('Full range now', withUnit(num(conv.dist(battery.now_km)), unit.dist()), 'median of the latest charges'),
-        tile('When new', withUnit(num(conv.dist(battery.new_km)), unit.dist()), 'best seen so far'),
-        tile('Degradation', fmtPct(Math.round(battery.loss_pct * 10) / 10), `${num(100 - battery.loss_pct, 1)}% of the range left`),
+        tile('Full range now', withUnit(num(conv.dist(battery.now_km)), unit.dist()), 'median of the latest charges in this period'),
+        tile('When new', withUnit(num(conv.dist(battery.new_km)), unit.dist()), 'best seen, all time'),
+        tile('Degradation', fmtPct(Math.round(battery.loss_pct * 10) / 10), `${num(100 - battery.loss_pct, 1)}% of the range left, this period vs. new`),
         tile('Usable capacity', withUnit(num(battery.capacity_kwh, 1), 'kWh'), 'estimated from the rated range'),
     ].join('');
     const points = battery.points;
@@ -222,7 +222,7 @@ function renderRecords(records) {
 function renderUpdates(updates) {
     document.getElementById('updates').innerHTML = updates.length
         ? updates.map(u => `<div class="info-row"><span class="info-label">${fmtDate(u.ts)}</span><span class="info-value">${escapeHtml(u.version)}</span></div>`).join('')
-        : '<div class="empty-state" style="padding:20px">No software version seen yet</div>';
+        : '<div class="empty-state" style="padding:20px">No software version first seen in this period</div>';
 }
 
 async function renderVisited(carId, bounds) {

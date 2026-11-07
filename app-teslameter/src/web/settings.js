@@ -375,6 +375,29 @@ function renderDataInfo() {
     document.getElementById('export-db').href = `${basePath}api/backup`;
 }
 
+// Danger zone: wipe everything recorded. The cars and the Tesla sign-in stay.
+async function deleteAllData() {
+    const ok = await confirmDialog({
+        title: 'Delete all recorded data?',
+        message: 'Every trip, charging session, position, state and software version is removed. <b>This cannot be undone.</b><br><br>Your cars, your Tesla sign-in and your charging prices stay, so logging continues right away.',
+        confirmLabel: 'Delete all recorded data', danger: true, typeToConfirm: 'DELETE',
+    });
+    if (!ok) return;
+    try {
+        await api('data/delete', {method: 'POST'});
+    } catch (e) {
+        toast(e.message, 'error');
+        return;
+    }
+    // The other views still hold the old lists; make them load again when opened
+    tripsLoadedFor = null;
+    chargesLoadedFor = null;
+    statsLoadedFor = null;
+    toast('All recorded data deleted', 'success');
+    try { await loadStatus(); } catch (e) { /* the next refresh brings the counts */ }
+    renderSettings();
+}
+
 function superchargerCostsText(costs) {
     if (!costs || costs.state === 'off') return 'off';
     if (costs.state === 'ok') return '<span class="sb-ok">read from Tesla</span>';

@@ -200,16 +200,28 @@ function closeModal() {
     document.getElementById('modal-root').innerHTML = '';
 }
 
+// opts.typeToConfirm: a word the user must type before the confirm button works (for what can't be undone)
 function confirmDialog(opts) {
     return new Promise((resolve) => {
+        const word = opts.typeToConfirm || '';
         const overlay = openModal({
             title: opts.title || 'Are you sure?',
-            bodyHTML: `<div>${opts.message || ''}</div>`,
+            bodyHTML: `<div>${opts.message || ''}</div>` + (word ? `
+                <div class="form-field"><label>Type <span class="mono">${escapeHtml(word)}</span> to confirm</label>
+                <input class="input" data-confirm-word autocomplete="off" spellcheck="false" aria-label="Type ${escapeHtml(word)} to confirm"></div>` : ''),
             footHTML: `
                 <button class="btn" data-close>Cancel</button>
                 <button class="btn ${opts.danger ? 'btn-danger-solid' : 'btn-primary'}" data-confirm>${escapeHtml(opts.confirmLabel || 'Confirm')}</button>`
         });
-        overlay.querySelector('[data-confirm]').addEventListener('click', () => { closeModal(); resolve(true); });
+        const button = overlay.querySelector('[data-confirm]');
+        if (word) {
+            const input = overlay.querySelector('[data-confirm-word]');
+            button.disabled = true;
+            input.addEventListener('input', () => { button.disabled = input.value.trim() !== word; });
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !button.disabled) button.click(); });
+            input.focus();
+        }
+        button.addEventListener('click', () => { closeModal(); resolve(true); });
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay || e.target.hasAttribute('data-close')) resolve(false);
         });

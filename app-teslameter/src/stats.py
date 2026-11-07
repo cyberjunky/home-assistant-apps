@@ -115,11 +115,13 @@ def periods(db: Database, car_id: int, bucket: str, start: int, end: int) -> lis
     return result
 
 
-def battery(db: Database, car_id: int, efficiency_wh_km: float) -> dict:
+def battery(db: Database, car_id: int, start: int, end: int, efficiency_wh_km: float) -> dict:
     """Battery health: the range a full battery would give, after each charge.
 
     A charge that ends at 80% with 400 km on the dash projects to 500 km at
     100%. Following that number over time shows the battery's degradation.
+    The points, the current range and the loss follow the range; "new" is the
+    best the battery ever did, whatever the range, as that is what it means.
     """
     rows = db.query(
         "SELECT end_ts AS ts, odometer_km, end_soc AS soc, end_range_km * 100.0 / end_soc AS full_range_km"
@@ -127,19 +129,21 @@ def battery(db: Database, car_id: int, efficiency_wh_km: float) -> dict:
         " ORDER BY end_ts",
         (car_id,),
     )
-    result: dict = {"points": rows, "new_km": None, "now_km": None, "loss_pct": None, "capacity_kwh": None}
+    period = [row for row in rows if start <= row["ts"] < end]
+    result: dict = {"points": period, "new_km": None, "now_km": None, "loss_pct": None, "capacity_kwh": None}
     if len(rows) >= 3:
         values = [row["full_range_km"] for row in rows]
         sample = max(3, min(10, len(values) // 4))
         # The best the battery ever did counts as new; single outliers are evened out by the median
         new = max(statistics.median(values[i : i + sample]) for i in range(0, len(values) - sample + 1))
-        now = statistics.median(values[-sample:])
-        result.update(
-            new_km=new,
-            now_km=now,
-            loss_pct=max(0.0, (1 - now / new) * 100),
-            capacity_kwh=now * efficiency_wh_km / 1000,
-        )
+        result["new_km"] = new
+        if len(period) >= 3:
+            now = statistics.median([row["full_range_km"] for row in period[-sample:]])
+            result.update(
+                now_km=now,
+                loss_pct=max(0.0, (1 - now / new) * 100),
+                capacity_kwh=now * efficiency_wh_km / 1000,
+            )
     return result
 
 
@@ -267,8 +271,12 @@ def records(db: Database, car_id: int, start: int, end: int) -> dict:
     }
 
 
-def software_updates(db: Database, car_id: int) -> list[dict]:
-    return db.query("SELECT version, ts FROM updates WHERE car_id = ? ORDER BY ts DESC LIMIT 30", (car_id,))
+def software_updates(db: Database, car_id: int, start: int, end: int) -> list[dict]:
+    """The software versions first seen in the range, newest first."""
+    return db.query(
+        "SELECT version, ts FROM updates WHERE car_id = ? AND ts >= ? AND ts < ? ORDER BY ts DESC",
+        (car_id, start, end),
+    )
 
 
 def visited(db: Database, car_id: int, start: int, end: int, limit: int = 40000) -> list[list[float]]:
@@ -286,7 +294,7 @@ def insights(db: Database, car_id: int, start: int, end: int, now: int, efficien
     """Everything the Stats page shows besides the per-period charts."""
     return {
         "summary": summary(db, car_id, start, end),
-        "battery": battery(db, car_id, efficiency_wh_km),
+        "battery": battery(db, car_id, start, end, efficiency_wh_km),
         "standby": standby(db, car_id, start, end, efficiency_wh_km),
         "temperature": by_temperature(db, car_id, start, end),
         "destinations": destinations(db, car_id, start, end),
@@ -294,5 +302,5 @@ def insights(db: Database, car_id: int, start: int, end: int, now: int, efficien
         "states": state_share(db, car_id, start, end, now),
         "rhythm": weekly_rhythm(db, car_id, start, end),
         "records": records(db, car_id, start, end),
-        "updates": software_updates(db, car_id),
+        "updates": software_updates(db, car_id, start, end),
     }

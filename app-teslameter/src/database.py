@@ -335,6 +335,21 @@ class Database:
         except OSError:
             return 0
 
+    def delete_recorded_data(self) -> None:
+        """Remove everything recorded: drives, charges, positions, states, software versions and the
+        address cache. The cars (with their learned consumption) and the price tags stay, so logging
+        simply continues; the home zone keeps its tag because it is a setting, not recorded data."""
+        with self.transaction() as db:
+            # Children first: the foreign keys would otherwise do the same work row by row
+            for table in ("charge_samples", "positions", "drives", "charges", "states", "updates", "addresses"):
+                db.execute(f"DELETE FROM {table}")
+            db.execute("DELETE FROM location_tags WHERE place_key != 'home'")
+        with self._lock:
+            # Hand the space back to the file system: VACUUM rewrites the database (not allowed inside a
+            # transaction) and the checkpoint moves that rewrite out of the WAL, so the file shrinks now
+            self._conn.execute("VACUUM")
+            self._conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+
     # ------------------------------------------------------------------
     # Cars
     # ------------------------------------------------------------------

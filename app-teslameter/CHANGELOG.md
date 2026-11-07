@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.3
+
+**After updating:** nothing to do.
+
+- **Delete all recorded data.** A "Danger zone" at the bottom of Settings → Data removes every trip, charging session, position, state and software version after you type DELETE to confirm. Your cars, your Tesla sign-in and your charging prices stay, so logging simply continues. It refuses while a trip or charge is in progress, and the database file shrinks right away.
+- The period you pick at the top of Stats now applies to **every** panel. Battery health shows the charges, the current full range and the degradation for that period (the "When new" figure stays the best ever seen, as that is what it means), and Software versions lists the versions first seen in that period — choose "All" to see the whole history.
+- Battery health explains what it measures: the car's own rated range at 100%, which drops in cold weather and with BMS drift. It is not temperature-corrected.
+- The Software versions list no longer stops at the latest 30 versions.
+
 ## 0.5.2
 
 **After updating:** nothing to do.

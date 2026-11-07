@@ -161,6 +161,7 @@ class WebUI:
 
         get("/api/export/{table:drives|charges}.csv", self._handle_export)
         get("/api/backup", self._handle_backup)
+        post("/api/data/delete", self._handle_delete_data)
         post("/api/charging/import", self._handle_import_charges)
         post("/api/import/history", self._handle_history_import)
         get("/api/import/history", self._handle_history_import_status)
@@ -771,6 +772,22 @@ class WebUI:
             content_type="text/csv",
             headers={"Content-Disposition": f'attachment; filename="teslameter-{table}.csv"'},
         )
+
+    async def _handle_delete_data(self, request: web.Request) -> web.Response:
+        """Remove everything recorded. The cars and the Tesla sign-in stay, so logging continues."""
+        if any(monitor.drive_id or monitor.charge_id for monitor in self.garage.monitors.values()):
+            return _error("A drive or charge is in progress; try again when the car is parked", 409)
+        if self._import_progress.get("running"):
+            return _error("An import is running; wait until it has finished", 409)
+        await asyncio.to_thread(self.database.delete_recorded_data)
+        # The state log starts again from the state each car is in now
+        now = int(time.time())
+        for monitor in self.garage.monitors.values():
+            if monitor.state and monitor.state != "unknown":
+                self.database.set_state(monitor.car_id, monitor.state, now)
+            monitor.poke()
+        logger.warning("All recorded data was deleted from the dashboard")
+        return web.json_response({"success": True})
 
     async def _handle_backup(self, request: web.Request) -> web.StreamResponse:
         """Download a copy of the database (the Tesla tokens are stored elsewhere and not included)."""
