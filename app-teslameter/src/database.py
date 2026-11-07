@@ -405,10 +405,13 @@ class Database:
         # yields exactly the same points as striding the full result (the ids are in
         # the same ts, id order), but avoids pulling the whole position history —
         # millions of rows for "all time" — into memory just to discard almost all of it.
-        ids = [row["id"] for row in self.query(
-            "SELECT id FROM positions WHERE car_id = ? AND ts >= ? AND lat IS NOT NULL ORDER BY ts, id",
-            (car_id, since_ts),
-        )]
+        ids = [
+            row["id"]
+            for row in self.query(
+                "SELECT id FROM positions WHERE car_id = ? AND ts >= ? AND lat IS NOT NULL ORDER BY ts, id",
+                (car_id, since_ts),
+            )
+        ]
         ids = _stride(ids, max_points)
         if not ids:
             return []
