@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+**After updating:** nothing to do.
+
+- Gentler on the inverter's network module: every request is spaced two seconds from the previous one and five seconds from a write, reconnect attempts back off up to two minutes while the Wi-Fi is down, and opening the Battery page no longer reads the settings from the inverter by itself.
+
 ## 0.1.0
 
 First release.

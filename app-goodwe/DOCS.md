@@ -24,8 +24,10 @@ inverter ──▶ read every 20 s ──▶ snapshots (SQLite) ──▶ dashbo
   [goodwe](https://github.com/marcelblijleven/goodwe) library. ES/EM/BP inverters speak the
   AA55 protocol over UDP through their Wi-Fi module, a small embedded stack that stops
   answering when it is polled too fast or by two parties at once, so every request the app
-  makes goes through one queue. An inverter that stops answering is reported offline after
-  three minutes and reconnected automatically.
+  makes goes through one queue, with two seconds of quiet between requests and five after a
+  write. An inverter that stops answering (its Wi-Fi drops now and then) is retried with a
+  growing pause, reported offline after three minutes, and reconnected automatically; the
+  controller never acts on data older than two minutes.
 - **Signs and names.** Whatever the inverter series, the dashboard uses one convention: grid
   power above zero is import, below zero export; battery power above zero is charging, below
   zero discharging; "home" is the whole house (on the ES the `house_consumption` field, which

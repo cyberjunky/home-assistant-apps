@@ -54,6 +54,13 @@ WRITE_NAMES = {
 OFFLINE_AFTER = 180  # seconds of failed reads before the inverter counts as offline
 STALE_AFTER = 120  # data older than this is not acted upon by the controller
 RECONNECT_AFTER_ERRORS = 3
+# The inverter's network module dislikes bursts: this much quiet between any two requests,
+# and more after a write, when it is busy storing the setting
+REQUEST_SPACING = 2.0
+WRITE_SETTLE = 5.0
+# Reconnect attempts: this long between them, growing up to the maximum while it keeps failing
+RECONNECT_DELAY = 10
+RECONNECT_DELAY_MAX = 120
 # Development: a module providing an inverter stand-in (see tools/mock_inverter.py)
 MOCK_MODULE = os.environ.get("GOODWE_MOCK_INVERTER", "")
 
@@ -98,6 +105,7 @@ class InverterLink:
         self.listeners: list = []
         self._failed_since = 0.0
         self._was_online = False
+        self._quiet_until = 0.0  # monotonic: no request before this
 
     # ------------------------------------------------------------------
     # State
@@ -142,6 +150,17 @@ class InverterLink:
             "work_modes": self.work_modes(),
         }
 
+    async def _request(self, coroutine_factory, settle: float = REQUEST_SPACING):
+        """Run one request against the inverter: serialised, and spaced from the previous one."""
+        async with self.lock:
+            wait = self._quiet_until - time.monotonic()
+            if wait > 0:
+                await asyncio.sleep(wait)
+            try:
+                return await coroutine_factory()
+            finally:
+                self._quiet_until = time.monotonic() + settle
+
     # ------------------------------------------------------------------
     # Reading
     # ------------------------------------------------------------------
@@ -151,8 +170,7 @@ class InverterLink:
         errors = 0
         while True:
             try:
-                async with self.lock:
-                    raw = await self.inverter.read_runtime_data()
+                raw = await self._request(self.inverter.read_runtime_data)
                 data = self.normalise({str(k): _plain(v) for k, v in raw.items()})
                 for key, value in self.extra.items():
                     if not data.get(key):
@@ -182,14 +200,24 @@ class InverterLink:
             await asyncio.sleep(self.poll_seconds)
 
     async def _connect(self) -> None:
-        """Connect, retrying until it works (the inverter may be rebooting or the network down)."""
+        """Connect, retrying until it works (the inverter may be rebooting or its Wi-Fi down).
+
+        Each attempt costs the inverter a discovery exchange and a device-info read, so the
+        attempts are spaced further apart the longer it keeps failing.
+        """
+        delay = RECONNECT_DELAY
         while True:
             try:
-                async with self.lock:
-                    if MOCK_MODULE:
-                        self.inverter = importlib.import_module(MOCK_MODULE).connect()
-                    else:
-                        self.inverter = await goodwe.connect(self.host)
+                if MOCK_MODULE:
+
+                    async def connect():
+                        return importlib.import_module(MOCK_MODULE).connect()
+                else:
+
+                    async def connect():
+                        return await goodwe.connect(self.host)
+
+                self.inverter = await self._request(connect)
                 self.connected_at = int(time.time())
                 self.last_error = ""
                 logger.info(
@@ -201,9 +229,12 @@ class InverterLink:
                 raise
             except Exception as e:
                 self.last_error = f"{type(e).__name__}: {e}".strip(": ")
-                logger.warning(f"Cannot connect to the inverter at {self.host}: {self.last_error}; retrying in 10 s")
+                logger.warning(
+                    f"Cannot connect to the inverter at {self.host}: {self.last_error}; retrying in {delay} s"
+                )
                 self._mark_failed()
-                await asyncio.sleep(10)
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, RECONNECT_DELAY_MAX)
 
     def _mark_online(self) -> None:
         self._failed_since = 0.0
@@ -273,8 +304,7 @@ class InverterLink:
         """The inverter's settings (a full settings read; the ES answers one such read in a few seconds)."""
         if self.inverter is None:
             raise InverterError("Inverter not connected")
-        async with self.lock:
-            raw = await self.inverter.read_settings_data()
+        raw = await self._request(self.inverter.read_settings_data)
         self.settings = {str(k): _plain(v) for k, v in raw.items()}
         self.settings_at = int(time.time())
         return self.settings
@@ -303,8 +333,7 @@ class InverterLink:
             raise InverterError("Inverter not connected")
         entry = {"ts": int(time.time()), "key": key, "value": value, "source": source}
         try:
-            async with self.lock:
-                result = await self._apply_locked(key, value)
+            result = await self._request(lambda: self._apply_locked(key, value), settle=WRITE_SETTLE)
         except Exception as e:
             error = f"{type(e).__name__}: {e}".strip(": ")
             self.write_log.appendleft({**entry, "ok": False, "result": error})

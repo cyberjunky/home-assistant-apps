@@ -308,8 +308,9 @@ class WebUI:
         return _json({"result": result, "control": self.controller.state()})
 
     async def _handle_inverter_settings(self, request: web.Request) -> web.Response:
-        if request.query.get("cached") == "1" and self.link.settings:
-            return _json({"settings": self.link.settings, "read_at": self.link.settings_at, "cached": True})
+        if request.query.get("cached") == "1":
+            # Never a request to the inverter: pages that merely show the values use this
+            return _json({"settings": self.link.settings, "read_at": self.link.settings_at or None, "cached": True})
         try:
             settings = await self.link.read_settings()
         except (InverterError, OSError, TimeoutError, ValueError) as e:
