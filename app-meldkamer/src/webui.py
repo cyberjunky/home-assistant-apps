@@ -418,13 +418,16 @@ class WebUI:
             ],
         }
 
-    def update_db_stats(self, places: int, streets: int, capcodes: int, texts: int, geocodes: int) -> None:
+    def update_db_stats(
+        self, places: int, streets: int, capcodes: int, texts: int, geocodes: int, size_bytes: int = 0
+    ) -> None:
         """Update database statistics for the Info tab."""
         self.stats["db_places"] = places
         self.stats["db_streets"] = streets
         self.stats["db_capcodes"] = capcodes
         self.stats["db_texts"] = texts
         self.stats["db_geocodes"] = geocodes
+        self.stats["db_bytes"] = size_bytes
 
     async def _handle_index(self, request: web.Request) -> web.Response:
         # Behind Home Assistant ingress the dashboard lives under X-Ingress-Path; the
@@ -889,7 +892,7 @@ class WebUI:
             # Update stats after import
             stats = self.database.get_stats()
             self.update_db_stats(
-                stats["places"], stats["streets"], stats["capcodes"], stats["texts"], stats["geocodes"]
+                stats["places"], stats["streets"], stats["capcodes"], stats["texts"], stats["geocodes"], stats["bytes"]
             )
 
         thread = threading.Thread(target=run_import, daemon=True)
@@ -916,7 +919,7 @@ class WebUI:
             # Refresh DB counts so the Info tab updates right away
             stats = self.database.get_stats()
             self.update_db_stats(
-                stats["places"], stats["streets"], stats["capcodes"], stats["texts"], stats["geocodes"]
+                stats["places"], stats["streets"], stats["capcodes"], stats["texts"], stats["geocodes"], stats["bytes"]
             )
 
         thread = threading.Thread(target=run_import, daemon=True)
@@ -1062,7 +1065,7 @@ class WebUI:
             self._save_stats()
             stats = self.database.get_stats()
             self.update_db_stats(
-                stats["places"], stats["streets"], stats["capcodes"], stats["texts"], stats["geocodes"]
+                stats["places"], stats["streets"], stats["capcodes"], stats["texts"], stats["geocodes"], stats["bytes"]
             )
             logger.info(f"Database restored from an uploaded backup ({size} bytes, {stats['messages']} messages)")
             return web.json_response({"success": True, "messages": stats["messages"]})
@@ -1115,7 +1118,7 @@ class WebUI:
             # Update stats
             stats = self.database.get_stats()
             self.update_db_stats(
-                stats["places"], stats["streets"], stats["capcodes"], stats["texts"], stats["geocodes"]
+                stats["places"], stats["streets"], stats["capcodes"], stats["texts"], stats["geocodes"], stats["bytes"]
             )
 
             return web.json_response({"success": True, "message": "Database reset successfully"})
@@ -2300,6 +2303,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                         <div class="info-row"><span class="info-label">Capcodes</span><span class="info-value" id="info-capcodes">0</span></div>
                         <div class="info-row"><span class="info-label">Texts</span><span class="info-value" id="info-texts">0</span></div>
                         <div class="info-row"><span class="info-label">Geocodes</span><span class="info-value" id="info-geocodes">0</span></div>
+                        <div class="info-row"><span class="info-label">Size</span><span class="info-value" id="info-db-size">-</span></div>
                     </div>
                 </div>
             </div>
@@ -3471,6 +3475,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             set('capcodes', stats.db_capcodes);
             set('texts', stats.db_texts);
             set('geocodes', stats.db_geocodes);
+            set('db-size', stats.db_bytes ? (stats.db_bytes / 1048576).toLocaleString(undefined, {maximumFractionDigits: 1}) + ' MB' : '-');
         }
 
         function showMessageDetails(msg, idx) {

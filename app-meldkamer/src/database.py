@@ -557,6 +557,10 @@ class Database:
                 stats[key] = count
             except sqlite3.OperationalError:
                 pass
+        # Size on disk: the database file plus its write-ahead log
+        stats["bytes"] = sum(
+            os.path.getsize(path) for path in (self.db_path, self.db_path + "-wal") if os.path.exists(path)
+        )
         return stats
 
     # =========================================================================

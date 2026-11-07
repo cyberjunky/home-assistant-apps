@@ -68,7 +68,12 @@ async def main() -> int:
 
     webui = WebUI(8099, database, speech, processor, decoder, sensor_manager, ha_client)
     webui.update_db_stats(
-        db_stats["places"], db_stats["streets"], db_stats["capcodes"], db_stats["texts"], db_stats["geocodes"]
+        db_stats["places"],
+        db_stats["streets"],
+        db_stats["capcodes"],
+        db_stats["texts"],
+        db_stats["geocodes"],
+        db_stats["bytes"],
     )
 
     # An invalid receiver config must not crash-loop the add-on: keep the web
@@ -102,6 +107,7 @@ async def main() -> int:
                     db_stats["capcodes"],
                     db_stats["texts"],
                     db_stats["geocodes"],
+                    db_stats["bytes"],
                 )
                 await publisher.publish_health(
                     decoder.stats.online(config.offline_after_minutes), decoder.stats.messages_last_hour()

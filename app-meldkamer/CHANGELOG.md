@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.6
+
+**After updating:** nothing to do.
+
+- The Database panel on the Info tab shows the size of the database on disk.
+
 ## 1.4.5
 
 **After updating:** run **Import BAG** again for Zuid-Holland, Noord-Holland, Utrecht and Gelderland.
