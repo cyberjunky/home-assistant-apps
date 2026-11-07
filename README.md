@@ -41,6 +41,18 @@ keeps flash writes low by recording in RAM.
 
 [:books: Documentation](app-dishylink/DOCS.md) · [:memo: Changelog](app-dishylink/CHANGELOG.md) · [:lock: Security](app-dishylink/SECURITY.md)
 
+### <img src="app-goodwe/icon.png" alt="" width="36" align="absmiddle"> [GoodWe Monitor](app-goodwe/)
+
+![Version][goodwe-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+GoodWe inverter dashboard and battery controller, opened from the sidebar. Live energy flow,
+solar, battery and grid statistics, a solar forecast that holds the battery for the evening,
+a charge cap, zero export and a solar-surplus signal, all published to Home Assistant over MQTT.
+
+[:books: Documentation](app-goodwe/DOCS.md) · [:memo: Changelog](app-goodwe/CHANGELOG.md) · [:lock: Security](app-goodwe/SECURITY.md)
+
 ### <img src="app-meldkamer/icon.png" alt="" width="36" align="absmiddle"> [Meldkamer](app-meldkamer/)
 
 ![Version][meldkamer-version-shield]
@@ -147,5 +159,6 @@ software each app packages keeps its own license, noted in the app's README.
 [pgadmin4-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-pgadmin4%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [timescaledb-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-timescaledb%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [dishylink-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-dishylink%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[goodwe-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-goodwe%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [meldkamer-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-meldkamer%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [teslameter-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-teslameter%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge

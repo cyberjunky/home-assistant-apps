@@ -1,0 +1,26 @@
+configuration:
+  inverter:
+    name: Inverter
+    description: >-
+      The IP address or host name of the GoodWe inverter (its Wi-Fi or LAN
+      module) on your network, and how often it is read, in seconds. ES/EM/BP
+      inverters use a small embedded network stack; 20 seconds is a safe
+      default, faster polling can make them stop answering for a while.
+  forecast:
+    name: Solar forecast
+    description: >-
+      Hourly production forecast from Forecast.Solar (free, no account), with
+      Open-Meteo as a fallback. Leave latitude and longitude at 0 to use Home
+      Assistant's home location. Add one plane per roof orientation with its
+      peak power (kWp), tilt (0 = flat, 90 = vertical) and azimuth (0 = south,
+      -90 = east, 90 = west). The forecast drives the automatic battery hold.
+  mqtt:
+    name: MQTT
+    description: >-
+      Publish the inverter to MQTT with Home Assistant discovery: sensors for
+      solar, battery, grid and home power and energy, the battery control state,
+      and an event entity for mode changes, inverter commands and alerts. Leave
+      host empty to use Home Assistant's own broker (Mosquitto add-on).
+  log_level:
+    name: Log level
+    description: How much detail the add-on writes to its log.

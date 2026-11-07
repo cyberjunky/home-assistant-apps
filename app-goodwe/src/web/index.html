@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoodWe Monitor</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e8a030' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='4.5'/%3E%3Cpath d='M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="__BASE__/web/app.css?v=__ADDON_VERSION__"/>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>
+            <span class="brand-name">GOODWE MONITOR</span>
+            <span class="brand-sub" id="brand-model"></span>
+        </div>
+        <nav class="tabs" aria-label="Views">
+            <button type="button" class="tab" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</button>
+            <button type="button" class="tab" data-tab="solar" onclick="switchTab('solar')">Solar</button>
+            <button type="button" class="tab" data-tab="battery" onclick="switchTab('battery')">Battery</button>
+            <button type="button" class="tab" data-tab="stats" onclick="switchTab('stats')">Stats</button>
+            <span class="tab-sep" aria-hidden="true"></span>
+            <button type="button" class="tab" data-tab="settings" onclick="switchTab('settings')" title="Inverter, forecast, MQTT, events, debug"><span class="tab-label">Settings</span><span class="tab-icon" aria-hidden="true">⚙</span></button>
+        </nav>
+        <span class="spacer"></span>
+        <div class="tabs" role="group" aria-label="Theme">
+            <button type="button" id="theme-toggle" class="tab icon-tab" onclick="cycleTheme()" title="Theme"><span id="theme-icon" aria-hidden="true">🌓</span></button>
+        </div>
+        <span id="clock" class="clock"></span>
+    </header>
+
+    <div class="views">
+        <div class="pages">
+            <div class="container">
+                <!-- Dashboard -->
+                <div id="tab-dashboard" class="tab-content">
+                    <div id="dash-hint" class="setup-hint" hidden><span id="dash-hint-text"></span></div>
+                    <div id="dash-tiles" class="tiles kpi-tiles"></div>
+                    <div class="dash-grid">
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Energy flow</span><span class="hint" id="flow-hint"></span></div>
+                            <div id="flow" class="flow"></div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body" id="dash-side"></div></div>
+                    </div>
+                    <div class="panel"><div class="panel-body">
+                        <div class="chart-title"><span>Live power</span><span class="hint">last 2 hours · kW</span></div>
+                        <div id="chart-live" class="chart"></div>
+                        <div class="legend" id="legend-live"></div>
+                    </div></div>
+                    <div class="panel"><div class="panel-body">
+                        <div class="chart-title"><span>Daily energy flow</span><span class="date-nav" id="flow-nav"></span></div>
+                        <div id="sankey-wrap"></div>
+                    </div></div>
+                </div>
+
+                <!-- Solar -->
+                <div id="tab-solar" class="tab-content">
+                    <div id="solar-tiles" class="tiles"></div>
+                    <div class="stats-grid">
+                        <div class="panel wide"><div class="panel-body">
+                            <div class="chart-title"><span>Today</span><span class="hint">production and forecast · kW</span></div>
+                            <div id="chart-solar-today" class="chart"></div>
+                            <div class="legend" id="legend-solar-today"></div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">PV strings</div><div id="solar-strings" class="facts"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Forecast</div><div id="solar-forecast-info"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Next days</span><span class="hint">forecast · kWh</span></div><div id="chart-forecast-days" class="chart"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Forecast vs actual</span><span class="hint" id="accuracy-hint"></span></div><div id="chart-accuracy" class="chart"></div><div class="legend" id="legend-accuracy"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>This year</span><span class="hint">per month · kWh</span></div><div id="chart-months" class="chart"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Per year</span><span class="hint">kWh</span></div><div id="chart-years" class="chart"></div></div></div>
+                    </div>
+                </div>
+
+                <!-- Battery -->
+                <div id="tab-battery" class="tab-content">
+                    <div class="stats-grid">
+                        <div class="panel"><div class="panel-body" id="battery-state"></div></div>
+                        <div class="panel"><div class="panel-body" id="battery-facts-panel"><div class="section-title">Battery</div><div id="battery-facts" class="facts"></div></div></div>
+                        <div class="panel wide"><div class="panel-body">
+                            <div class="chart-title"><span>Battery control</span><span class="hint" id="control-hint"></span></div>
+                            <div id="battery-control"></div>
+                        </div></div>
+                        <div class="panel wide"><div class="panel-body">
+                            <div class="chart-title"><span>Today</span><span class="hint">state of charge · battery power</span></div>
+                            <div id="chart-battery-day" class="chart"></div>
+                            <div class="legend" id="legend-battery-day"></div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Throughput</span><span class="hint">last 30 days · kWh</span></div><div id="chart-battery-days" class="chart"></div><div class="legend" id="legend-battery-days"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">BMS</div><div id="battery-bms" class="facts"></div></div></div>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div id="tab-stats" class="tab-content">
+                    <div class="filters">
+                        <div class="tabs" role="group" aria-label="Period" id="stats-range"></div><select class="select" id="stats-year" aria-label="Year"></select>
+                        <span class="filter-label">Per</span>
+                        <div class="tabs" role="group" aria-label="Group by" id="stats-bucket"></div>
+                        <span id="stats-range-text" class="range-text"></span>
+                    </div>
+                    <div id="stats-tiles" class="tiles"></div>
+                    <div id="stats-grid" class="stats-grid">
+                        <div class="panel wide"><div class="panel-body"><div class="chart-title"><span id="chart-energy-title">Energy</span><span class="hint">kWh</span></div><div id="chart-energy" class="chart"></div><div class="legend" id="legend-energy"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Grid</span><span class="hint">kWh</span></div><div id="chart-grid" class="chart"></div><div class="legend" id="legend-grid"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Battery</span><span class="hint">kWh</span></div><div id="chart-battery" class="chart"></div><div class="legend" id="legend-battery"></div></div></div>
+                        <div class="panel wide"><div class="panel-body"><div class="chart-title"><span>Self-sufficiency and self-consumption</span><span class="hint">%</span></div><div id="chart-self" class="chart"></div><div class="legend" id="legend-self"></div></div></div>
+                        <div class="panel wide"><div class="panel-body">
+                            <div class="chart-title"><span>Day detail</span><span class="date-nav" id="day-nav"></span></div>
+                            <div id="chart-day" class="chart"></div>
+                            <div class="legend" id="legend-day"></div>
+                            <div id="day-summary" class="tiles" style="margin-top:12px"></div>
+                        </div></div>
+                        <div class="panel wide"><div class="panel-body"><div class="chart-title"><span>Records</span><span class="hint">in this period</span></div><div id="records" class="records"></div></div></div>
+                    </div>
+                </div>
+
+                <!-- Settings -->
+                <div id="tab-settings" class="tab-content">
+                    <div class="settings-grid">
+                        <div class="panel"><div class="panel-body"><div class="section-title">Inverter</div><div id="set-inverter"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Inverter settings</div><div id="set-inverter-control"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Forecast</div><div id="set-forecast"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">MQTT</div><div id="set-mqtt"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Data</div><div id="set-data"></div>
+                            <div class="detail-actions" style="margin-top:12px">
+                                <a class="btn" id="export-daily" download>Daily energies (CSV)</a>
+                                <a class="btn" id="export-db" download>Database backup</a>
+                            </div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">About</div><div id="set-about"></div></div></div>
+                        <div class="panel wide"><div class="panel-body">
+                            <div class="chart-title"><span>Events</span><span class="hint"><select id="events-filter" class="select" onchange="renderEvents(true)"></select></span></div>
+                            <div id="events-list" class="events"></div>
+                        </div></div>
+                        <div class="panel wide"><div class="panel-body">
+                            <details class="advanced" id="debug-details"><summary>Debug: raw inverter data, settings, controller internals and manual commands</summary>
+                                <div id="debug"></div>
+                            </details>
+                        </div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Donate</div>
+                            <div class="panel-sub" style="margin-bottom:12px">GoodWe Monitor is free and open source. If it's useful to you, please consider supporting its development.</div>
+                            <div class="detail-actions">
+                                <a class="btn btn-primary" href="https://www.paypal.me/cyberjunkynl/" target="_blank" rel="noopener">Donate via PayPal</a>
+                                <a class="btn" href="https://github.com/sponsors/cyberjunky" target="_blank" rel="noopener">Sponsor on GitHub</a>
+                            </div>
+                        </div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="statusbar" id="statusbar"></footer>
+
+    <div id="modal-root"></div>
+    <div id="toast-root"></div>
+
+    <script src="__BASE__/web/core.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/charts.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/flow.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/dashboard.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/solar.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/battery.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/stats.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/settings.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/main.js?v=__ADDON_VERSION__"></script>
+</body>
+</html>

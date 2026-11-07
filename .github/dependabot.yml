@@ -16,6 +16,7 @@ updates:
   - package-ecosystem: docker
     directories:
       - /app-dishylink
+      - /app-goodwe
       - /app-meldkamer
       - /app-pgadmin4
       - /app-teslameter
@@ -28,9 +29,11 @@ updates:
         update-types:
           - version-update:semver-major
 
-  # TeslaMeter's Python packages, pinned in its requirements.txt and installed in its Dockerfile.
+  # The Python packages of TeslaMeter and GoodWe Guru, pinned in their requirements.txt.
   - package-ecosystem: pip
-    directory: /app-teslameter
+    directories:
+      - /app-goodwe
+      - /app-teslameter
     schedule:
       interval: monthly
     groups:

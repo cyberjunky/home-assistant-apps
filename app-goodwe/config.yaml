@@ -1,0 +1,65 @@
+name: GoodWe Monitor
+version: "0.1.0"
+slug: app-goodwe
+description: "GoodWe inverter dashboard and battery controller for Home Assistant - live energy flow, solar, battery and grid statistics, forecast-driven battery hold and zero export"
+url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-goodwe"
+init: false
+arch:
+  - aarch64
+  - amd64
+# Prebuilt by the repository Builder workflow; bump `version` to publish a new image
+image: "ghcr.io/cyberjunky/app-goodwe"
+ingress: true
+panel_icon: mdi:solar-power-variant
+panel_title: GoodWe Monitor
+# Home location and time zone for the solar forecast; the MQTT broker from the Supervisor
+homeassistant_api: true
+hassio_api: true
+services:
+  - mqtt:want
+
+options:
+  inverter:
+    host: ""
+    poll_seconds: 20
+  forecast:
+    enabled: true
+    latitude: 0
+    longitude: 0
+    planes:
+      - name: Roof
+        kwp: 4.0
+        tilt: 35
+        azimuth: 0
+  mqtt:
+    enabled: true
+    host: ""
+    port: 1883
+    user: ""
+    password: ""
+    base_topic: goodwe
+    discovery_prefix: homeassistant
+  log_level: info
+
+schema:
+  inverter:
+    host: str
+    poll_seconds: int(5,300)?
+  forecast:
+    enabled: bool?
+    latitude: float(-90,90)?
+    longitude: float(-180,180)?
+    planes:
+      - name: str?
+        kwp: float(0.1,1000)
+        tilt: int(0,90)?
+        azimuth: int(-180,180)?
+  mqtt:
+    enabled: bool?
+    host: str?
+    port: port?
+    user: str?
+    password: password?
+    base_topic: 'match(^[A-Za-z0-9_/-]+$)?'
+    discovery_prefix: 'match(^[A-Za-z0-9_/-]+$)?'
+  log_level: list(debug|info|warning|error)?

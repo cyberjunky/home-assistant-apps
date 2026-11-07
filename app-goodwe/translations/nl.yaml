@@ -1,0 +1,27 @@
+configuration:
+  inverter:
+    name: Omvormer
+    description: >-
+      Het IP-adres of de hostnaam van de GoodWe-omvormer (de wifi- of LAN-module)
+      in je netwerk, en hoe vaak die wordt uitgelezen, in seconden. ES/EM/BP-
+      omvormers hebben een kleine ingebouwde netwerkstack; 20 seconden is een
+      veilige standaard, sneller uitlezen kan ze een tijdje laten zwijgen.
+  forecast:
+    name: Zonnevoorspelling
+    description: >-
+      Productievoorspelling per uur van Forecast.Solar (gratis, geen account),
+      met Open-Meteo als reserve. Laat breedte- en lengtegraad op 0 om de
+      thuislocatie van Home Assistant te gebruiken. Voeg per dakvlak een plane
+      toe met piekvermogen (kWp), hellingshoek (0 = plat, 90 = verticaal) en
+      azimut (0 = zuid, -90 = oost, 90 = west). De voorspelling stuurt het
+      automatisch vasthouden van de accu.
+  mqtt:
+    name: MQTT
+    description: >-
+      Publiceer de omvormer via MQTT met Home Assistant discovery: sensoren voor
+      zon, accu, net en huis, de accubesturing, en een event-entiteit voor
+      moduswisselingen, omvormercommando's en meldingen. Laat host leeg om de
+      broker van Home Assistant zelf (Mosquitto add-on) te gebruiken.
+  log_level:
+    name: Logniveau
+    description: Hoeveel detail de add-on naar het log schrijft.
