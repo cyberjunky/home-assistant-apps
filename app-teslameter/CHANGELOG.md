@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.5
+
+**After updating:** nothing to do.
+
+- Import from TeslaMate also reads databases of older TeslaMate versions, which have no ascent and descent per drive (the import stopped with "column d.ascent does not exist"). Those are worked out from the positions' elevations instead.
+
 ## 0.5.4
 
 **After updating:** nothing to do. If you have Home Assistant zones, press **Apply zones to places** once (Settings → Data) to name the trips recorded before the zones existed.
