@@ -8,6 +8,7 @@
 - The period you pick at the top of Stats now applies to **every** panel. Battery health shows the charges, the current full range and the degradation for that period (the "When new" figure stays the best ever seen, as that is what it means), and Software versions lists the versions first seen in that period — choose "All" to see the whole history.
 - Battery health explains what it measures: the car's own rated range at 100%, which drops in cold weather and with BMS drift. It is not temperature-corrected.
 - The Software versions list no longer stops at the latest 30 versions.
+- After an import (from TeslaMate or Tesla's charging history) the Trips, Charging and Stats views load their lists again. Before, a Charging list that was open during a TeslaMate import kept the old entries, and opening one of the Supercharger sessions the import had replaced said "Charge not found".
 
 ## 0.5.2
 

@@ -305,7 +305,13 @@ function openHistoryImport() {
         const done = !p.running && p.phase === 'done';
         progress.innerHTML = `<b>${done ? 'Done' : escapeHtml(p.message || 'Working…')}</b><br>`
             + `${num(p.drives)} drives · ${num(p.charges)} charges · ${num(p.positions)} positions imported`;
-        if (done) { stopPoll(); toast('Import finished', 'success'); start.disabled = false; start.textContent = 'Import again'; }
+        if (done) {
+            stopPoll(); toast('Import finished', 'success'); start.disabled = false; start.textContent = 'Import again';
+            // The import replaces sparse billing-only sessions by full ones with new ids: lists held in
+            // memory would open sessions that no longer exist
+            tripsLoadedFor = null; chargesLoadedFor = null; statsLoadedFor = null;
+            loadStatus().catch(() => {});
+        }
     };
 
     start.addEventListener('click', async () => {
@@ -344,6 +350,7 @@ async function importCharges(button) {
         const result = await api('charging/import', {method: 'POST'});
         toast(result.imported ? `Imported ${result.imported} charging session${result.imported === 1 ? '' : 's'}`
             : 'No new charging sessions to import', 'success');
+        if (result.imported) { chargesLoadedFor = null; statsLoadedFor = null; }
     } catch (e) {
         toast(e.message, 'error');
     }
