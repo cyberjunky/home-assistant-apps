@@ -11,11 +11,7 @@ arch:
   - amd64
 # Prebuilt by the repository Builder workflow; bump `version` to publish a new image
 image: "ghcr.io/cyberjunky/app-teslameter"
-startup: application
-boot: auto
-host_network: false
 ingress: true
-ingress_port: 8099
 panel_icon: mdi:car-electric
 panel_title: TeslaMeter
 # Zones (place names) and map tiles from Home Assistant; timezone and the MQTT broker from the Supervisor
