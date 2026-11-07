@@ -42,7 +42,7 @@ def _clamp(value, default, minimum, maximum):
 
 @dataclass
 class Plane:
-    """One roof plane (string orientation) for the solar forecast."""
+    """One group of panels facing the same way (a roof plane), for the solar forecast."""
 
     name: str = "Roof"
     kwp: float = 4.0
@@ -103,12 +103,13 @@ class Config:
         mqtt = data.get("mqtt") or {}
         defaults = cls()
         planes = []
-        for item in forecast.get("planes") or []:
+        # "planes" was the option's name in 0.1.0 and 0.1.1
+        for item in forecast.get("panels") or forecast.get("planes") or []:
             if not isinstance(item, dict):
                 continue
             planes.append(
                 Plane(
-                    name=str(item.get("name") or f"Plane {len(planes) + 1}")[:40],
+                    name=str(item.get("name") or f"Panels {len(planes) + 1}")[:40],
                     kwp=_clamp(item.get("kwp"), 4.0, 0.1, 1000.0),
                     tilt=_clamp(item.get("tilt"), 35, 0, 90),
                     azimuth=_clamp(item.get("azimuth"), 0, -180, 180),

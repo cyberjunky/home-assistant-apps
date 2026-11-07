@@ -11,9 +11,9 @@ configuration:
     description: >-
       Hourly production forecast from Forecast.Solar (free, no account), with
       Open-Meteo as a fallback. Leave latitude and longitude at 0 to use Home
-      Assistant's home location. Add one plane per roof orientation with its
-      peak power (kWp), tilt (0 = flat, 90 = vertical) and azimuth (0 = south,
-      -90 = east, 90 = west). The forecast drives the automatic battery hold.
+      Assistant's home location. Under panels, add one entry per roof side (the
+      panels facing the same way) with their peak power (kWp), tilt (0 = flat,
+      90 = vertical) and azimuth (0 = south, -90 = east, 90 = west). The forecast drives the automatic battery hold.
   mqtt:
     name: MQTT
     description: >-

@@ -47,7 +47,7 @@ async def main() -> int:
     await forecast.resolve_location()
     logger.info(
         f"Inverter at {config.inverter_host}, read every {config.poll_seconds} s; forecast"
-        f" {'on' if forecast.configured else 'off'} ({config.total_kwp} kWp, {len(config.planes)} plane(s)); MQTT"
+        f" {'on' if forecast.configured else 'off'} ({config.total_kwp} kWp, {len(config.planes)} panel group(s)); MQTT"
         f" {'on' if config.mqtt_enabled else 'off'}"
     )
 

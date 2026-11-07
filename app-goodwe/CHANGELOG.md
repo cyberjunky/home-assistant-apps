@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+**After updating:** nothing to do. The forecast option `planes` is now called `panels`; an existing `planes` entry keeps working, but rename it when you next edit the configuration.
+
+- The forecast's roof entries are called **panels** in the configuration (one entry per roof side), and the dashboard and documentation say so too.
+
 ## 0.1.1
 
 **After updating:** nothing to do.

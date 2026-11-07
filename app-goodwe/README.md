@@ -49,7 +49,7 @@ Alternatively:
 
 ## Configuration
 
-The inverter's address and poll interval, the solar forecast (location and roof planes) and
+The inverter's address and poll interval, the solar forecast (location and panels) and
 the MQTT broker are set on the add-on's Configuration tab. The battery control (auto-hold,
 charge cap, zero export, surplus signal) is set in the dashboard itself. See
 [DOCS.md](DOCS.md) for every option, how the controller decides, the MQTT entities, the data
