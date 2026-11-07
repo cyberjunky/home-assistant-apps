@@ -148,6 +148,8 @@
                                 <a class="btn" id="export-db" download>Database backup</a>
                                 <button type="button" class="btn" id="import-charges" onclick="importCharges(this)">Fetch charging history</button>
                                 <button type="button" class="btn" onclick="openHistoryImport()">Import from TeslaMate</button>
+                                <button type="button" class="btn" onclick="applyZones(this)" title="Name every recorded place inside a Home Assistant zone after that zone">Apply zones to places</button>
+                                <button type="button" class="btn" onclick="openRenamePlace()">Rename a place</button>
                             </div>
                             <p class="panel-sub" style="margin-top:10px">Fetch charging history adds past Supercharge sessions from Tesla's records (energy, place and billed cost). The backup holds all recorded data; your Tesla sign-in is stored separately and is never part of a download.</p>
                             <div class="danger-zone">

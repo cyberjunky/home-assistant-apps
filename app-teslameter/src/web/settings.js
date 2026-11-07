@@ -382,6 +382,51 @@ function renderDataInfo() {
     document.getElementById('export-db').href = `${basePath}api/backup`;
 }
 
+// Name the recorded places inside a Home Assistant zone after the zone (also fixes wrong addresses there)
+async function applyZones(button) {
+    button.disabled = true;
+    try {
+        const r = await api('places/apply-zones', {method: 'POST'});
+        toast(r.drives || r.charges
+            ? `Renamed ${r.drives} trip${r.drives === 1 ? '' : 's'} and ${r.charges} charging session${r.charges === 1 ? '' : 's'} after your ${r.zones} zone${r.zones === 1 ? '' : 's'}`
+            : `Nothing to rename: no recorded place lies inside your ${r.zones} zone${r.zones === 1 ? '' : 's'} (a larger zone radius may help)`, 'success');
+        tripsLoadedFor = null; chargesLoadedFor = null; statsLoadedFor = null;
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+    button.disabled = false;
+}
+
+// Rename a place everywhere it was recorded, e.g. a street Nominatim got wrong
+function openRenamePlace() {
+    const overlay = openModal({
+        title: 'Rename a place',
+        bodyHTML: `
+            <p class="panel-sub">Gives every trip, charging session and cached address with this exact name a new name. Copy the current name from a trip; the price tag of a charging location moves along.</p>
+            <div class="form-field"><label>Current name</label><input id="rp-from" class="input" placeholder="e.g. Willem Egmondstraat, Charlois, Rotterdam"></div>
+            <div class="form-field"><label>New name</label><input id="rp-to" class="input" placeholder="e.g. Willingestraat, Rotterdam" maxlength="120"></div>
+            <div class="form-error" id="rp-error"></div>`,
+        footHTML: '<button class="btn" data-close>Cancel</button><button class="btn btn-primary" data-rename>Rename</button>',
+    });
+    overlay.querySelector('[data-rename]').addEventListener('click', async () => {
+        const from = overlay.querySelector('#rp-from').value.trim();
+        const to = overlay.querySelector('#rp-to').value.trim();
+        const error = overlay.querySelector('#rp-error');
+        if (!from || !to) { error.textContent = 'Enter both names.'; return; }
+        try {
+            const r = await api('places/rename', {method: 'POST', body: {from, to}});
+            closeModal();
+            toast(r.drives || r.charges || r.addresses
+                ? `Renamed: ${r.drives} trip place${r.drives === 1 ? '' : 's'}, ${r.charges} charging session${r.charges === 1 ? '' : 's'}, ${r.addresses} cached address${r.addresses === 1 ? '' : 'es'}`
+                : 'No trip, charging session or cached address has exactly that name', 'success');
+            tripsLoadedFor = null; chargesLoadedFor = null; statsLoadedFor = null;
+        } catch (e) {
+            error.textContent = e.message;
+        }
+    });
+    setTimeout(() => overlay.querySelector('#rp-from').focus(), 50);
+}
+
 // Danger zone: wipe everything recorded. The cars and the Tesla sign-in stay.
 async function deleteAllData() {
     const ok = await confirmDialog({
@@ -426,6 +471,9 @@ function renderAbout() {
         ${infoRow('Units', app.units === 'imperial' ? 'Imperial' : 'Metric')}
         ${infoRow('Live stream', status.streaming ? 'on' : 'off')}
         ${infoRow('Address lookup', status.geocoding ? 'OpenStreetMap Nominatim' : 'off')}
+        ${infoRow('Home Assistant zones', (status.zones || []).length
+            ? escapeHtml(status.zones.map(z => `${z.name} (${z.radius} m)`).join(', '))
+            : '<span class="sb-warn">none loaded</span> · see the add-on log')}
         ${infoRow('Sleep', `left alone after ${num(polling.idle_minutes)} min idle`)}
         ${infoRow('MQTT', mqtt)}
         ${infoRow('Price per kWh', status.cost_per_kwh ? fmtMoney(status.cost_per_kwh) : 'not set')}

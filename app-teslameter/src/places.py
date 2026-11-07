@@ -13,7 +13,7 @@ import time
 import aiohttp
 
 from .config import ADDON_VERSION
-from .database import Database
+from .database import Database, place_key
 from .ha_client import HAClient, HAClientError
 
 logger = logging.getLogger(__name__)
@@ -55,6 +55,7 @@ class Places:
         self.ha_client = ha_client
         self.geocoding = geocoding
         self.zones: list[dict] = []
+        self.zones_loaded_at = 0
         self._lock = asyncio.Lock()
         self._last_request = 0.0
         self._paused_until = 0.0
@@ -70,8 +71,12 @@ class Places:
         while True:
             if self.ha_client.available:
                 try:
-                    self.zones = await self.ha_client.get_zones()
-                    logger.debug(f"Loaded {len(self.zones)} Home Assistant zones")
+                    zones = await self.ha_client.get_zones()
+                    if [(z["name"], z["radius"]) for z in zones] != [(z["name"], z["radius"]) for z in self.zones]:
+                        names = ", ".join(f"{z['name']} ({z['radius']:.0f} m)" for z in zones) or "none"
+                        logger.info(f"Home Assistant zones: {names}")
+                    self.zones = zones
+                    self.zones_loaded_at = int(time.time())
                 except HAClientError as e:
                     logger.warning(f"Could not load Home Assistant zones: {e}")
             await asyncio.sleep(ZONE_REFRESH)
@@ -126,6 +131,55 @@ class Places:
             # "Unable to geocode": open sea, no data. Remembered as unnamed.
             return {}
         return result
+
+    def apply_zones(self) -> dict:
+        """Name every recorded place that lies inside a Home Assistant zone after the zone.
+
+        For zones created after the trips were recorded, and for places Nominatim named
+        wrongly where a zone now says what they are. Returns how many were changed.
+        """
+        drives = charges = 0
+        for drive in self.database.query(
+            "SELECT id, start_lat, start_lon, end_lat, end_lon, start_place, end_place FROM drives"
+            " WHERE end_ts IS NOT NULL AND (start_lat IS NOT NULL OR end_lat IS NOT NULL)"
+        ):
+            start = drive["start_place"]
+            end = drive["end_place"]
+            if drive["start_lat"] is not None:
+                start = self.zone_at(drive["start_lat"], drive["start_lon"]) or start
+            if drive["end_lat"] is not None:
+                end = self.zone_at(drive["end_lat"], drive["end_lon"]) or end
+            if (start, end) != (drive["start_place"], drive["end_place"]):
+                self.database.execute(
+                    "UPDATE drives SET start_place = ?, end_place = ? WHERE id = ?", (start, end, drive["id"])
+                )
+                drives += 1
+        for charge in self.database.query("SELECT id, lat, lon, place FROM charges WHERE lat IS NOT NULL"):
+            zone = self.zone_at(charge["lat"], charge["lon"])
+            if zone and zone != charge["place"]:
+                self._rename_charge(charge, zone)
+                charges += 1
+        return {"zones": len(self.zones), "drives": drives, "charges": charges}
+
+    def rename_place(self, old: str, new: str) -> dict:
+        """Give every trip, charging session and cached address with one name another name."""
+        drives = self.database.execute("UPDATE drives SET start_place = ? WHERE start_place = ?", (new, old))
+        drives += self.database.execute("UPDATE drives SET end_place = ? WHERE end_place = ?", (new, old))
+        charges = 0
+        for charge in self.database.query("SELECT id, lat, lon, place FROM charges WHERE place = ?", (old,)):
+            self._rename_charge(charge, new)
+            charges += 1
+        addresses = self.database.execute("UPDATE addresses SET label = ? WHERE label = ?", (new, old))
+        return {"drives": drives, "charges": charges, "addresses": addresses}
+
+    def _rename_charge(self, charge: dict, new: str) -> None:
+        """Rename a charging session's place and carry its location's price tag along."""
+        old_key = place_key(charge["place"], charge["lat"], charge["lon"])
+        new_key = place_key(new, charge["lat"], charge["lon"])
+        tag = self.database.location_tag(old_key) if old_key else None
+        self.database.execute("UPDATE charges SET place = ? WHERE id = ?", (new, charge["id"]))
+        if tag and new_key and new_key != old_key and not self.database.location_tag(new_key):
+            self.database.set_location_tag(new_key, tag)
 
     async def fill_missing(self) -> None:
         """Name the drives and charges that have a position but no place name yet."""

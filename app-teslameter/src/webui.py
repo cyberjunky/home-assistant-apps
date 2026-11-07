@@ -166,6 +166,9 @@ class WebUI:
         post("/api/import/history", self._handle_history_import)
         get("/api/import/history", self._handle_history_import_status)
 
+        post("/api/places/apply-zones", self._handle_apply_zones)
+        post("/api/places/rename", self._handle_rename_place)
+
         get("/api/tags", self._handle_tags)
         post("/api/tags", self._handle_tag_save)
         post("/api/tags/delete", self._handle_tag_delete)
@@ -240,6 +243,8 @@ class WebUI:
                     "idle_minutes": self.config.idle_minutes,
                     "sleep_window_minutes": self.config.sleep_window_minutes,
                 },
+                "zones": [{"name": z["name"], "radius": round(z["radius"])} for z in self.garage.places.zones],
+                "zones_loaded_at": self.garage.places.zones_loaded_at or None,
                 "database_bytes": self.database.size_bytes(),
                 "counts": self.database.query_one(
                     "SELECT (SELECT COUNT(*) FROM drives) AS drives, (SELECT COUNT(*) FROM charges) AS charges,"
@@ -659,6 +664,26 @@ class WebUI:
         return web.json_response(
             self.database.query_one(f"SELECT {CHARGE_COLUMNS} FROM charges WHERE id = ?", (charge_id,))
         )
+
+    async def _handle_apply_zones(self, request: web.Request) -> web.Response:
+        """Rename the recorded places that lie inside a Home Assistant zone after the zone."""
+        places = self.garage.places
+        if not places.zones:
+            return _error("No Home Assistant zones are loaded; see the add-on log", 409)
+        result = await asyncio.to_thread(places.apply_zones)
+        logger.info(f"Zones applied to recorded places: {result}")
+        return web.json_response(result)
+
+    async def _handle_rename_place(self, request: web.Request) -> web.Response:
+        body = await _json_body(request)
+        old, new = str(body.get("from") or "").strip(), str(body.get("to") or "").strip()
+        if not old or not new:
+            return _error("Enter the current name and the new name")
+        if len(new) > 120:
+            return _error("That name is too long")
+        result = await asyncio.to_thread(self.garage.places.rename_place, old, new)
+        logger.info(f"Place renamed: {old!r} -> {new!r} ({result})")
+        return web.json_response(result)
 
     async def _handle_tags(self, request: web.Request) -> web.Response:
         return web.json_response(

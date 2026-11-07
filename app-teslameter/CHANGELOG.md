@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.4
+
+**After updating:** nothing to do. If you have Home Assistant zones, press **Apply zones to places** once (Settings → Data) to name the trips recorded before the zones existed.
+
+- **Zones made visible and applied to history.** Settings → About lists the Home Assistant zones the app loaded, with their radius, so you can see why a place isn't named after your zone (not loaded, or the car parks outside the radius). **Apply zones to places** in Settings → Data renames every recorded trip start, trip end and charging place that lies inside a zone after that zone, and says how many it found.
+- **Rename a place** (Settings → Data): give a place that OpenStreetMap named wrongly its proper name, everywhere it was recorded and in the address cache, so new trips there get the corrected name too. The price tag of a charging location moves along.
+- Settings gets a Support panel (documentation, issues, version and changelog), the same as in Meldkamer.
+- After an import (from TeslaMate or Tesla's charging history) the Trips, Charging and Stats views load their lists again. Before, a Charging list that was open during a TeslaMate import kept the old entries, and opening one of the Supercharger sessions the import had replaced said "Charge not found".
+
 ## 0.5.3
 
 **After updating:** nothing to do.
@@ -8,8 +17,6 @@
 - The period you pick at the top of Stats now applies to **every** panel. Battery health shows the charges, the current full range and the degradation for that period (the "When new" figure stays the best ever seen, as that is what it means), and Software versions lists the versions first seen in that period — choose "All" to see the whole history.
 - Battery health explains what it measures: the car's own rated range at 100%, which drops in cold weather and with BMS drift. It is not temperature-corrected.
 - The Software versions list no longer stops at the latest 30 versions.
-- Settings gets a Support panel (documentation, issues, version and changelog), the same as in Meldkamer.
-- After an import (from TeslaMate or Tesla's charging history) the Trips, Charging and Stats views load their lists again. Before, a Charging list that was open during a TeslaMate import kept the old entries, and opening one of the Supercharger sessions the import had replaced said "Charge not found".
 
 ## 0.5.2
 
