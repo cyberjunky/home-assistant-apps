@@ -418,8 +418,11 @@ function renderAbout() {
     const mqtt = app.mqtt.enabled
         ? `<span class="${app.mqtt.connected ? 'sb-ok' : 'sb-bad'}">${app.mqtt.connected ? 'connected' : 'offline'}</span> · ${escapeHtml(app.mqtt.broker)}`
         : 'off';
+    document.getElementById('support').innerHTML = `
+        ${infoRow('Documentation', '<a href="https://github.com/cyberjunky/home-assistant-apps/blob/main/app-teslameter/DOCS.md" target="_blank" rel="noopener">Docs on GitHub</a>')}
+        ${infoRow('Problem or idea', '<a href="https://github.com/cyberjunky/home-assistant-apps/issues" target="_blank" rel="noopener">Open an issue</a>')}
+        ${infoRow('Version', `v${escapeHtml(app.version)} · <a href="https://github.com/cyberjunky/home-assistant-apps/blob/main/app-teslameter/CHANGELOG.md" target="_blank" rel="noopener">changelog</a>`)}`;
     document.getElementById('about').innerHTML = `
-        ${infoRow('Version', `${escapeHtml(app.version)} · <a href="https://github.com/cyberjunky/home-assistant-apps/blob/main/app-teslameter/CHANGELOG.md" target="_blank" rel="noopener">changelog</a>`)}
         ${infoRow('Units', app.units === 'imperial' ? 'Imperial' : 'Metric')}
         ${infoRow('Live stream', status.streaming ? 'on' : 'off')}
         ${infoRow('Address lookup', status.geocoding ? 'OpenStreetMap Nominatim' : 'off')}
@@ -428,11 +431,7 @@ function renderAbout() {
         ${infoRow('Price per kWh', status.cost_per_kwh ? fmtMoney(status.cost_per_kwh) : 'not set')}
         ${infoRow('Supercharger costs', superchargerCostsText(status.supercharger_costs))}
         <p class="panel-sub" style="margin-top:10px">These are set on the add-on's Configuration tab in Home Assistant.
-        TeslaMeter is an independent project and is not affiliated with or endorsed by Tesla, Inc.</p>
-        <div class="detail-actions" style="margin-top:10px">
-            <a class="btn" href="https://github.com/cyberjunky/home-assistant-apps/tree/main/app-teslameter" target="_blank" rel="noopener">GitHub</a>
-            <a class="btn" href="https://github.com/cyberjunky/home-assistant-apps/issues" target="_blank" rel="noopener">Report an issue</a>
-        </div>`;
+        TeslaMeter is an independent project and is not affiliated with or endorsed by Tesla, Inc.</p>`;
 }
 
 let tagList = null;

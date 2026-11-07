@@ -140,15 +140,14 @@ function renderDataSettings() {
 
 function renderAbout() {
     const cfg = (app.status && app.status.config) || {};
+    document.getElementById('set-support').innerHTML = `
+        ${infoRow('Documentation', '<a href="https://github.com/cyberjunky/home-assistant-apps/blob/main/app-goodwe/DOCS.md" target="_blank" rel="noopener">Docs on GitHub</a>')}
+        ${infoRow('Problem or idea', '<a href="https://github.com/cyberjunky/home-assistant-apps/issues" target="_blank" rel="noopener">Open an issue</a>')}
+        ${infoRow('Version', `v${escapeHtml(app.version)} · <a href="https://github.com/cyberjunky/home-assistant-apps/blob/main/app-goodwe/CHANGELOG.md" target="_blank" rel="noopener">changelog</a>`)}`;
     document.getElementById('set-about').innerHTML = `
-        ${infoRow('Version', `${escapeHtml(app.version)} · <a href="https://github.com/cyberjunky/home-assistant-apps/blob/main/app-goodwe/CHANGELOG.md" target="_blank" rel="noopener">changelog</a>`)}
         ${infoRow('Log level', escapeHtml(cfg.log_level || 'info'))}
         ${infoRow('Inverter library', 'goodwe (Python)')}
-        <p class="panel-sub" style="margin-top:10px">GoodWe Monitor is an independent project and is not affiliated with or endorsed by GoodWe Technologies Co., Ltd.</p>
-        <div class="detail-actions" style="margin-top:10px">
-            <a class="btn" href="https://github.com/cyberjunky/home-assistant-apps/tree/main/app-goodwe" target="_blank" rel="noopener">GitHub</a>
-            <a class="btn" href="https://github.com/cyberjunky/home-assistant-apps/issues" target="_blank" rel="noopener">Report an issue</a>
-        </div>`;
+        <p class="panel-sub" style="margin-top:10px">GoodWe Monitor is an independent project and is not affiliated with or endorsed by GoodWe Technologies Co., Ltd.</p>`;
 }
 
 async function renderEvents(force) {
