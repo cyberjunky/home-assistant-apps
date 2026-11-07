@@ -121,13 +121,22 @@ the clients.
 2. Install this app from the store and give it the **same options** as the old one
    (`databases`, `timescale_enabled`, `timescaledb`, `max_connections`, ...). Do not start it
    yet. Leave the host port unmapped until the old add-on is gone.
-3. Copy the old data folder into the new one. From the Terminal add-on with *Protection
-   mode* off (the host paths are reached through Docker):
+3. Copy the old data folder into the new one. The Terminal add-on with *Protection mode*
+   off reaches the host only through Docker, so first find where the old add-on's `/data`
+   lives on the host (the container is `app_77b2833f_timescaledb`, or `addon_...` on older
+   Supervisors; `docker ps -a` lists it):
+
+   ```bash
+   docker inspect app_77b2833f_timescaledb --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}' | grep '/data$'
+   ```
+
+   The new app's folder is the sibling named `1b41fb55_timescaledb` in the same parent
+   directory (it exists once the app is installed). Then, with those two paths:
 
    ```bash
    docker run --rm \
-     -v /mnt/data/supervisor/addons/data/77b2833f_timescaledb:/old:ro \
-     -v /mnt/data/supervisor/addons/data/1b41fb55_timescaledb:/new \
+     -v <old path>:/old:ro \
+     -v <new path>:/new \
      alpine sh -c "cp -a /old/. /new/ && rm -f /new/options.json && ls -la /new /new/postgres | head -20"
    ```
 
@@ -149,10 +158,11 @@ Home Assistant backups do not copy the raw PostgreSQL data directory. Before eac
 the app writes a complete `pg_dumpall` dump (`backup_db.sql`) into its data folder, the
 backup stores that dump, and the dump is removed afterwards. When a backup is restored and
 no usable data directory exists, the app initialises a fresh cluster and loads the dump
-automatically. If that fails, the dump stays at `/data/backup_db.sql` for a manual restore:
+automatically. If that fails, the dump stays at `/data/backup_db.sql` for a manual restore
+(the container is named `app_<slug>`, `addon_<slug>` on older Supervisors; see `docker ps`):
 
 ```bash
-docker exec -it addon_timescaledb_timescaledb su - postgres -c "psql -U postgres -f /data/backup_db.sql -d postgres"
+docker exec -it app_1b41fb55_timescaledb su - postgres -c "psql -U postgres -f /data/backup_db.sql -d postgres"
 ```
 
 ## Troubleshooting
