@@ -2,8 +2,9 @@
 
 ## 0.5.1
 
-**After updating:** nothing to do.
+**After updating:** nothing to do — unless you imported history before this version, in which case start fresh (remove the database or reinstall) and import again, then fetch the charging history. The old import put sessions at the wrong time (see below), so some may appear twice until you re-import.
 
+- Imported history now keeps the correct time. The source stores times without a timezone; they were being read as the add-on's local time and so landed an hour or two off (and differently across daylight saving). Besides showing trips and charges at the wrong clock time, this stopped an imported charging session from lining up with the same session in Tesla's own charging history, so the billed cost couldn't attach and the session could appear twice. Imports now read these times as UTC, as the source stores them.
 - The car picture is a clean pearl white (a standard Model 3 colour) until Tesla reports the real paint, instead of a dull grey — so a freshly signed-in car looks right straight away.
 - Fixed a grey square showing next to the last item in the Vehicle details when the number of items was odd (an empty grid cell).
 

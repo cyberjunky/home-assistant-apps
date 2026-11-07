@@ -11,6 +11,7 @@ The source database's table layout is used purely as the interchange format.
 
 import logging
 import time
+from datetime import timezone
 
 from . import vehicle_specs
 from .database import POSITION_COLUMNS, SAMPLE_COLUMNS, Database
@@ -29,8 +30,18 @@ class HistoryImportError(Exception):
 
 
 def _epoch(value) -> int | None:
-    """A datetime from pg8000 as unix seconds."""
+    """A datetime from pg8000 as unix seconds.
+
+    The source stores times as naive UTC (`timestamp without time zone`), which
+    pg8000 returns without a timezone. `datetime.timestamp()` on a naive value
+    assumes the *container's* local timezone, so it would shift every imported row
+    by the local UTC offset (and by DST across the year) — enough to push a session
+    hours away from the same session in Tesla's own charging history and defeat the
+    de-duplicating match. Pin a naive value to UTC first; leave an aware one as is.
+    """
     try:
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
         return int(value.timestamp())
     except (AttributeError, TypeError, ValueError):
         return None
