@@ -11,20 +11,16 @@ arch:
   - amd64
 # Prebuilt by the repository Builder workflow; bump `version` to publish a new image
 image: "ghcr.io/cyberjunky/app-meldkamer"
-startup: application
-boot: auto
 # MQTT TLS certificate files (mqtt.tls_ca / tls_cert / tls_keyfile)
 map:
   - ssl:ro
 udev: true
 usb: true
-host_network: false
 ports:
   5000/tcp: null
 ports_description:
   5000/tcp: P2000 TCP broadcast server for integrations (optional)
 ingress: true
-ingress_port: 8099
 panel_icon: mdi:headset
 panel_title: Meldkamer
 homeassistant_api: true
