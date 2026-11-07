@@ -29,6 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: find
     strategy:
+      # One app's lint failure shouldn't cancel the others' — report each independently.
+      fail-fast: false
       matrix:
         path: ${{ fromJson(needs.find.outputs.addons) }}
     steps:
@@ -46,6 +48,7 @@ jobs:
     name: Ruff (${{ matrix.app }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         app:
           - app-meldkamer
