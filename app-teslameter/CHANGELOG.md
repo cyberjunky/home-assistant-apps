@@ -5,6 +5,7 @@
 **After updating:** nothing to do. If you have Home Assistant zones, press **Apply zones to places** once (Settings → Data) to name the trips recorded before the zones existed.
 
 - **Zones made visible and applied to history.** Settings → About lists the Home Assistant zones the app loaded, with their radius, so you can see why a place isn't named after your zone (not loaded, or the car parks outside the radius). **Apply zones to places** in Settings → Data renames every recorded trip start, trip end and charging place that lies inside a zone after that zone, and says how many it found.
+- Import from TeslaMate also reads databases of older TeslaMate versions, which have no ascent and descent per drive (the import stopped with "column d.ascent does not exist"). Those are worked out from the positions' elevations instead.
 - **Rename a place** (Settings → Data): give a place that OpenStreetMap named wrongly its proper name, everywhere it was recorded and in the address cache, so new trips there get the corrected name too. The price tag of a charging location moves along.
 - Settings gets a Support panel (documentation, issues, version and changelog), the same as in Meldkamer.
 - After an import (from TeslaMate or Tesla's charging history) the Trips, Charging and Stats views load their lists again. Before, a Charging list that was open during a TeslaMate import kept the old entries, and opening one of the Supercharger sessions the import had replaced said "Charge not found".

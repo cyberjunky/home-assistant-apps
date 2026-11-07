@@ -9,6 +9,7 @@ metric km, as TeslaMeter stores them, so they carry over directly.
 The source database's table layout is used purely as the interchange format.
 """
 
+import itertools
 import logging
 import time
 from datetime import UTC
@@ -79,7 +80,7 @@ _CARS = "SELECT id, vin, name, model, trim_badging, exterior_color, wheel_type, 
 
 _DRIVES = """
 SELECT d.id, d.start_date, d.end_date, d.distance, d.duration_min, d.speed_max, d.power_max, d.power_min,
-       d.outside_temp_avg, d.inside_temp_avg, d.start_km, d.end_km, d.ascent, d.descent,
+       d.outside_temp_avg, d.inside_temp_avg, d.start_km, d.end_km, {ascent}, {descent},
        d.start_rated_range_km, d.end_rated_range_km,
        sp.latitude, sp.longitude, sp.battery_level, ep.latitude, ep.longitude, ep.battery_level,
        COALESCE(sg.name, sa.display_name), COALESCE(eg.name, ea.display_name)
@@ -170,9 +171,27 @@ def _import_car(cursor, database: Database, car, progress: dict) -> None:
         database.apply_efficiency(car_id, learned)
 
 
+def _column_exists(cursor, table: str, column: str) -> bool:
+    cursor.execute(
+        "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = %s AND column_name = %s",
+        (table, column),
+    )
+    return cursor.fetchone() is not None
+
+
 def _import_drives(cursor, database: Database, car_id: int, efficiency: float, progress: dict) -> dict:
+    """Import the drives. Returns {source drive id: new drive id}; drives without an ascent get a
+    negative new id marker in `_NEEDS_ELEVATION` (see _import_positions)."""
     progress["phase"] = "drives"
-    cursor.execute(_DRIVES, (car_id,))
+    # Older TeslaMate databases (before 1.28) have no ascent/descent columns; those are then
+    # worked out from the positions' elevations later
+    has_elevation = _column_exists(cursor, "drives", "ascent")
+    cursor.execute(
+        _DRIVES.format(
+            ascent="d.ascent" if has_elevation else "NULL", descent="d.descent" if has_elevation else "NULL"
+        ),
+        (car_id,),
+    )
     rows = cursor.fetchall()
     drive_map: dict[int, int] = {}
     with database.transaction() as db:
@@ -240,8 +259,26 @@ def _import_drives(cursor, database: Database, car_id: int, efficiency: float, p
                 },
             )
             drive_map[tm_drive] = new_id
+            if asc is None:
+                _NEEDS_ELEVATION.add(new_id)
             progress["drives"] += 1
     return drive_map
+
+
+# New drive ids whose ascent and descent must come from their positions (older TeslaMate schemas)
+_NEEDS_ELEVATION: set[int] = set()
+
+
+def _climb(elevations: list[float]) -> tuple[float, float]:
+    """Metres climbed and descended along a list of elevations."""
+    ascent = descent = 0.0
+    for previous, current in itertools.pairwise(elevations):
+        delta = current - previous
+        if delta > 0:
+            ascent += delta
+        else:
+            descent -= delta
+    return ascent, descent
 
 
 def _import_positions(cursor, database: Database, car_id: int, drive_map: dict, progress: dict) -> None:
@@ -251,10 +288,13 @@ def _import_positions(cursor, database: Database, car_id: int, drive_map: dict, 
     processed = 0
     for tm_drive, new_drive in drive_map.items():
         cursor.execute(_POSITIONS, (tm_drive,))
+        elevations: list[float] = []
         for date, lat, lon, elev, speed, power, odo, soc, usoc, rated, est, otemp, itemp in cursor.fetchall():
             ts = _epoch(date)
             if ts is None:
                 continue
+            if elev is not None:
+                elevations.append(_f(elev))
             pending.append(
                 (
                     car_id,
@@ -275,6 +315,14 @@ def _import_positions(cursor, database: Database, car_id: int, drive_map: dict, 
                     _f(itemp),
                 )
             )
+        if new_drive in _NEEDS_ELEVATION:
+            _NEEDS_ELEVATION.discard(new_drive)
+            if len(elevations) >= 2:
+                ascent, descent = _climb(elevations)
+                database.execute(
+                    "UPDATE drives SET ascent_m = ?, descent_m = ? WHERE id = ?",
+                    (round(ascent), round(descent), new_drive),
+                )
         processed += 1
         if processed % BATCH == 0 and pending:
             with database.transaction() as db:
