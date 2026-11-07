@@ -1,4 +1,12 @@
 <!-- https://developers.home-assistant.io/docs/apps/presentation#keeping-a-changelog -->
+## 4.1.1
+
+- Fix: the TimescaleDB app was not registered. pgAdmin now asks the Supervisor which
+  TimescaleDB app is installed, whatever repository it came from, registers it for the
+  pgAdmin user that actually logs in, and says in the log why it could not (not installed,
+  not started).
+- No more "bashio::addon.* is deprecated" warnings in the log.
+
 ## 4.1.0
 
 - pgAdmin 9.17 with the PostgreSQL 17 and 18 client tools.

@@ -1,4 +1,8 @@
 <!-- https://developers.home-assistant.io/docs/apps/presentation#keeping-a-changelog -->
+## 5.5.1
+
+- No more "bashio::addon.* is deprecated" warnings in the log.
+
 ## 5.5.0
 
 - PostgreSQL 18 with all components updated: TimescaleDB 2.29.2, TimescaleDB Toolkit

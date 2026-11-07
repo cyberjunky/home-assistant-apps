@@ -192,7 +192,9 @@ RUN curl -J -L -s -o /tmp/bashio.tar.gz \
     && tar zxf /tmp/bashio.tar.gz --strip 1 -C /tmp/bashio \
     && rm -rf /usr/lib/bashio \
     && mv /tmp/bashio/lib /usr/lib/bashio \
-    && rm -rf /tmp/bashio /tmp/bashio.tar.gz
+    && rm -rf /tmp/bashio /tmp/bashio.tar.gz \
+    # The base image's start-up banner still calls the helpers by their old names, which 0.19.0 only warns about
+    && sed -i 's/bashio::addon\./bashio::app./g' /package/admin/s6-overlay-*/etc/s6-rc/scripts/base-addon-banner
 
 # Copy in the Python packages
 COPY --from=env-builder /venv /venv

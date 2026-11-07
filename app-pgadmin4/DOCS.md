@@ -75,8 +75,10 @@ trusted network.
 
 - **The panel stays empty or shows an error after an update**: restart the app once. The
   first start after a pgAdmin upgrade migrates its configuration database.
-- **The TimescaleDB app is not listed**: it is registered on start-up when its container is
-  reachable. Start TimescaleDB first, then restart pgAdmin 4.
+- **The TimescaleDB app is not listed**: it is registered on start-up when it is installed
+  and running. Start TimescaleDB first, then restart pgAdmin 4; the log says what it found
+  ("Adding TimescaleDB app", "is stopped", "Already registered"). Only the password is
+  missing: enter it once (the `postgres_password` of the TimescaleDB app) and save it.
 
 ## Support
 

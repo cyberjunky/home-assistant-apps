@@ -48,31 +48,58 @@ fi
 
 # ------------------------------------------------------------------------------
 # Register database servers in pgAdmin:
-# - the TimescaleDB add-on from this add-on repository, when it is installed
-#   (its hostname resolves on the add-on network), as a store or local add-on;
+# - the TimescaleDB app, when it is installed: the Supervisor is asked which
+#   add-ons are installed (so it is found whatever repository it came from),
+#   and its container must be reachable, i.e. the app must be started;
 # - the servers listed in the 'servers' option.
-# A server is only added when no server with the same name exists yet, so
-# servers you remove or rename in pgAdmin are not re-added on every start.
-# Passwords cannot be imported; enter them once in pgAdmin and save them there.
+# A server is only added when the pgAdmin user has no server with the same
+# name yet, so servers you remove or rename in pgAdmin are not re-added on
+# every start. Passwords cannot be imported; enter them once in pgAdmin and
+# save them there.
 # ------------------------------------------------------------------------------
 bashio::log.info "Registering database servers in pgAdmin.."
-if /venv/bin/python3 - "${PGADMIN_DB}" "${SERVERS_JSON}" << 'EOF'
-import json, socket, sqlite3, sys
+if /venv/bin/python3 - "${PGADMIN_DB}" "${SERVERS_JSON}" "${PGADMIN_USER}" << 'EOF'
+import json, os, socket, sqlite3, sys, urllib.request
 
-db, out = sys.argv[1], sys.argv[2]
+db, out, user_email = sys.argv[1], sys.argv[2], sys.argv[3]
 candidates = []
 
-# TimescaleDB add-on (hostname of the store add-on, and of a local add-on)
-for host, name in (("1b41fb55-timescaledb", "TimescaleDB add-on"),
-                   ("99fed3e4-timescaledb", "TimescaleDB add-on"),
-                   ("local-timescaledb", "TimescaleDB add-on (local)")):
+
+def add(name, host, group="Home Assistant", port=5432, database="postgres", username="postgres"):
+    if any(c["Host"] == host and c["Port"] == port for c in candidates):
+        return
+    candidates.append({"Name": name, "Group": group, "Host": host, "Port": port,
+                       "MaintenanceDB": database, "Username": username, "SSLMode": "prefer"})
+
+
+# TimescaleDB app. Its hostname is "<repository hash>-timescaledb", so ask the Supervisor
+# for the installed add-ons instead of guessing the repository; fall back to known names.
+hosts = []
+token = os.environ.get("SUPERVISOR_TOKEN")
+if token:
+    try:
+        request = urllib.request.Request("http://supervisor/addons", headers={"Authorization": f"Bearer {token}"})
+        with urllib.request.urlopen(request, timeout=10) as response:
+            addons = json.load(response).get("data", {}).get("addons", [])
+        for addon in addons:
+            slug = str(addon.get("slug") or "")
+            if slug.rsplit("_", 1)[-1] == "timescaledb":
+                hosts.append((slug.replace("_", "-"), addon.get("state") or "unknown"))
+        if not hosts:
+            print("  No TimescaleDB app is installed")
+    except Exception as e:
+        print(f"  Could not list the installed add-ons ({e}); trying the known TimescaleDB hostnames")
+if not hosts and not token:
+    hosts = [(h, None) for h in ("1b41fb55-timescaledb", "99fed3e4-timescaledb", "3c34fea8-timescaledb",
+                                 "local-timescaledb")]
+for host, state in hosts:
     try:
         socket.gethostbyname(host)
     except OSError:
+        if state:
+            print(f"  TimescaleDB app ({host}) is {state}: start it and restart pgAdmin to register it")
         continue
-    candidates.append({"Name": name, "Group": "Home Assistant", "Host": host,
-                       "Port": 5432, "MaintenanceDB": "postgres",
-                       "Username": "postgres", "SSLMode": "prefer"})
+    add("TimescaleDB app (local)" if host.startswith("local-") else "TimescaleDB app", host)
 
 # Servers from the add-on options
 try:
@@ -81,26 +108,26 @@ try:
 except (OSError, ValueError):
     options = {}
 for server in options.get("servers") or []:
-    candidates.append({"Name": server["name"],
-                       "Group": server.get("group") or "Servers",
-                       "Host": server["host"],
-                       "Port": int(server.get("port") or 5432),
-                       "MaintenanceDB": server.get("database") or "postgres",
-                       "Username": server.get("username") or "postgres",
-                       "SSLMode": "prefer"})
+    add(server["name"], server["host"], group=server.get("group") or "Servers",
+        port=int(server.get("port") or 5432), database=server.get("database") or "postgres",
+        username=server.get("username") or "postgres")
 
+# Servers the pgAdmin user already has (a server owned by another user is invisible to it)
 connection = sqlite3.connect(db)
-existing = {row[0] for row in connection.execute("SELECT name FROM server")}
+existing = {row[0] for row in connection.execute(
+    'SELECT s.name FROM server s JOIN "user" u ON u.id = s.user_id WHERE u.email = ?', (user_email,))}
 connection.close()
 
 new = [c for c in candidates if c["Name"] not in existing]
+if candidates and not new:
+    print("  Already registered: " + ", ".join(c["Name"] for c in candidates))
 if not new:
     sys.exit(1)
 
 with open(out, "w", encoding="utf-8") as f:
     json.dump({"Servers": {str(i + 1): c for i, c in enumerate(new)}}, f)
 for c in new:
-    print(f"  {c['Name']} ({c['Host']}:{c['Port']})")
+    print(f"  Adding {c['Name']} ({c['Host']}:{c['Port']})")
 EOF
 then
     /venv/bin/python3 setup.py load-servers "${SERVERS_JSON}" --user "${PGADMIN_USER}" \

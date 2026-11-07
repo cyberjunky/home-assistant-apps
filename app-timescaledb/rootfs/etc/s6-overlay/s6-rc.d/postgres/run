@@ -121,7 +121,7 @@ if bashio::var.true "${UPDATE}"; then
 	sleep 3
 
 	# Don't fail on the call. When running in standalone, this will fail.
-	bashio::addon.restart || true
+	bashio::app.restart || true
 fi
 
 # And let it roll
