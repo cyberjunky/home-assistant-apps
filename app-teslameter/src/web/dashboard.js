@@ -46,6 +46,14 @@ function fact(label, valueHtml, cls) {
     return `<div class="fact"><div class="l">${label}</div><div class="v ${cls || ''}">${valueHtml}</div></div>`;
 }
 
+// Join fact() cells for the 2-column grid, padding an odd count with a blank
+// cell so the grid's divider background never shows as a grey square.
+function factsGrid(items) {
+    const cells = items.filter(Boolean);
+    if (cells.length % 2) cells.push('<div class="fact" aria-hidden="true"></div>');
+    return cells.join('');
+}
+
 // "MidnightGrey" / "carbon_fiber" -> "Midnight Grey" / "Carbon Fiber"
 function prettyWord(v) {
     return String(v).replace(/[_-]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2')
@@ -148,23 +156,23 @@ function renderCarPanel(car) {
         </div>
         ${contextBlock(car)}
         <div class="block"><div class="block-title"><span>Vehicle</span><span>${car.last_seen ? 'updated ' + fmtTime(car.last_seen) : ''}</span></div>
-            <div class="facts">
-                ${fact('Odometer', missing(car.odometer_km) ? '–' : withUnit(num(conv.dist(car.odometer_km)), unit.dist()))}
-                ${fact('Software', software)}
-                ${car.usable_soc != null && car.usable_soc !== car.soc ? fact('Usable charge', fmtPct(car.usable_soc)) : ''}
-                ${fact('Inside', fmtTemp(car.inside_temp))}
-                ${fact('Outside', fmtTemp(car.outside_temp))}
-                ${fact('Climate', climate)}
-                ${fact('Sentry mode', car.sentry ? 'On' : 'Off')}
-                ${fact('Lock', car.locked === false ? 'Unlocked' : car.locked ? 'Locked' : '–', car.locked === false && !car.user_present ? 'warn' : '')}
-                ${fact('Doors & windows', escapeHtml(openings.text), openings.warn ? 'warn' : '')}
-                ${fact('Tires', tiresText(car))}
-                ${fact('Charge port', car.plugged_in ? 'Plugged in' : 'Unplugged')}
-                ${car.charge_port_type ? fact('Charge port type', escapeHtml(portTypeName(car.charge_port_type))) : ''}
-                ${car.roof_color && car.roof_color !== 'None' ? fact('Roof', escapeHtml(prettyWord(car.roof_color))) : ''}
-                ${car.exterior_trim && car.exterior_trim !== 'None' ? fact('Exterior trim', escapeHtml(prettyWord(car.exterior_trim))) : ''}
-                ${car.air_suspension === true ? fact('Suspension', 'Air') : ''}
-            </div>
+            <div class="facts">${factsGrid([
+                fact('Odometer', missing(car.odometer_km) ? '–' : withUnit(num(conv.dist(car.odometer_km)), unit.dist())),
+                fact('Software', software),
+                car.usable_soc != null && car.usable_soc !== car.soc ? fact('Usable charge', fmtPct(car.usable_soc)) : '',
+                fact('Inside', fmtTemp(car.inside_temp)),
+                fact('Outside', fmtTemp(car.outside_temp)),
+                fact('Climate', climate),
+                fact('Sentry mode', car.sentry ? 'On' : 'Off'),
+                fact('Lock', car.locked === false ? 'Unlocked' : car.locked ? 'Locked' : '–', car.locked === false && !car.user_present ? 'warn' : ''),
+                fact('Doors & windows', escapeHtml(openings.text), openings.warn ? 'warn' : ''),
+                fact('Tires', tiresText(car)),
+                fact('Charge port', car.plugged_in ? 'Plugged in' : 'Unplugged'),
+                car.charge_port_type ? fact('Charge port type', escapeHtml(portTypeName(car.charge_port_type))) : '',
+                car.roof_color && car.roof_color !== 'None' ? fact('Roof', escapeHtml(prettyWord(car.roof_color))) : '',
+                car.exterior_trim && car.exterior_trim !== 'None' ? fact('Exterior trim', escapeHtml(prettyWord(car.exterior_trim))) : '',
+                car.air_suspension === true ? fact('Suspension', 'Air') : '',
+            ])}</div>
         </div>`;
 }
 

@@ -577,7 +577,9 @@ function chaikin(points, rounds) {
 const pointsStr = (pts) => pts.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
 
 function carSilhouette(car) {
-    const paint = (car && car.color_hex) || '#8b96a6';
+    // Unknown paint (e.g. on a fresh sign-in, before Tesla reports it): a clean
+    // pearl white, the standard Model 3 colour, rather than a dull grey.
+    const paint = (car && car.color_hex) || '#eef1f5';
     const style = (car && car.body_style);
     const shape = CAR_SHAPES[style] || CAR_SHAPES.sedan;
     const body = pointsStr(chaikin(shape.body, 3));

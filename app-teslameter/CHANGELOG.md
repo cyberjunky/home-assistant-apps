@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1
+
+**After updating:** nothing to do.
+
+- The car picture is a clean pearl white (a standard Model 3 colour) until Tesla reports the real paint, instead of a dull grey — so a freshly signed-in car looks right straight away.
+- Fixed a grey square showing next to the last item in the Vehicle details when the number of items was odd (an empty grid cell).
+
 ## 0.5.0
 
 **After updating:** the database layout changed. The add-on refuses an older database and the log explains how to start fresh — remove the old database file (or uninstall and reinstall the add-on).
