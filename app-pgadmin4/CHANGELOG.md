@@ -5,7 +5,7 @@
   TimescaleDB app is installed, whatever repository it came from, registers it for the
   pgAdmin user that actually logs in, and says in the log why it could not (not installed,
   not started).
-- No more "bashio::addon.* is deprecated" warnings in the log.
+- No more "bashio::addon.* is deprecated" warnings in the log, and no more "lua_load_resty_core is deprecated" warning from nginx.
 
 ## 4.1.0
 
