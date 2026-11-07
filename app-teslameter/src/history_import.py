@@ -11,7 +11,7 @@ The source database's table layout is used purely as the interchange format.
 
 import logging
 import time
-from datetime import timezone
+from datetime import UTC
 
 from . import vehicle_specs
 from .database import POSITION_COLUMNS, SAMPLE_COLUMNS, Database
@@ -41,7 +41,7 @@ def _epoch(value) -> int | None:
     """
     try:
         if value.tzinfo is None:
-            value = value.replace(tzinfo=timezone.utc)
+            value = value.replace(tzinfo=UTC)
         return int(value.timestamp())
     except (AttributeError, TypeError, ValueError):
         return None
