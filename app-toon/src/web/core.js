@@ -12,6 +12,14 @@ async function api(path) {
     return response.json();
 }
 
+async function apiPost(path, body) {
+    const response = await fetch('api/' + path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    let data = null;
+    try { data = await response.json(); } catch (e) { /* not JSON */ }
+    if (!response.ok) throw new Error((data && data.error) || `Request failed (${response.status})`);
+    return data;
+}
+
 // =====================================================================
 // What the Toon's numbers mean
 // =====================================================================

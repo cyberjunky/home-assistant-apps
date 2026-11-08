@@ -42,9 +42,85 @@ function renderTiles() {
     renderExternalTiles();
 }
 
+// =====================================================================
+// Controlling the thermostat
+// =====================================================================
+const SETPOINT_MIN = 6, SETPOINT_MAX = 30, SETPOINT_STEP = 0.5;
+// Presses in a row count as one change, so the Toon only gets the temperature you end up at
+const SETPOINT_DELAY_MS = 800;
+const thermostat = {setpoint: null, timer: null, preset: null, busy: false};
+
+async function changeThermostat(body) {
+    thermostat.busy = true;
+    renderModes();
+    try {
+        await apiPost('control', body);
+        await loadStatus();
+    } catch (e) {
+        toast(e.message);
+    } finally {
+        thermostat.busy = false;
+        thermostat.setpoint = null;
+        thermostat.preset = null;
+        renderModes();
+    }
+}
+
+function stepSetpoint(direction) {
+    const from = missing(thermostat.setpoint) ? value('setpoint') : thermostat.setpoint;
+    if (missing(from)) return;
+    const next = Math.round((from + direction * SETPOINT_STEP) / SETPOINT_STEP) * SETPOINT_STEP;
+    thermostat.setpoint = Math.min(SETPOINT_MAX, Math.max(SETPOINT_MIN, next));
+    clearTimeout(thermostat.timer);
+    thermostat.timer = setTimeout(() => changeThermostat({setpoint: thermostat.setpoint}), SETPOINT_DELAY_MS);
+    renderModes();
+}
+
+function choosePreset(state) {
+    clearTimeout(thermostat.timer);
+    thermostat.setpoint = null;
+    thermostat.preset = state;
+    changeThermostat({preset: state});
+}
+
+function setProgram(on) {
+    clearTimeout(thermostat.timer);
+    thermostat.setpoint = null;
+    changeThermostat({program: on});
+}
+
+function programControl() {
+    const state = value('program_state');
+    const label = PROGRAMS[state] || '–';
+    if (missing(state)) return label;
+    const button = (text, on) => `<button type="button" class="btn btn-small" data-control="program" ${thermostat.busy ? 'disabled' : ''} onclick="setProgram(${on})">${text}</button>`;
+    return `<span class="program">${escapeHtml(label)}${state === 1 ? button('Turn off', false) : state === 0 ? button('Turn on', true) : button('Back to program', true)}</span>`;
+}
+
+function setpointControl() {
+    const shown = missing(thermostat.setpoint) ? value('setpoint') : thermostat.setpoint;
+    const disabled = thermostat.busy || missing(shown);
+    const button = (direction, sign, name, limit) => `<button type="button" class="stepper-btn" data-control="${name}" aria-label="${name === 'down' ? 'Lower' : 'Raise'} the setpoint" ${disabled || shown === limit ? 'disabled' : ''} onclick="stepSetpoint(${direction})">${sign}</button>`;
+    return `<div class="stepper">
+        ${button(-1, '−', 'down', SETPOINT_MIN)}
+        <div class="stepper-value"><b>${fmtTemp(shown)}</b><small>${thermostat.busy ? 'sending…' : `setpoint · room ${fmtTemp(value('room_temperature'))}`}</small></div>
+        ${button(1, '+', 'up', SETPOINT_MAX)}
+    </div>`;
+}
+
 function renderModes() {
+    const focused = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.control : null;
+    drawModes();
+    if (focused) {
+        const again = document.querySelector(`#dash-modes [data-control="${focused}"]`);
+        if (again) again.focus();
+    }
+}
+
+function drawModes() {
     const s = app.status;
-    const active = value('active_state');
+    const canChange = !s.config.read_only && s.connected;
+    const active = missing(thermostat.preset) ? value('active_state') : thermostat.preset;
     const next = s.next || {};
     const nextText = next.time
         ? `${escapeHtml(fmtTime(next.time))}${PRESETS[next.state] ? ' · ' + PRESETS[next.state] : ''}${missing(value('next_setpoint')) ? '' : ' · ' + fmtTemp(value('next_setpoint'))}`
@@ -59,14 +135,16 @@ function renderModes() {
     document.getElementById('dash-modes').innerHTML = `
         <div class="block">
             <div class="block-title"><span>Thermostat</span><span>${value('preheating') ? 'preheating' : ''}</span></div>
+            ${canChange ? setpointControl() : ''}
             <div class="facts">${factsGrid([
                 fact('Preset', escapeHtml(PRESETS[active] || '–')),
-                fact('Program', escapeHtml(PROGRAMS[value('program_state')] || '–')),
+                fact('Program', canChange ? programControl() : escapeHtml(PROGRAMS[value('program_state')] || '–')),
                 fact('Next change', nextText),
                 fact('Hot water', value('dhw_enabled') === 0 ? 'off' : fmtTemp(value('dhw_setpoint'), 0)),
             ])}</div>
-            <div class="presets" style="margin-top:8px">${presets.map(([state, key]) =>
-                `<div class="preset ${active === state ? 'active' : ''}">${PRESETS[state]}<b>${fmtTemp(value(key))}</b></div>`).join('')}</div>
+            <div class="presets" style="margin-top:8px">${presets.map(([state, key]) => canChange
+                ? `<button type="button" class="preset ${active === state ? 'active' : ''}" data-control="preset-${state}" aria-pressed="${active === state}" ${thermostat.busy ? 'disabled' : ''} onclick="choosePreset(${state})">${PRESETS[state]}<b>${fmtTemp(value(key))}</b></button>`
+                : `<div class="preset ${active === state ? 'active' : ''}">${PRESETS[state]}<b>${fmtTemp(value(key))}</b></div>`).join('')}</div>
         </div>
         <div class="block">
             <div class="block-title"><span>Boiler</span><span>${stateLabel(value('boiler_fault') ? 'bad' : 'ok', value('boiler_fault') ? 'fault' : 'no fault')}</span></div>

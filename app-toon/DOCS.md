@@ -1,6 +1,6 @@
 # Home Assistant App: Toon
 
-Toon logs what a rooted Toon thermostat knows and shows it in a dashboard, served through ingress, and publishes it to Home Assistant over MQTT. This version only reads; it can't change anything on your Toon.
+Toon logs what a rooted Toon thermostat knows and shows it in a dashboard, served through ingress, and publishes it to Home Assistant over MQTT. From the Dashboard it can also control the thermostat.
 
 ## Setup
 
@@ -101,10 +101,20 @@ They are read once a minute and stored like the Toon's own values: every reading
 
 **Energy in gas** on the Stats page is measured: the gas you used times `gas_kwh_per_m3`. The default of 9.77 kWh per m³ is the upper heating value of Dutch gas, and your energy bill may show a slightly different number.
 
-**Heat, estimated** is not measured. It assumes a typical condensing boiler: about 97% of that energy at a return temperature of 30 °C or lower, down to about 88% at 55 °C or higher. It doesn't know your boiler, or how much went to hot water.
+**Heat, estimated** is not measured. It assumes a typical condensing boiler: about 97% of that energy at a return temperature of 30 °C or lower, down to about 88% at 55 °C or higher. It doesn't know your boiler, or how much went to hot water. Return temperatures are only recorded from version 0.2.0 on, so over a longer period the estimate applies recent temperatures to older gas use.
 
 Measuring the heat itself takes the water's flow as well as its temperatures: heat is flow times the difference between supply and return. Sensors on the pipes give you the temperatures, which the Toon already reports for the boiler, but not the flow. For a real figure you need a flow meter or a heat meter.
 
 ## Backup
 
 **Settings → Database backup** downloads a copy of all recorded values while the app keeps running. Your options and passwords aren't in it.
+
+## Controlling the thermostat
+
+The Thermostat panel on the Dashboard has controls:
+
+- **− and +** change the setpoint by 0.5 °C, between 6 and 30 °C. A row of presses counts as one change. At the temperature of a preset, that preset becomes active.
+- **Comfort, Home, Sleep and Away** switch to that preset until the next change in the week program.
+- **Turn on, Turn off and Back to program** control the week program.
+
+Set `read_only: true` to remove the controls and refuse changes. The controls also disappear while the Toon isn't connected.

@@ -22,8 +22,8 @@ dropped off the network.
 Toon runs entirely on your Home Assistant, with no cloud service and no telemetry. Everything
 it records stays in the app's data folder and is included in your Home Assistant backups.
 
-**This version only reads.** It sends nothing that changes your Toon; the actions it may
-invoke are an explicit list in `src/boxtalk.py`.
+**It can change one thing: your thermostat**, from the Dashboard's controls. Those are the setpoint,
+the presets and the week program, and nothing else. Set `read_only` to turn them off.
 
 ## Supported Features
 

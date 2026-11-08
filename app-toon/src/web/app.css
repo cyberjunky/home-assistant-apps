@@ -365,6 +365,18 @@ table.data td.wrap { white-space: normal; min-width: 180px; }
 .preset { padding: 7px 10px; border: var(--card-border); border-radius: 6px; font-size: 12px; color: var(--secondary-text-color); }
 .preset b { display: block; font-family: var(--mono); font-size: 14px; color: var(--primary-text-color); font-weight: 500; }
 .preset.active { border-color: var(--primary-color); background: var(--selected-bg); color: var(--primary-text-color); }
+button.preset { width: 100%; font: inherit; font-size: 12px; text-align: left; background: none; cursor: pointer; min-height: 44px; }
+button.preset:hover:not(:disabled):not(.active) { background: var(--hover-bg); }
+button.preset.active { background: var(--selected-bg); }
+button.preset:disabled { cursor: default; opacity: 0.65; }
+.stepper { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.stepper-btn { flex: none; width: 48px; height: 48px; border: var(--card-border); border-radius: 8px; background: none; color: var(--primary-text-color); font: inherit; font-size: 24px; line-height: 1; cursor: pointer; }
+.stepper-btn:hover:not(:disabled) { background: var(--hover-bg); }
+.stepper-btn:disabled { opacity: 0.4; cursor: default; }
+.stepper-value { flex: 1; text-align: center; }
+.stepper-value b { display: block; font-family: var(--mono); font-size: 26px; font-weight: 600; line-height: 1.2; }
+.stepper-value small { font-size: 12px; color: var(--secondary-text-color); }
+.program { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 
 /* ---------- Smaller screens ---------- */
 @media (max-width: 1400px) {

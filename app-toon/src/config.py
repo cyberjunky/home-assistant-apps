@@ -53,6 +53,9 @@ class Config:
     mqtt_base_topic: str = "toon"
     mqtt_discovery_prefix: str = "homeassistant"
 
+    # Leave out everything that can change the thermostat
+    read_only: bool = False
+
     # Energy in a cubic metre of Dutch gas (upper heating value)
     gas_kwh_per_m3: float = 9.77
     # Sensors read from Home Assistant: the outside temperature, and any others
@@ -91,6 +94,7 @@ class Config:
             mqtt_password=str(mqtt.get("password") or ""),
             mqtt_base_topic=str(mqtt.get("base_topic") or "toon"),
             mqtt_discovery_prefix=str(mqtt.get("discovery_prefix") or "homeassistant"),
+            read_only=bool(options.get("read_only", False)),
             gas_kwh_per_m3=float(options.get("gas_kwh_per_m3") or 9.77),
             outside_temperature=str(options.get("outside_temperature") or "").strip(),
             external_sensors=[

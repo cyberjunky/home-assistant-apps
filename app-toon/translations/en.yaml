@@ -53,6 +53,9 @@ configuration:
       discovery_prefix:
         name: Discovery prefix
         description: Home Assistant's discovery prefix.
+  read_only:
+    name: Read-only
+    description: Turn off the Dashboard's controls, so this app can't change anything on your Toon.
   gas_kwh_per_m3:
     name: Energy in gas (kWh per m³)
     description: >-

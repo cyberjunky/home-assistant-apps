@@ -9,20 +9,24 @@ import time
 from datetime import date, timedelta
 from pathlib import Path
 
+import asyncssh
 from aiohttp import web
 
 from .config import APP_VERSION, DATA_DIR
+from .control import CommandRefused
 from .database import Database, backup_copy, database_report
 from .donate import DonatePrompt
 from .history import ARCHIVES
 from .metrics import METRIC_BY_KEY, METRICS
-from .monitor import ToonMonitor
+from .monitor import ToonMonitor, ToonNotConnected
 from .mqtt import MqttPublisher
 from .stats import BUCKETS, Stats, buckets_csv
 
 logger = logging.getLogger(__name__)
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
+# Home Assistant's ingress proxy
+INGRESS_ADDRESS = "172.30.32.2"
 MAX_RANGE_HOURS = 24 * 3660
 
 
@@ -40,6 +44,7 @@ def public_config(config) -> dict:
         "mqtt_discovery_prefix": config.mqtt_discovery_prefix,
         "log_level": config.log_level,
         "gas_kwh_per_m3": config.gas_kwh_per_m3,
+        "read_only": config.read_only,
     }
 
 
@@ -80,6 +85,7 @@ class WebUI:
         DonatePrompt(DATA_DIR / "donate_prompt.json").add_routes(self.app)
         self.app.router.add_get("/api/today", self._today)
         self.app.router.add_get("/api/stats", self._stats)
+        self.app.router.add_post("/api/control", self._control)
         self.app.router.add_get("/api/backup", self._backup)
         self.app.router.add_get("/api/database", self._database)
         self.app.router.add_get("/api/export/periods.csv", self._export_periods)
@@ -150,6 +156,27 @@ class WebUI:
         except ValueError as e:
             raise web.HTTPBadRequest(text="hours, start and end must be numbers") from e
         return web.json_response(self.database.history(metrics, start, end))
+
+    async def _control(self, request: web.Request) -> web.Response:
+        """Change the thermostat, from the Dashboard's controls."""
+        if self.monitor.config.read_only:
+            return web.json_response({"error": "This app is set to read-only"}, status=403)
+        # Under Home Assistant only its signed-in ingress proxy may do this, not other apps on the network
+        if os.environ.get("SUPERVISOR_TOKEN") and request.remote != INGRESS_ADDRESS:
+            return web.json_response({"error": "Use the sidebar"}, status=403)
+        # Another site's page can't send this content type without the browser asking first
+        if request.content_type != "application/json":
+            return web.json_response({"error": "Send JSON"}, status=415)
+        try:
+            await self.monitor.change(await request.json())
+        except ValueError as e:
+            return web.json_response({"error": str(e)}, status=400)
+        except ToonNotConnected as e:
+            return web.json_response({"error": str(e)}, status=503)
+        except (CommandRefused, OSError, TimeoutError, asyncssh.Error) as e:
+            logger.warning(f"Changing the thermostat failed: {e!r}")
+            return web.json_response({"error": f"The change didn't go through: {e}"}, status=502)
+        return web.json_response({"ok": True})
 
     async def _backup(self, request: web.Request) -> web.StreamResponse:
         """Download a copy of the database. The Toon's SSH key and the options aren't in it."""

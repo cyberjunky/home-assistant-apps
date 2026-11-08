@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0
+
+**After updating:** nothing to do. The Dashboard can now change your thermostat; set the new option `read_only` to turn that off.
+
+- Control the thermostat from the Dashboard: raise or lower the setpoint, choose a preset, and turn the week program on or off.
+- The change goes to the Toon right away and the Dashboard shows the result. If it doesn't go through, you see why.
+- The Stats tiles also show what the total comes to per day, week, month or year, following your **Per** choice.
+- **Burner hours** on the Stats page now includes the Toon's own history, where it has burner minutes. It only counted from when the app started logging.
+- **Condensing** says since when it has data. It and the heat estimate rest on return temperatures, which are only recorded from version 0.2.0 on.
+
 ## 0.3.0
 
 **After updating:** nothing to do. New options are optional. The app now asks for access to Home Assistant's API, which it uses only to read the sensors you name.

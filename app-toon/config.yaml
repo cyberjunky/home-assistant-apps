@@ -1,5 +1,5 @@
 name: Toon
-version: "0.3.0"
+version: "0.4.0"
 slug: app-toon
 description: "Logger and dashboard for a rooted Toon thermostat - boiler, heating, energy and the Toon's own health"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-toon"
@@ -36,6 +36,7 @@ options:
     password: ""
     base_topic: toon
     discovery_prefix: homeassistant
+  read_only: false
   gas_kwh_per_m3: 9.77
   external_sensors: []
   log_level: info
@@ -57,6 +58,7 @@ schema:
     password: password?
     base_topic: 'match(^[A-Za-z0-9_/-]+$)?'
     discovery_prefix: 'match(^[A-Za-z0-9_/-]+$)?'
+  read_only: bool?
   gas_kwh_per_m3: float(1,20)?
   outside_temperature: 'match(^[a-z_]+\.[a-z0-9_]+$)?'
   external_sensors:

@@ -30,9 +30,12 @@ So you know what is at stake:
 - **The Toon's SSH key.** The key is remembered on first contact, and a changed
   key is refused until you turn on `ssh.trust_new_host_key`. The very first
   connection can't be verified this way.
-- **Read-only.** The app only invokes the actions listed in `src/boxtalk.py`,
-  none of which change your Toon. It does run one fixed read-only command over
-  SSH to collect the Toon's health values.
+- **What it can change.** Only the thermostat, through the fixed commands in
+  `src/control.py`: setpoint, preset and week program. They only run when someone
+  uses the Dashboard's controls, and only through Home Assistant's signed-in
+  ingress. The `read_only` option turns them off. On the message bus the app only
+  invokes the read-only actions listed in `src/boxtalk.py`. It also runs one fixed
+  read-only command over SSH to collect the Toon's health values.
 - **Energy and heating history** is stored in a local SQLite database in the
   app's data directory. It shows when you are home, so treat backups with care.
 - **MQTT.** Sensor values go to the broker you configured, or the one Home

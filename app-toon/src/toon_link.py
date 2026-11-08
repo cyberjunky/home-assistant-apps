@@ -1,9 +1,9 @@
 """The one connection to the Toon: a single SSH session carrying everything.
 
 The bus (port 1337) only listens on the Toon itself, so SSH is needed anyway, and all data comes
-from the bus or from a read-only command. The Toon's web server isn't used at all: more web requests
-seem to bring its hangs closer. That leaves one connection, one set of credentials and one place
-where a lost connection is noticed.
+from the bus or from a read-only command. The Toon's web server is only used when someone changes the
+thermostat (see control.py): more web requests seem to bring its hangs closer. That leaves one
+connection, one set of credentials and one place where a lost connection is noticed.
 
 A Toon runs Dropbear 0.51, which only speaks old algorithms. They are enabled for this connection
 only; there is no alternative as long as the Toon runs this software.
@@ -32,6 +32,7 @@ LEGACY_ALGORITHMS = {
     "compression_algs": ["none"],
 }
 BUS_PORT = 1337
+WEB_PORT = 80
 # A dead link is noticed after about 80 seconds: 3 unanswered keepalives, 20 seconds apart, plus one interval
 KEEPALIVE_INTERVAL = 20
 KEEPALIVE_COUNT = 3
@@ -64,6 +65,17 @@ class ToonSession:
     async def open_bus(self):
         """A stream pair connected to the message bus."""
         return await self._connection.open_connection("127.0.0.1", BUS_PORT, encoding=None)
+
+    async def web_get(self, path: str) -> bytes:
+        """The whole answer of the Toon's own web server to one request."""
+        reader, writer = await self._connection.open_connection("127.0.0.1", WEB_PORT, encoding=None)
+        try:
+            writer.write(
+                f"GET {path} HTTP/1.0\r\nHost: localhost\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n".encode()
+            )
+            return await asyncio.wait_for(reader.read(), COMMAND_TIMEOUT)
+        finally:
+            writer.close()
 
     async def run(self, command: str) -> str:
         """The output of a fixed, read-only command on the Toon."""

@@ -24,8 +24,9 @@ SERVICE_ID = "urn:hcb-hae-com:serviceId:"
 SERVICE_TYPE = "urn:hcb-hae-com:service:"
 DEVICE_TYPE = "urn:schemas-hcb-hae-com:device:"
 
-# The actions this app may invoke. Reading only for now: anything that changes the Toon has to be
-# added here deliberately, so a typo or a bug can never send one by accident.
+# The actions this app may invoke on the bus: reading only. Anything that changes the Toon would have
+# to be added here deliberately, so a typo or a bug can never send one by accident. Changing the
+# thermostat goes through the few fixed commands in control.py instead.
 READ_ONLY_ACTIONS = frozenset(
     {
         "GetBoilerType",

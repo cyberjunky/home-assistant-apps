@@ -9,6 +9,7 @@ from collections.abc import Callable
 
 import asyncssh
 
+from . import control
 from .boxtalk import BoxTalkClient, BoxTalkError, Device
 from .config import Config
 from .database import Database
@@ -97,6 +98,10 @@ def parse_system(output: str) -> dict[str, float]:
     return values
 
 
+class ToonNotConnected(Exception):
+    """A change can't be sent right now."""
+
+
 class ToonMonitor:
     """Runs one session after the other and holds the Toon's current state."""
 
@@ -120,6 +125,8 @@ class ToonMonitor:
         self._dispatch: dict[tuple[str, str], str] = {}
         self._subscribed: set[tuple[str, str]] = set()
         self._bus: BoxTalkClient | None = None
+        self._session: ToonSession | None = None
+        self._control_lock = asyncio.Lock()
         # An outage the app itself slept through can't be classified or dated
         if database.current_outage():
             database.close_outage(time.time(), "app_stopped")
@@ -145,6 +152,20 @@ class ToonMonitor:
                 self._stored[key] = (float(value), now)
         if changed:
             self._announce()
+
+    async def change(self, body: dict) -> None:
+        """Change the thermostat. Raises ValueError, CommandRefused or ToonNotConnected."""
+        description, commands = control.plan(body, self.values)
+        async with self._control_lock:
+            session, bus = self._session, self._bus
+            if not self.connected or session is None or bus is None:
+                raise ToonNotConnected("the Toon isn't connected")
+            for command in commands:
+                control.check_answer(await session.web_get(command))
+            logger.info(f"Changed the thermostat: {description}")
+            # Show the result right away, without waiting for the next poll
+            await self._query_all(bus)
+            await self._poll_fast(bus)
 
     def _announce(self) -> None:
         for listener in self.listeners:
@@ -208,6 +229,7 @@ class ToonMonitor:
         self.connected_since = None
         self.last_error = reason
         self._bus = None
+        self._session = None
         self._subscribed.clear()
         self._announce()
 
@@ -243,6 +265,7 @@ class ToonMonitor:
         reader, writer = await session.open_bus()
         bus = BoxTalkClient(reader, writer, self._on_notify, self._on_discovery)
         self._bus = bus
+        self._session = session
         reader_task = asyncio.create_task(bus.read_forever(), name="bus-reader")
         try:
             bus.hello()

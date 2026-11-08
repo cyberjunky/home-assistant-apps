@@ -69,7 +69,7 @@ function renderConfig() {
     ].join('');
     document.getElementById('set-about').innerHTML = [
         infoRow('App version', escapeHtml(s.version)),
-        infoRow('Mode', 'read-only'),
+        infoRow('Mode', c.read_only ? 'read-only' : 'can change the thermostat'),
         infoRow('Log level', escapeHtml(c.log_level)),
         infoRow('Documentation', '<a href="https://github.com/cyberjunky/home-assistant-apps/tree/main/app-toon" target="_blank" rel="noopener">on GitHub</a>'),
     ].join('');
