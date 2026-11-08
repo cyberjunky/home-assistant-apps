@@ -100,6 +100,18 @@ pgAgent and TimescaleDB Toolkit. Apache 2.0, derived from an earlier add-on (see
 
 [:books: Documentation](app-timescaledb/DOCS.md) · [:memo: Changelog](app-timescaledb/CHANGELOG.md) · [:lock: Security](app-timescaledb/SECURITY.md)
 
+### <img src="app-toon/icon.png" alt="" width="36" align="absmiddle"> [Toon](app-toon/)
+
+![Version][toon-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+Logger and dashboard for a rooted Toon thermostat, opened from the sidebar. Reads boiler,
+heating, energy and health values from the Toon's message bus over one SSH connection,
+imports its history and logs every outage. Read-only, published to Home Assistant over MQTT.
+
+[:books: Documentation](app-toon/DOCS.md) · [:memo: Changelog](app-toon/CHANGELOG.md) · [:lock: Security](app-toon/SECURITY.md)
+
 ## Releases
 
 Each app is versioned on its own, following [Semantic Versioning](https://semver.org/):
@@ -163,3 +175,4 @@ software each app packages keeps its own license, noted in the app's README.
 [goodwe-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-goodwe%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [meldkamer-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-meldkamer%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [teslameter-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-teslameter%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[toon-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-toon%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge

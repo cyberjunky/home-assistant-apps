@@ -1,0 +1,58 @@
+configuration:
+  ssh:
+    name: SSH connection
+    description: How to reach your Toon. All data goes through this one connection.
+    fields:
+      host:
+        name: Address
+        description: IP address or host name of the Toon.
+      port:
+        name: Port
+        description: SSH port of the Toon, normally 22.
+      username:
+        name: Username
+        description: SSH user, normally root.
+      password:
+        name: Password
+        description: SSH password of that user.
+      trust_new_host_key:
+        name: Trust a new SSH key
+        description: >-
+          Accept a changed SSH key of the Toon. Turn this on once after
+          reinstalling the Toon's software, then off again.
+  import_history:
+    name: Import history
+    description: Read the history the Toon keeps itself, up to 10 years, into the database.
+  raw_retention_days:
+    name: Keep samples (days)
+    description: How long every single sample is kept. Hourly values are kept for good.
+  mqtt:
+    name: MQTT
+    description: >-
+      Publishes the Toon to Home Assistant. Leave the host empty to use the
+      broker Home Assistant knows.
+    fields:
+      enabled:
+        name: Enabled
+        description: Publish the Toon over MQTT.
+      host:
+        name: Host
+        description: Address of the broker.
+      port:
+        name: Port
+        description: Port of the broker.
+      user:
+        name: User
+        description: User for the broker.
+      password:
+        name: Password
+        description: Password for the broker.
+      base_topic:
+        name: Base topic
+        description: Topic under which the Toon's state is published.
+      discovery_prefix:
+        name: Discovery prefix
+        description: Home Assistant's discovery prefix.
+  log_level:
+    name: Log level
+    description: Amount of logging.

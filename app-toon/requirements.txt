@@ -1,0 +1,10 @@
+# Python dependencies for Toon (installed in the Dockerfile).
+# aiohttp      - web server and ingress
+# asyncssh     - the one connection to the Toon
+# cryptography - asyncssh's crypto. Capped on purpose: a Toon only speaks finite-field Diffie-Hellman,
+#                which cryptography has announced it will remove. Test against a real Toon before raising.
+# paho-mqtt    - optional MQTT discovery for Home Assistant
+aiohttp>=3.14.5,<4
+asyncssh>=2.24.1,<3
+cryptography>=50.0.2,<51
+paho-mqtt>=2.1,<3

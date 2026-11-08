@@ -1,0 +1,59 @@
+configuration:
+  ssh:
+    name: SSH-verbinding
+    description: Hoe je Toon bereikt wordt. Alle gegevens gaan via deze ene verbinding.
+    fields:
+      host:
+        name: Adres
+        description: IP-adres of hostnaam van de Toon.
+      port:
+        name: Poort
+        description: SSH-poort van de Toon, normaal 22.
+      username:
+        name: Gebruikersnaam
+        description: SSH-gebruiker, normaal root.
+      password:
+        name: Wachtwoord
+        description: SSH-wachtwoord van die gebruiker.
+      trust_new_host_key:
+        name: Nieuwe SSH-sleutel vertrouwen
+        description: >-
+          Accepteer een gewijzigde SSH-sleutel van de Toon. Zet dit eenmalig
+          aan na het opnieuw installeren van de software van de Toon, en daarna
+          weer uit.
+  import_history:
+    name: Geschiedenis importeren
+    description: Lees de geschiedenis die de Toon zelf bijhoudt, tot 10 jaar terug, in de database.
+  raw_retention_days:
+    name: Metingen bewaren (dagen)
+    description: Hoe lang elke afzonderlijke meting bewaard blijft. Uurwaarden blijven altijd bewaard.
+  mqtt:
+    name: MQTT
+    description: >-
+      Publiceert de Toon naar Home Assistant. Laat de host leeg om de broker
+      te gebruiken die Home Assistant kent.
+    fields:
+      enabled:
+        name: Ingeschakeld
+        description: Publiceer de Toon via MQTT.
+      host:
+        name: Host
+        description: Adres van de broker.
+      port:
+        name: Poort
+        description: Poort van de broker.
+      user:
+        name: Gebruiker
+        description: Gebruiker voor de broker.
+      password:
+        name: Wachtwoord
+        description: Wachtwoord voor de broker.
+      base_topic:
+        name: Basistopic
+        description: Topic waaronder de status van de Toon wordt gepubliceerd.
+      discovery_prefix:
+        name: Discovery-prefix
+        description: De discovery-prefix van Home Assistant.
+  log_level:
+    name: Logniveau
+    description: Hoeveelheid logging.

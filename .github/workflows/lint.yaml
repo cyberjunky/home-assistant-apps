@@ -54,6 +54,7 @@ jobs:
           - app-goodwe
           - app-meldkamer
           - app-teslameter
+          - app-toon
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v7.0.1
