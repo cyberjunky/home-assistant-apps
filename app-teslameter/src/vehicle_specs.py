@@ -148,6 +148,7 @@ _REFRESH_PAINT = {
     "PMSS": "PN00",
     "PMTG": "PN01",
     "PPMR": "PR01",
+    "PR00": "PR01",
     "PPSR": "PR01",
     "PMBL": "PX02",
     "PBCW": "PPSW",
@@ -284,6 +285,13 @@ def image_url(
     return f"https://static-assets.tesla.com/configurator/compositor?{query}"
 
 
+def image_scale(url: str | None) -> float:
+    """How much to enlarge a picture: Tesla leaves wide margins around the car, wider on some."""
+    if not url:
+        return 1.0
+    return 2.0 if "$MT369" in url or "$MTY47" in url or "model=mx" in url else 1.6
+
+
 def describe(
     car_type: str | None,
     trim_badging: str | None,
@@ -301,5 +309,6 @@ def describe(
         "color_hex": color_hex(exterior_color),
         "wheels_name": wheels_name(wheel_type),
         "image_url": url,
+        "image_scale": image_scale(url),
         "image_key": hashlib.sha256(url.encode()).hexdigest()[:12] if url else None,
     }
