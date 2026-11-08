@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import csv
+import hashlib
 import io
 import json
 import logging
@@ -19,7 +20,7 @@ from aiohttp import web
 
 from . import history_import, signin_browser, stats
 from .billing import ChargingCosts
-from .config import ADDON_VERSION, Config
+from .config import ADDON_VERSION, DATA_DIR, Config
 from .database import Database, place_key
 from .ha_client import HAClient, HAClientError
 from .monitor import Garage
@@ -36,6 +37,8 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 INGRESS_ADDRESS = "172.30.32.2"
 MAP_MAX_ZOOM = 19
 MAP_TILE_MAX_AGE = 7 * 24 * 60 * 60
+# Where the pictures of the cars are kept, under the app's data folder
+CAR_IMAGE_DIR = "car-images"
 STREAM_HEARTBEAT = 15
 # Points sent for one drive or charge; more only costs transfer time, not detail on screen
 MAX_TRACK_POINTS = 1500
@@ -75,6 +78,14 @@ async def _json_body(request: web.Request) -> dict:
     if not isinstance(body, dict):
         raise web.HTTPBadRequest(text=json.dumps({"error": "Expected a JSON object"}), content_type="application/json")
     return body
+
+
+def _write_file(path: Path, body: bytes) -> None:
+    """Write a file whole or not at all."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_bytes(body)
+    temporary.replace(path)
 
 
 def _idle_import_progress() -> dict:
@@ -148,6 +159,7 @@ class WebUI:
         post("/api/cars/{car:[0-9]+}/refresh", self._handle_refresh)
         post("/api/cars/{car:[0-9]+}/wake", self._handle_wake)
         get("/api/cars/{car:[0-9]+}/history-counts", self._handle_car_counts)
+        get("/api/cars/{car:[0-9]+}/image", self._handle_car_image)
         self.app.router.add_delete("/api/cars/{car:[0-9]+}", self._handle_remove_car)
 
         get("/api/drives", self._handle_drives)
@@ -532,6 +544,34 @@ class WebUI:
         days = _int(request, "days", 0, 0, 3650)
         since = int(time.time()) - days * 86400 if days > 0 else 0
         return web.json_response({"points": self.database.heat_positions(car_id, since)})
+
+    async def _handle_car_image(self, request: web.Request) -> web.StreamResponse:
+        """The picture of a car: fetched from Tesla once, then kept here. It holds nothing but model and paint."""
+        monitor = self.garage.monitors.get(int(request.match_info["car"]))
+        url = monitor.view().get("image_url") if monitor else None
+        if not url:
+            return web.Response(status=404)
+        path = DATA_DIR / CAR_IMAGE_DIR / f"{hashlib.sha256(url.encode()).hexdigest()[:24]}.png"
+        if not path.exists():
+            try:
+                body = await self._fetch_car_image(url)
+                await asyncio.to_thread(_write_file, path, body)
+            except (aiohttp.ClientError, TimeoutError, OSError, ValueError) as e:
+                logger.info(f"Could not get the car's picture from Tesla: {e}")
+                return web.Response(status=404)
+        return web.FileResponse(path, headers={"Cache-Control": "private, max-age=604800"})
+
+    async def _fetch_car_image(self, url: str) -> bytes:
+        # Tesla's servers turn away requests that don't look like a browser
+        headers = {"User-Agent": "Mozilla/5.0"}
+        async with (
+            aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as session,
+            session.get(url) as resp,
+        ):
+            resp.raise_for_status()
+            if not resp.content_type.startswith("image/"):
+                raise ValueError(f"got {resp.content_type}")
+            return await resp.read()
 
     async def _handle_car_counts(self, request: web.Request) -> web.Response:
         return web.json_response(self.database.car_history_counts(int(request.match_info["car"])))

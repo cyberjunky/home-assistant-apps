@@ -7,7 +7,8 @@
 - **Charging history went to the wrong car.** Tesla can answer with the whole account's Supercharger sessions, whichever car is asked about, and each car got all of them. A car that was on your account for a few weeks ended up with sessions it never had. Sessions now go to the car Tesla's record names.
 - **Cars that aren't on your Tesla account** are no longer asked about: no more "404 not_found", and the card says so. Their history stays until you press **Remove car**, which deletes them with what is recorded under them and shows how much that is first. An import doesn't bring a removed car back. Their entities disappear from Home Assistant too.
 - A car that comes in through an import shows right away, with the paint and wheels the import knows, instead of after the next restart.
-- **Model Y pictures.** Tesla only has the Model Y at a three-quarter angle, and we asked for the side view, so a Model Y always got the drawing. Facelifted Model S and X now get a picture too.
+- **Car pictures.** The new Model 3 (2024 on) and Model Y (2025 on) show their own new shape, worked out from the wheels and model year. Older Model Y, which Tesla only has at a three-quarter angle, and facelifted Model S and X now get a picture too, with their wheels. Each picture is fetched once and kept by the app, so it also shows when Tesla's server can't be reached. A car whose paint isn't known yet shows in white. Quicksilver and Stealth Grey were swapped.
+- **New drawings** for when there is no picture, as for Cybertruck and Roadster: one per model, slimmer and to scale, with windows, doors, lights and proper wheels.
 - When an import fails, its button works again, so you can correct the details and start it right away. It used to stay on "Importing…" until you closed the dialog.
 - Import connection errors say what to check: the login, the database name, or the host and port.
 

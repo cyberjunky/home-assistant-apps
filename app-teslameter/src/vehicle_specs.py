@@ -7,6 +7,7 @@ to Tesla's own configurator image when the paint can be mapped to its code.
 Unknown codes are formatted as best as possible instead of dropped.
 """
 
+import hashlib
 import re
 
 MODELS = {
@@ -77,10 +78,10 @@ COLORS = {
     "Silver": ("Silver Metallic", "#b4b7ba", "PMSS"),
     "SilverMetallic": ("Silver Metallic", "#b4b7ba", "PMSS"),
     "TitaniumMetallic": ("Titanium Metallic", "#6b6a67", "PMTG"),
-    "Quicksilver": ("Quicksilver", "#b0b4b8", "PN01"),
-    "QuickSilver": ("Quicksilver", "#b0b4b8", "PN01"),
-    "StealthGrey": ("Stealth Grey", "#4a4d50", "PN00"),
-    "StealthGray": ("Stealth Grey", "#4a4d50", "PN00"),
+    "Quicksilver": ("Quicksilver", "#b0b4b8", "PN00"),
+    "QuickSilver": ("Quicksilver", "#b0b4b8", "PN00"),
+    "StealthGrey": ("Stealth Grey", "#4a4d50", "PN01"),
+    "StealthGray": ("Stealth Grey", "#4a4d50", "PN01"),
     "UltraRed": ("Ultra Red", "#8c1420", "PR01"),
     "MidnightCherryRed": ("Midnight Cherry Red", "#43101a", "PR00"),
     "DiamondBlack": ("Diamond Black", "#17181a", "PMBL"),
@@ -121,8 +122,36 @@ _COMPOSITOR_MODEL = {
     "modelx": "mx",
     "tamarind": "mx",
 }
-# Tesla only serves the Model Y at this angle, not from the side
-_COMPOSITOR_VIEW = {"my": "STUD_3QTR"}
+# The 10th character of a VIN is the model year
+_VIN_YEARS = {
+    "L": 2020,
+    "M": 2021,
+    "N": 2022,
+    "P": 2023,
+    "R": 2024,
+    "S": 2025,
+    "T": 2026,
+    "V": 2027,
+    "W": 2028,
+    "X": 2029,
+    "Y": 2030,
+}
+# The new Model 3 and Model Y bodies: the first model year that is all new, and wheels only they have
+_REFRESH_YEAR = {"m3": 2024, "my": 2026}
+_REFRESH_WHEELS = {
+    "m3": {"Photon18", "Glider18", "Nova19", "Nova20", "Photon19"},
+    "my": {"HelixV220", "Helix20", "Crossflow19"},
+}
+# Paints of the older bodies that the new ones don't come in, and the closest they do
+_REFRESH_PAINT = {
+    "PMNG": "PN01",
+    "PMSS": "PN00",
+    "PMTG": "PN01",
+    "PPMR": "PR01",
+    "PPSR": "PR01",
+    "PMBL": "PX02",
+    "PBCW": "PPSW",
+}
 _COMPOSITOR_WHEEL = {
     # Model 3
     "Pinwheel18": "W38B",
@@ -168,15 +197,18 @@ def model_name(car_type: str | None, vin: str | None = None) -> str:
 
 
 def body_style(car_type: str | None, vin: str | None = None) -> str:
-    """The silhouette to draw: "sedan", "suv", "truck" or "roadster"."""
+    """Which of the dashboard's drawings fits the car."""
     key = str(car_type or "").lower() or (car_type_from_vin(vin) or "")
-    if key in ("modely", "modelx", "tamarind"):
-        return "suv"
-    if key == "cybertruck":
-        return "truck"
-    if key == "roadster":
-        return "roadster"
-    return "sedan"
+    return {
+        "modely": "modely",
+        "models": "models",
+        "models2": "models",
+        "lychee": "models",
+        "modelx": "modelx",
+        "tamarind": "modelx",
+        "cybertruck": "truck",
+        "roadster": "roadster",
+    }.get(key, "model3")
 
 
 def trim_name(car_type: str | None, trim_badging: str | None, vin: str | None = None) -> str:
@@ -204,24 +236,51 @@ def wheels_name(wheel_type: str | None) -> str:
     return WHEELS.get(wheel_type) or _spaced(wheel_type)
 
 
-def image_url(car_type: str | None, exterior_color: str | None, wheel_type: str | None) -> str | None:
-    """A link to Tesla's configurator render of a car in this paint and wheels, None when the paint is unknown.
+def _model_year(vin: str | None) -> int | None:
+    """The model year in a VIN's 10th character, from 2020 on."""
+    code = vin[9].upper() if vin and len(vin) >= 10 else ""
+    return _VIN_YEARS.get(code)
 
-    Only built when the paint code is known, so the picture's colour is right;
-    the dashboard tints its own car silhouette to color_hex otherwise.
-    """
+
+def _is_refreshed(model: str, vin: str | None, wheel_type: str | None) -> bool:
+    """Whether a Model 3 or Y has the new body (2024 "Highland", 2025 "Juniper"). No report says so: the
+    wheels only fit one body, and otherwise the model year decides, from the first full year of the new one."""
+    wheel = wheel_type or ""
+    if wheel in _REFRESH_WHEELS[model]:
+        return True
+    if wheel in _COMPOSITOR_WHEEL:
+        return False
+    year = _model_year(vin)
+    return bool(year) and year >= _REFRESH_YEAR[model]
+
+
+def image_url(
+    car_type: str | None, exterior_color: str | None, wheel_type: str | None, vin: str | None = None
+) -> str | None:
+    """A link to Tesla's configurator picture of the car. In white while the paint isn't known or has no
+    picture, and None for the models Tesla has no pictures of."""
     model = _COMPOSITOR_MODEL.get(str(car_type or "").lower())
-    paint = COLORS.get(exterior_color or "", (None, None, None))[2]
-    if not model or not paint:
+    if not model:
         return None
-    # A wheel code must always be sent, else the compositor draws empty wheel wells.
-    # Fall back to the model's base wheel when the exact one isn't known.
-    wheel = _COMPOSITOR_WHEEL.get(wheel_type or "") or _COMPOSITOR_DEFAULT_WHEEL.get(model)
-    options = [paint, wheel] if wheel else [paint]
-    query = (
-        f"context=design_studio_2&options=${',$'.join(options)}"
-        f"&view={_COMPOSITOR_VIEW.get(model, 'STUD_SIDE')}&model={model}&size=1400&bkba_opt=1&crop=0,0,0,0"
-    )
+    paint = COLORS.get(exterior_color or "", (None, None, None))[2] or "PPSW"
+    view = "STUD_SIDE"
+    if model in _REFRESH_YEAR and _is_refreshed(model, vin, wheel_type):
+        # The new bodies only come with some paints, and with a trim and interior code or not at all
+        paint = _REFRESH_PAINT.get(paint, paint)
+        if model == "m3":
+            big_wheels = "19" in (wheel_type or "") or "20" in (wheel_type or "")
+            options = ["MT369", paint, "W39S" if big_wheels else "W38A", "IPB1"]
+        else:
+            options = ["MTY47", paint, "WY19P", "IPB10"]
+    else:
+        # A wheel code must always be sent, else the compositor draws empty wheel wells.
+        # Fall back to the model's base wheel when the exact one isn't known.
+        wheel = _COMPOSITOR_WHEEL.get(wheel_type or "") or _COMPOSITOR_DEFAULT_WHEEL.get(model)
+        options = [paint, wheel] if wheel else [paint]
+        # Tesla only serves the older Model Y at this angle, not from the side
+        if model == "my":
+            view = "STUD_3QTR"
+    query = f"context=design_studio_2&options=${',$'.join(options)}&view={view}&model={model}&size=1400&bkba_opt=1&crop=0,0,0,0"
     return f"https://static-assets.tesla.com/configurator/compositor?{query}"
 
 
@@ -233,6 +292,7 @@ def describe(
     vin: str | None = None,
 ) -> dict:
     """All of the above in one call, for a car's view."""
+    url = image_url(car_type or car_type_from_vin(vin), exterior_color, wheel_type, vin)
     return {
         "model_name": model_name(car_type, vin),
         "body_style": body_style(car_type, vin),
@@ -240,5 +300,6 @@ def describe(
         "color_name": color_name(exterior_color),
         "color_hex": color_hex(exterior_color),
         "wheels_name": wheels_name(wheel_type),
-        "image_url": image_url(car_type or car_type_from_vin(vin), exterior_color, wheel_type),
+        "image_url": url,
+        "image_key": hashlib.sha256(url.encode()).hexdigest()[:12] if url else None,
     }

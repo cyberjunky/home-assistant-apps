@@ -546,7 +546,7 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; line-height:
 .car-visual .car-photo { width: 100%; height: 100%; object-fit: contain; display: block; }
 .car-visual .car-sil { display: none; width: 88%; max-width: 300px; height: 92%; }
 .car-visual.no-photo .car-sil { display: block; }
-.car-visual .car-sil svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.25)); }
+.car-visual .car-sil svg { width: 100%; height: 100%; display: block; }
 
 /* Dashboard car header: name/trim on the left, status+date then the car image on the right */
 .car-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
