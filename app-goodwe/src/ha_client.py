@@ -60,6 +60,13 @@ class HAClient:
             logger.info(f"Home location not available from Home Assistant ({e})")
             return None
 
+    async def get_state(self, entity_id: str) -> dict:
+        """One entity's state object ({"state": ..., "attributes": {...}}); raises HAClientError."""
+        body = await self._get(f"{CORE_API_URL}/states/{entity_id}")
+        if not isinstance(body, dict):
+            raise HAClientError(f"Unexpected answer for {entity_id}")
+        return body
+
     async def get_mqtt_service(self) -> dict | None:
         """The broker of Home Assistant's MQTT service (Mosquitto add-on), None when there is none."""
         try:

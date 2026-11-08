@@ -41,6 +41,7 @@ function periodTitle(period, bucket) {
 }
 
 function renderStatTiles(s) {
+    const miners = minersInfo(app.control);
     document.getElementById('stats-tiles').innerHTML = [
         tile('Solar', energyUnit(s.e_day), s.average_kwh ? `${fmtKwh(s.average_kwh)} per day · ${s.days} day${s.days === 1 ? '' : 's'}` : `${s.days} day${s.days === 1 ? '' : 's'}`, 'solar'),
         tile('Home', energyUnit(s.e_load_day), s.days ? `${fmtKwh(s.e_load_day / s.days)} per day` : '', 'load'),
@@ -54,6 +55,10 @@ function renderStatTiles(s) {
         tile('Solar surplus', withUnit(num(s.surplus_hours, 1), 'h'), s.days ? `${num(s.surplus_hours / s.days, 1)} h per day · signal on` : '', 'surplus'),
         tile('Solar used in surplus', energyUnit(s.e_surplus_day), 'to the home while the signal was on', 'solar'),
         tile('Curtailed', s.e_curtailed_day ? `≈ ${energyUnit(s.e_curtailed_day)}` : energyUnit(0), 'estimated, under zero export', 'exporting'),
+        ...(miners ? [
+            tile(`${miners.name} ran`, withUnit(num(s.miners_hours || 0, 1), 'h'), s.days ? `${num((s.miners_hours || 0) / s.days, 1)} h per day` : '', 'miners'),
+            tile(`${miners.name} used`, energyUnit(s.e_miners_day || 0), s.e_load_day ? `${fmtPct((s.e_miners_day || 0) / s.e_load_day * 100)} of the home's energy` : '', 'miners'),
+        ] : []),
     ].join('');
 }
 
@@ -78,11 +83,16 @@ function renderPeriodCharts(periods, bucket) {
     });
     document.getElementById('chart-battery-hint').textContent = labelled.some(p => !missing(p.cycles)) ? 'kWh · cycles in the tooltip' : 'kWh';
     document.getElementById('legend-battery').innerHTML = legendHtml([{name: 'Charged', color: c.chg}, {name: 'Discharged', color: c.dis}]);
+    const miners = minersInfo(app.control);
+    const surplusSeries = [{name: 'Solar used during surplus', color: c.solar}, {name: 'Curtailed (estimate)', color: cssVar('--danger-color')}];
+    if (miners) surplusSeries.push({name: miners.name, color: cssVar('--miners')});
     barChart(document.getElementById('chart-surplus'), {
-        data: labelled.map(p => ({label: p.label, tipTitle: `${p.title} · surplus ${num(p.surplus_hours, 1)} h`, values: [p.e_surplus_day, p.e_curtailed_day]})),
-        series: [{name: 'Solar used during surplus', color: c.solar}, {name: 'Curtailed (estimate)', color: cssVar('--danger-color')}], grouped: true, format: v => fmtKwh(v), labelWidth,
+        data: labelled.map(p => ({label: p.label, tipTitle: `${p.title} · surplus ${num(p.surplus_hours, 1)} h${miners ? ` · ${miners.name} ${num(p.miners_hours || 0, 1)} h` : ''}`,
+            values: miners ? [p.e_surplus_day, p.e_curtailed_day, p.e_miners_day || 0] : [p.e_surplus_day, p.e_curtailed_day]})),
+        series: surplusSeries, grouped: true, format: v => fmtKwh(v), labelWidth,
     });
-    document.getElementById('legend-surplus').innerHTML = legendHtml([{name: 'Solar to the home while the surplus signal was on', color: c.solar}, {name: 'Curtailed under zero export (estimate)', color: cssVar('--danger-color')}]);
+    document.getElementById('legend-surplus').innerHTML = legendHtml([{name: 'Solar to the home while the surplus signal was on', color: c.solar}, {name: 'Curtailed under zero export (estimate)', color: cssVar('--danger-color')},
+        ...(miners ? [{name: `${miners.name} (energy used)`, color: cssVar('--miners')}] : [])]);
     const every = Math.max(1, Math.ceil(labelled.length / 8));
     lineChart(document.getElementById('chart-self'), {
         x: labelled.map((p, i) => i),
@@ -111,6 +121,7 @@ function renderRecords(records) {
         item('Most charged', r.most_charged, v => fmtKwh(v)),
         item('Longest surplus', r.longest_surplus, v => `${num(v, 1)} h`),
         item('Most curtailed', r.most_curtailed, v => `≈ ${fmtKwh(v)}`),
+        ...(minersInfo(app.control) ? [item(`${minersInfo(app.control).name}: longest`, r.longest_miners, v => `${num(v, 1)} h`)] : []),
     ].join('');
     document.getElementById('records').innerHTML = html || '<div class="empty-state" style="padding:20px;background:var(--ha-card-background)">No data in this period</div>';
 }
@@ -132,7 +143,8 @@ async function loadDayDetail() {
         const rows = day.series || [];
         const xs = rows.map(r => r.ts);
         const step = (day.bucket_min || 5) * 60;
-        const c = {solar: cssVar('--solar'), load: cssVar('--load'), grid: cssVar('--grid-imp'), bat: cssVar('--bat-chg'), chg: cssVar('--bat-chg'), dis: cssVar('--bat-dis'), hold: cssVar('--soc')};
+        const c = {solar: cssVar('--solar'), load: cssVar('--load'), grid: cssVar('--grid-imp'), bat: cssVar('--bat-chg'), chg: cssVar('--bat-chg'), dis: cssVar('--bat-dis'), hold: cssVar('--soc'), miners: cssVar('--miners')};
+        const miners = minersInfo(app.control) || (rows.some(r => r.miners) ? {name: 'Miners'} : null);
         lineChart(el, {
             x: xs,
             series: [
@@ -140,6 +152,7 @@ async function loadDayDetail() {
                 {name: 'Home', color: c.load, values: rows.map(r => r.load / 1000)},
                 {name: 'Grid (+ import)', color: c.grid, values: rows.map(r => r.grid / 1000), width: 1.5},
                 {name: 'Battery (+ charging)', color: c.bat, values: rows.map(r => r.battery / 1000), width: 1.5},
+                ...(miners ? [{name: miners.name, color: c.miners, values: rows.map(r => (r.miners || 0) / 1000), dash: '5 3', width: 1.5}] : []),
             ],
             height: 240, zero: true,
             bands: stateBands(xs, rows.map(r => r.state), {charge: c.chg, discharge: c.dis, hold: c.hold}, step),
@@ -151,6 +164,7 @@ async function loadDayDetail() {
             {name: 'Solar', color: c.solar}, {name: 'Home', color: c.load}, {name: 'Grid (above 0 = import)', color: c.grid, kind: 'line'},
             {name: 'Battery (above 0 = charging)', color: c.bat, kind: 'line'}, {name: 'Charging', color: c.chg, kind: 'band'},
             {name: 'Discharging', color: c.dis, kind: 'band'}, {name: 'Held', color: c.hold, kind: 'band'},
+            ...(miners ? [{name: `${miners.name} (part of home)`, color: c.miners, kind: 'line'}] : []),
         ]);
         const s = day.summary || {};
         document.getElementById('day-summary').innerHTML = s.date ? [
@@ -160,6 +174,7 @@ async function loadDayDetail() {
             tile('Exported', energyUnit(s.e_day_exp, 2), '', 'exporting'),
             tile('Battery', `${energyUnit(s.e_bat_charge_day, 2)} <small>in</small>`, `${fmtKwh(s.e_bat_discharge_day, 2)} out · SoC ${num(s.soc_min)}–${num(s.soc_max)}%`, 'charging'),
             tile('Solar surplus', withUnit(num(s.surplus_hours, 1), 'h'), `${fmtKwh(s.e_surplus_day, 2)} used · ≈ ${fmtKwh(s.e_curtailed_day, 2)} curtailed`, 'surplus'),
+            ...(miners ? [tile(miners.name, withUnit(num(s.miners_hours || 0, 1), 'h'), `${fmtKwh(s.e_miners_day || 0, 2)} used`, 'miners')] : []),
         ].join('') : '';
     } catch (e) {
         emptyChart(el, e.message);

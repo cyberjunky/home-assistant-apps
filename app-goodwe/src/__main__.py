@@ -13,6 +13,7 @@ from .events import EventBus
 from .forecast import Forecast
 from .ha_client import HAClient
 from .inverter import InverterLink
+from .miners import Miners
 from .mqtt import MqttPublisher
 from .recorder import Recorder
 from .webui import WebUI
@@ -40,6 +41,8 @@ async def main() -> int:
     forecast = Forecast(config, ha_client, DATA_DIR)
     link = InverterLink(config, events)
     controller = BatteryController(link, forecast, events, DATA_DIR)
+    # After the controller (its listener stamps the surplus signal), before the recorder (stores it)
+    controller.miners = Miners(config, ha_client, link, events)
     recorder = Recorder(database, link, forecast, events)
     mqtt = MqttPublisher(config, ha_client, link, controller, forecast, events)
     webui = WebUI(WEB_PORT, config, database, link, controller, forecast, mqtt, events)
@@ -61,6 +64,7 @@ async def main() -> int:
         asyncio.create_task(link.run(), name="inverter"),
         asyncio.create_task(recorder.run(), name="recorder"),
         asyncio.create_task(controller.run(), name="controller"),
+        asyncio.create_task(forever(controller.miners.run()), name="miners"),
         asyncio.create_task(forever(mqtt.run()), name="mqtt"),
     ]
 

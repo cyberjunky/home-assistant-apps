@@ -23,6 +23,16 @@ configuration:
       zon, accu, net en huis, de accubesturing, en een event-entiteit voor
       moduswisselingen, omvormercommando's en meldingen. Laat host leeg om de
       broker van Home Assistant zelf (Mosquitto add-on) te gebruiken.
+  miners:
+    name: Miners (overschotverbruikers)
+    description: >-
+      De verbruikers die je Home Assistant-automatisering aanzet met de sensor
+      Zonne-overschot, bijvoorbeeld bitcoin-miners: een naam, hun totale
+      nominale vermogen in W, en eventueel de entiteit die zegt of ze draaien
+      (een switch of input_boolean) of wat ze verbruiken (een vermogenssensor in
+      W of kW). Zonder entiteit tellen ze als draaiend zolang het
+      overschotsignaal aan is. Te zien op het dashboard, in de statistieken en
+      als MQTT-sensoren. Vermogen 0 en geen entiteit: uit.
   log_level:
     name: Logniveau
     description: Hoeveel detail de add-on naar het log schrijft.

@@ -127,6 +127,7 @@ class BatteryController:
         self.work_mode: int | None = None  # the inverter's work mode, as last read
         self._settings_retry_at = 0.0
         self.settings_error: str | None = None  # why the last settings read failed, until one succeeds
+        self.miners = None  # the surplus loads (miners.Miners), set by __main__
         self._brake_retry_at = 0.0
         # Surplus signal
         self.surplus = False
@@ -214,6 +215,7 @@ class BatteryController:
             "surplus_w": self.surplus_w,
             "curtailed_w": self.curtailed_w,
             "surplus_reason": self.surplus_reason,
+            "miners": self.miners.state() if self.miners else {"enabled": False},
         }
 
     # ------------------------------------------------------------------

@@ -83,6 +83,13 @@ BINARY_SENSORS = (
     ("exporting", "Exporting", None, "mdi:transmission-tower-export"),
     ("fault", "Fault", "problem", None),
 )
+# The miners (surplus loads): only announced when configured, removed again when not
+MINER_SENSORS = (
+    ("miners_power", "Miners power", "power", "W", "measurement", "mdi:bitcoin", False),
+    ("miners_today", "Miners today", "duration", "h", "total_increasing", "mdi:timer-outline", False),
+    ("miners_energy_today", "Miners energy today", "energy", "kWh", "total_increasing", "mdi:bitcoin", False),
+)
+MINER_BINARY_SENSORS = (("miners_running", "Miners running", "running", "mdi:bitcoin"),)
 # Entities of earlier versions, removed from Home Assistant on discovery: (component, key)
 REMOVED = (("binary_sensor", "charge_cap_active"),)
 
@@ -104,6 +111,7 @@ def state_payload(data: dict, control: dict, inverter: dict, forecast: dict) -> 
         hold = "held" if int(control["dod_reported"]) == 0 else "discharging"
     fault = str(data.get("error_codes") or "0") not in ("0", "", "None")
     capacity = float(control.get("battery_capacity_kwh") or 0)
+    miners = control.get("miners") or {}
     return {
         "pv_power": num("ppv", 0),
         "pv1_power": num("ppv1", 0),
@@ -158,6 +166,10 @@ def state_payload(data: dict, control: dict, inverter: dict, forecast: dict) -> 
         "zero_export": bool(control.get("zero_export")),
         "exporting": (num("pgrid", 0) or 0) < -30,
         "fault": fault,
+        "miners_power": miners.get("watts"),
+        "miners_today": num("miners_hours"),
+        "miners_energy_today": num("e_miners_day"),
+        "miners_running": bool(miners.get("on")),
     }
 
 
@@ -313,7 +325,22 @@ class MqttPublisher:
             "origin": {"name": "GoodWe", "sw_version": ADDON_VERSION},
         }
         prefix = self.config.mqtt_discovery_prefix
-        for key, name, device_class, unit, state_class, icon, diagnostic in SENSORS:
+        miners = (self.controller.state().get("miners") or {}).get("enabled")
+        miner_name = self.config.miners_name
+        sensors = SENSORS + tuple(
+            (key, name.replace("Miners", miner_name), *rest) for key, name, *rest in (MINER_SENSORS if miners else ())
+        )
+        binary_sensors = BINARY_SENSORS + tuple(
+            (key, name.replace("Miners", miner_name), *rest)
+            for key, name, *rest in (MINER_BINARY_SENSORS if miners else ())
+        )
+        removed = REMOVED + (
+            ()
+            if miners
+            else tuple(("sensor", s[0]) for s in MINER_SENSORS)
+            + tuple(("binary_sensor", s[0]) for s in MINER_BINARY_SENSORS)
+        )
+        for key, name, device_class, unit, state_class, icon, diagnostic in sensors:
             config = {
                 **common,
                 "name": name,
@@ -331,7 +358,7 @@ class MqttPublisher:
             if diagnostic:
                 config["entity_category"] = "diagnostic"
             self._client.publish(f"{prefix}/sensor/{node}/{key}/config", json.dumps(config), qos=1, retain=True)
-        for key, name, device_class, icon in BINARY_SENSORS:
+        for key, name, device_class, icon in binary_sensors:
             config = {
                 **common,
                 "name": name,
@@ -343,7 +370,7 @@ class MqttPublisher:
             if icon:
                 config["icon"] = icon
             self._client.publish(f"{prefix}/binary_sensor/{node}/{key}/config", json.dumps(config), qos=1, retain=True)
-        for component, key in REMOVED:
+        for component, key in removed:
             # An empty retained config removes the entity from Home Assistant
             self._client.publish(f"{prefix}/{component}/{node}/{key}/config", "", qos=1, retain=True)
         event = {
@@ -358,5 +385,5 @@ class MqttPublisher:
         }
         self._client.publish(f"{prefix}/event/{node}/events/config", json.dumps(event), qos=1, retain=True)
         logger.info(
-            f"MQTT: announced {len(SENSORS)} sensors, {len(BINARY_SENSORS)} binary sensors and the event entity"
+            f"MQTT: announced {len(sensors)} sensors, {len(binary_sensors)} binary sensors and the event entity"
         )

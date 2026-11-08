@@ -91,6 +91,14 @@ folder. The Dashboard shows what the controller is doing.
   Every day the app records how long the signal was on, how much solar went to the home
   meanwhile (the loads you switched on, plus the house), and an estimate of the solar
   curtailed under zero export; see Stats.
+- **Miners.** The loads you switch on with the surplus signal (bitcoin miners, say) can be
+  followed too: set their total rated power under `miners` in the configuration. The app
+  doesn't switch them, your automation does; it shows whether they run, since when and what
+  they draw, on the dashboard and as MQTT sensors, and counts their hours and energy per
+  day in Stats. With `miners.entity` set it reads that entity: a switch, input_boolean or
+  binary_sensor (on/off, counted at the rated power), or a power sensor in W or kW (the
+  actual draw; running above 5% of the rated power). Without an entity they count as
+  running whenever the surplus signal is on, at the rated power.
 
 The charge cap of 0.1.x ("stop charging at") is gone: with zero export it only threw solar
 away (braked surplus is curtailed, not exported), and LFP batteries take a full charge in
@@ -106,10 +114,10 @@ overrides that).
   solar → battery, grid → home, …) and shows curtailment and the surplus signal; the
   battery (state of charge, power, voltage, temperature, health, BMS limits, cycles); the
   solar panels and PV strings against the forecast; what the controller is doing (work
-  mode, hold, zero export, surplus, today's surplus hours and curtailment); the last two
-  hours of power; and today's production and battery charts.
+  mode, hold, zero export, surplus, today's surplus hours and curtailment, and the miners
+  when configured); the last two hours of power; and today's production and battery charts.
 - **Stats** — Pick a period and bar size. Energies per period, grid, battery (with cycles),
-  solar surplus and curtailment, self-sufficiency and self-consumption; a day detail with
+  solar surplus, curtailment and the miners' energy and hours, self-sufficiency and self-consumption; a day detail with
   the battery's state and that day's energy flow as a Sankey diagram (the last 14 days);
   the solar forecast for the next days, its accuracy, yields per month and per year; records.
 - **Settings** — The battery control; inverter details; the inverter's settings as read
@@ -127,6 +135,9 @@ overrides that).
 | `forecast.enabled` | `true` | Fetch the solar forecast (needed for auto-hold and the surplus estimate under zero export) |
 | `forecast.latitude` / `longitude` | `0` | Location of the panels; `0` uses Home Assistant's home location |
 | `forecast.panels` | one group of 4 kWp | One entry per roof side, for the panels facing the same way: `name`, `kwp` (peak power), `tilt` (0 = flat, 90 = vertical), `azimuth` (0 = south, −90 = east, 90 = west) |
+| `miners.name` | `BTC miners` | What the surplus loads are called on the dashboard and in Home Assistant |
+| `miners.power_w` | `0` | Their total rated power in W. `0` without an entity: not shown |
+| `miners.entity` | | Optional: the Home Assistant entity that says whether they run (`switch.…`, `input_boolean.…`, `binary_sensor.…`) or what they draw (a power `sensor.…` in W or kW). Empty: they follow the surplus signal |
 | `log_level` | `info` | `debug`, `info`, `warning` or `error` |
 
 ### MQTT
@@ -146,9 +157,9 @@ The inverter becomes a device named after its model with:
   hours, battery hold (`held` / `discharging`), depth of discharge, the auto-hold decision,
   the solar surplus in watts, solar surplus today (hours) and the solar used during it,
   curtailed power and curtailed today (estimates), and the forecast for today, tomorrow and
-  this hour
+  this hour; with miners configured also their power, hours today and energy today
 - **Binary sensors** — inverter connected, **solar surplus**, battery held, auto-hold,
-  zero export, exporting, work mode not General, fault
+  zero export, exporting, work mode not General, fault; with miners configured, *running*
 - **Events** — an event entity whose `event_type` is one of the app's events, with the
   message and details as attributes
 
@@ -163,7 +174,8 @@ The state is one retained JSON message on `goodwe/state`, sent when something ch
 `hold_violation`, `hold_violation_recovered`,
 `zero_export_set`, `export_violation`, `export_violation_recovered`,
 `write_budget_exhausted`, `fault_detected`, `fault_cleared`, `grid_outage`, `grid_restored`,
-`battery_full`, `battery_low`, `surplus_started`, `surplus_ended`.
+`battery_full`, `battery_low`, `surplus_started`, `surplus_ended`, `miners_started`,
+`miners_stopped`.
 
 A Telegram message for every command the app sends and every alert, as a Home Assistant
 automation (replace the entity id with yours):

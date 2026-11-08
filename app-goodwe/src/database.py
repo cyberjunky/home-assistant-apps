@@ -34,12 +34,15 @@ SNAPSHOT_KEYS = (
     # Stamped by the battery controller: the surplus signal and the curtailment estimate
     "surplus",
     "curtailed_w",
+    # Stamped by the miners module: whether the surplus loads run, and their power
+    "miners_on",
+    "miners_w",
 )
 DAY_KEYS = ("e_day", "e_day_imp", "e_day_exp", "e_load_day", "e_bat_charge_day", "e_bat_discharge_day")
 # Daily statistics that only exist as derived from the snapshots: hours the surplus signal was on,
 # solar energy that went to the home meanwhile (the loads switched on for it), and the estimated
-# solar lost to curtailment under zero export
-DERIVED_KEYS = ("surplus_hours", "e_surplus_day", "e_curtailed_day")
+# solar lost to curtailment under zero export, and the hours and energy of the miners (surplus loads)
+DERIVED_KEYS = ("surplus_hours", "e_surplus_day", "e_curtailed_day", "miners_hours", "e_miners_day")
 # Everything that is summed per period
 TOTAL_KEYS = (*DAY_KEYS, *DERIVED_KEYS)
 # A gap between snapshots longer than this is not integrated (the add-on or inverter was down)
@@ -101,7 +104,9 @@ class Database:
                 imp_by_hour         TEXT,
                 surplus_hours       REAL DEFAULT 0,
                 e_surplus_day       REAL DEFAULT 0,
-                e_curtailed_day     REAL DEFAULT 0
+                e_curtailed_day     REAL DEFAULT 0,
+                miners_hours        REAL DEFAULT 0,
+                e_miners_day        REAL DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS forecast_log (
                 date         TEXT PRIMARY KEY,
@@ -201,7 +206,7 @@ class Database:
             "grid_batt": 0.0,
         }
         imp_by_hour = [0.0] * 24
-        extra = {"surplus_s": 0.0, "surplus_solar_wh": 0.0, "curtailed_wh": 0.0}
+        extra = {"surplus_s": 0.0, "surplus_solar_wh": 0.0, "curtailed_wh": 0.0, "miners_s": 0.0, "miners_wh": 0.0}
         prev = None
         for row in rows:
             ts = row["ts"]
@@ -237,6 +242,9 @@ class Database:
                     extra["surplus_s"] += ts - prev
                     extra["surplus_solar_wh"] += s_load * h
                 extra["curtailed_wh"] += max(float(d.get("curtailed_w") or 0), 0) * h
+                if d.get("miners_on"):
+                    extra["miners_s"] += ts - prev
+                    extra["miners_wh"] += max(float(d.get("miners_w") or 0), 0) * h
             prev = ts
         return links, imp_by_hour, len(rows), extra
 
@@ -280,7 +288,9 @@ class Database:
                 imp_by_hour         = ?,
                 surplus_hours       = MAX(COALESCE(surplus_hours, 0), ?),
                 e_surplus_day       = MAX(COALESCE(e_surplus_day, 0), ?),
-                e_curtailed_day     = MAX(COALESCE(e_curtailed_day, 0), ?)
+                e_curtailed_day     = MAX(COALESCE(e_curtailed_day, 0), ?),
+                miners_hours        = MAX(COALESCE(miners_hours, 0), ?),
+                e_miners_day        = MAX(COALESCE(e_miners_day, 0), ?)
             WHERE date = ?
             """,
             (
@@ -293,6 +303,8 @@ class Database:
                 round(extra["surplus_s"] / 3600, 2),
                 round(extra["surplus_solar_wh"] / 1000, 3),
                 round(extra["curtailed_wh"] / 1000, 3),
+                round(extra["miners_s"] / 3600, 2),
+                round(extra["miners_wh"] / 1000, 3),
                 day,
             ),
         )
@@ -337,10 +349,13 @@ class Database:
         for row in rows:
             d = json.loads(row["data"])
             b = (row["ts"] - start) // bucket
-            a = agg.setdefault(b, {"ppv": 0.0, "pgrid": 0.0, "load": 0.0, "soc": 0.0, "n": 0, "soc_n": 0})
+            a = agg.setdefault(
+                b, {"ppv": 0.0, "pgrid": 0.0, "load": 0.0, "soc": 0.0, "miners": 0.0, "n": 0, "soc_n": 0}
+            )
             a["ppv"] += float(d.get("ppv") or 0)
             a["pgrid"] += float(d.get("pgrid") or 0)
             a["load"] += float(d.get("load_ptotal") or 0)
+            a["miners"] += float(d.get("miners_w") or 0)
             if d.get("battery_soc") is not None:
                 a["soc"] += float(d["battery_soc"])
                 a["soc_n"] += 1
@@ -368,6 +383,7 @@ class Database:
                     "battery": round(bnet),
                     "soc": round(a["soc"] / a["soc_n"]) if a["soc_n"] else None,
                     "state": state,
+                    "miners": round(a["miners"] / n),
                 }
             )
         return {"date": day, "bucket_min": bucket_min, "series": series}
@@ -380,12 +396,15 @@ class Database:
         for row in rows:
             d = json.loads(row["data"])
             b = row["ts"] // bucket_s
-            a = agg.setdefault(b, {"ppv": 0.0, "pgrid": 0.0, "pbat": 0.0, "load": 0.0, "soc": 0.0, "n": 0})
+            a = agg.setdefault(
+                b, {"ppv": 0.0, "pgrid": 0.0, "pbat": 0.0, "load": 0.0, "soc": 0.0, "miners": 0.0, "n": 0}
+            )
             a["ppv"] += float(d.get("ppv") or 0)
             a["pgrid"] += float(d.get("pgrid") or 0)
             a["pbat"] += float(d.get("pbattery1") or 0)
             a["load"] += float(d.get("load_ptotal") or 0)
             a["soc"] += float(d.get("battery_soc") or 0)
+            a["miners"] += float(d.get("miners_w") or 0)
             a["n"] += 1
         out = []
         for b in sorted(agg):
@@ -399,6 +418,7 @@ class Database:
                     "battery": round(a["pbat"] / n),
                     "load": round(a["load"] / n),
                     "soc": round(a["soc"] / n),
+                    "miners": round(a["miners"] / n),
                 }
             )
         return out
@@ -462,6 +482,7 @@ class Database:
             "most_load": best("e_load_day"),
             "most_charged": best("e_bat_charge_day"),
             "longest_surplus": best("surplus_hours"),
+            "longest_miners": best("miners_hours"),
             "most_curtailed": best("e_curtailed_day"),
         }
         return totals

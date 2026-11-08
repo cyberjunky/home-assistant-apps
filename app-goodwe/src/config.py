@@ -76,6 +76,12 @@ class Config:
     mqtt_base_topic: str = "goodwe"
     mqtt_discovery_prefix: str = "homeassistant"
 
+    # The surplus loads (bitcoin miners) switched on by the surplus signal: their name, total rated
+    # power, and optionally the Home Assistant entity that says whether they run (or what they draw)
+    miners_name: str = "BTC miners"
+    miners_power_w: int = 0
+    miners_entity: str = ""
+
     log_level: str = "info"
 
     @property
@@ -101,6 +107,7 @@ class Config:
         inverter = data.get("inverter") or {}
         forecast = data.get("forecast") or {}
         mqtt = data.get("mqtt") or {}
+        miners = data.get("miners") or {}
         defaults = cls()
         planes = []
         # "planes" was the option's name in 0.1.0 and 0.1.1
@@ -132,5 +139,8 @@ class Config:
             mqtt_password=str(mqtt.get("password") or ""),
             mqtt_base_topic=str(mqtt.get("base_topic") or defaults.mqtt_base_topic).strip("/"),
             mqtt_discovery_prefix=str(mqtt.get("discovery_prefix") or defaults.mqtt_discovery_prefix).strip("/"),
+            miners_name=str(miners.get("name") or defaults.miners_name).strip()[:40] or defaults.miners_name,
+            miners_power_w=_clamp(miners.get("power_w"), 0, 0, 100000),
+            miners_entity=str(miners.get("entity") or "").strip(),
             log_level=str(data.get("log_level") or "info"),
         )

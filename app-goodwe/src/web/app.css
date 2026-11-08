@@ -32,6 +32,7 @@
     --grid-imp: #ff6159;
     --grid-exp: #2fb886;
     --load: #7a93ff;
+    --miners: #2ec4d6;
     --soc: #9085e9;
     --idle: #4a5563;
     /* Chart series, in fixed order */
@@ -70,6 +71,7 @@
     --grid-imp: #d93a32;
     --grid-exp: #1e8a62;
     --load: #3b5bd6;
+    --miners: #0b8a9c;
     --soc: #6250d6;
     --idle: #9aa3ad;
     --series-1: #2a78d6;
@@ -189,6 +191,7 @@ a { color: var(--primary-color); }
 .tile.exporting .v { color: var(--grid-exp); }
 .tile.load .v { color: var(--load); }
 .tile.surplus .v { color: var(--success-color); }
+.tile.miners .v { color: var(--miners); }
 .kpi-tiles { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 #stats-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 

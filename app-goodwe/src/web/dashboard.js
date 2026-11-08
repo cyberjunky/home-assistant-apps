@@ -36,6 +36,20 @@ function notReadText(c, what) {
     return c.settings_error ? `${what} unknown: settings read failed, retrying` : `${what} not read yet`;
 }
 
+// The miners (surplus loads): null when not configured
+function minersInfo(c) {
+    const m = (c && c.miners) || {};
+    if (!m.enabled) return null;
+    const name = escapeHtml(m.name || 'Miners');
+    if (m.on === null || m.on === undefined) {
+        return {name, on: null, text: m.error ? '<span class="sb-warn">unknown</span>' : '<small>waiting for data</small>', detail: m.error ? escapeHtml(m.error) : ''};
+    }
+    const since = m.since ? `since ${fmtTime(m.since)}` : '';
+    return m.on
+        ? {name, on: true, text: `running <small>≈ ${fmtW(m.watts)}${since ? ' · ' + since : ''}</small>`, detail: ''}
+        : {name, on: false, text: `off <small>${since}</small>`, detail: ''};
+}
+
 // Equivalent full cycles since recording began, from the commissioned capacity
 function batteryCycles(d, c) {
     const capacity = Number(c.battery_capacity_kwh || 0);
@@ -46,6 +60,7 @@ function renderDashTiles() {
     const d = app.data, c = app.control;
     if (!d || d.ppv === undefined) return setHtml('dash-tiles', '');
     const bs = batteryState(d), gs = gridState(d);
+    const miners = minersInfo(c);
     const pbat = Number(d.pbattery1 || 0), pgrid = Number(d.pgrid || 0);
     const load = Number(d.e_load_day || 0), imp = Number(d.e_day_imp || 0);
     const self = load > 0 ? Math.max(0, Math.min(100, (1 - imp / load) * 100)) : null;
@@ -56,6 +71,8 @@ function renderDashTiles() {
         tile('Grid', wUnit(Math.abs(pgrid)), gs === 'importing' ? `importing · ${fmtKwh(d.e_day_imp, 2)} in today` : gs === 'exporting' ? `exporting · ${fmtKwh(d.e_day_exp, 2)} out today` : `idle · ${fmtKwh(d.e_day_imp, 2)} in today`, gs),
         tile('Home', wUnit(d.load_ptotal), `${fmtKwh(d.e_load_day, 2)} today`, 'load'),
         tile('Self-sufficiency', self === null ? '–' : withUnit(num(self), '%'), self === null ? 'today, once the house has used something' : `today · ${fmtKwh(imp, 2)} from the grid`),
+        ...(miners ? [tile(miners.name, miners.on ? wUnit(c.miners.watts) : miners.on === false ? 'off' : '–',
+            `${miners.on ? 'running · ' : ''}${num(d.miners_hours || 0, 1)} h · ${fmtKwh(d.e_miners_day || 0, 1)} today`, miners.on ? 'miners' : '')] : []),
     ].join(''));
 }
 
@@ -129,6 +146,7 @@ function renderDashSolar() {
 function renderDashControl() {
     const d = app.data, c = app.control, inv = app.inverter;
     const hold = holdInfo(c);
+    const miners = minersInfo(c);
     const decision = (c.decision && c.decision.text) || '';
     const mode = c.work_mode_general === false
         ? `<span class="sb-warn">${escapeHtml(c.work_mode_name || '?')}</span> <small>not General</small>`
@@ -148,7 +166,12 @@ function renderDashControl() {
             fact('Solar surplus', c.surplus ? `yes <small>≈ ${fmtW(c.surplus_w)}</small>` : `no <small>${escapeHtml(c.surplus_reason || '')}</small>`, c.surplus ? 'ok' : ''),
             fact('Surplus today', missing(d.surplus_hours) ? '–' : `${num(d.surplus_hours, 1)} h <small>${fmtKwh(d.e_surplus_day, 1)} solar used</small>`),
             fact('Curtailed today', missing(d.e_curtailed_day) ? '–' : `≈ ${fmtKwh(d.e_curtailed_day, 1)}`, Number(d.e_curtailed_day) > 0.5 ? 'warn' : ''),
+            ...(miners ? [
+                fact(miners.name, miners.text, miners.on ? 'ok' : miners.on === null && miners.detail ? 'warn' : ''),
+                fact(`${miners.name} today`, `${num(d.miners_hours || 0, 1)} h <small>${fmtKwh(d.e_miners_day || 0, 1)}</small>`),
+            ] : []),
         ])}</div>
+        ${miners && miners.detail ? `<div class="live-note sb-warn">${miners.name}: ${miners.detail}</div>` : ''}
         ${decision ? `<div class="live-note">${escapeHtml(decision)}${c.last_tick ? ` <small>· checked ${fmtAgo(c.last_tick)}</small>` : ''}</div>` : ''}
         <div class="detail-actions" style="margin-top:10px"><button type="button" class="btn btn-small" onclick="switchTab('settings')">Battery control settings</button></div>`);
 }
@@ -191,8 +214,9 @@ async function loadLive() {
     try {
         const live = await api('live?minutes=120');
         const rows = live.series || [];
-        const colors = {solar: cssVar('--solar'), load: cssVar('--load'), grid: cssVar('--grid-imp'), battery: cssVar('--bat-chg')};
+        const colors = {solar: cssVar('--solar'), load: cssVar('--load'), grid: cssVar('--grid-imp'), battery: cssVar('--bat-chg'), miners: cssVar('--miners')};
         const xs = rows.map(r => r.ts);
+        const miners = minersInfo(app.control);
         lineChart(document.getElementById('chart-live'), {
             x: xs,
             series: [
@@ -200,6 +224,7 @@ async function loadLive() {
                 {name: 'Home', color: colors.load, values: rows.map(r => r.load / 1000)},
                 {name: 'Grid (+ import)', color: colors.grid, values: rows.map(r => r.grid / 1000)},
                 {name: 'Battery (+ charging)', color: colors.battery, values: rows.map(r => r.battery / 1000)},
+                ...(miners ? [{name: miners.name, color: colors.miners, values: rows.map(r => (r.miners || 0) / 1000), dash: '5 3', width: 1.5}] : []),
             ],
             height: 190, zero: true,
             xTicks: xs.length > 1 ? timeTicks(xs, 6, fmtTime) : [],
@@ -210,6 +235,7 @@ async function loadLive() {
         document.getElementById('legend-live').innerHTML = legendHtml([
             {name: 'Solar', color: colors.solar}, {name: 'Home', color: colors.load},
             {name: 'Grid (above 0 = import)', color: colors.grid}, {name: 'Battery (above 0 = charging)', color: colors.battery},
+            ...(miners ? [{name: `${miners.name} (part of home)`, color: colors.miners, kind: 'line'}] : []),
         ]);
     } catch (e) {
         emptyChart(document.getElementById('chart-live'), e.message);

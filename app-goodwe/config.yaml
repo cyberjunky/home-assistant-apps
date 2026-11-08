@@ -1,5 +1,5 @@
 name: GoodWe
-version: "0.2.2"
+version: "0.3.0"
 slug: app-goodwe
 description: "GoodWe inverter dashboard and battery controller for Home Assistant - live energy flow, solar, battery and grid statistics, forecast-driven battery hold and zero export"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-goodwe"
@@ -39,6 +39,10 @@ options:
     password: ""
     base_topic: goodwe
     discovery_prefix: homeassistant
+  miners:
+    name: BTC miners
+    power_w: 0
+    entity: ""
   log_level: info
 
 schema:
@@ -62,4 +66,8 @@ schema:
     password: password?
     base_topic: 'match(^[A-Za-z0-9_/-]+$)?'
     discovery_prefix: 'match(^[A-Za-z0-9_/-]+$)?'
+  miners:
+    name: str?
+    power_w: int(0,100000)?
+    entity: 'match(^$|^[a-z_]+\.[a-z0-9_]+$)?'
   log_level: list(debug|info|warning|error)?

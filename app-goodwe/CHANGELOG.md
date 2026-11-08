@@ -1,9 +1,10 @@
 # Changelog
 
-## 0.2.2
+## 0.3.0
 
-**After updating:** nothing to do.
+**After updating:** nothing to do. To follow your miners, set `miners.power_w` (and optionally `miners.entity`) on the Configuration tab.
 
+- **Miners.** The loads you switch on with the solar surplus signal (bitcoin miners) get a status: running or off, since when and what they draw, on the dashboard (a tile and in Control), as a dashed line in the live and day charts, and as hours and energy per day in Stats (tiles, the surplus chart, the day detail, a record). New configuration `miners`: `name`, `power_w` (their total rated power) and an optional `entity` (a switch or a power sensor; without it they follow the surplus signal). In Home Assistant: *Miners running*, *Miners power*, *Miners today* and *Miners energy today*, and the events `miners_started` / `miners_stopped`.
 - The dashboard no longer says "DoD not read yet" (and "Work mode: not read yet") for half an hour when the first settings read fails: the controller tries again every 5 minutes until a read succeeds, the dashboard says the read failed and shows the error, and the log has it as a warning.
 
 ## 0.2.1
