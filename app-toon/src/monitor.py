@@ -98,6 +98,10 @@ def parse_system(output: str) -> dict[str, float]:
     return values
 
 
+# What a change of the thermostat affects
+THERMOSTAT_METRICS = ("setpoint", "next_setpoint", "program_state", "preheating")
+
+
 class ToonNotConnected(Exception):
     """A change can't be sent right now."""
 
@@ -127,6 +131,7 @@ class ToonMonitor:
         self._bus: BoxTalkClient | None = None
         self._session: ToonSession | None = None
         self._control_lock = asyncio.Lock()
+        self._after_change: set[asyncio.Task] = set()
         # An outage the app itself slept through can't be classified or dated
         if database.current_outage():
             database.close_outage(time.time(), "app_stopped")
@@ -163,9 +168,21 @@ class ToonMonitor:
             for command in commands:
                 control.check_answer(await session.web_get(command))
             logger.info(f"Changed the thermostat: {description}")
-            # Show the result right away, without waiting for the next poll
-            await self._query_all(bus)
+        # The Toon has accepted it, so answer now. Its new state follows, without waiting for the next poll.
+        task = asyncio.create_task(self._read_after_change(bus), name="read-after-change")
+        self._after_change.add(task)
+        task.add_done_callback(self._after_change.discard)
+
+    async def _read_after_change(self, bus: BoxTalkClient) -> None:
+        """Read what a change affects, not all the values: those take seconds, one at a time."""
+        try:
+            for binding in BINDINGS:
+                if binding.metric in THERMOSTAT_METRICS:
+                    for device in self._devices_of(bus, binding):
+                        self.set_value(binding.metric, await bus.query(device.uuid, binding.service, binding.variable))
             await self._poll_fast(bus)
+        except (BoxTalkError, TimeoutError, OSError) as e:
+            logger.debug(f"Reading the thermostat after a change failed: {e!r}")
 
     def _announce(self) -> None:
         for listener in self.listeners:

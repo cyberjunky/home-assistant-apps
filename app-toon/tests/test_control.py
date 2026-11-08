@@ -1,9 +1,12 @@
 """Changing the thermostat: only fixed commands with checked numbers, and only when allowed."""
 
+import asyncio
+
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
 from src import control
+from src.boxtalk import BoxTalkError, Device
 from src.config import Config
 from src.control import CommandRefused, check_answer, plan
 from src.database import Database
@@ -102,8 +105,7 @@ def make(tmp_path, **options):
     async def refresh(_bus):
         calls.append(True)
 
-    monitor._query_all = refresh
-    monitor._poll_fast = refresh
+    monitor._read_after_change = refresh
     return monitor, WebUI(0, database, monitor, FakeMqtt()), database, calls
 
 
@@ -127,6 +129,7 @@ async def test_a_change_is_sent_and_the_state_read_back(tmp_path):
     connect(monitor, session)
     assert (await post(ui, {"preset": 1}))[0] == 200
     assert session.sent == [control.preset_command(1)]
+    await asyncio.sleep(0)
     assert calls
     database.close()
 
@@ -202,3 +205,55 @@ async def test_web_request_goes_through_the_ssh_session(monkeypatch):
     check_answer(raw)
     assert seen[0] == ("127.0.0.1", toon_link.WEB_PORT)
     assert seen[1].startswith("GET /happ_thermstat?action=x HTTP/1.0\r\n")
+
+
+async def test_the_answer_does_not_wait_for_reading_the_state_back(tmp_path):
+    monitor, ui, database, _ = make(tmp_path)
+    connect(monitor, FakeSession())
+    release = asyncio.Event()
+    finished = []
+
+    async def slow(_bus):
+        await release.wait()
+        finished.append(True)
+
+    monitor._read_after_change = slow
+    status, _ = await asyncio.wait_for(post(ui, {"preset": 1}), 5)
+    assert status == 200
+    assert not finished
+    release.set()
+    await asyncio.sleep(0.01)
+    assert finished
+    database.close()
+
+
+async def test_reading_back_only_asks_for_what_a_change_affects(tmp_path):
+    config = Config.from_options({"ssh": {"host": "toon", "password": "x"}})
+    database = Database(tmp_path / "toon.db")
+    monitor = ToonMonitor(config, database, None)
+    asked = []
+
+    class Bus:
+        async def query(self, _uuid, _service, variable):
+            asked.append(variable)
+            return "2100"
+
+    monitor._devices_of = lambda _bus, _binding: [Device("u", "t", "a")]
+
+    async def poll(_bus):
+        asked.append("poll")
+
+    monitor._poll_fast = poll
+    await monitor._read_after_change(Bus())
+    assert "CurrentSetpoint" in asked
+    assert "ProgramState" in asked
+    assert "CurrentBoilerTemperature" not in asked
+    assert asked[-1] == "poll"
+
+    # A lost connection during this is no reason to fail anything
+    class Lost:
+        async def query(self, *_):
+            raise BoxTalkError("gone")
+
+    await monitor._read_after_change(Lost())
+    database.close()

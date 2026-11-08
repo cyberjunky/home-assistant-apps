@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.4
+
+**After updating:** nothing to do.
+
+- The thermostat controls respond right away. Your choice shows immediately and the controls stay usable while it's sent. It no longer waits for every value on the Toon to be read again. If the Toon refuses a change, the display goes back and says why.
+
 ## 0.4.3
 
 **After updating:** nothing to do. The app fetches the two new histories from your Toon by itself.

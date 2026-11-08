@@ -48,22 +48,44 @@ function renderTiles() {
 const SETPOINT_MIN = 6, SETPOINT_MAX = 30, SETPOINT_STEP = 0.5;
 // Presses in a row count as one change, so the Toon only gets the temperature you end up at
 const SETPOINT_DELAY_MS = 800;
-const thermostat = {setpoint: null, timer: null, preset: null, busy: false};
+// How long to keep showing a choice the Toon accepted while its new state hasn't come in yet
+const THERMOSTAT_SETTLE_MS = 15000;
+// What was chosen and isn't reported back yet, shown right away
+const thermostat = {setpoint: null, preset: null, program: null, timer: null, sending: false, until: 0};
+
+function clearChoice() {
+    thermostat.setpoint = null;
+    thermostat.preset = null;
+    thermostat.program = null;
+}
+
+// A choice ends once the Toon reports it, or after a while if it never does
+function settleChoice() {
+    if (thermostat.sending || thermostat.timer) return;
+    const reported = (mine, key) => missing(mine) || value(key) === mine;
+    if (Date.now() > thermostat.until
+        || (reported(thermostat.setpoint, 'setpoint') && reported(thermostat.preset, 'active_state') && reported(thermostat.program, 'program_state'))) {
+        clearChoice();
+    }
+}
 
 async function changeThermostat(body) {
-    thermostat.busy = true;
+    clearTimeout(thermostat.timer);
+    thermostat.timer = null;
+    thermostat.sending = true;
     renderModes();
     try {
         await apiPost('control', body);
-        await loadStatus();
+        thermostat.until = Date.now() + THERMOSTAT_SETTLE_MS;
+        thermostat.sending = false;
+        setTimeout(() => loadStatus().catch(() => {}), 400);
+        setTimeout(() => loadStatus().catch(() => {}), 1500);
     } catch (e) {
+        thermostat.sending = false;
+        clearChoice();
         toast(e.message);
-    } finally {
-        thermostat.busy = false;
-        thermostat.setpoint = null;
-        thermostat.preset = null;
-        renderModes();
     }
+    renderModes();
 }
 
 function stepSetpoint(direction) {
@@ -71,44 +93,44 @@ function stepSetpoint(direction) {
     if (missing(from)) return;
     const next = Math.round((from + direction * SETPOINT_STEP) / SETPOINT_STEP) * SETPOINT_STEP;
     thermostat.setpoint = Math.min(SETPOINT_MAX, Math.max(SETPOINT_MIN, next));
+    thermostat.preset = null;
     clearTimeout(thermostat.timer);
     thermostat.timer = setTimeout(() => changeThermostat({setpoint: thermostat.setpoint}), SETPOINT_DELAY_MS);
     renderModes();
 }
 
-function choosePreset(state) {
-    clearTimeout(thermostat.timer);
-    thermostat.setpoint = null;
+function choosePreset(state, temperature) {
     thermostat.preset = state;
+    thermostat.setpoint = temperature;
     changeThermostat({preset: state});
 }
 
 function setProgram(on) {
-    clearTimeout(thermostat.timer);
-    thermostat.setpoint = null;
+    thermostat.program = on ? 1 : 0;
     changeThermostat({program: on});
 }
 
 function programControl() {
-    const state = value('program_state');
+    const state = missing(thermostat.program) ? value('program_state') : thermostat.program;
     const label = PROGRAMS[state] || '–';
     if (missing(state)) return label;
-    const button = (text, on) => `<button type="button" class="btn btn-small" data-control="program" ${thermostat.busy ? 'disabled' : ''} onclick="setProgram(${on})">${text}</button>`;
+    const button = (text, on) => `<button type="button" class="btn btn-small" data-control="program" onclick="setProgram(${on})">${text}</button>`;
     return `<span class="program">${escapeHtml(label)}${state === 1 ? button('Turn off', false) : state === 0 ? button('Turn on', true) : button('Back to program', true)}</span>`;
 }
 
 function setpointControl() {
     const shown = missing(thermostat.setpoint) ? value('setpoint') : thermostat.setpoint;
-    const disabled = thermostat.busy || missing(shown);
+    const disabled = missing(shown);
     const button = (direction, sign, name, limit) => `<button type="button" class="stepper-btn" data-control="${name}" aria-label="${name === 'down' ? 'Lower' : 'Raise'} the setpoint" ${disabled || shown === limit ? 'disabled' : ''} onclick="stepSetpoint(${direction})">${sign}</button>`;
     return `<div class="stepper">
         ${button(-1, '−', 'down', SETPOINT_MIN)}
-        <div class="stepper-value"><b>${fmtTemp(shown)}</b><small>${thermostat.busy ? 'sending…' : `setpoint · room ${fmtTemp(value('room_temperature'))}`}</small></div>
+        <div class="stepper-value"><b>${fmtTemp(shown)}</b><small>${thermostat.sending ? 'sending…' : `setpoint · room ${fmtTemp(value('room_temperature'))}`}</small></div>
         ${button(1, '+', 'up', SETPOINT_MAX)}
     </div>`;
 }
 
 function renderModes() {
+    settleChoice();
     const focused = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.control : null;
     drawModes();
     if (focused) {
@@ -143,7 +165,7 @@ function drawModes() {
                 fact('Hot water', value('dhw_enabled') === 0 ? 'off' : fmtTemp(value('dhw_setpoint'), 0)),
             ])}</div>
             <div class="presets" style="margin-top:8px">${presets.map(([state, key]) => canChange
-                ? `<button type="button" class="preset ${active === state ? 'active' : ''}" data-control="preset-${state}" aria-pressed="${active === state}" ${thermostat.busy ? 'disabled' : ''} onclick="choosePreset(${state})">${PRESETS[state]}<b>${fmtTemp(value(key))}</b></button>`
+                ? `<button type="button" class="preset ${active === state ? 'active' : ''}" data-control="preset-${state}" aria-pressed="${active === state}" onclick="choosePreset(${state}, ${value(key) ?? 'null'})">${PRESETS[state]}<b>${fmtTemp(value(key))}</b></button>`
                 : `<div class="preset ${active === state ? 'active' : ''}">${PRESETS[state]}<b>${fmtTemp(value(key))}</b></div>`).join('')}</div>
         </div>
         <div class="block">
