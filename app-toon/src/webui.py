@@ -89,7 +89,12 @@ class WebUI:
 
     async def _index(self, request: web.Request) -> web.Response:
         page = (WEB_DIR / "index.html").read_text().replace("__VERSION__", APP_VERSION)
-        return web.Response(text=page, content_type="text/html")
+        return web.Response(
+            text=page,
+            content_type="text/html",
+            # Never let the browser serve a stale cached page after an update
+            headers={"Cache-Control": "no-cache, must-revalidate"},
+        )
 
     async def _status(self, request: web.Request) -> web.Response:
         monitor = self.monitor

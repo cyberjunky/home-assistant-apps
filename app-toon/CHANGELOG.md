@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+**After updating:** if you still see the old single page, reload it once in a private window or clear the browser's cache for Home Assistant.
+
+- The browser no longer keeps an old copy of the dashboard page after an update. A cached page could keep showing the old single page, with fresh values, after updating to 0.2.0.
+
 ## 0.2.0
 
 A real dashboard. Still only reads.
