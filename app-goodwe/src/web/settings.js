@@ -1,4 +1,5 @@
-// GoodWe Monitor dashboard - Settings view: inverter, inverter settings, forecast, MQTT, data, events and debug.
+// GoodWe Monitor dashboard - Settings view: battery control (control.js), inverter, inverter settings,
+// forecast, MQTT, data, events and debug.
 
 let settingsCache = null;
 let settingsReadAt = null;
@@ -14,9 +15,9 @@ const EVENT_GROUPS = {
     surplus: 'Solar surplus',
 };
 const EVENT_GROUP_TYPES = {
-    commands: 'inverter_write,inverter_write_failed,work_mode_changed',
-    control: 'hold_applied,hold_released,charge_cap_on,charge_cap_off,charge_cap_balance,zero_export_set',
-    alerts: 'inverter_offline,inverter_online,hold_violation,hold_violation_recovered,export_violation,export_violation_recovered,write_budget_exhausted,fault_detected,fault_cleared,grid_outage,grid_restored,battery_low,battery_full',
+    commands: 'inverter_write,inverter_write_failed',
+    control: 'hold_applied,hold_released,zero_export_set,work_mode_changed',
+    alerts: 'inverter_offline,inverter_online,work_mode_not_general,hold_violation,hold_violation_recovered,export_violation,export_violation_recovered,write_budget_exhausted,fault_detected,fault_cleared,grid_outage,grid_restored,battery_low,battery_full',
     surplus: 'surplus_started,surplus_ended',
 };
 
@@ -36,24 +37,27 @@ function renderInverterInfo() {
 }
 
 function renderInverterControl() {
-    const inv = app.inverter, s = settingsCache || {};
-    const modes = inv.work_modes || {};
-    const current = s.work_mode;
-    const descriptions = {0: 'Self-use: solar → house → battery → grid', 1: 'Island operation, no grid', 2: 'Backup power first, keeps a reserve', 3: 'Charge and discharge on a schedule', 4: 'Limit grid import to a set power', 5: 'Maximise self-consumption'};
-    document.getElementById('set-inverter-control').innerHTML = `
-        <div class="mode-grid">${Object.entries(modes).map(([value, name]) => `
-            <button type="button" class="mode-btn${Number(value) === Number(current) ? ' active' : ''}" onclick="writeWorkMode(${value}, '${escapeHtml(name)}')"${inv.connected ? '' : ' disabled'}>
-                <b>${escapeHtml(name)}</b><small>${descriptions[value] || ''}</small></button>`).join('')}</div>
-        <div class="control-rows" style="margin-top:12px">
-            <div class="control-row"><div class="cl">Export limit<small>grid export limit</small></div>
-                <div><span class="num"><input id="set-export-limit" class="input" type="number" min="0" max="65535" step="50" value="${s.grid_export_limit === undefined ? '' : s.grid_export_limit}"><small>W</small></span></div>
-                <div class="ch"><button type="button" class="btn btn-small" onclick="writeExportLimit()"${inv.connected ? '' : ' disabled'}>Write</button> · also kept at 0 W by Zero export on the Battery page</div></div>
-            <div class="control-row"><div class="cl">Export limit enforced<small>the limit's on/off switch</small></div>
-                <div>${switchHtml('set-export-switch', Boolean(Number(s.grid_export)), 'writeExportSwitch()', !inv.connected || inv.platform !== 'ES')}</div>
-                <div class="ch">${inv.platform === 'ES' ? 'Sent as the command SolarGo uses' : 'Only known for ES firmware'}</div></div>
-        </div>
-        <p class="panel-sub" style="margin-top:10px">${settingsReadAt ? `Values as read ${fmtAgo(settingsReadAt)}.` : 'The current values are not read yet.'} Reading the settings is a full request to the inverter.
-            <button type="button" class="btn btn-small" onclick="readSettings(this)"${inv.connected ? '' : ' disabled'}>Read settings</button></p>`;
+    const inv = app.inverter, c = app.control, s = settingsCache || {};
+    const value = v => missing(v) ? '–' : escapeHtml(String(v));
+    const general = c.work_mode_general;
+    const mode = general === null || general === undefined
+        ? 'not read yet'
+        : general ? '<span class="sb-ok">General</span> <small>· self-use: solar → home → battery, never charging from the grid</small>'
+        : `<span class="sb-warn">${escapeHtml(c.work_mode_name || '?')}</span> <button type="button" class="btn btn-small btn-primary" onclick="backToGeneral()"${inv.connected ? '' : ' disabled'}>Back to General</button>`;
+    const exportText = missing(s.grid_export_limit) ? 'not read yet'
+        : `${num(s.grid_export_limit)} W · ${Number(s.grid_export) ? 'enforced' : '<span class="sb-warn">not enforced</span>'}`;
+    const capacity = Number(c.battery_capacity_kwh || 0);
+    document.getElementById('set-inverter-control').innerHTML = [
+        infoRow('Work mode', mode),
+        infoRow('Export limit', `${exportText} <small>· kept at 0 W by Zero export</small>`),
+        infoRow('On-grid DoD', missing(s.dod) ? '–' : `${num(s.dod)}% <small>· set by Hold / Normal and auto-hold</small>`),
+        infoRow('Battery capacity', missing(s.capacity) ? (capacity ? `≈ ${num(capacity, 1)} kWh` : '–') : `${value(s.capacity)} Ah <small>≈ ${num(capacity, 1)} kWh at 51.2 V</small>`),
+        infoRow('Charge voltage · current', missing(s.charge_v) ? '–' : `${num(s.charge_v, 1)} V · ${num(s.charge_i)} A`),
+        infoRow('Discharge voltage · current', missing(s.discharge_v) ? '–' : `${num(s.discharge_v, 1)} V · ${num(s.discharge_i)} A`),
+        missing(s.battery_soc_protection) ? '' : infoRow('SoC protection', fmtPct(s.battery_soc_protection)),
+        missing(s.backup_supply) ? '' : infoRow('Backup supply', `${Number(s.backup_supply) ? 'on' : 'off'} <small>· set in SolarGo (not writable on the ES)</small>`),
+    ].join('') + `<p class="panel-sub" style="margin-top:10px">Read once a day by the controller${settingsReadAt ? `, last ${fmtAgo(settingsReadAt)}` : ''}. Auto-hold needs General mode; on the ES that is also the mode that self-consumes.
+            <button type="button" class="btn btn-small" onclick="readSettings(this)"${inv.connected ? '' : ' disabled'}>Read now</button></p>`;
 }
 
 async function readSettings(button) {
@@ -62,7 +66,6 @@ async function readSettings(button) {
         const result = await api('inverter/settings');
         settingsCache = result.settings;
         settingsReadAt = result.read_at;
-        inverterSettings = result.settings;
         renderInverterControl();
         if (debugRendered) renderDebug();
     } catch (e) {
@@ -89,17 +92,12 @@ async function writeSetting(key, value, title, message) {
     }
 }
 
-function writeWorkMode(value, name) {
-    writeSetting('work_mode', value, `Switch to ${name} mode?`, 'The work mode is written to the inverter with its dedicated command. Changing it takes effect right away.');
-}
-function writeExportLimit() {
-    const value = Number(document.getElementById('set-export-limit').value);
-    if (Number.isNaN(value) || value < 0) return toast('Enter a limit in watts', 'error');
-    writeSetting('grid_export_limit', value, `Set the export limit to ${num(value)} W?`, 'The limit only applies while it is enforced (switch below). Zero export on the Battery page re-sends 0 W when it finds another value.');
-}
-function writeExportSwitch() {
-    const on = !Boolean(Number((settingsCache || {}).grid_export));
-    writeSetting('grid_export', on, on ? 'Enforce the export limit?' : 'Stop enforcing the export limit?', on ? 'The inverter limits what it feeds into the grid to the export limit.' : 'The inverter exports freely, whatever the limit says.');
+async function backToGeneral() {
+    if (await writeSetting('work_mode', 0, 'Switch back to General mode?', 'General mode self-consumes (solar → home → battery, never charging from the grid) and is the mode auto-hold works in. Written with the dedicated command; it takes effect right away.')) {
+        await loadStatus().catch(() => {});
+        renderControl(true);
+        renderInverterControl();
+    }
 }
 
 function renderForecastSettings() {
@@ -109,10 +107,24 @@ function renderForecastSettings() {
         infoRow('Location', f.location ? `${num(f.location.lat, 4)}, ${num(f.location.lon, 4)} <small>(${escapeHtml(f.location.source)})</small>` : '–'),
         infoRow('Installed', `${num(cfg.total_kwp, 2)} kWp in ${(cfg.planes || []).length} plane${(cfg.planes || []).length === 1 ? '' : 's'}`),
         ...(cfg.planes || []).map(p => infoRow(escapeHtml(p.name), `${num(p.kwp, 2)} kWp · tilt ${p.tilt}° · azimuth ${p.azimuth}°`)),
-        infoRow('Source', f.source ? escapeHtml(f.source) : '–'),
-        infoRow('Fetched', f.fetched_at ? fmtDateTime(f.fetched_at) : '–'),
+        infoRow('Source', f.source ? escapeHtml(f.source === 'open-meteo' ? 'Open-Meteo (fallback, less precise)' : 'Forecast.Solar') : '–'),
+        infoRow('Fetched', f.fetched_at ? `${fmtDateTime(f.fetched_at)} <small>· next ${fmtTime(f.fetched_at + 1800)}</small>` : '–'),
+        f.configured ? infoRow('Today · tomorrow', `${fmtKwh(f.today_kwh)} · ${fmtKwh(f.tomorrow_kwh)}`) : '',
         f.error ? infoRow('Problem', `<span class="sb-warn">${escapeHtml(f.error)}</span>`) : '',
-    ].join('') + '<p class="panel-sub" style="margin-top:10px">Forecast.Solar is asked once per plane every 30 minutes, with Open-Meteo as a fallback. Location and planes are set on the add-on\'s Configuration tab; leave the location at 0 to use Home Assistant\'s home.</p>';
+    ].join('') + `<p class="panel-sub" style="margin-top:10px">Forecast.Solar is asked once per plane every 30 minutes, with Open-Meteo as a fallback. Location and planes are set on the add-on's Configuration tab; leave the location at 0 to use Home Assistant's home.</p>`
+        + (f.configured ? '<div class="detail-actions" style="margin-top:10px"><button type="button" class="btn btn-small" onclick="refreshForecast(this)">Fetch again</button></div>' : '');
+}
+
+async function refreshForecast(button) {
+    button.disabled = true;
+    try {
+        app.forecast = await api('forecast/refresh', {method: 'POST'});
+        toast('Forecast refreshed', 'success');
+        renderForecastSettings();
+    } catch (e) {
+        toast(e.message, 'error');
+        button.disabled = false;
+    }
 }
 
 function renderMqttSettings() {
@@ -123,7 +135,7 @@ function renderMqttSettings() {
         infoRow('State topic', escapeHtml(m.state_topic || `${cfg.mqtt_base_topic}/state`)),
         infoRow('Event topic', escapeHtml(m.event_topic || `${cfg.mqtt_base_topic}/event`)),
         infoRow('Device', serial ? `GoodWe ${escapeHtml(app.inverter.model || '')} <small>(goodwe_${escapeHtml(serial)})</small>` : '–'),
-    ].join('') + `<p class="panel-sub" style="margin-top:10px">With discovery on, the inverter appears in Home Assistant as a device with sensors (solar, grid, battery, home, forecast, surplus), binary sensors (solar surplus, battery held, charge cap, zero export, exporting, fault, connected) and an <b>Events</b> entity. Automate on the event entity for a Telegram message, e.g. when its <span class="mono">event_type</span> is <span class="mono">hold_applied</span> or <span class="mono">surplus_started</span>; the message is in its attributes.</p>`;
+    ].join('') + `<p class="panel-sub" style="margin-top:10px">With discovery on, the inverter appears in Home Assistant as a device with sensors (solar, grid, battery and its cycles, home, forecast, surplus and curtailment), binary sensors (solar surplus, battery held, zero export, exporting, work mode not General, fault, connected) and an <b>Events</b> entity. Automate on the event entity for a Telegram message, e.g. when its <span class="mono">event_type</span> is <span class="mono">hold_applied</span> or <span class="mono">surplus_started</span>; the message is in its attributes.</p>`;
 }
 
 function renderDataSettings() {
@@ -214,6 +226,7 @@ async function debugWrite() {
 }
 
 function renderSettings() {
+    renderControl(true);
     renderInverterInfo();
     renderInverterControl();
     renderForecastSettings();
@@ -241,6 +254,7 @@ onTab('settings', async () => {
 });
 onLive(() => {
     if (activeTab !== 'settings') return;
+    renderControl(false);
     renderInverterInfo();
     renderEvents(false);
     if (debugRendered && document.getElementById('debug-details').open && !document.activeElement.closest('#debug')) renderDebug();

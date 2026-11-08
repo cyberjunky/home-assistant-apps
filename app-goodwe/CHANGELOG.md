@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0
+
+**After updating:** nothing to do. If the charge cap was braking charging, it is released once at start. In Home Assistant the *Charge cap braking* entity disappears, and the *Work mode* sensor now shows the inverter's work mode (General, Backup, …) instead of its energy mode (that moved to the new *Energy mode* sensor).
+
+Cleaner, and focused on what works on the ES: hold the battery for the evening by forecast, keep export at zero, and signal the solar surplus once the battery is full.
+
+- **Three pages instead of five.** The **Dashboard** is everything live, solar and battery together: the energy flow, the battery (state of charge, power, temperature, health, BMS limits, cycles), the solar panels and strings against the forecast, what the controller is doing, live power and today's charts. **Stats** has all history, now including the solar forecast, its accuracy and the yields. **Settings** has the battery control and the configuration.
+- **New energy flow diagram.** The live power is split over the paths it really takes (solar → home, solar → battery, grid → home, …) with the same model as the daily energies, so you see where the solar goes. Line width and speed follow the power; it shows the curtailed solar under zero export and the surplus signal.
+- **The daily Sankey** is larger, horizontal with gradient ribbons, and part of the Stats day detail (same date as the day chart).
+- **Work mode guard.** The controller reads the inverter's settings at start and once a day. Auto-hold only works in General mode; in any other mode it pauses, the new binary sensor *Work mode not General* turns on and a `work_mode_not_general` event is raised. Settings has a *Back to General* button instead of the four work-mode buttons (Backup does not hold the battery on the ES and Eco's schedule writes do not stick).
+- **New statistics**, per day and period and as Home Assistant sensors: hours the solar-surplus signal was on and the solar used meanwhile (your miners), the solar curtailed under zero export (estimate), battery cycles (from the inverter's commissioned capacity), and battery charged and discharged in total (the ES does not count these itself, so *all time* read 0 before).
+- **Removed:** the charge cap (with zero export it only curtailed solar, and LFP batteries take a full charge in their stride), the separate *while held* DoD (a hold is always DoD 0), the manual export-limit and switch controls (Zero export keeps them right; the Debug section can still send any dedicated command), and the work-mode-changed events that were really energy-mode changes.
+
 ## 0.1.1
 
 **After updating:** nothing to do.

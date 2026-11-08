@@ -258,7 +258,7 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal
 // =====================================================================
 // Views
 // =====================================================================
-const TABS = ['dashboard', 'solar', 'battery', 'stats', 'settings'];
+const TABS = ['dashboard', 'stats', 'settings'];
 const tabHooks = {};
 let activeTab = null;
 

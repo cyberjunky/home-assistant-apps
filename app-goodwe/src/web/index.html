@@ -18,11 +18,9 @@
         </div>
         <nav class="tabs" aria-label="Views">
             <button type="button" class="tab" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</button>
-            <button type="button" class="tab" data-tab="solar" onclick="switchTab('solar')">Solar</button>
-            <button type="button" class="tab" data-tab="battery" onclick="switchTab('battery')">Battery</button>
             <button type="button" class="tab" data-tab="stats" onclick="switchTab('stats')">Stats</button>
             <span class="tab-sep" aria-hidden="true"></span>
-            <button type="button" class="tab" data-tab="settings" onclick="switchTab('settings')" title="Inverter, forecast, MQTT, events, debug"><span class="tab-label">Settings</span><span class="tab-icon" aria-hidden="true">⚙</span></button>
+            <button type="button" class="tab" data-tab="settings" onclick="switchTab('settings')" title="Battery control, inverter, forecast, MQTT, events, debug"><span class="tab-label">Settings</span><span class="tab-icon" aria-hidden="true">⚙</span></button>
         </nav>
         <span class="spacer"></span>
         <div class="tabs" role="group" aria-label="Theme">
@@ -34,7 +32,7 @@
     <div class="views">
         <div class="pages">
             <div class="container">
-                <!-- Dashboard -->
+                <!-- Dashboard: everything live, solar and battery together -->
                 <div id="tab-dashboard" class="tab-content">
                     <div id="dash-hint" class="setup-hint" hidden><span id="dash-hint-text"></span></div>
                     <div id="dash-tiles" class="tiles kpi-tiles"></div>
@@ -43,7 +41,18 @@
                             <div class="chart-title"><span>Energy flow</span><span class="hint" id="flow-hint"></span></div>
                             <div id="flow" class="flow"></div>
                         </div></div>
-                        <div class="panel"><div class="panel-body" id="dash-side"></div></div>
+                        <div class="dash-stack">
+                            <div class="panel"><div class="panel-body" id="dash-battery"></div></div>
+                            <div class="panel"><div class="panel-body" id="dash-control"></div></div>
+                        </div>
+                    </div>
+                    <div class="dash-grid">
+                        <div class="panel"><div class="panel-body" id="dash-solar"></div></div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Solar today</span><span class="hint">production and forecast · kW</span></div>
+                            <div id="chart-solar-today" class="chart"></div>
+                            <div class="legend" id="legend-solar-today"></div>
+                        </div></div>
                     </div>
                     <div class="panel"><div class="panel-body">
                         <div class="chart-title"><span>Live power</span><span class="hint">last 2 hours · kW</span></div>
@@ -51,49 +60,14 @@
                         <div class="legend" id="legend-live"></div>
                     </div></div>
                     <div class="panel"><div class="panel-body">
-                        <div class="chart-title"><span>Daily energy flow</span><span class="date-nav" id="flow-nav"></span></div>
-                        <div id="sankey-wrap"></div>
+                        <div class="chart-title"><span>Battery today</span><span class="hint">state of charge · battery power</span></div>
+                        <div id="chart-battery-day" class="chart"></div>
+                        <div id="chart-battery-day-power" class="chart" style="margin-top:8px"></div>
+                        <div class="legend" id="legend-battery-day"></div>
                     </div></div>
                 </div>
 
-                <!-- Solar -->
-                <div id="tab-solar" class="tab-content">
-                    <div id="solar-tiles" class="tiles"></div>
-                    <div class="stats-grid">
-                        <div class="panel wide"><div class="panel-body">
-                            <div class="chart-title"><span>Today</span><span class="hint">production and forecast · kW</span></div>
-                            <div id="chart-solar-today" class="chart"></div>
-                            <div class="legend" id="legend-solar-today"></div>
-                        </div></div>
-                        <div class="panel"><div class="panel-body"><div class="section-title">PV strings</div><div id="solar-strings" class="facts"></div></div></div>
-                        <div class="panel"><div class="panel-body"><div class="section-title">Forecast</div><div id="solar-forecast-info"></div></div></div>
-                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Next days</span><span class="hint">forecast · kWh</span></div><div id="chart-forecast-days" class="chart"></div></div></div>
-                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Forecast vs actual</span><span class="hint" id="accuracy-hint"></span></div><div id="chart-accuracy" class="chart"></div><div class="legend" id="legend-accuracy"></div></div></div>
-                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>This year</span><span class="hint">per month · kWh</span></div><div id="chart-months" class="chart"></div></div></div>
-                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Per year</span><span class="hint">kWh</span></div><div id="chart-years" class="chart"></div></div></div>
-                    </div>
-                </div>
-
-                <!-- Battery -->
-                <div id="tab-battery" class="tab-content">
-                    <div class="stats-grid">
-                        <div class="panel"><div class="panel-body" id="battery-state"></div></div>
-                        <div class="panel"><div class="panel-body" id="battery-facts-panel"><div class="section-title">Battery</div><div id="battery-facts" class="facts"></div></div></div>
-                        <div class="panel wide"><div class="panel-body">
-                            <div class="chart-title"><span>Battery control</span><span class="hint" id="control-hint"></span></div>
-                            <div id="battery-control"></div>
-                        </div></div>
-                        <div class="panel wide"><div class="panel-body">
-                            <div class="chart-title"><span>Today</span><span class="hint">state of charge · battery power</span></div>
-                            <div id="chart-battery-day" class="chart"></div>
-                            <div class="legend" id="legend-battery-day"></div>
-                        </div></div>
-                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Throughput</span><span class="hint">last 30 days · kWh</span></div><div id="chart-battery-days" class="chart"></div><div class="legend" id="legend-battery-days"></div></div></div>
-                        <div class="panel"><div class="panel-body"><div class="section-title">BMS</div><div id="battery-bms" class="facts"></div></div></div>
-                    </div>
-                </div>
-
-                <!-- Stats -->
+                <!-- Stats: history -->
                 <div id="tab-stats" class="tab-content">
                     <div class="filters">
                         <div class="tabs" role="group" aria-label="Period" id="stats-range"></div><select class="select" id="stats-year" aria-label="Year"></select>
@@ -105,21 +79,34 @@
                     <div id="stats-grid" class="stats-grid">
                         <div class="panel wide"><div class="panel-body"><div class="chart-title"><span id="chart-energy-title">Energy</span><span class="hint">kWh</span></div><div id="chart-energy" class="chart"></div><div class="legend" id="legend-energy"></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="chart-title"><span>Grid</span><span class="hint">kWh</span></div><div id="chart-grid" class="chart"></div><div class="legend" id="legend-grid"></div></div></div>
-                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Battery</span><span class="hint">kWh</span></div><div id="chart-battery" class="chart"></div><div class="legend" id="legend-battery"></div></div></div>
-                        <div class="panel wide"><div class="panel-body"><div class="chart-title"><span>Self-sufficiency and self-consumption</span><span class="hint">%</span></div><div id="chart-self" class="chart"></div><div class="legend" id="legend-self"></div></div></div>
-                        <div class="panel wide"><div class="panel-body">
-                            <div class="chart-title"><span>Day detail</span><span class="date-nav" id="day-nav"></span></div>
-                            <div id="chart-day" class="chart"></div>
-                            <div class="legend" id="legend-day"></div>
-                            <div id="day-summary" class="tiles" style="margin-top:12px"></div>
-                        </div></div>
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Battery</span><span class="hint" id="chart-battery-hint">kWh</span></div><div id="chart-battery" class="chart"></div><div class="legend" id="legend-battery"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Solar surplus</span><span class="hint">kWh · hours in the tooltip</span></div><div id="chart-surplus" class="chart"></div><div class="legend" id="legend-surplus"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Self-sufficiency and self-consumption</span><span class="hint">%</span></div><div id="chart-self" class="chart"></div><div class="legend" id="legend-self"></div></div></div>
+                    </div>
+                    <div class="panel"><div class="panel-body">
+                        <div class="chart-title"><span>Day detail</span><span class="date-nav" id="day-nav"></span></div>
+                        <div id="chart-day" class="chart"></div>
+                        <div class="legend" id="legend-day"></div>
+                        <div id="day-summary" class="tiles" style="margin-top:12px"></div>
+                        <div class="section-title" style="margin-top:6px">Energy flow of the day</div>
+                        <div id="sankey-wrap"></div>
+                    </div></div>
+                    <div class="stats-grid" style="margin-top:14px">
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Solar: next days</span><span class="hint">forecast · kWh</span></div><div id="chart-forecast-days" class="chart"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Forecast vs actual</span><span class="hint" id="accuracy-hint"></span></div><div id="chart-accuracy" class="chart"></div><div class="legend" id="legend-accuracy"></div><p class="panel-sub" id="accuracy-note" style="margin-top:8px"></p></div></div>
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Solar this year</span><span class="hint">per month · kWh</span></div><div id="chart-months" class="chart"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Solar per year</span><span class="hint">kWh</span></div><div id="chart-years" class="chart"></div></div></div>
                         <div class="panel wide"><div class="panel-body"><div class="chart-title"><span>Records</span><span class="hint">in this period</span></div><div id="records" class="records"></div></div></div>
                     </div>
                 </div>
 
-                <!-- Settings -->
+                <!-- Settings: control and configuration -->
                 <div id="tab-settings" class="tab-content">
                     <div class="settings-grid">
+                        <div class="panel wide"><div class="panel-body">
+                            <div class="chart-title"><span>Battery control</span><span class="hint" id="control-hint"></span></div>
+                            <div id="battery-control"></div>
+                        </div></div>
                         <div class="panel"><div class="panel-body"><div class="section-title">Inverter</div><div id="set-inverter"></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="section-title">Inverter settings</div><div id="set-inverter-control"></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="section-title">Forecast</div><div id="set-forecast"></div></div></div>
@@ -163,9 +150,8 @@
     <script src="__BASE__/web/charts.js?v=__ADDON_VERSION__"></script>
     <script src="__BASE__/web/flow.js?v=__ADDON_VERSION__"></script>
     <script src="__BASE__/web/dashboard.js?v=__ADDON_VERSION__"></script>
-    <script src="__BASE__/web/solar.js?v=__ADDON_VERSION__"></script>
-    <script src="__BASE__/web/battery.js?v=__ADDON_VERSION__"></script>
     <script src="__BASE__/web/stats.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/control.js?v=__ADDON_VERSION__"></script>
     <script src="__BASE__/web/settings.js?v=__ADDON_VERSION__"></script>
     <script src="__BASE__/web/main.js?v=__ADDON_VERSION__"></script>
 </body>

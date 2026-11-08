@@ -16,7 +16,7 @@ from goodwe import InverterError
 
 from .config import ADDON_VERSION, Config
 from .controller import BatteryController
-from .database import DAY_KEYS, Database
+from .database import TOTAL_KEYS, Database
 from .events import EVENT_TYPES, EventBus
 from .forecast import Forecast
 from .inverter import WRITABLE, InverterLink
@@ -147,7 +147,7 @@ class WebUI:
         # Behind Home Assistant ingress the dashboard lives under X-Ingress-Path; the
         # <link>/<script> tags in the head can't compute that like the JS does
         base = request.headers.get("X-Ingress-Path", "").rstrip("/")
-        html = (WEB_DIR / "index.html").read_text()
+        html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
         html = html.replace("__ADDON_VERSION__", ADDON_VERSION).replace("__BASE__", base)
         return web.Response(
             text=html,
@@ -247,6 +247,11 @@ class WebUI:
             asyncio.to_thread(self.database.periods, bucket, start.isoformat(), end.isoformat()),
             asyncio.to_thread(self.database.summary, start.isoformat(), end.isoformat()),
         )
+        # Equivalent full cycles: energy discharged over the commissioned capacity
+        capacity = float(self.controller.settings.battery_capacity_kwh or 0)
+        for item in (*periods, summary):
+            item["cycles"] = round(float(item.get("e_bat_discharge_day") or 0) / capacity, 2) if capacity else None
+        summary["battery_capacity_kwh"] = capacity or None
         return _json(
             {"from": start.isoformat(), "to": end.isoformat(), "bucket": bucket, "periods": periods, "summary": summary}
         )
@@ -343,7 +348,7 @@ class WebUI:
     async def _handle_export(self, request: web.Request) -> web.Response:
         """Every recorded day as CSV."""
         rows = self.database.daily_rows("0000-01-01", "9999-12-31")
-        columns = ("date", *DAY_KEYS, "ppv_max", "soc_min", "soc_max")
+        columns = ("date", *TOTAL_KEYS, "ppv_max", "soc_min", "soc_max")
         buffer = io.StringIO()
         writer = csv.writer(buffer)
         writer.writerow(columns)

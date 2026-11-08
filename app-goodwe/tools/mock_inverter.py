@@ -147,7 +147,8 @@ class ES:
             "fload": 50.0,
             "load_mode_label": "The inverter is connected to a load",
             "work_mode": 1,
-            "work_mode_label": ["General", "Off-grid", "Backup", "Eco"][work_mode] if work_mode < 4 else "General",
+            # Like the ES: the runtime label is the energy mode; the work mode itself is only in the settings
+            "work_mode_label": "Normal (Off-Grid)" if work_mode == 1 else "Normal (On-Grid)",
             "temperature": 36.0 + potential / 400,
             "error_codes": 0,
             "e_total": round(self.e_total, 1),

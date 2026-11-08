@@ -31,8 +31,17 @@ SNAPSHOT_KEYS = (
     "vbattery1",
     "temperature",
     "battery_temperature",
+    # Stamped by the battery controller: the surplus signal and the curtailment estimate
+    "surplus",
+    "curtailed_w",
 )
 DAY_KEYS = ("e_day", "e_day_imp", "e_day_exp", "e_load_day", "e_bat_charge_day", "e_bat_discharge_day")
+# Daily statistics that only exist as derived from the snapshots: hours the surplus signal was on,
+# solar energy that went to the home meanwhile (the loads switched on for it), and the estimated
+# solar lost to curtailment under zero export
+DERIVED_KEYS = ("surplus_hours", "e_surplus_day", "e_curtailed_day")
+# Everything that is summed per period
+TOTAL_KEYS = (*DAY_KEYS, *DERIVED_KEYS)
 # A gap between snapshots longer than this is not integrated (the add-on or inverter was down)
 MAX_GAP = 120
 
@@ -89,7 +98,10 @@ class Database:
                 pgrid_max           REAL DEFAULT 0,
                 soc_min             REAL,
                 soc_max             REAL,
-                imp_by_hour         TEXT
+                imp_by_hour         TEXT,
+                surplus_hours       REAL DEFAULT 0,
+                e_surplus_day       REAL DEFAULT 0,
+                e_curtailed_day     REAL DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS forecast_log (
                 date         TEXT PRIMARY KEY,
@@ -107,6 +119,10 @@ class Database:
             CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts);
             """
         )
+        columns = {row[1] for row in self.con.execute("PRAGMA table_info(daily_summary)")}
+        for column in DERIVED_KEYS:
+            if column not in columns:
+                self.con.execute(f"ALTER TABLE daily_summary ADD COLUMN {column} REAL DEFAULT 0")
         self.con.commit()
 
     def close(self) -> None:
@@ -166,11 +182,12 @@ class Database:
     # ------------------------------------------------------------------
     # Energy flows from the snapshots (the ES has no import/export counters)
     # ------------------------------------------------------------------
-    def _integrate(self, start: int, end: int) -> tuple[dict, list[float], int]:
+    def _integrate(self, start: int, end: int) -> tuple[dict, list[float], int, dict]:
         """Integrate the snapshots in [start, end) into energy flows (Wh) with a priority model per instant:
         solar → house, then battery, then grid; battery discharge → house; grid import → house, then battery.
         Battery power comes from the energy balance (solar + grid - house), not the inverter's battery
-        reading, so it is right regardless of platform sign quirks. Also returns grid import per local hour.
+        reading, so it is right regardless of platform sign quirks. Also returns grid import per local hour
+        and the surplus statistics (seconds the signal was on, solar to the house meanwhile, curtailed Wh).
         """
         rows = self.con.execute(
             "SELECT ts, data FROM snapshots WHERE ts >= ? AND ts < ? ORDER BY ts", (start, end)
@@ -184,6 +201,7 @@ class Database:
             "grid_batt": 0.0,
         }
         imp_by_hour = [0.0] * 24
+        extra = {"surplus_s": 0.0, "surplus_solar_wh": 0.0, "curtailed_wh": 0.0}
         prev = None
         for row in rows:
             ts = row["ts"]
@@ -215,13 +233,17 @@ class Database:
                 links["grid_load"] += g_load * h
                 links["grid_batt"] += g_batt * h
                 imp_by_hour[datetime.fromtimestamp(ts).hour] += gi * h
+                if d.get("surplus"):
+                    extra["surplus_s"] += ts - prev
+                    extra["surplus_solar_wh"] += s_load * h
+                extra["curtailed_wh"] += max(float(d.get("curtailed_w") or 0), 0) * h
             prev = ts
-        return links, imp_by_hour, len(rows)
+        return links, imp_by_hour, len(rows), extra
 
     def energy_flow(self, day: str | None = None) -> dict:
         """Sankey-style energy flows (kWh) for one local day."""
         day, start, end = _day_bounds(day)
-        links, _, samples = self._integrate(start, end)
+        links, _, samples, _ = self._integrate(start, end)
         links = {k: round(v / 1000, 3) for k, v in links.items()}
         sources = {
             "solar": round(links["solar_load"] + links["solar_batt"] + links["solar_grid"], 3),
@@ -239,7 +261,7 @@ class Database:
         """Fill a day's import, export, house and battery energies from its snapshots (MAX-merged with
         whatever the inverter reported itself, so a platform that has the counters keeps them)."""
         day, start, end = _day_bounds(day)
-        links, imp_by_hour, samples = self._integrate(start, end)
+        links, imp_by_hour, samples, extra = self._integrate(start, end)
         if samples < 2:
             return
 
@@ -255,7 +277,10 @@ class Database:
                 e_load_day          = MAX(e_load_day, ?),
                 e_bat_charge_day    = MAX(e_bat_charge_day, ?),
                 e_bat_discharge_day = MAX(e_bat_discharge_day, ?),
-                imp_by_hour         = ?
+                imp_by_hour         = ?,
+                surplus_hours       = MAX(COALESCE(surplus_hours, 0), ?),
+                e_surplus_day       = MAX(COALESCE(e_surplus_day, 0), ?),
+                e_curtailed_day     = MAX(COALESCE(e_curtailed_day, 0), ?)
             WHERE date = ?
             """,
             (
@@ -265,6 +290,9 @@ class Database:
                 kwh("solar_batt", "grid_batt"),
                 kwh("batt_load"),
                 json.dumps([round(v / 1000, 4) for v in imp_by_hour]),
+                round(extra["surplus_s"] / 3600, 2),
+                round(extra["surplus_solar_wh"] / 1000, 3),
+                round(extra["curtailed_wh"] / 1000, 3),
                 day,
             ),
         )
@@ -283,12 +311,15 @@ class Database:
         return out
 
     def energy_totals(self) -> dict:
-        """Today's derived day energies plus lifetime import/export sums (kWh), for the live data."""
+        """Today's derived day energies and surplus statistics, plus lifetime import, export and battery
+        sums since recording began (kWh), for the live data. The ES counts none of these itself."""
         today = self.day_row(datetime.now().strftime("%Y-%m-%d")) or {}
-        total = self.con.execute("SELECT SUM(e_day_imp), SUM(e_day_exp) FROM daily_summary").fetchone()
-        out = {k: float(today.get(k) or 0) for k in DAY_KEYS[1:]}
-        out["e_total_imp"] = round(float(total[0] or 0), 2)
-        out["e_total_exp"] = round(float(total[1] or 0), 2)
+        total = self.con.execute(
+            "SELECT SUM(e_day_imp), SUM(e_day_exp), SUM(e_bat_charge_day), SUM(e_bat_discharge_day) FROM daily_summary"
+        ).fetchone()
+        out = {k: float(today.get(k) or 0) for k in (*DAY_KEYS[1:], *DERIVED_KEYS)}
+        for i, key in enumerate(("e_total_imp", "e_total_exp", "e_bat_charge_total", "e_bat_discharge_total")):
+            out[key] = round(float(total[i] or 0), 2)
         return out
 
     # ------------------------------------------------------------------
@@ -391,15 +422,15 @@ class Database:
         buckets: dict[str, dict] = {}
         for row in self.daily_rows(start, end):
             key = _period_key(row["date"], bucket)
-            b = buckets.setdefault(key, {"period": key, "days": 0, "ppv_max": 0.0, **{k: 0.0 for k in DAY_KEYS}})
+            b = buckets.setdefault(key, {"period": key, "days": 0, "ppv_max": 0.0, **{k: 0.0 for k in TOTAL_KEYS}})
             b["days"] += 1
-            for k in DAY_KEYS:
+            for k in TOTAL_KEYS:
                 b[k] += float(row.get(k) or 0)
             b["ppv_max"] = max(b["ppv_max"], float(row.get("ppv_max") or 0))
         out = []
         for key in sorted(buckets):
             b = buckets[key]
-            for k in DAY_KEYS:
+            for k in TOTAL_KEYS:
                 b[k] = round(b[k], 2)
             b["self_sufficiency"] = _self_sufficiency(b)
             b["self_consumption"] = _self_consumption(b)
@@ -409,7 +440,7 @@ class Database:
     def summary(self, start: str, end: str) -> dict:
         """Totals and records over a date range."""
         rows = self.daily_rows(start, end)
-        totals = {k: round(sum(float(r.get(k) or 0) for r in rows), 2) for k in DAY_KEYS}
+        totals = {k: round(sum(float(r.get(k) or 0) for r in rows), 2) for k in TOTAL_KEYS}
         totals["days"] = len(rows)
         totals["self_sufficiency"] = _self_sufficiency(totals)
         totals["self_consumption"] = _self_consumption(totals)
@@ -430,6 +461,8 @@ class Database:
             "most_export": best("e_day_exp"),
             "most_load": best("e_load_day"),
             "most_charged": best("e_bat_charge_day"),
+            "longest_surplus": best("surplus_hours"),
+            "most_curtailed": best("e_curtailed_day"),
         }
         return totals
 

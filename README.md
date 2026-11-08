@@ -49,7 +49,8 @@ keeps flash writes low by recording in RAM.
 
 GoodWe inverter dashboard and battery controller, opened from the sidebar. Live energy flow,
 solar, battery and grid statistics, a solar forecast that holds the battery for the evening,
-a charge cap, zero export and a solar-surplus signal, all published to Home Assistant over MQTT.
+zero export and a solar-surplus signal to switch loads once the battery is full, all
+published to Home Assistant over MQTT.
 
 [:books: Documentation](app-goodwe/DOCS.md) · [:memo: Changelog](app-goodwe/CHANGELOG.md) · [:lock: Security](app-goodwe/SECURITY.md)
 

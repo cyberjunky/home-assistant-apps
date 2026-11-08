@@ -1,10 +1,16 @@
-"""Battery control: forecast-driven discharge hold, charge cap, zero export and the solar surplus signal.
+"""Battery control: forecast-driven discharge hold, zero export and the solar surplus signal.
 
 Everything here runs on a five-minute tick against data that was polled anyway;
 the inverter is only written on a change of mind. Its flash has limited write
 endurance and its network stack dislikes bursts, so there is a daily write
 budget, a verify-and-retry that gives up rather than hammering, and watchdogs
 that read the inverter back only when the polled numbers say something is off.
+
+Work mode. All of this assumes General mode, which on ES firmware already
+self-consumes: solar → house → battery → grid, never charging from the grid.
+The settings are read once at start and once a day; in any other mode auto-hold
+pauses and an event says so (Backup does not hold the battery on the ES, and Eco
+follows its own schedule).
 
 Discharge hold. Battery discharge is timed with the on-grid depth of discharge
 (set_ongrid_battery_dod): DoD 0 = floor 100% = hold, the grid covers the house;
@@ -13,18 +19,16 @@ offset setting) or the live PV is at or above the threshold, and SoC is below
 the release level, the battery is held so the solar surplus goes into it and the
 evening is covered by a full battery; otherwise it is released.
 
-Charge cap. Charging is braked by writing a battery charge current of 0 A (the
-AA55 0x0351 command, confirmed on a GW3648D-ES) once SoC reaches the cap and
-released at cap - 5. Every N days the cap pauses for a 100% BMS-balancing charge.
-
 Zero export. The grid export limit is kept at 0 W with the limit switch on, so
 solar that neither the house nor the battery can take is curtailed instead of
 exported. Checked once when enabled and when the add-on starts, then only read
 back when the polled grid power shows sustained export.
 
 Solar surplus. A signal for Home Assistant (e.g. to start a miner): on when the
-battery is full (or braked by the cap) and the estimated surplus is at least the
-margin; off when the house imports from the grid or drains the battery.
+battery is full and the estimated surplus is at least the margin; off when the
+house imports from the grid or drains the battery. Every poll is stamped with the
+signal and the surplus and curtailment estimates, which the recorder turns into
+daily statistics.
 """
 
 import asyncio
@@ -38,11 +42,13 @@ from pathlib import Path
 
 from .events import EventBus
 from .forecast import Forecast
-from .inverter import InverterLink
+from .inverter import WORK_MODES, InverterLink
 
 logger = logging.getLogger(__name__)
 
 TICK_SECONDS = 300
+# The on-grid DoD while held: no discharge, the grid covers the house
+HOLD_DOD = 0
 # A discharge while held only counts as a violation above this power and after this many
 # consecutive ticks: the inverter hunts around the solar/house balance point for minutes
 HOLD_DISCHARGE_W = 100
@@ -54,6 +60,18 @@ EXPORT_STRIKES = 3
 DOD_WRITES_PER_DAY = 12
 # Battery power below which it counts as "not charging" for the surplus signal
 IDLE_W = 50
+# The settings (work mode, battery capacity) are read at start and then this often; a failed read
+# is tried again after the retry interval, not on the next tick
+SETTINGS_CHECK_SECONDS = 86400
+SETTINGS_RETRY_SECONDS = 1800
+# A settings read this recent is reused instead of asking the inverter again
+SETTINGS_FRESH_SECONDS = 60
+GENERAL_MODE = 0
+# Nominal voltage of a 16-cell LFP pack, for the commissioned capacity (Ah) in kWh
+NOMINAL_PACK_V = 51.2
+# Charge current restored when a charge cap from an earlier version left charging braked
+# (the BMS clamps it to its own ceiling, so a high value is safe)
+RELEASE_CHARGE_A = 50
 
 
 @dataclass
@@ -62,13 +80,8 @@ class ControlSettings:
     auto_hold: bool = False
     threshold_kwh: float = 0.1  # hold while this hour's forecast (or live PV) is at least this
     forecast_offset_pct: int = 0  # correction applied to the forecast before the test (-50..50)
-    day_dod: int = 0  # DoD while held (0 = no discharge)
-    night_dod: int = 80  # DoD once released (floor 20%)
+    night_dod: int = 80  # DoD once released (80 = discharge to a floor of 20%)
     release_soc: int = 100  # release the hold once SoC reaches this (100 = hold all day)
-    # Charge cap
-    charge_cap_soc: int = 0  # brake all charging at this SoC (0 = off)
-    charge_cap_release_current: int = 50  # amps restored on release (the BMS clamps it anyway)
-    charge_cap_full_every_days: int = 14  # pause the cap this often for a full charge (0 = never)
     # Zero export
     zero_export: bool = False
     # Solar surplus signal
@@ -77,25 +90,21 @@ class ControlSettings:
     surplus_off_import_w: int = 150  # off once the house imports more than this
     surplus_debounce_s: int = 120  # the new state must hold this long before the signal flips
     # Controller state (persisted, not settings)
-    charge_cap_active: bool = False
-    charge_cap_last_full: str = ""
+    battery_capacity_kwh: float = 0.0  # from the inverter's commissioned capacity, for the cycle count
+    release_charge_brake: bool = False  # an earlier version's charge cap left charging braked
 
 
 SETTING_BOUNDS = {
     "threshold_kwh": (0, 100),
     "forecast_offset_pct": (-50, 50),
-    "day_dod": (0, 100),
     "night_dod": (0, 100),
     "release_soc": (0, 100),
-    "charge_cap_soc": (0, 100),
-    "charge_cap_release_current": (1, 500),
-    "charge_cap_full_every_days": (0, 365),
     "surplus_margin_w": (0, 50000),
     "surplus_full_soc": (50, 100),
     "surplus_off_import_w": (0, 50000),
     "surplus_debounce_s": (0, 3600),
 }
-STATE_FIELDS = ("charge_cap_active", "charge_cap_last_full")
+STATE_FIELDS = ("battery_capacity_kwh", "release_charge_brake")
 BOOL_FIELDS = ("auto_hold", "zero_export")
 
 
@@ -115,9 +124,13 @@ class BatteryController:
         self.export_verified = False
         self.last_tick = 0
         self.budget = {"date": "", "used": 0, "warned": False}
+        self.work_mode: int | None = None  # the inverter's work mode, as last read
+        self._settings_retry_at = 0.0
+        self._brake_retry_at = 0.0
         # Surplus signal
         self.surplus = False
         self.surplus_w = 0
+        self.curtailed_w = 0
         self.surplus_reason = ""
         self._surplus_pending: bool | None = None
         self._surplus_pending_since = 0.0
@@ -130,11 +143,18 @@ class BatteryController:
         settings = ControlSettings()
         try:
             data = json.loads(self.file.read_text())
-            for f in fields(ControlSettings):
-                if f.name in data:
+        except (OSError, ValueError):
+            return settings
+        if not isinstance(data, dict):
+            return settings
+        for f in fields(ControlSettings):
+            if f.name in data:
+                with contextlib.suppress(TypeError, ValueError):
                     setattr(settings, f.name, f.type(data[f.name]) if f.type in (int, float, bool) else data[f.name])
-        except (OSError, ValueError, TypeError):
-            pass
+        # Up to 0.1.x a charge cap could brake charging (charge current 0 A); it is gone, so a brake
+        # that was on at the update is released once
+        if data.get("charge_cap_active"):
+            settings.release_charge_brake = True
         return settings
 
     def _save(self) -> None:
@@ -166,6 +186,9 @@ class BatteryController:
 
     def state(self) -> dict:
         s = self.settings
+        mode = self.link.settings.get("work_mode")
+        with contextlib.suppress(TypeError, ValueError):
+            mode = int(mode) if mode is not None else None
         return {
             **asdict(s),
             "held": self.held,
@@ -173,6 +196,10 @@ class BatteryController:
             "dod_reported": self.link.settings.get("dod"),
             "export_limit_reported": self.link.settings.get("grid_export_limit"),
             "export_switch_reported": self.link.settings.get("grid_export"),
+            "work_mode": mode,
+            "work_mode_name": WORK_MODES.get(mode) if isinstance(mode, int) else None,
+            "work_mode_general": None if not isinstance(mode, int) else mode == GENERAL_MODE,
+            "settings_read_at": self.link.settings_at or None,
             "decision": self.decision,
             "dod_writes_today": self.budget["used"] if self.budget["date"] == date.today().isoformat() else 0,
             "dod_writes_per_day": DOD_WRITES_PER_DAY,
@@ -182,6 +209,7 @@ class BatteryController:
             "last_tick": self.last_tick or None,
             "surplus": self.surplus,
             "surplus_w": self.surplus_w,
+            "curtailed_w": self.curtailed_w,
             "surplus_reason": self.surplus_reason,
         }
 
@@ -213,16 +241,91 @@ class BatteryController:
         if self.link.inverter is None:
             self.last_dod = None
             return
+        await self._settings_check()
+        await self._release_charge_brake()
         if self.settings.auto_hold:
             await self._auto_hold_tick()
-        await self._charge_cap_tick()
         await self._zero_export_tick()
 
+    # ------------------------------------------------------------------
+    # Daily settings check: work mode and battery capacity
+    # ------------------------------------------------------------------
+    async def _settings_check(self) -> None:
+        now = time.time()
+        due = not self.link.settings_at or now - self.link.settings_at >= SETTINGS_CHECK_SECONDS
+        if due and now >= self._settings_retry_at:
+            try:
+                await self.link.read_settings()
+            except Exception as e:
+                self._settings_retry_at = now + SETTINGS_RETRY_SECONDS
+                logger.info(
+                    f"Settings check: read failed ({e}), trying again in {SETTINGS_RETRY_SECONDS // 60} minutes"
+                )
+        self._check_work_mode()
+        self._update_capacity()
+
+    def _check_work_mode(self) -> None:
+        try:
+            mode = int(self.link.settings["work_mode"])
+        except (KeyError, TypeError, ValueError):
+            return
+        if mode == self.work_mode:
+            return
+        was, self.work_mode = self.work_mode, mode
+        name = WORK_MODES.get(mode, str(mode))
+        if was is not None:
+            self.events.emit(
+                "work_mode_changed",
+                f"Work mode: {WORK_MODES.get(was, str(was))} → {name}",
+                mode=name,
+                was=WORK_MODES.get(was, str(was)),
+            )
+        if mode != GENERAL_MODE:
+            self.events.emit(
+                "work_mode_not_general",
+                f"The inverter is in {name} mode, not General: auto-hold is paused."
+                " Switch back to General on the Settings page.",
+                level="warning",
+                mode=name,
+            )
+
+    def _update_capacity(self) -> None:
+        try:
+            ah = float(self.link.settings.get("capacity") or 0)
+        except (TypeError, ValueError):
+            return
+        kwh = round(ah * NOMINAL_PACK_V / 1000, 1)
+        if ah > 0 and kwh != self.settings.battery_capacity_kwh:
+            self.settings.battery_capacity_kwh = kwh
+            self._save()
+
+    async def _release_charge_brake(self) -> None:
+        """An earlier version's charge cap may have left the charge current at 0 A: restore it once."""
+        if not self.settings.release_charge_brake or not self.link.fresh or time.time() < self._brake_retry_at:
+            return
+        amps = max(RELEASE_CHARGE_A, int(float(self.link.data.get("battery_charge_limit") or 0)))
+        try:
+            await self.link.apply("charge_i", amps, "update")
+        except Exception as e:
+            self._brake_retry_at = time.time() + SETTINGS_RETRY_SECONDS
+            logger.warning(f"Releasing the old charge cap failed ({e}); trying again in 30 minutes")
+            return
+        self.settings.release_charge_brake = False
+        self._save()
+        logger.info("The charge cap of an earlier version had braked charging: charging released")
+
+    # ------------------------------------------------------------------
+    # Discharge hold
+    # ------------------------------------------------------------------
     async def _auto_hold_tick(self) -> None:
         s = self.settings
         await self.forecast.fetch()  # cached unless older than 30 minutes
         if not self.link.fresh:
             self.decision = {"text": "No fresh inverter data, keeping the DoD as it is"}
+            return
+        if self.work_mode not in (None, GENERAL_MODE):
+            name = WORK_MODES.get(self.work_mode, str(self.work_mode))
+            self.decision = {"text": f"Paused: the inverter is in {name} mode, not General"}
             return
         if not self.forecast.configured:
             self.decision = {"text": "Forecast not configured, auto-hold cannot decide"}
@@ -239,7 +342,7 @@ class BatteryController:
         # now, it is daytime whatever the forecast claims
         producing = max(adjusted, live_kw) >= float(s.threshold_kwh)
         held = producing and (s.release_soc >= 100 or soc < s.release_soc)
-        desired = int(s.day_dod if held else s.night_dod)
+        desired = HOLD_DOD if held else int(s.night_dod)
         if held:
             reason = f"forecast {adjusted:.2f} kWh this hour, live {live_kw:.2f} kW, SoC {soc:.0f}%"
         elif producing:
@@ -379,70 +482,14 @@ class BatteryController:
             await self._apply_dod_verified(target_dod, True, "re-sent by the hold watchdog", source="hold watchdog")
 
     # ------------------------------------------------------------------
-    # Charge cap
-    # ------------------------------------------------------------------
-    async def _charge_cap_tick(self) -> None:
-        s = self.settings
-        cap = int(s.charge_cap_soc or 0)
-        braked = bool(s.charge_cap_active)
-        if not self.link.fresh:
-            return
-        release_current = int(s.charge_cap_release_current or 50)
-        bms_limit = int(float(self.link.data.get("battery_charge_limit") or 0))
-        if bms_limit > 0:
-            release_current = max(release_current, bms_limit)
-        soc = float(self.link.data.get("battery_soc") or 0)
-        if soc <= 0:
-            return
-
-        if not 10 <= cap < 100:
-            if braked:
-                await self.link.apply("charge_i", release_current, "charge cap")
-                s.charge_cap_active = False
-                self._save()
-                self.events.emit("charge_cap_off", "Charge cap switched off while braked: charging released", soc=soc)
-            return
-
-        today = date.today()
-        try:
-            last_full = date.fromisoformat(s.charge_cap_last_full) if s.charge_cap_last_full else None
-        except ValueError:
-            last_full = None
-        interval = int(s.charge_cap_full_every_days or 0)
-        balance_due = (
-            interval > 0 and last_full != today and (last_full is None or (today - last_full).days >= interval)
-        )
-        if balance_due:
-            if braked:
-                await self.link.apply("charge_i", release_current, "charge cap")
-                s.charge_cap_active = False
-                self._save()
-                self.events.emit(
-                    "charge_cap_balance", "BMS-balancing day: charge cap paused for a full charge", soc=soc
-                )
-            if soc >= 99:
-                s.charge_cap_last_full = today.isoformat()
-                self._save()
-                logger.info("Charge cap: 100% reached, BMS balance done, the cap resumes")
-            return
-
-        if not braked and soc >= cap:
-            await self.link.apply("charge_i", 0, "charge cap")
-            s.charge_cap_active = True
-            self._save()
-            self.events.emit("charge_cap_on", f"SoC {soc:.0f}% reached the cap of {cap}%: charging braked", soc=soc)
-        elif braked and soc <= cap - 5:
-            await self.link.apply("charge_i", release_current, "charge cap")
-            s.charge_cap_active = False
-            self._save()
-            self.events.emit("charge_cap_off", f"SoC {soc:.0f}% fell to {cap - 5}%: charging released", soc=soc)
-
-    # ------------------------------------------------------------------
     # Zero export
     # ------------------------------------------------------------------
     async def _read_export(self) -> tuple[int | None, int | None]:
         try:
-            settings = await self.link.read_settings()
+            if time.time() - self.link.settings_at < SETTINGS_FRESH_SECONDS:
+                settings = self.link.settings  # just read by the settings check
+            else:
+                settings = await self.link.read_settings()
             return int(settings["grid_export_limit"]), int(settings["grid_export"])
         except Exception as e:
             logger.info(f"Zero export: settings read failed ({e})")
@@ -507,12 +554,19 @@ class BatteryController:
     # Solar surplus signal (evaluated on every poll)
     # ------------------------------------------------------------------
     def _on_data(self, data: dict) -> None:
+        self._evaluate_surplus(data)
+        # For the recorder (it stores the poll after this listener): the daily surplus statistics
+        data["surplus"] = 1 if self.surplus else 0
+        data["surplus_w"] = self.surplus_w
+        data["curtailed_w"] = self.curtailed_w
+
+    def _evaluate_surplus(self, data: dict) -> None:
         s = self.settings
         soc = float(data.get("battery_soc") or 0)
         ppv = float(data.get("ppv") or 0)
         pgrid = float(data.get("pgrid") or 0)
         pbat = float(data.get("pbattery1") or 0)
-        full = soc >= s.surplus_full_soc or bool(s.charge_cap_active)
+        full = soc >= s.surplus_full_soc
         exporting_w = max(-pgrid, 0.0)
         # Under zero export a full battery means the inverter curtails the panels: the surplus is
         # invisible in the grid power, so estimate it as the forecast's headroom above the live PV
@@ -522,6 +576,7 @@ class BatteryController:
             curtailed_w = max(headroom, 0.0)
         surplus_w = round(exporting_w + curtailed_w)
         self.surplus_w = surplus_w
+        self.curtailed_w = round(curtailed_w)
         importing = pgrid > s.surplus_off_import_w
         draining = pbat < -IDLE_W
         if self.surplus:

@@ -46,12 +46,17 @@ SENSORS = (
     ("battery_temperature", "Battery temperature", "temperature", "°C", "measurement", None, True),
     ("battery_charged_today", "Battery charged today", "energy", "kWh", "total_increasing", None, False),
     ("battery_discharged_today", "Battery discharged today", "energy", "kWh", "total_increasing", None, False),
+    ("battery_charged_total", "Battery charged total", "energy", "kWh", "total_increasing", None, True),
+    ("battery_discharged_total", "Battery discharged total", "energy", "kWh", "total_increasing", None, True),
+    ("battery_cycles", "Battery cycles", None, "cycles", "total_increasing", "mdi:battery-sync-outline", False),
+    ("battery_capacity", "Battery capacity", "energy_storage", "kWh", None, "mdi:battery-high", True),
     ("battery_mode", "Battery mode", None, None, None, "mdi:battery-sync", True),
     ("load_power", "Home power", "power", "W", "measurement", "mdi:home-lightning-bolt", False),
     ("load_today", "Home today", "energy", "kWh", "total_increasing", None, False),
     ("backup_power", "Backup power", "power", "W", "measurement", "mdi:power-plug", True),
     ("inverter_temperature", "Inverter temperature", "temperature", "°C", "measurement", None, True),
     ("work_mode", "Work mode", None, None, None, "mdi:cog", False),
+    ("energy_mode", "Energy mode", None, None, None, "mdi:state-machine", True),
     ("grid_mode", "Grid mode", None, None, None, "mdi:transmission-tower", True),
     ("error_codes", "Error codes", None, None, None, "mdi:alert-circle-outline", True),
     ("run_hours", "Run hours", "duration", "h", "total_increasing", None, True),
@@ -59,6 +64,10 @@ SENSORS = (
     ("dod", "Depth of discharge", None, "%", None, "mdi:battery-arrow-down", True),
     ("hold_decision", "Auto-hold decision", None, None, None, "mdi:brain", True),
     ("surplus_power", "Solar surplus", "power", "W", "measurement", "mdi:white-balance-sunny", False),
+    ("surplus_today", "Solar surplus today", "duration", "h", "total_increasing", "mdi:timer-sand", False),
+    ("surplus_energy_today", "Solar used during surplus today", "energy", "kWh", "total_increasing", None, False),
+    ("curtailed_power", "Curtailed power (estimate)", "power", "W", "measurement", "mdi:solar-panel", True),
+    ("curtailed_today", "Curtailed today (estimate)", "energy", "kWh", "total_increasing", None, False),
     ("forecast_today", "Forecast today", "energy", "kWh", None, "mdi:weather-sunny", False),
     ("forecast_tomorrow", "Forecast tomorrow", "energy", "kWh", None, "mdi:weather-sunny", False),
     ("forecast_hour", "Forecast this hour", "energy", "kWh", None, "mdi:weather-sunny", True),
@@ -69,11 +78,13 @@ BINARY_SENSORS = (
     ("solar_surplus", "Solar surplus", None, "mdi:solar-power-variant"),
     ("battery_held", "Battery held", None, "mdi:shield-half-full"),
     ("auto_hold", "Auto-hold", None, "mdi:robot"),
-    ("charge_cap_active", "Charge cap braking", None, "mdi:car-brake-hold"),
+    ("work_mode_problem", "Work mode not General", "problem", None),
     ("zero_export", "Zero export", None, "mdi:transmission-tower-off"),
     ("exporting", "Exporting", None, "mdi:transmission-tower-export"),
     ("fault", "Fault", "problem", None),
 )
+# Entities of earlier versions, removed from Home Assistant on discovery: (component, key)
+REMOVED = (("binary_sensor", "charge_cap_active"),)
 
 
 def state_payload(data: dict, control: dict, inverter: dict, forecast: dict) -> dict:
@@ -92,6 +103,7 @@ def state_payload(data: dict, control: dict, inverter: dict, forecast: dict) -> 
     elif control.get("dod_reported") is not None:
         hold = "held" if int(control["dod_reported"]) == 0 else "discharging"
     fault = str(data.get("error_codes") or "0") not in ("0", "", "None")
+    capacity = float(control.get("battery_capacity_kwh") or 0)
     return {
         "pv_power": num("ppv", 0),
         "pv1_power": num("ppv1", 0),
@@ -113,12 +125,17 @@ def state_payload(data: dict, control: dict, inverter: dict, forecast: dict) -> 
         "battery_temperature": num("battery_temperature", 1),
         "battery_charged_today": num("e_bat_charge_day"),
         "battery_discharged_today": num("e_bat_discharge_day"),
+        "battery_charged_total": num("e_bat_charge_total", 1),
+        "battery_discharged_total": num("e_bat_discharge_total", 1),
+        "battery_cycles": round(float(data.get("e_bat_discharge_total") or 0) / capacity, 1) if capacity else None,
+        "battery_capacity": capacity or None,
         "battery_mode": data.get("battery_mode_label"),
         "load_power": num("load_ptotal", 0),
         "load_today": num("e_load_day"),
         "backup_power": num("backup_ptotal", 0),
         "inverter_temperature": num("temperature", 1),
-        "work_mode": data.get("work_mode_label"),
+        "work_mode": control.get("work_mode_name"),
+        "energy_mode": data.get("work_mode_label"),
         "grid_mode": data.get("grid_in_out_label"),
         "error_codes": str(data.get("error_codes") if data.get("error_codes") is not None else ""),
         "run_hours": num("h_total", 0),
@@ -126,6 +143,10 @@ def state_payload(data: dict, control: dict, inverter: dict, forecast: dict) -> 
         "dod": control.get("dod_reported"),
         "hold_decision": (control.get("decision") or {}).get("text"),
         "surplus_power": control.get("surplus_w"),
+        "surplus_today": num("surplus_hours"),
+        "surplus_energy_today": num("e_surplus_day"),
+        "curtailed_power": control.get("curtailed_w"),
+        "curtailed_today": num("e_curtailed_day"),
         "forecast_today": forecast.get("today_kwh"),
         "forecast_tomorrow": forecast.get("tomorrow_kwh"),
         "forecast_hour": forecast.get("hour_kwh"),
@@ -133,7 +154,7 @@ def state_payload(data: dict, control: dict, inverter: dict, forecast: dict) -> 
         "solar_surplus": bool(control.get("surplus")),
         "battery_held": hold == "held",
         "auto_hold": bool(control.get("auto_hold")),
-        "charge_cap_active": bool(control.get("charge_cap_active")),
+        "work_mode_problem": control.get("work_mode_general") is False,
         "zero_export": bool(control.get("zero_export")),
         "exporting": (num("pgrid", 0) or 0) < -30,
         "fault": fault,
@@ -322,6 +343,9 @@ class MqttPublisher:
             if icon:
                 config["icon"] = icon
             self._client.publish(f"{prefix}/binary_sensor/{node}/{key}/config", json.dumps(config), qos=1, retain=True)
+        for component, key in REMOVED:
+            # An empty retained config removes the entity from Home Assistant
+            self._client.publish(f"{prefix}/{component}/{node}/{key}/config", "", qos=1, retain=True)
         event = {
             "state_topic": self.event_topic,
             "availability_topic": self.status_topic,

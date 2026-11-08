@@ -41,7 +41,8 @@ class Recorder:
         self._last = data
 
     def _watch(self, data: dict) -> None:
-        """Edge events: faults, grid outages, work mode changes, battery full/low."""
+        """Edge events: faults, grid outages, battery full/low. (Work mode changes come from the
+        controller's settings check: on the ES the runtime label is the energy mode, not the work mode.)"""
         last = self._last
         if not last:
             return
@@ -59,8 +60,6 @@ class Recorder:
             self.events.emit("fault_cleared", "Inverter fault cleared")
 
         mode, was_mode = str(data.get("work_mode_label") or ""), str(last.get("work_mode_label") or "")
-        if mode != was_mode and was_mode:
-            self.events.emit("work_mode_changed", f"Work mode: {was_mode} → {mode}", mode=mode, was=was_mode)
         off_grid = any(word in mode.lower() for word in ("off-grid", "off grid", "backup"))
         was_off_grid = any(word in was_mode.lower() for word in ("off-grid", "off grid", "backup"))
         if off_grid and not was_off_grid:
