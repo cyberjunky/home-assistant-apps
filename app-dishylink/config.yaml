@@ -8,7 +8,6 @@ arch:
   - aarch64
   - amd64
 init: false
-stage: experimental
 # The dashboard is served through Home Assistant ingress (nginx on the default
 # ingress port 8099 in front of the Dishylink browser host on 8080). Port 8080 can optionally be
 # published for access without ingress, for example from a phone on the LAN.
