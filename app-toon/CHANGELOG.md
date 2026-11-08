@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+**After updating:** nothing to do.
+
+- The README and the dashboard's footer say that this is an unofficial app.
+
 ## 0.1.1
 
 **After updating:** nothing to do.

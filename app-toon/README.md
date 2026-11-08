@@ -12,6 +12,8 @@
 
 # Toon App for Home Assistant
 
+> **Unofficial.** An independent project, not affiliated with, endorsed by or sponsored by Eneco or Quby.
+
 Logger and dashboard for a rooted Toon thermostat — reads boiler, heating and energy values
 straight from the Toon's internal message bus, stores them locally and publishes them to
 Home Assistant over MQTT. It also keeps track of the Toon's own health and of every time it

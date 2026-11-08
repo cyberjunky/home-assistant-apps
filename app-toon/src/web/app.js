@@ -78,7 +78,7 @@ function renderStatus(status) {
   link.style.setProperty("--dot", css(status.connected ? "--good" : "--critical"));
   const info = status.info;
   $("about").textContent = [info.vers && `Firmware ${info.vers}`, info.serialNumber,
-    `app ${status.version}`, status.mqtt.broker ? `MQTT ${status.mqtt.connected ? "connected" : "not connected"}` : "MQTT off",
+    `app ${status.version} (unofficial)`, status.mqtt.broker ? `MQTT ${status.mqtt.connected ? "connected" : "not connected"}` : "MQTT off",
     status.import.running ? "importing history" : ""].filter(Boolean).join(" · ");
 
   const notices = [];
