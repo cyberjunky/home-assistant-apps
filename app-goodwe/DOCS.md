@@ -37,7 +37,9 @@ inverter ──▶ read every 20 s ──▶ snapshots (SQLite) ──▶ dashbo
   with a priority model (solar → home, then battery, then grid; battery → home; grid → home,
   then battery). The same integration gives the day's Sankey diagram and the battery's
   state over the day. Where an inverter does report such counters, the larger of the two
-  wins. Snapshots are kept for 14 days; the daily energies forever.
+  wins. Everything is kept for good: the snapshots at full resolution for 14 days and
+  averaged per minute after that (energies stay exact), the daily energies, the forecast
+  log and the events.
 - **Writing.** The controller only writes the on-grid depth of discharge
   (`set_ongrid_battery_dod`, AA55 0x0560), the grid export limit (`set_grid_export_limit`,
   0x0335) and the export-limit switch (0x0353, what SolarGo sends); the Settings page can
@@ -118,7 +120,7 @@ overrides that).
   when configured); today's energy flow as a thin Sankey (solar, battery and grid into home, battery and grid); and today's production and battery charts.
 - **Stats** — Pick a period and bar size. Energies per period, grid, battery (with cycles),
   solar surplus, curtailment and the miners' energy and hours, self-sufficiency and self-consumption; a day detail with
-  the battery's state and that day's energy flow as a Sankey diagram (the last 14 days);
+  the battery's state and that day's energy flow as a Sankey diagram (any recorded day);
   the solar forecast for the next days, its accuracy, yields per month and per year; records.
 - **Settings** — The battery control; inverter details; the inverter's settings as read
   (work mode with *Back to General*, export limit, DoD, battery capacity and charge
@@ -216,7 +218,7 @@ analytics and no telemetry.
 ### What it stores
 
 Everything is in the app's private storage (`/data`), part of Home Assistant backups of
-the app: `goodwe.db` (snapshots for 14 days, daily energies, the forecast log and the
+the app: `goodwe.db` (snapshots, kept for good and averaged per minute after 14 days, daily energies, the forecast log and the
 events), `control.json` (the battery control settings and state) and
 `forecast_cache.json`.
 
@@ -241,7 +243,8 @@ the data or change inverter settings.
 - On the ES, *Self-use* and *Peak shaving* modes do not exist (General mode already
   self-consumes) and are not offered. *Backup supply* can only be switched in SolarGo.
 - Statistics start when the app starts recording. The energy flow and the day detail need
-  snapshots, which are kept for 14 days; the daily totals are kept forever.
+  snapshots, kept for good (averaged per minute after 14 days; about 150–200 MB a year at the
+  default 20 s poll); the daily totals are kept forever.
 - A short discharge while held is normal: when production sits just under the house load
   the inverter hunts around the balance point for a few minutes. Only a sustained one
   counts as a violation.

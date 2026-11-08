@@ -8,9 +8,10 @@ the day's forecast and actual production are logged for the accuracy table.
 
 import asyncio
 import logging
+import time
 from datetime import date, timedelta
 
-from .database import Database
+from .database import SNAPSHOT_DAYS, Database
 from .events import EventBus
 from .forecast import Forecast
 from .inverter import InverterLink
@@ -83,7 +84,8 @@ class Recorder:
     async def run(self) -> None:
         """Derive the day energies every five minutes; log forecast against production hourly."""
         try:
-            for day in self.database.snapshot_dates():
+            # Older days were derived while they were recent; years of history need no recomputing
+            for day in self.database.snapshot_dates(since=int(time.time()) - (SNAPSHOT_DAYS + 1) * 86400):
                 self.database.update_derived(day)
         except Exception as e:
             logger.warning(f"Derived energy backfill failed: {e}")

@@ -1,8 +1,10 @@
 """SQLite storage: snapshots of the inverter, daily summaries, forecast log and events.
 
 Dates are local calendar days throughout (the inverter's own day counters reset at
-local midnight). Raw snapshots are kept for a limited number of days; the daily
-summaries are kept forever and carry the statistics.
+local midnight). Everything is kept for good: the daily summaries, the forecast log, the
+events, and the snapshots. Snapshots older than SNAPSHOT_DAYS are compacted to one per
+minute (the minute's averages), which keeps every day's energies exact (average power
+times time) and its day chart and Sankey, at about a third of the size.
 """
 
 import json
@@ -14,7 +16,9 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# Full-resolution snapshots for this many days; older ones are averaged per minute
 SNAPSHOT_DAYS = 14
+COMPACT_SECONDS = 60
 SNAPSHOT_KEYS = (
     "ppv",
     "ppv1",
@@ -47,6 +51,28 @@ DERIVED_KEYS = ("surplus_hours", "e_surplus_day", "e_curtailed_day", "miners_hou
 TOTAL_KEYS = (*DAY_KEYS, *DERIVED_KEYS)
 # A gap between snapshots longer than this is not integrated (the add-on or inverter was down)
 MAX_GAP = 120
+
+
+def _average(items: list[dict]) -> dict:
+    """One snapshot from several: numbers averaged (on/off flags become the share of the time they
+    were on), anything else taken from the last one."""
+    out: dict = {}
+    for key in {k for d in items for k in d}:
+        values = [d[key] for d in items if d.get(key) is not None]
+        numbers = [float(v) for v in values if isinstance(v, int | float)]
+        if numbers and len(numbers) == len(values):
+            out[key] = round(sum(numbers) / len(numbers), 3)
+        elif values:
+            out[key] = values[-1]
+    return out
+
+
+def _share(value) -> float:
+    """How much of a snapshot's interval a flag was on: 0/1 (or False/True) raw, a fraction once averaged."""
+    try:
+        return min(max(float(value or 0), 0.0), 1.0)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _day_bounds(day: str | None) -> tuple[str, int, int]:
@@ -179,10 +205,54 @@ class Database:
         )
 
     def prune(self) -> None:
+        """Compact the snapshots past the full-resolution window. Nothing is deleted."""
+        try:
+            self.compact_snapshots()
+        except Exception as e:  # never let housekeeping stop the recording
+            logger.warning(f"Snapshot compaction failed: {e}")
+
+    def compact_snapshots(self, max_days: int = 3) -> int:
+        """Average the snapshots older than SNAPSHOT_DAYS per minute, a few days per call (the first
+        run after an update has a backlog). A minute's row is stamped at the end of its minute, since
+        the integration attributes a snapshot's power to the interval before it; a minute already
+        compacted (one row) is left alone, so this is safe to repeat. Returns the rows removed."""
         cutoff = int(time.time()) - SNAPSHOT_DAYS * 86400
-        self.con.execute("DELETE FROM snapshots WHERE ts < ?", (cutoff,))
-        self.con.execute("DELETE FROM events WHERE ts < ?", (int(time.time()) - 365 * 86400,))
+        end_stamp = COMPACT_SECONDS - 1  # a compacted minute's row sits on its last second
+        first = self.con.execute(
+            "SELECT MIN(ts) FROM snapshots WHERE ts < ? AND ts % ? != ?", (cutoff, COMPACT_SECONDS, end_stamp)
+        ).fetchone()[0]
+        if first is None:
+            return 0
+        start = first - first % COMPACT_SECONDS
+        end = min(cutoff - cutoff % COMPACT_SECONDS, start + max_days * 86400)
+        if end <= start:
+            return 0
+        rows = self.con.execute(
+            "SELECT ts, data FROM snapshots WHERE ts >= ? AND ts < ? ORDER BY ts", (start, end)
+        ).fetchall()
+        buckets: dict[int, list] = {}
+        for row in rows:
+            buckets.setdefault(row["ts"] // COMPACT_SECONDS, []).append(row)
+        removed = 0
+        for bucket, group in buckets.items():
+            if len(group) == 1 and group[0]["ts"] % COMPACT_SECONDS == end_stamp:
+                continue  # compacted already
+            merged = _average([json.loads(r["data"]) for r in group])
+            self.con.execute(
+                "DELETE FROM snapshots WHERE ts >= ? AND ts < ?",
+                (bucket * COMPACT_SECONDS, (bucket + 1) * COMPACT_SECONDS),
+            )
+            self.con.execute(
+                "INSERT INTO snapshots (ts, data) VALUES (?, ?)",
+                (bucket * COMPACT_SECONDS + COMPACT_SECONDS - 1, json.dumps(merged)),
+            )
+            removed += len(group) - 1
         self.con.commit()
+        if removed:
+            logger.info(
+                f"Snapshots before {datetime.fromtimestamp(end):%Y-%m-%d %H:%M} averaged per minute ({removed} rows fewer)"
+            )
+        return removed
 
     # ------------------------------------------------------------------
     # Energy flows from the snapshots (the ES has no import/export counters)
@@ -238,13 +308,13 @@ class Database:
                 links["grid_load"] += g_load * h
                 links["grid_batt"] += g_batt * h
                 imp_by_hour[datetime.fromtimestamp(ts).hour] += gi * h
-                if d.get("surplus"):
-                    extra["surplus_s"] += ts - prev
-                    extra["surplus_solar_wh"] += s_load * h
+                on = _share(d.get("surplus"))
+                extra["surplus_s"] += (ts - prev) * on
+                extra["surplus_solar_wh"] += s_load * h * on
                 extra["curtailed_wh"] += max(float(d.get("curtailed_w") or 0), 0) * h
-                if d.get("miners_on"):
-                    extra["miners_s"] += ts - prev
-                    extra["miners_wh"] += max(float(d.get("miners_w") or 0), 0) * h
+                extra["miners_s"] += (ts - prev) * _share(d.get("miners_on"))
+                # miners_w is 0 while off, so its (averaged) power is the energy as it is
+                extra["miners_wh"] += max(float(d.get("miners_w") or 0), 0) * h
             prev = ts
         return links, imp_by_hour, len(rows), extra
 
@@ -310,9 +380,9 @@ class Database:
         )
         self.con.commit()
 
-    def snapshot_dates(self) -> list[str]:
-        """The local dates that still have snapshots."""
-        row = self.con.execute("SELECT MIN(ts), MAX(ts) FROM snapshots").fetchone()
+    def snapshot_dates(self, since: int = 0) -> list[str]:
+        """The local dates that have snapshots (from `since`, a timestamp, on)."""
+        row = self.con.execute("SELECT MIN(ts), MAX(ts) FROM snapshots WHERE ts >= ?", (since,)).fetchone()
         if not row or row[0] is None:
             return []
         d, last = datetime.fromtimestamp(row[0]).date(), datetime.fromtimestamp(row[1]).date()

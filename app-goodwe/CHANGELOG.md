@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.3
+
+**After updating:** nothing to do. The first hours after the update the add-on averages the snapshots older than 14 days per minute, a few days at a time.
+
+- **Everything is kept for good.** The 20-second snapshots used to be deleted after 14 days and the events after a year. Now nothing is deleted: snapshots older than 14 days are averaged per minute (the energies stay exact, at about a third of the size: roughly 150–200 MB a year), so every recorded day keeps its day chart and Sankey in Stats. Events are kept too.
+
 ## 0.3.2
 
 **After updating:** nothing to do.

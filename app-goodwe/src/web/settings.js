@@ -142,7 +142,7 @@ function renderDataSettings() {
     const db = (app.status && app.status.database) || {};
     document.getElementById('set-data').innerHTML = [
         infoRow('Recorded days', `${num(db.days)}${db.first_date ? ` <small>since ${fmtIsoDate(db.first_date, true)}</small>` : ''}`),
-        infoRow('Snapshots', `${num(db.snapshots)} <small>(kept 14 days)</small>`),
+        infoRow('Snapshots', `${num(db.snapshots)} <small>(kept for good; per minute after 14 days)</small>`),
         infoRow('Events', num(db.events)),
         infoRow('Database size', `${num((db.bytes || 0) / 1048576, 1)} MB`),
     ].join('');

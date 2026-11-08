@@ -158,7 +158,7 @@ async function loadDayDetail() {
             bands: stateBands(xs, rows.map(r => r.state), {charge: c.chg, discharge: c.dis, hold: c.hold}, step),
             xTicks: xs.length > 1 ? hourTicks(xs[0], xs[xs.length - 1], 2) : [], formatX: fmtDateTime, formatY: v => fmtKw(v * 1000),
             extraRows: i => [{value: fmtPct(rows[i].soc), name: `battery · ${rows[i].state}`}],
-            empty: `No power recorded for ${fmtIsoDate(detailDate)} (the detail is kept for 14 days)`,
+            empty: `No power recorded for ${fmtIsoDate(detailDate)}`,
         });
         document.getElementById('legend-day').innerHTML = legendHtml([
             {name: 'Solar', color: c.solar}, {name: 'Home', color: c.load}, {name: 'Grid (above 0 = import)', color: c.grid, kind: 'line'},
@@ -203,7 +203,7 @@ async function loadSankey(day) {
                     ${card('Battery', cssVar('--bat-chg'), flow.destinations.battery, dstTotal)}
                     ${card('Grid export', cssVar('--grid-exp'), flow.destinations.grid, dstTotal)}</div>
             </div>
-            <p class="panel-sub" style="margin-top:10px">Integrated from the recorded power with a priority model (solar → home → battery → grid). Approximate: the inverter doesn't report the flows themselves. Kept for 14 days.</p>`;
+            <p class="panel-sub" style="margin-top:10px">Integrated from the recorded power with a priority model (solar → home → battery → grid). Approximate: the inverter doesn't report the flows themselves.</p>`;
         renderSankey(document.getElementById('sankey'), flow);
     } catch (e) {
         wrap.innerHTML = `<div class="empty-state">${escapeHtml(e.message)}</div>`;
