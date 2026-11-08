@@ -7,8 +7,9 @@ from pathlib import Path
 
 from aiohttp import web
 
-from .config import APP_VERSION
+from .config import APP_VERSION, DATA_DIR
 from .database import Database
+from .donate import DonatePrompt
 from .metrics import METRIC_BY_KEY, METRICS
 from .monitor import ToonMonitor
 from .mqtt import MqttPublisher
@@ -32,6 +33,7 @@ class WebUI:
         self.app.router.add_get("/api/status", self._status)
         self.app.router.add_get("/api/history", self._history)
         self.app.router.add_get("/api/outages", self._outages)
+        DonatePrompt(DATA_DIR / "donate_prompt.json").add_routes(self.app)
         self.app.router.add_static("/static", WEB_DIR)
 
     async def start(self) -> None:
