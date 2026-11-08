@@ -22,6 +22,7 @@ from . import history_import, signin_browser, stats
 from .billing import ChargingCosts
 from .config import ADDON_VERSION, DATA_DIR, Config
 from .database import Database, place_key
+from .donate import DonatePrompt
 from .ha_client import HAClient, HAClientError
 from .monitor import Garage
 from .mqtt import MqttPublisher
@@ -143,6 +144,7 @@ class WebUI:
         get, post = self.app.router.add_get, self.app.router.add_post
         get("/", self._handle_index)
         self.app.router.add_static("/static/", STATIC_DIR)
+        DonatePrompt(DATA_DIR / "donate_prompt.json").add_routes(self.app)
         self.app.router.add_static("/web/", WEB_DIR)
 
         get("/api/status", self._handle_status)

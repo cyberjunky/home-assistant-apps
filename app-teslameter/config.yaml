@@ -1,5 +1,5 @@
 name: TeslaMeter
-version: "0.6.1"
+version: "0.6.2"
 slug: app-teslameter
 description: "Tesla logger and dashboard for Home Assistant - live map, trips, charging sessions and statistics"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-teslameter"
