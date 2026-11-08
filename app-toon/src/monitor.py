@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import logging
+import sqlite3
 import time
 from collections.abc import Callable
 
@@ -169,12 +170,21 @@ class ToonMonitor:
                 await asyncio.sleep(delay)
                 delay = min(delay * 2, RECONNECT_MAX)
                 continue
+            except Exception as e:
+                logger.exception("Unexpected error while connecting to the Toon")
+                self._down(_describe(e))
+                await asyncio.sleep(RECONNECT_MAX)
+                continue
 
             delay = RECONNECT_MIN
             try:
                 await self._serve(session)
                 reason = "the session ended"
             except (OSError, TimeoutError, asyncssh.Error, BoxTalkError) as e:
+                reason = _describe(e)
+            except Exception as e:
+                # A bug must not end the logging: the finish script stops the app on a failed exit
+                logger.exception("Unexpected error during the session with the Toon")
                 reason = _describe(e)
             finally:
                 session.close()
@@ -293,7 +303,7 @@ class ToonMonitor:
                 await self.importer.fill_gap(bus, self.host_name, outage_start, time.time(), offset)
             if self.config.import_history:
                 await self.importer.import_all(bus, self.host_name)
-        except (OSError, TimeoutError, asyncssh.Error, ValueError) as e:
+        except (OSError, TimeoutError, asyncssh.Error, ValueError, BoxTalkError) as e:
             logger.info(f"History import interrupted, continuing later: {_describe(e)}")
         await asyncio.Event().wait()
 
@@ -391,11 +401,14 @@ class ToonMonitor:
         last_rollup = 0.0
         while True:
             await asyncio.sleep(FLUSH_INTERVAL)
-            self.database.flush()
-            if time.time() - last_rollup >= ROLLUP_INTERVAL:
-                last_rollup = time.time()
-                self.database.prune(self.config.raw_retention_days)
-                self.database.roll_up(int(time.time()) - 2 * ROLLUP_INTERVAL)
+            try:
+                self.database.flush()
+                if time.time() - last_rollup >= ROLLUP_INTERVAL:
+                    last_rollup = time.time()
+                    self.database.prune(self.config.raw_retention_days)
+                    self.database.roll_up(int(time.time()) - 2 * ROLLUP_INTERVAL)
+            except sqlite3.Error as e:
+                logger.warning(f"Database upkeep failed, trying again later: {e}")
 
 
 def _describe(error: Exception) -> str:

@@ -32,7 +32,7 @@ LEGACY_ALGORITHMS = {
     "compression_algs": ["none"],
 }
 BUS_PORT = 1337
-# A dead link is noticed after about a minute: no answer to 3 keepalives, 20 seconds apart
+# A dead link is noticed after about 80 seconds: 3 unanswered keepalives, 20 seconds apart, plus one interval
 KEEPALIVE_INTERVAL = 20
 KEEPALIVE_COUNT = 3
 CONNECT_TIMEOUT = 20

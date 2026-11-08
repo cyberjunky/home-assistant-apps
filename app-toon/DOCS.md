@@ -34,7 +34,7 @@ Toon: message bus (1337) ──SSH──▶ monitor ──▶ SQLite ──▶ d
 
 - **One connection.** The Toon's message bus only listens on the Toon itself, so everything goes through one SSH session. The Toon's web server isn't used at all.
 - **Old algorithms.** A Toon runs Dropbear 0.51, which only speaks algorithms that are considered weak today. The app enables them for this connection only. Keep this connection inside your own network.
-- **Reconnecting.** A dead connection is noticed within about a minute by SSH keepalives, or sooner when it is closed. The app then retries after 5 seconds, backing off to once a minute. A refused password or a changed SSH key is retried every 5 minutes.
+- **Reconnecting.** A dead connection is noticed within about 80 seconds by SSH keepalives, or sooner when it is closed. The app then retries after 5 seconds, backing off to once a minute. A refused password or a changed SSH key is retried every 5 minutes.
 - **Reading.** The bus pushes changes as they happen, and the app also asks for the thermostat's dataset every 10 seconds and all other values every 5 minutes.
 - **Clock.** Live values get the time they were received, so a wrong clock on the Toon doesn't affect them.
 

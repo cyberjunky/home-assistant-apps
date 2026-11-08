@@ -111,13 +111,17 @@ class HistoryImporter:
         self.zone = ZoneInfo(timezone)
         self.running = False
 
-    def _store(self, archive: Archive, rows: list[tuple[str, int, float]]) -> None:
+    def _store(self, archive: Archive, rows: list[tuple[str, int, float]]) -> int:
+        """Store rows and return how many. The running bin of a file is stamped with its end, so skip what's ahead."""
+        now = time.time()
+        rows = [row for row in rows if row[1] <= now]
         if not rows:
-            return
+            return 0
         if archive.bin_seconds >= 3600:
             self.database.add_hourly(rows)
         else:
             self.database.add_samples(rows)
+        return len(rows)
 
     async def _fetch(
         self, bus: BoxTalkClient, host: str, archive: Archive, start: int, end: int, shift: float = 0
@@ -130,9 +134,7 @@ class HistoryImporter:
         except ValueError:
             logger.warning(f"History: unreadable answer for {archive.logger}/{archive.rra}")
             return 0
-        rows = parse_rows(archive, data if isinstance(data, dict) else {}, shift)
-        self._store(archive, rows)
-        return len(rows)
+        return self._store(archive, parse_rows(archive, data if isinstance(data, dict) else {}, shift))
 
     async def import_all(self, bus: BoxTalkClient, host: str) -> None:
         """Import everything not imported yet, continuing an interrupted import."""
