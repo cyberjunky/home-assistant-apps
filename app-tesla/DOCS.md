@@ -295,28 +295,3 @@ can.
 
 This app is an independent project. It is not affiliated with, endorsed by or sponsored
 by Tesla, Inc.; "Tesla" is a trademark of Tesla, Inc.
-
-## Moving from TeslaMeter
-
-This app was called TeslaMeter. Home Assistant treats a new slug as a different app, so the data has to be copied once. Uninstalling the old app deletes its data, so copy first.
-
-1. In the old app, download a safety copy under **Settings → Data → Database backup**, and copy its options from **Configuration → Edit in YAML**.
-2. Install **Tesla** and paste the options, but change `mqtt.base_topic` to `tesla` if it is in there. Don't start it yet.
-3. Stop the old app.
-4. In Home Assistant, delete the old device of the car under **Settings → Devices & services → MQTT**, so the new one can take over its entity IDs.
-5. On the host, over SSH on port 22222 or from a terminal with access to the host, run the commands below. On a Supervised install the folder is `/usr/share/hassio/addons/data`.
-6. Start **Tesla** and check your trips and sign-in, then uninstall the old app.
-
-```bash
-cd /mnt/data/supervisor/addons/data
-OLD=$(ls -d *_app-teslameter)
-NEW=$(ls -d *_app-tesla)
-rm -f "$NEW"/tesla.db "$NEW"/tesla.db-wal "$NEW"/tesla.db-shm
-for suffix in "" -wal -shm; do
-  [ -e "$OLD/teslameter.db$suffix" ] && cp -a "$OLD/teslameter.db$suffix" "$NEW/tesla.db$suffix"
-done
-cp -a "$OLD/tokens.json" "$NEW/"
-[ -d "$OLD/car-images" ] && cp -a "$OLD/car-images" "$NEW/"
-```
-
-If the `*_app-tesla` folder doesn't exist yet, start and stop **Tesla** once to create it.

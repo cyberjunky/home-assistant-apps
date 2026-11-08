@@ -2,7 +2,7 @@
 
 ## 0.7.0
 
-**After updating:** this is a new app, not an update, because the name and slug changed. Install **Tesla**, then copy your data from the old app as described under "Moving from TeslaMeter" in the documentation.
+**After updating:** this is a new app, not an update, because the name and slug changed.
 
 - Renamed from TeslaMeter to **Tesla**: the app, its slug and image (`app-tesla`), the database file (`tesla.db`) and the MQTT topic and devices (`tesla/...`, `tesla_<vin>`).
 - The README, the store description and the dashboard's status bar say that this is an unofficial app.
