@@ -373,6 +373,19 @@ async function loadReport() {
     }
 }
 
+// Flow in m³/h between meter readings, skipping gaps and counter jumps
+function flowFromMeter(points) {
+    const flow = [];
+    (points || []).forEach((point, i) => {
+        if (!i) return;
+        const [before, was] = points[i - 1];
+        const hours = (point[0] - before) / 3600;
+        const used = point[1] - was;
+        if (hours > 0 && hours <= 0.25 && used >= 0) flow.push([point[0], Math.round(used / hours * 1000) / 1000]);
+    });
+    return flow;
+}
+
 async function loadDay() {
     document.getElementById('day-nav').innerHTML = dateNavHtml('dayStep', stats.day);
     document.getElementById('day-title').textContent = 'Timeline';
@@ -380,12 +393,14 @@ async function loadDay() {
     const end = Math.floor(new Date(shiftDate(stats.day, 1) + 'T00:00:00').getTime() / 1000);
     const step = 120;
     const charts = dayCharts();
-    const metrics = charts.flatMap(c => c.series.map(s => s.metric));
+    const metrics = [...charts.flatMap(c => c.series.map(s => s.metric)), 'gas_delivered'];
     const [data, gasHours] = await Promise.all([
         api(`history?start=${start}&end=${end}&metrics=${[...metrics, 'burner_code'].join(',')}`),
         api(`gas-hours?day=${stats.day}`),
     ]);
-    // The Toon keeps no history of the gas flow: only days the app was logging have it
+    // The Toon keeps no history of the gas flow. Days without live readings get it from the meter's
+    // 5-minute history, which only goes back about a week before the app was installed.
+    if (!(data.gas_flow || []).length) data.gas_flow = flowFromMeter(data.gas_delivered);
     const shown = charts.filter(c => c.id !== 'day-gas' || (data.gas_flow || []).length);
     const gasTotal = gasHours.reduce((total, h) => total + h.gas, 0);
     const xs = gridTimes(start, end, step);

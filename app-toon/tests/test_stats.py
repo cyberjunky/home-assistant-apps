@@ -9,7 +9,7 @@ from aiohttp.test_utils import TestClient, TestServer
 
 from src.config import Config
 from src.database import Database
-from src.history import ARCHIVES
+from src.history import ARCHIVES, HistoryImporter, parse_rows
 from src.metrics import METRIC_BY_KEY, PUBLISHED
 from src.monitor import ToonMonitor
 from src.mqtt import discovery_messages
@@ -318,3 +318,29 @@ def test_report_says_since_when_burner_hours_are_counted(filled):
     today = datetime.now().date().isoformat()
     report = Stats(filled.path).report(day, today, "day")
     assert report["burner_hours_since"] <= day
+
+
+def test_new_histories_are_imported_and_counted(tmp_path):
+    archives = {(a.logger, a.rra): a for a in ARCHIVES}
+    hours = archives[("thermstat_boilerBurnerHours", "30days")]
+    assert hours.metric == "burner_hours"
+    meter = archives[("gas_delivered", "5minweek")]
+    assert meter.bin_seconds == 300
+    assert METRIC_BY_KEY["gas_delivered"].key not in {m.key for m in PUBLISHED}
+
+    db = Database(tmp_path / "t.db")
+    importer = HistoryImporter(db)
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    stamp = lambda days: str(int((today - timedelta(days=days)).timestamp()))  # noqa: E731
+    answer = {stamp(5): 100, stamp(4): 103, stamp(3): 105, stamp(2): None, "error": "x"}
+    assert importer._store(hours, parse_rows(hours, answer)) == 3
+    first = (today - timedelta(days=5)).date().isoformat()
+    report = Stats(db.path).report(first, today.date().isoformat(), "day")
+    assert report["totals"]["burner_hours"] == pytest.approx(5)
+    assert report["burner_hours_since"] == first
+
+    # The meter's raw litres become m³, as samples
+    ts = int(today.timestamp()) - 600
+    assert importer._store(meter, parse_rows(meter, {str(ts): 811447})) == 1
+    assert db.history(["gas_delivered"], ts - 60, ts + 60)["gas_delivered"][0][1] == pytest.approx(811.447)
+    db.close()

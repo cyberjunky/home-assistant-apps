@@ -115,6 +115,15 @@ METRICS: tuple[Metric, ...] = (
         scale=0.001,
         icon="mdi:gas-burner",
     ),
+    # Not gas_total: this one counts from another start, so only its changes mean something
+    Metric(
+        "gas_delivered",
+        "Gas meter, 5-minute history",
+        unit="m³",
+        state_class="total_increasing",
+        scale=0.001,
+        published=False,
+    ),
     # Health of the Toon itself
     Metric("meter_adapter_connected", "Meter adapter connected", state_class=None, binary=True, **_DIAG),
     Metric("meter_adapter_health", "Meter adapter health", icon="mdi:heart-pulse", **_DIAG),

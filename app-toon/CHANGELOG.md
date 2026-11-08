@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.3
+
+**After updating:** nothing to do. The app fetches the two new histories from your Toon by itself.
+
+- Burner hours go back about 30 days, from the boiler's real hour counter in the Toon's history.
+- The day timeline's Gas flow chart also works for about the week before the update, from the gas meter's 5-minute history in the Toon.
+
 ## 0.4.2
 
 **After updating:** nothing to do.

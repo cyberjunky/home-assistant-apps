@@ -66,6 +66,11 @@ def _archives() -> tuple[Archive, ...]:
         archives.append(Archive(name, "30days", metric, 30 * DAY, 60, DAY))
     archives.append(Archive("elec_flow", "5min", "power_import", 31 * DAY, 300, 3 * DAY))
     archives.append(Archive("elec_produ_flow", "5min", "power_export", 31 * DAY, 300, 3 * DAY))
+    # The boiler's real hour counter: 30 daily values is all the Toon keeps of it
+    archives.append(Archive("thermstat_boilerBurnerHours", "30days", "burner_hours", 30 * DAY, DAY, 30 * DAY))
+    # The gas meter every 5 minutes, for a week. The Toon's own gas_flow history is empty, so this is
+    # what shows the flow on days before the app logged it.
+    archives.append(Archive("gas_delivered", "5minweek", "gas_delivered", 7 * DAY, 300, DAY))
     return tuple(archives)
 
 
