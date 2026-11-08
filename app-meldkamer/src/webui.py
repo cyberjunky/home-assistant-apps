@@ -2104,7 +2104,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
         /* Smaller screens (laptops, 1280-1400 px wide or up to 800 px high) */
         @media (max-width: 1400px) {
-            .brand-name, .sensor-filter-pill { display: none; }
+            .sensor-filter-pill { display: none; }
             .filter-select { display: block; }
             .clock { font-size: 18px; }
             .console { grid-template-columns: minmax(0, 1fr) var(--console-side, minmax(460px, 40%)); }

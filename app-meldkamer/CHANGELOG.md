@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.10
+
+**After updating:** nothing to do.
+
+- The top bar shows MELDKAMER next to the icon on screens up to 1400 px wide too, like GoodWe and TeslaMeter. It was hidden there.
+
 ## 1.4.9
 
 **After updating:** nothing to do.
