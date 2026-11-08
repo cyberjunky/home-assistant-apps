@@ -1,6 +1,6 @@
-# Home Assistant App: GoodWe Nerd
+# Home Assistant App: GoodWeNerd
 
-GoodWe Nerd reads your GoodWe inverter over the local network and shows the live energy flow
+GoodWeNerd reads your GoodWe inverter over the local network and shows the live energy flow
 between solar, battery, grid and home, with statistics on production, consumption, storage
 and grid exchange. It also controls the battery: with the solar forecast it keeps the battery
 for the evening, keeps export at zero, and tells Home Assistant when solar is going spare (to
@@ -8,7 +8,7 @@ switch on a load such as a miner once the battery is full). It runs entirely on 
 everything in its own data folder.
 
 After installing, enter the inverter's IP address on the app's Configuration tab, start it
-and open **GoodWe Nerd** from the sidebar.
+and open **GoodWeNerd** from the sidebar.
 
 ## How it works
 
@@ -189,7 +189,7 @@ or build your own rule from the surplus, state of charge and grid power sensors.
 
 ## Privacy
 
-GoodWe Nerd runs entirely on your Home Assistant. It has no cloud service of its own, no
+GoodWeNerd runs entirely on your Home Assistant. It has no cloud service of its own, no
 analytics and no telemetry.
 
 ### What it fetches
@@ -261,5 +261,5 @@ formatting and lint; `./lint.sh fix` fixes what it can.
 - [goodwe](https://github.com/marcelblijleven/goodwe) — The inverter protocol library
 - [Forecast.Solar](https://forecast.solar/) and [Open-Meteo](https://open-meteo.com/) — Solar forecasts
 
-GoodWe Nerd is an independent project. It is not affiliated with, endorsed by or sponsored
+GoodWeNerd is an independent project. It is not affiliated with, endorsed by or sponsored
 by GoodWe Technologies Co., Ltd.

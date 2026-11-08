@@ -1,4 +1,4 @@
-// GoodWe Nerd dashboard - Stats view: energies per period, grid, battery and surplus, self-sufficiency,
+// GoodWeNerd dashboard - Stats view: energies per period, grid, battery and surplus, self-sufficiency,
 // the day detail with its energy flow (Sankey), the solar forecast and yields, and records.
 
 let statsRange = localStorage.getItem(LS + 'stats_range') || '30d';

@@ -1,4 +1,4 @@
-"""GoodWe Nerd - Main entry point."""
+"""GoodWeNerd - Main entry point."""
 
 import asyncio
 import contextlib
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 async def main() -> int:
     """Main application entry point. Returns the process exit code."""
-    logger.info(f"GoodWe Nerd {ADDON_VERSION} starting...")
+    logger.info(f"GoodWeNerd {ADDON_VERSION} starting...")
 
     try:
         config = Config.from_options_file()
@@ -91,7 +91,7 @@ async def main() -> int:
         with contextlib.suppress(Exception):
             await closer()
     database.close()
-    logger.info("GoodWe Nerd stopped")
+    logger.info("GoodWeNerd stopped")
     return exit_code
 
 

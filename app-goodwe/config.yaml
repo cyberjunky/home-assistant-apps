@@ -1,4 +1,4 @@
-name: GoodWe Nerd
+name: GoodWeNerd
 version: "0.2.1"
 slug: app-goodwe
 description: "GoodWe inverter dashboard and battery controller for Home Assistant - live energy flow, solar, battery and grid statistics, forecast-driven battery hold and zero export"
@@ -11,7 +11,7 @@ arch:
 image: "ghcr.io/cyberjunky/app-goodwe"
 ingress: true
 panel_icon: mdi:solar-power-variant
-panel_title: GoodWe Nerd
+panel_title: GoodWeNerd
 # Home location and time zone for the solar forecast; the MQTT broker from the Supervisor
 homeassistant_api: true
 hassio_api: true

@@ -137,7 +137,7 @@ class WebUI:
         # The dashboard can change inverter settings: under Home Assistant it only answers
         # the (authenticated) ingress proxy
         if self.ingress_only and request.remote != INGRESS_ADDRESS:
-            return web.Response(status=403, text="Open GoodWe Nerd from the Home Assistant sidebar")
+            return web.Response(status=403, text="Open GoodWeNerd from the Home Assistant sidebar")
         return await handler(request)
 
     # ------------------------------------------------------------------

@@ -4,7 +4,7 @@
 
 **After updating:** nothing to do. The sidebar entry, the dashboard and the Home Assistant device keep working; only the name changes.
 
-- Renamed to **GoodWe Nerd** (the app's slug, image and data stay the same, so nothing needs reinstalling).
+- Renamed to **GoodWeNerd** (the app's slug, image and data stay the same, so nothing needs reinstalling).
 - The README says why it exists: an ES inverter without a proper zero-export mode, and a summer of using every bit of surplus solar at home.
 
 ## 0.2.0

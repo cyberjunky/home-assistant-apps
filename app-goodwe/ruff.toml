@@ -1,4 +1,4 @@
-# GoodWe Nerd - Ruff Configuration
+# GoodWeNerd - Ruff Configuration
 target-version = "py311"
 line-length = 120
 

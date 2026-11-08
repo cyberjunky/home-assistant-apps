@@ -310,7 +310,7 @@ class MqttPublisher:
             "state_topic": self.state_topic,
             "availability_topic": self.status_topic,
             "device": device,
-            "origin": {"name": "GoodWe Nerd", "sw_version": ADDON_VERSION},
+            "origin": {"name": "GoodWeNerd", "sw_version": ADDON_VERSION},
         }
         prefix = self.config.mqtt_discovery_prefix
         for key, name, device_class, unit, state_class, icon, diagnostic in SENSORS:
