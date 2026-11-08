@@ -115,7 +115,7 @@ overrides that).
   battery (state of charge, power, voltage, temperature, health, BMS limits, cycles); the
   solar panels and PV strings against the forecast; what the controller is doing (work
   mode, hold, zero export, surplus, today's surplus hours and curtailment, and the miners
-  when configured); the last two hours of power; and today's production and battery charts.
+  when configured); today's energy flow as a thin Sankey (solar, battery and grid into home, battery and grid); and today's production and battery charts.
 - **Stats** — Pick a period and bar size. Energies per period, grid, battery (with cycles),
   solar surplus, curtailment and the miners' energy and hours, self-sufficiency and self-consumption; a day detail with
   the battery's state and that day's energy flow as a Sankey diagram (the last 14 days);

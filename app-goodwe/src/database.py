@@ -388,41 +388,6 @@ class Database:
             )
         return {"date": day, "bucket_min": bucket_min, "series": series}
 
-    def live_series(self, minutes: int = 120, bucket_s: int = 60) -> list[dict]:
-        """The last `minutes` of power, averaged per bucket, straight from the snapshots."""
-        since = int(time.time()) - minutes * 60
-        rows = self.con.execute("SELECT ts, data FROM snapshots WHERE ts >= ? ORDER BY ts", (since,)).fetchall()
-        agg: dict[int, dict] = {}
-        for row in rows:
-            d = json.loads(row["data"])
-            b = row["ts"] // bucket_s
-            a = agg.setdefault(
-                b, {"ppv": 0.0, "pgrid": 0.0, "pbat": 0.0, "load": 0.0, "soc": 0.0, "miners": 0.0, "n": 0}
-            )
-            a["ppv"] += float(d.get("ppv") or 0)
-            a["pgrid"] += float(d.get("pgrid") or 0)
-            a["pbat"] += float(d.get("pbattery1") or 0)
-            a["load"] += float(d.get("load_ptotal") or 0)
-            a["soc"] += float(d.get("battery_soc") or 0)
-            a["miners"] += float(d.get("miners_w") or 0)
-            a["n"] += 1
-        out = []
-        for b in sorted(agg):
-            a = agg[b]
-            n = a["n"]
-            out.append(
-                {
-                    "ts": b * bucket_s,
-                    "solar": round(a["ppv"] / n),
-                    "grid": round(a["pgrid"] / n),
-                    "battery": round(a["pbat"] / n),
-                    "load": round(a["load"] / n),
-                    "soc": round(a["soc"] / n),
-                    "miners": round(a["miners"] / n),
-                }
-            )
-        return out
-
     # ------------------------------------------------------------------
     # Statistics
     # ------------------------------------------------------------------

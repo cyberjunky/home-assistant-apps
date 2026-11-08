@@ -100,7 +100,6 @@ class WebUI:
 
         get("/api/status", self._handle_status)
         get("/api/stream", self._handle_stream)
-        get("/api/live", self._handle_live)
         get("/api/day", self._handle_day)
         get("/api/flow", self._handle_flow)
         get("/api/stats", self._handle_stats)
@@ -219,12 +218,6 @@ class WebUI:
     # ------------------------------------------------------------------
     # Series and statistics
     # ------------------------------------------------------------------
-    async def _handle_live(self, request: web.Request) -> web.Response:
-        minutes = _int(request, "minutes", 120, 10, 24 * 60)
-        bucket = 60 if minutes <= 180 else 300
-        rows = await asyncio.to_thread(self.database.live_series, minutes, bucket)
-        return _json({"minutes": minutes, "bucket_s": bucket, "series": rows})
-
     async def _handle_day(self, request: web.Request) -> web.Response:
         day = _date(request.query.get("date"), date.today()).isoformat()
         result = await asyncio.to_thread(self.database.day_series, day)

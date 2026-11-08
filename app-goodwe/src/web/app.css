@@ -264,6 +264,7 @@ a { color: var(--primary-color); }
 /* Sankey: the day's energy, sources left, destinations right */
 .sankey { position: relative; width: 100%; }
 .sankey svg { display: block; width: 100%; height: auto; min-height: 260px; overflow: visible; }
+.sankey.thin svg { min-height: 0; }
 .sankey .ribbon { opacity: 0.55; transition: opacity 0.12s; }
 .sankey .ribbon:hover { opacity: 0.9; }
 .sankey .node-label { font-size: 15px; font-weight: 600; fill: var(--primary-text-color); }

@@ -1,9 +1,10 @@
 // GoodWe dashboard - Dashboard view: everything live. Tiles, the energy flow, the battery,
-// the solar panels and strings, what the controller is doing, live power and today's charts.
+// the solar panels and strings, what the controller is doing, today's energy flow and charts.
 
 let flowDiagram = null;
-let liveLoadedAt = 0;
-let liveLoading = false;
+let sankeyLoadedAt = 0;
+let sankeyLoading = false;
+let dashFlow = null;
 let todayLoadedAt = 0;
 let todayDay = null;
 const lastHtml = {};
@@ -203,45 +204,43 @@ function renderDashboard() {
     }
     renderDashControl();
     if (activeTab !== 'dashboard') return;
-    if (Date.now() - liveLoadedAt > 60000) loadLive();
+    if (Date.now() - sankeyLoadedAt > 120000) loadDashSankey();
     if (Date.now() - todayLoadedAt > 300000) loadToday();
 }
 
-async function loadLive() {
-    if (liveLoading) return;
-    liveLoading = true;
-    liveLoadedAt = Date.now();
+// Today's energy flow as a thin Sankey (integrated from the snapshots, so refreshed every two minutes)
+async function loadDashSankey() {
+    if (sankeyLoading) return;
+    sankeyLoading = true;
+    sankeyLoadedAt = Date.now();
+    const el = document.getElementById('dash-sankey');
     try {
-        const live = await api('live?minutes=120');
-        const rows = live.series || [];
-        const colors = {solar: cssVar('--solar'), load: cssVar('--load'), grid: cssVar('--grid-imp'), battery: cssVar('--bat-chg'), miners: cssVar('--miners')};
-        const xs = rows.map(r => r.ts);
-        const miners = minersInfo(app.control);
-        lineChart(document.getElementById('chart-live'), {
-            x: xs,
-            series: [
-                {name: 'Solar', color: colors.solar, values: rows.map(r => r.solar / 1000), area: true},
-                {name: 'Home', color: colors.load, values: rows.map(r => r.load / 1000)},
-                {name: 'Grid (+ import)', color: colors.grid, values: rows.map(r => r.grid / 1000)},
-                {name: 'Battery (+ charging)', color: colors.battery, values: rows.map(r => r.battery / 1000)},
-                ...(miners ? [{name: miners.name, color: colors.miners, values: rows.map(r => (r.miners || 0) / 1000), dash: '5 3', width: 1.5}] : []),
-            ],
-            height: 190, zero: true,
-            xTicks: xs.length > 1 ? timeTicks(xs, 6, fmtTime) : [],
-            formatX: fmtTime, formatY: v => fmtKw(v * 1000),
-            extraRows: i => [{value: fmtPct(rows[i].soc), name: 'battery'}],
-            empty: 'Collecting the first minutes of data…',
-        });
-        document.getElementById('legend-live').innerHTML = legendHtml([
-            {name: 'Solar', color: colors.solar}, {name: 'Home', color: colors.load},
-            {name: 'Grid (above 0 = import)', color: colors.grid}, {name: 'Battery (above 0 = charging)', color: colors.battery},
-            ...(miners ? [{name: `${miners.name} (part of home)`, color: colors.miners, kind: 'line'}] : []),
-        ]);
+        const flow = await api('flow');
+        const solar = flow.sources.solar, total = Object.values(flow.sources).reduce((a, b) => a + b, 0);
+        document.getElementById('dash-sankey-hint').textContent = total > 0
+            ? `${fmtKwh(total, 1)} in · ${num(solar / total * 100)}% solar · until ${fmtTime(Math.floor(Date.now() / 1000))}` : 'kWh';
+        dashFlow = flow;
+        drawDashSankey();
     } catch (e) {
-        emptyChart(document.getElementById('chart-live'), e.message);
+        el.innerHTML = `<div class="empty-state">${escapeHtml(e.message)}</div>`;
     }
-    liveLoading = false;
+    sankeyLoading = false;
 }
+
+// Thin and drawn 1:1 (so the text keeps its size); on a phone only the names, the values are in the tooltips
+function drawDashSankey() {
+    const el = document.getElementById('dash-sankey');
+    const width = Math.round(el.getBoundingClientRect().width);
+    if (!dashFlow || width <= 0) return;  // hidden tab: drawn when it is shown or resized
+    renderSankey(el, dashFlow, width >= 700
+        ? {width, height: 150, gap: 10, compact: true, id: 'dash-sankey'}
+        : {width, height: 170, gap: 10, compact: true, namesOnly: true, labelW: 70, id: 'dash-sankey'});
+}
+let dashSankeyResize = null;
+window.addEventListener('resize', () => {
+    clearTimeout(dashSankeyResize);
+    dashSankeyResize = setTimeout(drawDashSankey, 150);
+});
 
 // Forecast watts at any time, linearly interpolated between the hourly points
 function forecastAt(points, ts) {
@@ -319,8 +318,8 @@ async function loadToday() {
 onTab('dashboard', () => {
     Object.keys(lastHtml).forEach(k => delete lastHtml[k]);
     renderDashboard();
-    loadLive();
+    loadDashSankey();
     loadToday();
-    setTimeout(redrawCharts, 0);
+    setTimeout(() => { redrawCharts(); drawDashSankey(); }, 0);
 });
 onLive(renderDashboard);

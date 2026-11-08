@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2
+
+**After updating:** nothing to do.
+
+- The dashboard's *Live power* line chart is replaced by **Energy flow today**: a thin Sankey of where today's energy came from and went (on a phone with just the names; the values are in the tooltips). The day Sankey on Stats is unchanged.
+
 ## 0.3.1
 
 **After updating:** nothing to do.

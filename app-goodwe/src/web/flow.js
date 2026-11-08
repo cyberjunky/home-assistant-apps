@@ -242,7 +242,7 @@ class EnergyFlow {
 // Sankey: where the day's energy came from (left) and went to (right).
 // flow: {links: {solar_load, solar_batt, solar_grid, batt_load, grid_load, grid_batt}, sources, destinations}
 // ---------------------------------------------------------------------
-function renderSankey(el, flow) {
+function renderSankey(el, flow, opts = {}) {
     const L = flow.links || {};
     const links = [
         {s: 'solar', t: 'load', v: L.solar_load}, {s: 'solar', t: 'batt', v: L.solar_batt}, {s: 'solar', t: 'grid', v: L.solar_grid},
@@ -253,7 +253,8 @@ function renderSankey(el, flow) {
     const names = {solar: 'Solar', battery: 'Battery', grid: 'Grid', load: 'Home', batt: 'Battery', gridOut: 'Grid export'};
     const left = ['solar', 'battery', 'grid'].map(k => ({key: k, v: links.filter(l => l.s === k).reduce((a, l) => a + l.v, 0)})).filter(n => n.v > 0);
     const right = ['load', 'batt', 'grid'].map(k => ({key: k === 'grid' ? 'gridOut' : k, link: k, v: links.filter(l => l.t === k).reduce((a, l) => a + l.v, 0)})).filter(n => n.v > 0);
-    const W = 1000, H = 340, pad = 10, gap = 26, nodeW = 16, labelW = 170;
+    const W = opts.width || 1000, H = opts.height || 340, pad = 10, gap = opts.gap || 26, nodeW = 16, labelW = opts.labelW || (opts.compact ? 240 : 170);
+    const gid = opts.id || 'sankey';
     const total = Math.max(left.reduce((a, n) => a + n.v, 0), right.reduce((a, n) => a + n.v, 0));
     const most = Math.max(left.length, right.length);
     const usable = H - 2 * pad - gap * (most - 1);
@@ -275,16 +276,29 @@ function renderSankey(el, flow) {
         a.used += h; b.used += h;
         const x0 = a.x + nodeW, x1 = b.x, mx = (x0 + x1) / 2;
         const target = l.t === 'grid' ? 'gridOut' : l.t;
-        defs += `<linearGradient id="sankey-grad-${i}" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="${colors[l.s]}"/><stop offset="1" stop-color="${colors[target]}"/></linearGradient>`;
+        defs += `<linearGradient id="${gid}-grad-${i}" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="${colors[l.s]}"/><stop offset="1" stop-color="${colors[target]}"/></linearGradient>`;
         const d = `M${x0},${y0} C${mx},${y0} ${mx},${y1} ${x1},${y1} L${x1},${y1 + h} C${mx},${y1 + h} ${mx},${y0 + h} ${x0},${y0 + h} Z`;
-        ribbons += `<path class="ribbon" d="${d}" fill="url(#sankey-grad-${i})" data-tip="${escapeHtml(names[l.s])} → ${escapeHtml(names[target])}" data-value="${l.v}"></path>`;
+        ribbons += `<path class="ribbon" d="${d}" fill="url(#${gid}-grad-${i})" data-tip="${escapeHtml(names[l.s])} → ${escapeHtml(names[target])}" data-value="${l.v}"></path>`;
+    });
+    // Label positions: centred on their node, but kept apart so small flows don't overlap
+    const labelGap = opts.compact ? 20 : 40;
+    [left, right].forEach(nodes => {
+        let prev = -Infinity;
+        nodes.forEach(n => { n.ly = Math.max(n.y + n.h / 2, prev + labelGap); prev = n.ly; });
+        const over = prev - (H - labelGap / 2);
+        if (over > 0) nodes.forEach(n => { n.ly -= over; });
     });
     const nodeHtml = (n, isLeft) => {
         const tx = isLeft ? n.x - 12 : n.x + nodeW + 12;
         const anchor = isLeft ? 'end' : 'start';
-        return `<rect x="${n.x}" y="${n.y}" width="${nodeW}" height="${n.h}" rx="3" fill="${colors[n.key]}"/>
-            <text class="node-label" x="${tx}" y="${n.y + n.h / 2 - 4}" text-anchor="${anchor}">${names[n.key]}</text>
-            <text class="node-value" x="${tx}" y="${n.y + n.h / 2 + 14}" text-anchor="${anchor}">${num(n.v, 2)} kWh · ${num(n.v / total * 100)}%</text>`;
+        const value = `${num(n.v, 2)} kWh · ${num(n.v / total * 100)}%`;
+        const rect = `<rect x="${n.x}" y="${n.y}" width="${nodeW}" height="${n.h}" rx="3" fill="${colors[n.key]}"/>`;
+        if (opts.compact) {
+            return `${rect}<text class="node-label" x="${tx}" y="${n.ly + 5}" text-anchor="${anchor}">${names[n.key]}${opts.namesOnly ? "" : ` <tspan class="node-value">${value}</tspan>`}</text>`;
+        }
+        return `${rect}
+            <text class="node-label" x="${tx}" y="${n.ly - 4}" text-anchor="${anchor}">${names[n.key]}</text>
+            <text class="node-value" x="${tx}" y="${n.ly + 14}" text-anchor="${anchor}">${value}</text>`;
     };
     el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Energy flow of the day"><defs>${defs}</defs>${ribbons}${left.map(n => nodeHtml(n, true)).join('')}${right.map(n => nodeHtml(n, false)).join('')}</svg>`;
     el.querySelectorAll('.ribbon').forEach(r => {
