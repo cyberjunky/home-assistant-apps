@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.8
+
+**After updating:** nothing to do.
+
+- The icon and logo use the same disc and CJ badge as the other apps. The CJ was smaller, with a grey ring around the badge.
+
 ## 1.4.7
 
 **After updating:** nothing to do.
