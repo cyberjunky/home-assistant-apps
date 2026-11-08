@@ -38,7 +38,7 @@
                     <div class="dash-grid">
                         <div class="panel"><div class="panel-body">
                             <div class="chart-title"><span>Heating system</span><span class="hint" id="heating-hint"></span></div>
-                            <div id="heating" class="heating"></div>
+                            <div id="heating" class="flow"></div>
                         </div></div>
                         <div class="panel"><div class="panel-body" id="dash-modes"></div></div>
                     </div>
@@ -62,7 +62,12 @@
                             <div class="chart-title"><span>Gas per hour</span><span class="hint">last 24 hours · m³</span></div>
                             <div id="chart-gas" class="chart"></div>
                         </div></div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Water pressure</span><span class="hint">last 30 days · bar</span></div>
+                            <div id="chart-pressure" class="chart"></div>
+                        </div></div>
                     </div>
+                    <div id="dash-external"></div>
                 </div>
 
                 <!-- Stats: everything to analyse -->
@@ -125,7 +130,12 @@
                     <div class="settings-grid">
                         <div class="panel"><div class="panel-body"><div class="section-title">Connection</div><div id="set-connection"></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="section-title">MQTT</div><div id="set-mqtt"></div></div></div>
-                        <div class="panel"><div class="panel-body"><div class="section-title">Data</div><div id="set-data"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Data</div><div id="set-data"></div>
+                            <div class="detail-actions" style="margin-top:12px"><a class="btn" href="api/backup" download>Database backup</a></div>
+                            <p class="panel-sub" style="margin-top:8px">A copy of all recorded values. Your options and passwords aren't in it.</p>
+                        </div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Database</div><div id="set-database"></div></div></div>
+                        <div class="panel" id="set-external-panel"><div class="panel-body"><div class="section-title">External sensors</div><div id="set-external"></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="section-title">Toon</div><div id="set-toon"></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="section-title">About</div><div id="set-about"></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="section-title">Donate</div>

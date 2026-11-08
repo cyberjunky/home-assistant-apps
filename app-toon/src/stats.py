@@ -41,6 +41,9 @@ TOP_UP_RISE = 0.3
 TOP_UP_DAYS = 3
 LOSS_MIN_DAYS = 14
 NIGHT_HOURS = (2, 3, 4)
+# What a condensing boiler typically turns into heat, against the gas's upper heating value, by return
+# temperature. Without a flow meter this is the best there is: an estimate, not a measurement.
+EFFICIENCY_CURVE = ((30.0, 0.97), (55.0, 0.88))
 
 COUNTERS = {
     "gas": "gas_total",
@@ -268,6 +271,30 @@ def pressure_summary(daily_min: dict[str, float], today: str | None = None) -> d
     }
 
 
+def estimated_efficiency(return_temperature: float) -> float:
+    """The share of the gas's energy that typically ends up as heat at this return temperature."""
+    (cold, best), (hot, worst) = EFFICIENCY_CURVE
+    if return_temperature <= cold:
+        return best
+    if return_temperature >= hot:
+        return worst
+    return best + (worst - best) * (return_temperature - cold) / (hot - cold)
+
+
+def boiler_energy(gas_m3: float | None, return_temperature: float | None, kwh_per_m3: float) -> dict:
+    """The energy in the gas burned, and an estimate of the heat it gave."""
+    if gas_m3 is None:
+        return {"kwh_per_m3": kwh_per_m3, "gas_kwh": None, "efficiency": None, "heat_kwh": None}
+    gas_kwh = gas_m3 * kwh_per_m3
+    efficiency = None if return_temperature is None else estimated_efficiency(return_temperature)
+    return {
+        "kwh_per_m3": kwh_per_m3,
+        "gas_kwh": round(gas_kwh, 1),
+        "efficiency": None if efficiency is None else round(efficiency, 3),
+        "heat_kwh": None if efficiency is None else round(gas_kwh * efficiency, 1),
+    }
+
+
 def night_base_load(low: list, normal: list) -> dict[str, float]:
     """Average power in the small hours per day, in W: what the house uses when nobody uses anything."""
     hours: dict[str, float] = defaultdict(float)
@@ -304,8 +331,10 @@ class _Cached:
 class Stats:
     """Answers the dashboard's questions about the past. Call from a worker thread."""
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, gas_kwh_per_m3: float = 9.77, extra_gauges: tuple[str, ...] = ()):
         self.path = path
+        self.gas_kwh_per_m3 = gas_kwh_per_m3
+        self.gauges = (*GAUGES, *extra_gauges)
         self._lock = threading.Lock()
         self._deltas: dict[str, _Cached] = {}
         self._today: _Cached | None = None
@@ -542,7 +571,7 @@ class Stats:
         per_day_seconds: dict[str, dict[str, int]] = defaultdict(lambda: {"heat": 0, "preheat": 0, "dhw": 0})
         for a, b, kind in segments:
             per_day_seconds[day_key(a)][kind] += b - a
-        gauges = {metric: self._daily_gauge(db, metric, start, end) for metric in GAUGES}
+        gauges = {metric: self._daily_gauge(db, metric, start, end) for metric in self.gauges}
 
         buckets = []
         for key in order:
@@ -604,6 +633,7 @@ class Stats:
             },
             "gauges": {metric: _gauge_summary(days_of, days) for metric, days_of in gauges.items()},
             "base_load": statistics.median(recent_base) if recent_base else None,
+            "energy": boiler_energy(total(["gas"]), _average(heat), self.gas_kwh_per_m3),
             "heatmap": gas_heatmap(deltas["gas"], heatmap_start, end),
             "cycles": {
                 "collecting_since": collecting,
@@ -631,9 +661,10 @@ def buckets_csv(report: dict) -> str:
     writer = csv.writer(out)
     rows = report["buckets"]
     columns = [name for name in (rows[0] if rows else {}) if name not in CSV_SKIP]
-    writer.writerow(["period", *columns, *(f"{m}_{part}" for m in GAUGES for part in ("min", "avg", "max"))])
+    measured = list(report["gauges"])
+    writer.writerow(["period", *columns, *(f"{m}_{part}" for m in measured for part in ("min", "avg", "max"))])
     for row in rows:
-        gauges = [(row["gauges"].get(m) or {}).get(part) for m in GAUGES for part in ("min", "avg", "max")]
+        gauges = [(row["gauges"].get(m) or {}).get(part) for m in measured for part in ("min", "avg", "max")]
         writer.writerow([row["key"], *(row[name] for name in columns), *gauges])
     return out.getvalue()
 

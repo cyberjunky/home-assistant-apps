@@ -81,3 +81,30 @@ History has the Toon's own timestamps, so a Toon with a wrong clock has its hist
 
 - Tested on one Toon 1 with firmware 6.3.30, an OpenTherm boiler and a meter adapter. A Toon with a different setup may lack some values; please report what you find.
 - Controlling the thermostat isn't in this version.
+
+## External sensors
+
+Add Home Assistant sensors under the app's **Configuration**, for example 1-wire sensors on your pipes:
+
+```yaml
+outside_temperature: sensor.outside_temperature
+external_sensors:
+  - name: Radiators supply
+    entity: sensor.pipe_supply
+  - name: Radiators return
+    entity: sensor.pipe_return
+```
+
+They are read once a minute and stored like the Toon's own values: every reading for the days under `raw_retention_days`, and hourly values for good. Each gets a tile on the Dashboard, and they appear in the charts there and on the Stats page: the outside temperature with the room, other temperatures with the boiler, and other units in a chart of their own. The table of measured values and the CSV exports include them too. Keep a sensor's name once set, because its history is stored under it.
+
+## Boiler energy
+
+**Energy in gas** on the Stats page is measured: the gas you used times `gas_kwh_per_m3`. The default of 9.77 kWh per m³ is the upper heating value of Dutch gas, and your energy bill may show a slightly different number.
+
+**Heat, estimated** is not measured. It assumes a typical condensing boiler: about 97% of that energy at a return temperature of 30 °C or lower, down to about 88% at 55 °C or higher. It doesn't know your boiler, or how much went to hot water.
+
+Measuring the heat itself takes the water's flow as well as its temperatures: heat is flow times the difference between supply and return. Sensors on the pipes give you the temperatures, which the Toon already reports for the boiler, but not the flow. For a real figure you need a flow meter or a heat meter.
+
+## Backup
+
+**Settings → Database backup** downloads a copy of all recorded values while the app keeps running. Your options and passwords aren't in it.

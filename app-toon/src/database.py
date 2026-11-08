@@ -39,6 +39,40 @@ SAMPLES_RANGE_LIMIT = 3 * 86400
 NO_ZERO_READINGS = ("boiler_pressure",)
 
 
+def backup_copy(source: Path, target: Path) -> None:
+    """A consistent copy of the database while the app keeps writing. Runs on its own connection."""
+    with sqlite3.connect(f"file:{source}?mode=ro", uri=True, timeout=30) as from_db, sqlite3.connect(target) as to_db:
+        from_db.backup(to_db)
+    to_db.close()
+    from_db.close()
+
+
+def database_report(source: Path) -> dict:
+    """What's in the database, for the Settings page. Runs on its own connection."""
+    db = sqlite3.connect(f"file:{source}?mode=ro", uri=True, timeout=30)
+    try:
+        metrics: dict[str, dict] = {}
+        for table in ("samples", "hourly"):
+            for metric, rows, first, last in db.execute(
+                f"SELECT metric, COUNT(*), MIN(ts), MAX(ts) FROM {table} GROUP BY metric"
+            ):
+                entry = metrics.setdefault(
+                    metric, {"metric": metric, "samples": 0, "hourly": 0, "first": first, "last": last}
+                )
+                entry[table] = rows
+                entry["first"] = min(entry["first"], first)
+                entry["last"] = max(entry["last"], last)
+        wal = Path(f"{source}-wal")
+        return {
+            "size": source.stat().st_size,
+            "wal_size": wal.stat().st_size if wal.exists() else 0,
+            "outages": db.execute("SELECT COUNT(*) FROM outages").fetchone()[0],
+            "metrics": sorted(metrics.values(), key=lambda m: m["samples"] + m["hourly"], reverse=True),
+        }
+    finally:
+        db.close()
+
+
 class Database:
     """The app's database. All calls come from the event loop and are short."""
 

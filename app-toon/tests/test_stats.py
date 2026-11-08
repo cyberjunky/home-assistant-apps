@@ -15,12 +15,14 @@ from src.monitor import ToonMonitor
 from src.mqtt import discovery_messages
 from src.stats import (
     Stats,
+    boiler_energy,
     bucket_key,
     buckets_csv,
     burner_runs,
     burner_segments,
     counter_deltas,
     cycle_summary,
+    estimated_efficiency,
     gas_heatmap,
     modulation_distribution,
     night_base_load,
@@ -271,3 +273,15 @@ async def test_pages_and_api(client):
     assert export.headers["Content-Type"].startswith("text/csv")
     assert (await client.get("/api/export/values.csv?source=hourly")).status == 200
     assert (await client.get("/api/history?start=0&end=10&metrics=setpoint")).status == 200
+
+
+def test_boiler_energy_is_an_estimate_from_the_return_temperature():
+    assert estimated_efficiency(25) == 0.97
+    assert estimated_efficiency(70) == 0.88
+    assert estimated_efficiency(42.5) == pytest.approx(0.925)
+    energy = boiler_energy(100.0, 30.0, 9.77)
+    assert energy["gas_kwh"] == 977.0
+    assert energy["heat_kwh"] == pytest.approx(947.7)
+    # Without a return temperature, only what's measured
+    assert boiler_energy(100.0, None, 9.77)["heat_kwh"] is None
+    assert boiler_energy(None, 40.0, 9.77)["gas_kwh"] is None

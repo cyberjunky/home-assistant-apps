@@ -154,6 +154,35 @@ const DAY_CHARTS = [
     ]},
 ];
 
+// The day charts with the configured external sensors added
+function dayCharts() {
+    const add = (extra, list) => extra.map((s, i) => ({name: s.name, metric: s.key, color: list[i % list.length]}));
+    const charts = DAY_CHARTS.map(c => {
+        if (c.id === 'day-temp') return {...c, series: [...c.series, ...add(externalTemps(), EXTERNAL_COLORS)]};
+        if (c.id === 'day-room') return {...c, series: [...c.series, ...add(externalOutside(), ['series-3'])]};
+        return c;
+    });
+    externalOthers().forEach(([u, group], i) => charts.push({
+        id: `day-external-${i}`, title: `External sensors${u ? ' · ' + u : ''}`, height: 110,
+        format: v => `${num(v, 1)}${u ? ' ' + u : ''}`, series: add(group, EXTERNAL_COLORS),
+    }));
+    return charts;
+}
+
+// The period charts of the external sensors, one per unit
+function externalPeriodCharts() {
+    const units = new Map();
+    for (const s of externals().filter(s => s.updated)) {
+        if (!units.has(s.unit || '')) units.set(s.unit || '', []);
+        units.get(s.unit || '').push(s);
+    }
+    return [...units.entries()].map(([u, group], i) => ({
+        id: `external-${i}`, title: 'External sensors, average', unit: u, kind: 'line',
+        format: v => `${num(v, 1)}${u ? ' ' + u : ''}`, empty: 'No readings in this period',
+        series: group.map((s, n) => ({name: s.name, gauge: s.key, part: 'avg', color: EXTERNAL_COLORS[n % EXTERNAL_COLORS.length]})),
+    }));
+}
+
 // =====================================================================
 // Drawing
 // =====================================================================
@@ -204,6 +233,8 @@ function renderStatsTiles(r) {
     const change = !missing(t.gas) && t.gas_year_before ? Math.round((t.gas - t.gas_year_before) / t.gas_year_before * 100) : null;
     const c = r.cycles;
     document.getElementById('stats-tiles').innerHTML = [
+        tile('Energy in gas', unit(r.energy.gas_kwh, 0, 'kWh'), `at ${num(r.energy.kwh_per_m3, 2)} kWh per m³`),
+        tile('Heat, estimated', missing(r.energy.heat_kwh) ? '–' : `≈ ${unit(r.energy.heat_kwh, 0, 'kWh')}`, missing(r.energy.efficiency) ? 'needs return temperatures' : `≈ ${num(r.energy.efficiency * 100)}% from the return temperature, not measured`),
         tile('Gas', unit(t.gas, t.gas < 10 ? 2 : 0, 'm³'), change === null ? 'no year to compare' : `${change > 0 ? '+' : ''}${change}% on a year earlier`),
         tile('From grid', unit(t.import, t.import < 10 ? 2 : 0, 'kWh')),
         tile('To grid', unit(t.export, t.export < 10 ? 2 : 0, 'kWh')),
@@ -306,11 +337,12 @@ function renderReport(r) {
     document.getElementById('stats-meter').innerHTML = panelsHtml(METER_CHARTS) + `<div class="panel wide"><div class="panel-body">
         <div class="chart-title"><span>When gas is used</span><span class="hint">average per weekday and hour · up to the last 12 months</span></div>
         <div id="heatmap" class="heatmap"></div><div id="heatmap-scale" class="scale"></div></div></div>`;
-    document.getElementById('stats-heating').innerHTML = panelsHtml(HEATING_CHARTS);
+    const extraCharts = externalPeriodCharts();
+    document.getElementById('stats-heating').innerHTML = panelsHtml([...HEATING_CHARTS, ...extraCharts]);
     document.getElementById('stats-boiler').innerHTML = panelsHtml(BOILER_CHARTS) + `<div class="panel"><div class="panel-body">
         <div class="chart-title"><span>Modulation while heating</span><span class="hint">hours at each level</span></div>
         <div id="chart-modulation" class="chart"></div></div></div>`;
-    [...METER_CHARTS, ...HEATING_CHARTS, ...BOILER_CHARTS].forEach(c => drawDefinedChart(c, rows, r.bucket));
+    [...METER_CHARTS, ...HEATING_CHARTS, ...extraCharts, ...BOILER_CHARTS].forEach(c => drawDefinedChart(c, rows, r.bucket));
     renderHeatmap(r);
     renderModulation(r);
     renderBoilerFacts(r);
@@ -338,14 +370,15 @@ async function loadDay() {
     const start = Math.floor(new Date(stats.day + 'T00:00:00').getTime() / 1000);
     const end = Math.floor(new Date(shiftDate(stats.day, 1) + 'T00:00:00').getTime() / 1000);
     const step = 120;
-    const metrics = DAY_CHARTS.flatMap(c => c.series.map(s => s.metric));
+    const charts = dayCharts();
+    const metrics = charts.flatMap(c => c.series.map(s => s.metric));
     const data = await api(`history?start=${start}&end=${end}&metrics=${[...metrics, 'burner_code'].join(',')}`);
     const xs = gridTimes(start, end, step);
     const bands = burnerBands(data.burner_code, start, end, step);
     const ticks = hourTicks(start, end, 3);
     const host = document.getElementById('day-charts');
-    host.innerHTML = DAY_CHARTS.map(c => `<div class="chart-label">${escapeHtml(c.title)}</div><div id="${c.id}" class="chart"></div><div class="legend" id="${c.id}-legend" style="margin-bottom:12px"></div>`).join('');
-    DAY_CHARTS.forEach(c => {
+    host.innerHTML = charts.map(c => `<div class="chart-label">${escapeHtml(c.title)}</div><div id="${c.id}" class="chart"></div><div class="legend" id="${c.id}-legend" style="margin-bottom:12px"></div>`).join('');
+    charts.forEach(c => {
         const series = c.series.map(s => ({name: s.name, color: color(s.color), width: s.width, area: s.area, values: grid(data[s.metric], start, end, step, 1800)}));
         lineChart(document.getElementById(c.id), {
             x: xs, series, xTicks: ticks, zero: c.zero, height: c.height, formatX: fmtDateTime, formatY: c.format,

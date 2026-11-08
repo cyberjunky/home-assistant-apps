@@ -1,4 +1,4 @@
-"""The Supervisor's REST API: where to find the MQTT broker."""
+"""The Supervisor's REST API: where to find the MQTT broker, and Home Assistant's sensors."""
 
 import logging
 import os
@@ -36,3 +36,17 @@ class HAClient:
         except (aiohttp.ClientError, TimeoutError) as e:
             logger.warning(f"MQTT: could not ask the Supervisor for the broker: {e}")
             return None
+
+    async def get_state(self, entity: str) -> dict | None:
+        """An entity's state from Home Assistant, or None when it doesn't exist."""
+        async with (
+            aiohttp.ClientSession(
+                headers={"Authorization": f"Bearer {self._token}"},
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as session,
+            session.get(f"{SUPERVISOR_URL}/core/api/states/{entity}") as response,
+        ):
+            if response.status == 404:
+                return None
+            response.raise_for_status()
+            return await response.json()

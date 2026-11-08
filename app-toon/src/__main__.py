@@ -8,6 +8,7 @@ import sys
 
 from .config import APP_VERSION, DATA_DIR, WEB_PORT, Config
 from .database import Database
+from .external import ExternalSensors
 from .ha_client import HAClient
 from .monitor import ToonMonitor
 from .mqtt import MqttPublisher
@@ -34,8 +35,10 @@ async def main() -> int:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     database = Database()
     monitor = ToonMonitor(config, database, ToonLink(config))
-    mqtt = MqttPublisher(config, HAClient(), monitor)
-    webui = WebUI(WEB_PORT, database, monitor, mqtt)
+    client = HAClient()
+    mqtt = MqttPublisher(config, client, monitor)
+    external = ExternalSensors(config, database, client)
+    webui = WebUI(WEB_PORT, database, monitor, mqtt, external)
 
     async def forever(service) -> None:
         """A service that ends on its own (MQTT without a broker) must not end the app."""
@@ -47,6 +50,7 @@ async def main() -> int:
         asyncio.create_task(monitor.run(), name="monitor"),
         asyncio.create_task(monitor.upkeep(), name="upkeep"),
         asyncio.create_task(forever(mqtt.run()), name="mqtt"),
+        asyncio.create_task(forever(external.run()), name="external"),
     ]
 
     stop = asyncio.Event()

@@ -1,5 +1,5 @@
 name: Toon
-version: "0.2.1"
+version: "0.3.0"
 slug: app-toon
 description: "Logger and dashboard for a rooted Toon thermostat - boiler, heating, energy and the Toon's own health"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-toon"
@@ -14,6 +14,8 @@ panel_icon: mdi:thermostat
 panel_title: Toon
 # The MQTT broker from the Supervisor
 hassio_api: true
+# The sensors named under external_sensors and outside_temperature
+homeassistant_api: true
 services:
   - mqtt:want
 
@@ -34,6 +36,8 @@ options:
     password: ""
     base_topic: toon
     discovery_prefix: homeassistant
+  gas_kwh_per_m3: 9.77
+  external_sensors: []
   log_level: info
 
 schema:
@@ -53,4 +57,9 @@ schema:
     password: password?
     base_topic: 'match(^[A-Za-z0-9_/-]+$)?'
     discovery_prefix: 'match(^[A-Za-z0-9_/-]+$)?'
+  gas_kwh_per_m3: float(1,20)?
+  outside_temperature: 'match(^[a-z_]+\.[a-z0-9_]+$)?'
+  external_sensors:
+    - name: str
+      entity: 'match(^[a-z_]+\.[a-z0-9_]+$)'
   log_level: list(debug|info|warning|error)?

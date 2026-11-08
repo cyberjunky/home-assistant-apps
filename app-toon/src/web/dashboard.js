@@ -39,6 +39,7 @@ function renderTiles() {
         tile(exporting ? 'Power to grid' : 'Power from grid', exporting ? unit(exported, 0, 'W') : unit(imported, 0, 'W'), `${fmtKwh(importToday)} today`),
         tile('Gas today', unit(today.gas, 2, 'm³'), `yesterday ${fmtGas(before.gas)}`),
     ].join('');
+    renderExternalTiles();
 }
 
 function renderModes() {
@@ -96,7 +97,7 @@ async function loadDashCharts() {
     const start = end - 24 * 3600;
     const step = 300;
     const keys = 'room_temperature,setpoint,boiler_temperature,boiler_return_temperature,boiler_setpoint,power_import,power_export,burner_code';
-    const data = await api(`history?start=${start}&end=${end}&metrics=${keys}`);
+    const data = await api(`history?start=${start}&end=${end}&metrics=${[keys, ...externals().map(s => s.key)].join(',')}`);
     const xs = gridTimes(start, end, step);
     const bands = burnerBands(data.burner_code, start, end, step);
     const ticks = hourTicks(start, end, 4);
@@ -107,6 +108,7 @@ async function loadDashCharts() {
     const room = [
         {name: 'Room', color: color('series-1'), values: line('room_temperature')},
         {name: 'Setpoint', color: color('series-2'), values: line('setpoint'), width: 1.5},
+        ...externalOutside().map(s => ({name: s.name, color: color('series-3'), values: line(s.key)})),
     ];
     lineChart(document.getElementById('chart-room'), {
         x: xs, series: room, xTicks: ticks, bands, formatX: fmtDateTime, formatY: v => fmtTemp(v, 1), empty: 'No room temperature yet',
@@ -117,6 +119,7 @@ async function loadDashCharts() {
         {name: 'Supply', color: color('supply'), values: line('boiler_temperature')},
         {name: 'Return', color: color('return'), values: line('boiler_return_temperature')},
         {name: 'Boiler setpoint', color: color('series-4'), values: line('boiler_setpoint'), width: 1.5},
+        ...externalTemps().map((s, i) => ({name: s.name, color: externalColor(i), values: line(s.key)})),
     ];
     lineChart(document.getElementById('chart-boiler'), {
         x: xs, series: boiler, xTicks: ticks, bands, formatX: fmtDateTime, formatY: v => fmtTemp(v, 1), empty: 'No boiler temperatures yet',
@@ -131,7 +134,59 @@ async function loadDashCharts() {
         x: xs, series: power, xTicks: ticks, zero: true, formatX: fmtDateTime, formatY: v => fmtW(v), empty: 'No power readings yet',
     });
     legend('legend-power', power.map(s => ({name: s.name, color: s.color, kind: 'line'})));
+    externalOthers().forEach(([u, group], i) => {
+        const series = group.map((s, n) => ({name: s.name, color: externalColor(n), values: line(s.key)}));
+        lineChart(document.getElementById(`chart-external-${i}`), {
+            x: xs, series, xTicks: ticks, formatX: fmtDateTime, formatY: v => `${num(v, 1)}${u ? ' ' + u : ''}`, empty: 'No readings yet',
+        });
+        legend(`legend-external-${i}`, series.map(s => ({name: s.name, color: s.color, kind: 'line'})));
+    });
+    await loadPressureChart(end);
     dashChartsAt = Date.now();
+}
+
+// Slow by nature: a slow leak only shows over weeks
+async function loadPressureChart(end) {
+    const start = end - 30 * 86400;
+    const step = 3600;
+    const data = await api(`history?start=${start}&end=${end}&metrics=boiler_pressure`);
+    const xs = gridTimes(start, end, step);
+    lineChart(document.getElementById('chart-pressure'), {
+        x: xs,
+        series: [{name: 'Pressure', color: color('series-1'), values: grid(data.boiler_pressure, start, end, step, 3 * 3600)}],
+        xTicks: timeTicks(xs, 4, fmtDay),
+        formatX: fmtDateTime,
+        formatY: v => `${num(v, 2)} bar`,
+        empty: 'No water pressure readings yet',
+    });
+}
+
+// Sensors from Home Assistant: a tile each, and a chart for what doesn't fit the others.
+let externalBuilt = '';
+
+function renderExternalTiles() {
+    const host = document.getElementById('dash-external');
+    const sensors = externals();
+    const others = externalOthers();
+    const layout = `${sensors.length}|${others.map(([u, g]) => u + g.length).join('|')}`;
+    if (layout !== externalBuilt) {
+        externalBuilt = layout;
+        host.innerHTML = !sensors.length ? '' : `<div class="page-section"><span>External sensors</span><small>from Home Assistant</small></div>
+            <div id="external-tiles" class="tiles"></div>
+            ${others.length ? `<div class="stats-grid">${others.map(([u], i) => `<div class="panel"><div class="panel-body">
+                <div class="chart-title"><span>External sensors</span><span class="hint">last 24 hours${u ? ' · ' + escapeHtml(u) : ''}</span></div>
+                <div id="chart-external-${i}" class="chart"></div>
+                <div class="legend" id="legend-external-${i}"></div>
+            </div></div>`).join('')}</div>` : ''}`;
+        dashChartsAt = 0;
+    }
+    if (!sensors.length) return;
+    document.getElementById('external-tiles').innerHTML = sensors.map(s => tile(
+        escapeHtml(s.name),
+        missing(s.value) ? '–' : unit(s.value, 1, s.unit || ''),
+        s.error ? `⚠ ${escapeHtml(s.error)}` : escapeHtml(s.entity),
+        s.error ? 'warn' : '',
+    )).join('');
 }
 
 function renderGasHours() {

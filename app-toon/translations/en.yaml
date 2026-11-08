@@ -53,6 +53,27 @@ configuration:
       discovery_prefix:
         name: Discovery prefix
         description: Home Assistant's discovery prefix.
+  gas_kwh_per_m3:
+    name: Energy in gas (kWh per m³)
+    description: >-
+      Turns the gas you use into kWh on the Stats page. 9.77 is the upper heating
+      value of Dutch gas; your energy bill may show a slightly different number.
+  outside_temperature:
+    name: Outside temperature sensor
+    description: A Home Assistant entity with the outside temperature, for example sensor.outside_temperature.
+  external_sensors:
+    name: External sensors
+    description: >-
+      Other Home Assistant sensors to log and show in the charts, such as 1-wire
+      pipe sensors. Each has a name and an entity. Keep the name once set: its
+      history is stored under it.
+    fields:
+      name:
+        name: Name
+        description: The name shown on the dashboard.
+      entity:
+        name: Entity
+        description: The Home Assistant entity, for example sensor.pipe_supply.
   log_level:
     name: Log level
     description: Amount of logging.

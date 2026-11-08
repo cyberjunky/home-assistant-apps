@@ -54,6 +54,27 @@ configuration:
       discovery_prefix:
         name: Discovery-prefix
         description: De discovery-prefix van Home Assistant.
+  gas_kwh_per_m3:
+    name: Energie in gas (kWh per m³)
+    description: >-
+      Rekent je gasverbruik om naar kWh op de pagina Stats. 9,77 is de bovenwaarde
+      van Nederlands gas; op je energierekening kan een iets ander getal staan.
+  outside_temperature:
+    name: Sensor buitentemperatuur
+    description: Een Home Assistant-entiteit met de buitentemperatuur, bijvoorbeeld sensor.outside_temperature.
+  external_sensors:
+    name: Externe sensoren
+    description: >-
+      Andere Home Assistant-sensoren om te loggen en in de grafieken te tonen, zoals
+      1-wire leidingsensoren. Elk heeft een naam en een entiteit. Houd de naam gelijk:
+      de geschiedenis wordt daaronder bewaard.
+    fields:
+      name:
+        name: Naam
+        description: De naam op het dashboard.
+      entity:
+        name: Entiteit
+        description: De Home Assistant-entiteit, bijvoorbeeld sensor.pipe_supply.
   log_level:
     name: Logniveau
     description: Hoeveelheid logging.

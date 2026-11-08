@@ -57,6 +57,7 @@ function renderConfig() {
         infoRow('Hourly values', num(s.database.hourly)),
         infoRow('Oldest value', when),
         infoRow('Database size', `${num(s.database.size / 1048576, 1)} MB`),
+        infoRow('Energy in gas', `${num(c.gas_kwh_per_m3, 2)} kWh per m³`),
     ].join('');
     const adapter = s.adapters.boiler_adapter || {};
     document.getElementById('set-toon').innerHTML = [
@@ -93,6 +94,30 @@ async function loadOutages() {
         </tr>`).join('')}</tbody></table>` : '<div class="empty-state">No outages recorded yet.</div>';
 }
 
+function renderExternalSettings() {
+    const sensors = externals();
+    document.getElementById('set-external-panel').style.display = sensors.length ? '' : 'none';
+    document.getElementById('set-external').innerHTML = sensors.map(s => infoRow(
+        escapeHtml(s.name),
+        `${s.error ? stateLabel('bad', s.error) : (missing(s.value) ? '–' : `${num(s.value, 2)} ${escapeHtml(s.unit || '')}`)} <small>${escapeHtml(s.entity)}</small>`,
+    )).join('');
+}
+
+async function loadDatabaseReport() {
+    const d = await api('database');
+    const total = d.metrics.reduce((sum, m) => sum + m.samples + m.hourly, 0);
+    document.getElementById('set-database').innerHTML = [
+        infoRow('On disk', `${num(d.size / 1048576, 1)} MB <small>+ ${num(d.wal_size / 1048576, 1)} MB not yet merged</small>`),
+        infoRow('Values measured', num(d.metrics.length)),
+        infoRow('Rows', num(total)),
+        infoRow('Outages recorded', num(d.outages)),
+        ...d.metrics.slice(0, 8).map(m => infoRow(
+            escapeHtml(m.name),
+            `${num(m.samples)} samples · ${num(m.hourly)} hourly <small>since ${fmtIsoDate(isoDate(new Date(m.first * 1000)), true)}</small>`,
+        )),
+    ].join('');
+}
+
 async function loadHealthCharts() {
     const end = Math.floor(Date.now() / 1000);
     const hours = Number(healthHours);
@@ -118,12 +143,13 @@ async function loadHealthCharts() {
 async function showSettings() {
     renderHealth();
     renderConfig();
+    renderExternalSettings();
     buildChips('health-range', HEALTH_RANGES, healthHours, key => { healthHours = key; loadHealthCharts(); });
     try {
-        await Promise.all([loadOutages(), loadHealthCharts()]);
+        await Promise.all([loadOutages(), loadHealthCharts(), loadDatabaseReport()]);
     } catch (e) {
         toast('Cannot load this page: ' + e.message);
     }
 }
 
-onTab('settings', showSettings, () => { renderHealth(); renderConfig(); });
+onTab('settings', showSettings, () => { renderHealth(); renderConfig(); renderExternalSettings(); });

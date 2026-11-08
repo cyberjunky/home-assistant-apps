@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0
+
+**After updating:** nothing to do. New options are optional. The app now asks for access to Home Assistant's API, which it uses only to read the sensors you name.
+
+- The heating diagram has the same design as GoodWe's energy flow, with moving dots along the pipes in use.
+- A water pressure chart of the last 30 days on the Dashboard.
+- Settings shows what's in the database and has a **Database backup** download.
+- Stats shows the energy in the gas you used, and an estimate of the heat it gave. That estimate assumes a typical condensing boiler at your return temperature: measuring the real heat needs a flow meter.
+- New options: `external_sensors`, a list of Home Assistant sensors with a name and an entity, and `outside_temperature`. They get a tile on the Dashboard and appear in the charts: outside with the room, other temperatures with the boiler, other units in a chart of their own. Every reading is stored like the Toon's own values, and they are in the Stats table and the CSV exports.
+- New option: `gas_kwh_per_m3`, the energy in your gas.
+
 ## 0.2.1
 
 **After updating:** if you still see the old single page, reload it once in a private window or clear the browser's cache for Home Assistant.

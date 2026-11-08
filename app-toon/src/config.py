@@ -2,7 +2,7 @@
 
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 # App storage: options.json, the database and the Toon's SSH key live here.
@@ -53,6 +53,12 @@ class Config:
     mqtt_base_topic: str = "toon"
     mqtt_discovery_prefix: str = "homeassistant"
 
+    # Energy in a cubic metre of Dutch gas (upper heating value)
+    gas_kwh_per_m3: float = 9.77
+    # Sensors read from Home Assistant: the outside temperature, and any others
+    outside_temperature: str = ""
+    external_sensors: list[dict] = field(default_factory=list)
+
     log_level: str = "info"
 
     @classmethod
@@ -85,6 +91,13 @@ class Config:
             mqtt_password=str(mqtt.get("password") or ""),
             mqtt_base_topic=str(mqtt.get("base_topic") or "toon"),
             mqtt_discovery_prefix=str(mqtt.get("discovery_prefix") or "homeassistant"),
+            gas_kwh_per_m3=float(options.get("gas_kwh_per_m3") or 9.77),
+            outside_temperature=str(options.get("outside_temperature") or "").strip(),
+            external_sensors=[
+                {"name": str(item["name"]).strip(), "entity": str(item["entity"]).strip()}
+                for item in options.get("external_sensors") or []
+                if item.get("name") and item.get("entity")
+            ],
             log_level=str(options.get("log_level") or "info"),
         )
         if not config.ssh_host:

@@ -3,6 +3,8 @@
 import asyncio
 import contextlib
 import logging
+import os
+import tempfile
 import time
 from datetime import date, timedelta
 from pathlib import Path
@@ -10,7 +12,7 @@ from pathlib import Path
 from aiohttp import web
 
 from .config import APP_VERSION, DATA_DIR
-from .database import Database
+from .database import Database, backup_copy, database_report
 from .donate import DonatePrompt
 from .history import ARCHIVES
 from .metrics import METRIC_BY_KEY, METRICS
@@ -37,6 +39,7 @@ def public_config(config) -> dict:
         "mqtt_base_topic": config.mqtt_base_topic,
         "mqtt_discovery_prefix": config.mqtt_discovery_prefix,
         "log_level": config.log_level,
+        "gas_kwh_per_m3": config.gas_kwh_per_m3,
     }
 
 
@@ -58,12 +61,17 @@ def next_change(monitor: ToonMonitor) -> dict:
 class WebUI:
     """The dashboard's page and its small JSON API."""
 
-    def __init__(self, port: int, database: Database, monitor: ToonMonitor, mqtt: MqttPublisher):
+    def __init__(self, port: int, database: Database, monitor: ToonMonitor, mqtt: MqttPublisher, external=None):
         self.port = port
         self.database = database
         self.monitor = monitor
         self.mqtt = mqtt
-        self.stats = Stats(database.path)
+        self.external = external
+        # A backup cut short by a crash must not stay behind in the app's storage
+        for stale in database.path.parent.glob("backup-*.db"):
+            stale.unlink(missing_ok=True)
+        extra = tuple(sorted(external.keys)) if external else ()
+        self.stats = Stats(database.path, monitor.config.gas_kwh_per_m3, extra)
         self.app = web.Application()
         self.app.router.add_get("/", self._index)
         self.app.router.add_get("/api/status", self._status)
@@ -72,6 +80,8 @@ class WebUI:
         DonatePrompt(DATA_DIR / "donate_prompt.json").add_routes(self.app)
         self.app.router.add_get("/api/today", self._today)
         self.app.router.add_get("/api/stats", self._stats)
+        self.app.router.add_get("/api/backup", self._backup)
+        self.app.router.add_get("/api/database", self._database)
         self.app.router.add_get("/api/export/periods.csv", self._export_periods)
         self.app.router.add_get("/api/export/values.csv", self._export_values)
         self.app.router.add_static("/static", WEB_DIR)
@@ -109,8 +119,15 @@ class WebUI:
                 "adapters": monitor.adapters,
                 "values": monitor.values,
                 "next": next_change(monitor),
-                "metrics": {m.key: {"name": m.name, "unit": m.unit, "binary": m.binary} for m in METRICS},
+                "metrics": {
+                    **{m.key: {"name": m.name, "unit": m.unit, "binary": m.binary} for m in METRICS},
+                    **{
+                        s["key"]: {"name": s["name"], "unit": s["unit"], "binary": False}
+                        for s in (self.external.status() if self.external else [])
+                    },
+                },
                 "config": public_config(monitor.config),
+                "external": self.external.status() if self.external else [],
                 "mqtt": {"connected": self.mqtt.connected, "broker": self.mqtt.broker},
                 "database": self.database.counts(),
                 "import": {
@@ -122,7 +139,8 @@ class WebUI:
         )
 
     async def _history(self, request: web.Request) -> web.Response:
-        metrics = [m for m in request.query.get("metrics", "").split(",") if m in METRIC_BY_KEY]
+        known = self.external.keys if self.external else set()
+        metrics = [m for m in request.query.get("metrics", "").split(",") if m in METRIC_BY_KEY or m in known]
         if not metrics:
             raise web.HTTPBadRequest(text="no known metrics")
         try:
@@ -132,6 +150,41 @@ class WebUI:
         except ValueError as e:
             raise web.HTTPBadRequest(text="hours, start and end must be numbers") from e
         return web.json_response(self.database.history(metrics, start, end))
+
+    async def _backup(self, request: web.Request) -> web.StreamResponse:
+        """Download a copy of the database. The Toon's SSH key and the options aren't in it."""
+        self.database.flush()
+        handle, name = tempfile.mkstemp(prefix="backup-", suffix=".db", dir=self.database.path.parent)
+        os.close(handle)
+        path = Path(name)
+        try:
+            await asyncio.to_thread(backup_copy, self.database.path, path)
+            stamp = time.strftime("%Y%m%d-%H%M")
+            response = web.StreamResponse(
+                headers={
+                    "Content-Type": "application/vnd.sqlite3",
+                    "Content-Length": str(path.stat().st_size),
+                    "Content-Disposition": f'attachment; filename="toon-{stamp}.db"',
+                }
+            )
+            await response.prepare(request)
+            with path.open("rb") as backup:
+                while chunk := await asyncio.to_thread(backup.read, 1024 * 1024):
+                    await response.write(chunk)
+            await response.write_eof()
+            return response
+        finally:
+            path.unlink(missing_ok=True)
+
+    async def _database(self, request: web.Request) -> web.Response:
+        self.database.flush()
+        report = await asyncio.to_thread(database_report, self.database.path)
+        names = {metric.key: metric.name for metric in METRICS}
+        if self.external:
+            names.update(self.external.names())
+        for metric in report["metrics"]:
+            metric["name"] = names.get(metric["metric"], metric["metric"])
+        return web.json_response(report)
 
     async def _outages(self, request: web.Request) -> web.Response:
         return web.json_response(self.database.outages())
@@ -179,8 +232,9 @@ class WebUI:
         return self._csv(buckets_csv(report), f"toon-{bucket}-{first}-{last}.csv")
 
     async def _export_values(self, request: web.Request) -> web.Response:
-        metrics = [m for m in request.query.get("metrics", "").split(",") if m in METRIC_BY_KEY]
-        metrics = metrics or [m.key for m in METRICS if not m.text]
+        known = self.external.keys if self.external else set()
+        metrics = [m for m in request.query.get("metrics", "").split(",") if m in METRIC_BY_KEY or m in known]
+        metrics = metrics or [*[m.key for m in METRICS if not m.text], *sorted(known)]
         first, last = self._period(request)
         hourly = request.query.get("source") == "hourly"
         self.database.flush()

@@ -22,6 +22,24 @@ const PRESSURE_LOW = 1;
 
 const color = name => `var(--${name})`;
 const value = key => (app.status && app.status.values ? app.status.values[key] : undefined);
+const externals = () => (app.status && app.status.external) || [];
+// Where a configured sensor belongs in the charts: outside with the room, other temperatures with the
+// boiler, anything else in a chart of its own unit
+const OUTSIDE_KEY = 'outside_temperature';
+const externalOutside = () => externals().filter(s => s.key === OUTSIDE_KEY);
+const externalTemps = () => externals().filter(s => s.key !== OUTSIDE_KEY && s.unit === '°C');
+function externalOthers() {
+    const units = new Map();
+    for (const s of externals()) {
+        // Until a first reading its unit isn't known, and there's nothing to draw
+        if (s.key === OUTSIDE_KEY || s.unit === '°C' || !s.updated) continue;
+        if (!units.has(s.unit || '')) units.set(s.unit || '', []);
+        units.get(s.unit || '').push(s);
+    }
+    return [...units.entries()];
+}
+const EXTERNAL_COLORS = ['series-5', 'series-3', 'series-1', 'series-2'];
+const externalColor = i => color(EXTERNAL_COLORS[i % EXTERNAL_COLORS.length]);
 
 // =====================================================================
 // Formatting
