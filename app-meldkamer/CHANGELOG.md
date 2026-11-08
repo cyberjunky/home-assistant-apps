@@ -4,7 +4,7 @@
 
 **After updating:** nothing to do.
 
-- The icon and logo use the same disc and CJ badge as the other apps. The CJ was smaller, with a grey ring around the badge.
+- The icon and logo use the same disc and CJ badge as the other apps. The CJ was smaller, with a grey ring around the badge. The name in the logo has the same blue as the other apps too.
 
 ## 1.4.7
 
