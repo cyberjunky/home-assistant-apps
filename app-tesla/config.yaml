@@ -1,0 +1,71 @@
+name: Tesla
+version: "0.7.0"
+slug: app-tesla
+description: "Unofficial Tesla logger and dashboard for Home Assistant - live map, trips, charging sessions and statistics"
+url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-tesla"
+# The dashboard map needs core's map_tiles proxy (added in 2026.9)
+homeassistant: "2026.9.0"
+init: false
+arch:
+  - aarch64
+  - amd64
+# Prebuilt by the repository Builder workflow; bump `version` to publish a new image
+image: "ghcr.io/cyberjunky/app-tesla"
+ingress: true
+panel_icon: mdi:car-electric
+panel_title: Tesla
+# Zones (place names) and map tiles from Home Assistant; timezone and the MQTT broker from the Supervisor
+homeassistant_api: true
+hassio_api: true
+services:
+  - mqtt:want
+
+options:
+  units: metric
+  currency: EUR
+  cost_per_kwh: 0.0
+  supercharger_costs: true
+  efficiency_wh_km: 0.0
+  streaming: true
+  geocoding: true
+  polling:
+    driving_seconds: 3
+    charging_seconds: 10
+    online_seconds: 15
+    asleep_seconds: 30
+    idle_minutes: 15
+    sleep_window_minutes: 20
+  mqtt:
+    enabled: true
+    host: ""
+    port: 1883
+    user: ""
+    password: ""
+    base_topic: tesla
+    discovery_prefix: homeassistant
+  log_level: info
+
+schema:
+  units: list(metric|imperial)
+  currency: 'match(^[A-Z]{3}$)?'
+  cost_per_kwh: float(0,100)?
+  supercharger_costs: bool?
+  efficiency_wh_km: float(0,500)?
+  streaming: bool?
+  geocoding: bool?
+  polling:
+    driving_seconds: int(1,60)?
+    charging_seconds: int(2,300)?
+    online_seconds: int(5,600)?
+    asleep_seconds: int(10,600)?
+    idle_minutes: int(1,120)?
+    sleep_window_minutes: int(5,120)?
+  mqtt:
+    enabled: bool?
+    host: str?
+    port: port?
+    user: str?
+    password: password?
+    base_topic: 'match(^[A-Za-z0-9_/-]+$)?'
+    discovery_prefix: 'match(^[A-Za-z0-9_/-]+$)?'
+  log_level: list(debug|info|warning|error)?

@@ -77,17 +77,17 @@ app automatically. Apache 2.0, derived from an earlier add-on (see its NOTICE).
 
 [:books: Documentation](app-pgadmin4/DOCS.md) · [:memo: Changelog](app-pgadmin4/CHANGELOG.md) · [:lock: Security](app-pgadmin4/SECURITY.md)
 
-### <img src="app-teslameter/icon.png" alt="" width="36" align="absmiddle"> [TeslaMeter](app-teslameter/)
+### <img src="app-tesla/icon.png" alt="" width="36" align="absmiddle"> [Tesla](app-tesla/)
 
-![Version][teslameter-version-shield]
+![Version][tesla-version-shield]
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
 
-Tesla logger and dashboard, opened from the sidebar. Records every trip and charging
+Unofficial Tesla logger and dashboard, opened from the sidebar. Records every trip and charging
 session on a live map, with statistics on distance, energy, consumption, charging and
 battery health. Runs entirely on your Home Assistant; no cloud, no telemetry.
 
-[:books: Documentation](app-teslameter/DOCS.md) · [:memo: Changelog](app-teslameter/CHANGELOG.md) · [:lock: Security](app-teslameter/SECURITY.md)
+[:books: Documentation](app-tesla/DOCS.md) · [:memo: Changelog](app-tesla/CHANGELOG.md) · [:lock: Security](app-tesla/SECURITY.md)
 
 ### <img src="app-timescaledb/icon.png" alt="" width="36" align="absmiddle"> [TimescaleDB](app-timescaledb/)
 
@@ -174,5 +174,5 @@ software each app packages keeps its own license, noted in the app's README.
 [dishylink-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-dishylink%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [goodwe-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-goodwe%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [meldkamer-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-meldkamer%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
-[teslameter-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-teslameter%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[tesla-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-tesla%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [toon-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-toon%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge

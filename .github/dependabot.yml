@@ -19,7 +19,7 @@ updates:
       - /app-goodwe
       - /app-meldkamer
       - /app-pgadmin4
-      - /app-teslameter
+      - /app-tesla
       - /app-timescaledb
     schedule:
       interval: monthly
@@ -29,11 +29,11 @@ updates:
         update-types:
           - version-update:semver-major
 
-  # The Python packages of TeslaMeter and GoodWe Guru, pinned in their requirements.txt.
+  # The Python packages of Tesla and GoodWe, pinned in their requirements.txt.
   - package-ecosystem: pip
     directories:
       - /app-goodwe
-      - /app-teslameter
+      - /app-tesla
     schedule:
       interval: monthly
     groups:

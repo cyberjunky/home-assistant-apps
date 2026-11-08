@@ -53,7 +53,7 @@ jobs:
         app:
           - app-goodwe
           - app-meldkamer
-          - app-teslameter
+          - app-tesla
           - app-toon
     steps:
       - name: Check out code from GitHub

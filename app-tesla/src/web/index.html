@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tesla</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234c8dff' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M4 16a8 8 0 1 1 16 0'/%3E%3Cpath d='M12 16l4-5'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="__BASE__/static/vendor/leaflet/leaflet.css"/>
+    <link rel="stylesheet" href="__BASE__/web/app.css?v=__ADDON_VERSION__"/>
+    <script src="__BASE__/static/vendor/leaflet/leaflet.js"></script>
+    <script src="__BASE__/static/vendor/leaflet-heat/leaflet-heat.js"></script>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16l4-5"/><circle cx="12" cy="16" r="1.4"/></svg>
+            <span class="brand-name">TESLA</span>
+            <span class="brand-sub" id="brand-car"></span>
+        </div>
+        <nav class="tabs" aria-label="Views">
+            <button type="button" class="tab" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</button>
+            <button type="button" class="tab" data-tab="trips" onclick="switchTab('trips')">Trips</button>
+            <button type="button" class="tab" data-tab="charging" onclick="switchTab('charging')">Charging</button>
+            <button type="button" class="tab" data-tab="stats" onclick="switchTab('stats')">Stats</button>
+            <span class="tab-sep" aria-hidden="true"></span>
+            <button type="button" class="tab" data-tab="settings" onclick="switchTab('settings')" title="Tesla account, data, info"><span class="tab-label">Settings</span><span class="tab-icon" aria-hidden="true">⚙</span></button>
+        </nav>
+        <span class="spacer"></span>
+        <select id="car-select" class="car-select" aria-label="Car" hidden onchange="selectCar(Number(this.value))"></select>
+        <div class="tabs" role="group" aria-label="Map follow and theme">
+            <button type="button" id="follow-toggle" class="tab icon-tab" onclick="toggleFollow()" title="Keep the car in view on the dashboard map"><span aria-hidden="true">📍</span></button>
+            <button type="button" id="theme-toggle" class="tab icon-tab" onclick="cycleTheme()" title="Theme"><span id="theme-icon" aria-hidden="true">🌓</span></button>
+        </div>
+        <span id="clock" class="clock"></span>
+    </header>
+
+    <div class="views">
+        <!-- Dashboard: live map + the car -->
+        <section id="tab-dashboard" class="tab-content view" aria-label="Dashboard">
+            <div class="dash">
+                <div class="dash-map">
+                    <!-- One Leaflet map, moved into the active view's slot -->
+                    <div id="slot-dashboard" class="map-slot"><div id="map-root"><div id="map"></div><div id="map-legend" class="map-legend" hidden></div>
+                        <div class="map-history">
+                            <label for="map-heat">Heatmap</label>
+                            <select id="map-heat" class="input" onchange="loadMapHeat()">
+                                <option value="">Off</option>
+                                <option value="30">30 days</option>
+                                <option value="90">90 days</option>
+                                <option value="365">1 year</option>
+                                <option value="0">All</option>
+                            </select>
+                        </div></div></div>
+                    <div id="dash-kpis" class="kpis"></div>
+                </div>
+                <div id="dash-side" class="dash-side">
+                    <div class="splitter col" data-size="--dash-side" data-pane="dash-side" data-dir="-1" role="separator" aria-orientation="vertical" aria-label="Resize car panel" title="Drag to resize, double-click to reset"></div>
+                    <div id="setup-hint" class="setup-hint" hidden>
+                        <span id="setup-hint-text"></span>
+                        <button type="button" class="btn btn-primary" onclick="openSignIn()">Sign in</button>
+                    </div>
+                    <div id="dash-scroll" class="dash-scroll">
+                        <div class="empty-state">Waiting for the first data…</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Trips: list | map + detail -->
+        <section id="tab-trips" class="tab-content view" aria-label="Trips">
+            <div class="console trips">
+                <div class="feed">
+                    <div class="feed-tools">
+                        <div class="tabs" role="group" aria-label="Period" id="trips-range"></div><select class="car-select" id="trips-year" aria-label="Year"></select>
+                        <span id="trips-status" class="feed-status"></span>
+                    </div>
+                    <div class="feed-head"><span>When</span><span>From → to</span><span class="num">Distance</span><span class="num col-dur">Time</span><span class="num col-kwh">kWh</span><span class="num col-cons" id="trips-cons-head">Wh/km</span></div>
+                    <div id="trips-rows" class="feed-rows"><div class="empty-state">No trips recorded yet</div></div>
+                </div>
+                <div id="trips-side" class="side">
+                    <div class="splitter col" data-size="--console-side" data-pane="trips-side" data-dir="-1" role="separator" aria-orientation="vertical" aria-label="Resize trip list" title="Drag to resize, double-click to reset"></div>
+                    <div id="slot-trips" class="map-slot"></div>
+                    <div class="splitter row" data-size="--console-map" data-pane="slot-trips" data-dir="1" role="separator" aria-orientation="horizontal" aria-label="Resize map" title="Drag to resize, double-click to reset"></div>
+                    <div id="trip-detail" class="detail-dock"><div class="empty-state">Select a trip to see it on the map</div></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Charging: list | map + detail -->
+        <section id="tab-charging" class="tab-content view" aria-label="Charging">
+            <div class="console charges">
+                <div class="feed">
+                    <div class="feed-tools">
+                        <div class="tabs" role="group" aria-label="Period" id="charges-range"></div><select class="car-select" id="charges-year" aria-label="Year"></select>
+                        <span id="charges-status" class="feed-status"></span>
+                    </div>
+                    <div class="feed-head"><span>When</span><span>Where</span><span class="col-kind">Type</span><span class="num">Added</span><span class="num col-dur">Time</span><span class="num col-soc">Battery</span><span class="num col-cost">Cost</span></div>
+                    <div id="charges-rows" class="feed-rows"><div class="empty-state">No charging sessions recorded yet</div></div>
+                </div>
+                <div id="charges-side" class="side">
+                    <div class="splitter col" data-size="--console-side" data-pane="charges-side" data-dir="-1" role="separator" aria-orientation="vertical" aria-label="Resize charge list" title="Drag to resize, double-click to reset"></div>
+                    <div id="slot-charging" class="map-slot"></div>
+                    <div class="splitter row" data-size="--console-map" data-pane="slot-charging" data-dir="1" role="separator" aria-orientation="horizontal" aria-label="Resize map" title="Drag to resize, double-click to reset"></div>
+                    <div id="charge-detail" class="detail-dock"><div class="empty-state">Select a charging session</div></div>
+                </div>
+            </div>
+        </section>
+
+        <div class="pages">
+            <div class="container">
+                <!-- Stats -->
+                <div id="tab-stats" class="tab-content">
+                    <div class="filters">
+                        <div class="tabs" role="group" aria-label="Period" id="stats-range"></div><select class="car-select" id="stats-year" aria-label="Year"></select>
+                        <span class="filter-label">Per</span>
+                        <div class="tabs" role="group" aria-label="Group by" id="stats-bucket"></div>
+                        <span id="stats-range-text" class="range-text"></span>
+                    </div>
+                    <div id="stats-tiles" class="tiles"></div>
+                    <div id="stats-grid" class="stats-grid">
+                        <div class="panel wide"><div class="panel-body"><div class="chart-title"><span id="chart-distance-title">Distance</span><span class="hint" id="chart-distance-hint"></span></div><div id="chart-distance" class="chart"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Energy used driving</span><span class="hint">kWh</span></div><div id="chart-energy" class="chart"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Energy charged</span><span class="hint">kWh added</span></div><div id="chart-charged" class="chart"></div><div class="legend"><span><i style="background:var(--series-1)"></i>AC</span><span><i style="background:var(--series-2)"></i>DC fast charging</span></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Consumption</span><span class="hint" id="chart-consumption-hint"></span></div><div id="chart-consumption" class="chart"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Consumption by outside temperature</span><span class="hint" id="chart-temp-hint"></span></div><div id="chart-temp" class="chart"></div></div></div>
+                        <div class="panel wide"><div class="panel-body"><div class="chart-title"><span>Tire pressure</span><span class="hint" id="chart-tires-hint"></span></div><div id="chart-tires" class="chart"></div><div class="legend"><span><i style="background:var(--series-1)"></i>Front left</span><span><i style="background:var(--series-2)"></i>Front right</span><span><i style="background:var(--series-3)"></i>Rear left</span><span><i style="background:var(--series-4)"></i>Rear right</span></div></div></div>
+                        <div class="panel wide"><div class="panel-body"><div class="chart-title"><span>Battery health</span><span class="hint">the car's own rated range at 100%, after each charge in this period · it drops in cold weather and with BMS drift; not temperature-corrected</span></div><div id="battery-facts" class="tiles" style="margin-bottom:12px"></div><div id="chart-battery" class="chart"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Where the time went</span><span class="hint" id="states-hint"></span></div><div id="states-share"></div><div id="states-legend" class="legend"></div><div id="standby" style="margin-top:14px"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>When you drive</span><span class="hint">trips started per weekday and hour</span></div><div id="rhythm"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Most visited</span><span class="hint">trips ending there</span></div><div id="destinations" class="bars-list"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="chart-title"><span>Where you charge</span><span class="hint">kWh added</span></div><div id="charge-places" class="bars-list"></div></div></div>
+                        <div class="panel wide"><div class="panel-body"><div class="chart-title"><span>Records</span><span class="hint">click to open</span></div><div id="records" class="records"></div></div></div>
+                        <div class="panel wide"><div class="panel-body"><div class="chart-title"><span>Where you've been</span><span class="hint" id="visited-hint">every road driven in the period</span></div><div id="visited-map" class="visited-map"></div></div></div>
+                        <div class="panel wide"><div class="panel-body"><div class="chart-title"><span>Software versions</span><span class="hint">first seen in this period</span></div><div id="updates"></div></div></div>
+                    </div>
+                </div>
+
+                <!-- Settings -->
+                <div id="tab-settings" class="tab-content">
+                    <div class="settings-grid">
+                        <div class="panel"><div class="panel-body"><div class="section-title">Tesla account</div><div id="account"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Vehicles</div><div id="vehicles"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Data</div><div id="data-info"></div>
+                            <div class="detail-actions" style="margin-top:12px">
+                                <a class="btn" id="export-drives" download>Trips (CSV)</a>
+                                <a class="btn" id="export-charges" download>Charges (CSV)</a>
+                                <a class="btn" id="export-db" download>Database backup</a>
+                                <button type="button" class="btn" id="import-charges" onclick="importCharges(this)">Fetch charging history</button>
+                                <button type="button" class="btn" onclick="openHistoryImport()">Import from TeslaMate</button>
+                                <button type="button" class="btn" onclick="applyZones(this)" title="Name every recorded place inside a Home Assistant zone after that zone">Apply zones to places</button>
+                                <button type="button" class="btn" onclick="openRenamePlace()">Rename a place</button>
+                            </div>
+                            <p class="panel-sub" style="margin-top:10px">Fetch charging history adds past Supercharge sessions from Tesla's records (energy, place and billed cost). The backup holds all recorded data; your Tesla sign-in is stored separately and is never part of a download.</p>
+                            <div class="danger-zone">
+                                <div class="section-title">Danger zone</div>
+                                <p class="panel-sub">Deletes every recorded trip, charging session, position, state and software version. Your cars, your Tesla sign-in and your charging prices stay, so logging simply continues. Download a backup first; this cannot be undone.</p>
+                                <button type="button" class="btn btn-danger" onclick="deleteAllData()">Delete all recorded data</button>
+                            </div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Charging prices</div><div id="charge-tags"></div>
+                            <p class="panel-sub" style="margin-top:10px">Tag where you charge and give each tag a price per kWh. A charging session is priced by its location's tag; untagged locations use the default price from the add-on configuration, and Superchargers keep the amount Tesla billed. Assign a location's tag on any session in the Charging view.</p>
+                        </div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Support</div><div id="support"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">About</div><div id="about"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Donate</div>
+                            <div class="panel-sub" style="margin-bottom:12px">This app is free and open source. If it's useful to you, please consider supporting its development.</div>
+                            <div class="detail-actions">
+                                <a class="btn btn-primary" href="https://www.paypal.me/cyberjunkynl/" target="_blank" rel="noopener">Donate via PayPal</a>
+                                <a class="btn" href="https://github.com/sponsors/cyberjunky" target="_blank" rel="noopener">Sponsor on GitHub</a>
+                            </div>
+                        </div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="statusbar" id="statusbar"></footer>
+
+    <div id="modal-root"></div>
+    <div id="toast-root"></div>
+
+    <script src="__BASE__/web/core.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/charts.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/dashboard.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/trips.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/charging.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/stats.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/settings.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/main.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/donate.js?v=__ADDON_VERSION__" data-app="This Tesla app" data-api="__BASE__/api/donate"></script>
+</body>
+</html>
