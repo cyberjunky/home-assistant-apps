@@ -5,6 +5,7 @@
 **After updating:** nothing to do.
 
 - After two weeks of use, a small card in the corner of the dashboard asks for a donation. It never blocks the dashboard, which keeps running and stays usable. Maybe later asks again after 30, then 60, then every 90 days. Don't show again, or following a donate link, ends it for good.
+- The README and the dashboard's status bar say that this is an unofficial app.
 
 ## 0.3.3
 

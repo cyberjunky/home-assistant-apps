@@ -12,6 +12,8 @@
 
 # GoodWe App for Home Assistant
 
+> **Unofficial.** An independent project, not affiliated with, endorsed by or sponsored by GoodWe.
+
 GoodWe inverter dashboard and battery controller for Home Assistant — the live energy flow
 between solar, battery, grid and home, statistics on what was produced, used, stored and
 exchanged with the grid, and a controller that times the battery with the solar forecast.

@@ -1,5 +1,5 @@
 name: GoodWe
-version: "0.3.3"
+version: "0.3.4"
 slug: app-goodwe
 description: "GoodWe inverter dashboard and battery controller for Home Assistant - live energy flow, solar, battery and grid statistics, forecast-driven battery hold and zero export"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-goodwe"

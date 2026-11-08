@@ -395,7 +395,7 @@ function renderStatusbar() {
     if (app.mqtt.enabled) {
         parts.push(`<span class="sb-extra">MQTT <b class="${app.mqtt.connected ? 'sb-ok' : 'sb-bad'}">${app.mqtt.connected ? 'connected' : 'offline'}</b></span>`);
     }
-    parts.push(`<span class="spacer"></span><span class="sb-extra">GoodWe ${escapeHtml(app.version)}</span>`);
+    parts.push(`<span class="spacer"></span><span class="sb-extra">GoodWe ${escapeHtml(app.version)} · unofficial</span>`);
     document.getElementById('statusbar').innerHTML = parts.join('');
 }
 
