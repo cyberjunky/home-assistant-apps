@@ -2,9 +2,11 @@
 
 let statsRange = localStorage.getItem(LS + 'stats_range') || '12m';
 let statsBucket = localStorage.getItem(LS + 'stats_bucket') || 'auto';
-let statsLoadedFor = null;
+let statsLoadedFor = null;      // car:range of the insights and map on screen
+let periodsLoadedFor = null;    // car:range:bucket of the per-period charts
 let visitedMap = null;
 let visitedHeat = null;
+let visitedRetry = null;
 
 const BUCKETS = [
     {key: 'auto', label: 'Auto'},
@@ -227,8 +229,14 @@ function renderUpdates(updates) {
 
 async function renderVisited(carId, bounds) {
     let points = [];
+    clearTimeout(visitedRetry);
+    const hint = document.getElementById('visited-hint');
     try {
-        points = await api(`stats/visited?car=${carId}&from=${bounds.from}&to=${bounds.to}`);
+        const data = await api(`stats/visited?car=${carId}&from=${bounds.from}&to=${bounds.to}`);
+        points = data.points;
+        // Right after the update (or an import) the trips are still being mapped: fill in as they come
+        hint.textContent = data.pending ? `mapping ${num(data.pending)} trips…` : 'every road driven in the period';
+        if (data.pending) visitedRetry = setTimeout(() => renderVisited(carId, bounds), 5000);
     } catch (e) { /* the map stays empty */ }
     if (!visitedMap) {
         visitedMap = L.map('visited-map', {scrollWheelZoom: false}).setView([52.2, 5.3], 7);
@@ -246,12 +254,27 @@ async function renderVisited(carId, bounds) {
     visitedMap.fitBounds(L.latLngBounds(points.map(p => [p[0], p[1]])), {padding: [20, 20], maxZoom: 13});
 }
 
+async function loadPeriods(car, bounds, bucket) {
+    const periods = await api(`stats/periods?car=${car.id}&from=${bounds.from}&to=${bounds.to}&bucket=${bucket}`);
+    periodsLoadedFor = `${car.id}:${statsRange}:${bucket}`;
+    renderPeriodCharts(periods, bucket);
+}
+
 async function loadStats(force) {
     const car = currentCar();
     const bucket = effectiveBucket();
-    const key = `${car ? car.id : 0}:${statsRange}:${bucket}`;
+    const key = `${car ? car.id : 0}:${statsRange}`;
     if (!force && key === statsLoadedFor) { redrawCharts(); if (visitedMap) visitedMap.invalidateSize(); return; }
     const bounds = rangeBounds(statsRange);
+    if (car && key === statsLoadedFor) {
+        // Same car and period: at most the bar size changed, and only the per-period charts depend on that
+        if (periodsLoadedFor === `${key}:${bucket}`) return;
+        const grid = document.getElementById('stats-grid');
+        grid.classList.add('loading');
+        try { await loadPeriods(car, bounds, bucket); } catch (e) { toast(e.message, 'error'); }
+        grid.classList.remove('loading');
+        return;
+    }
     document.getElementById('stats-range-text').textContent =
         (bounds.from ? fmtDate(bounds.from) : 'Start') + ' – ' + fmtDate(bounds.to);
     if (!car) {
@@ -263,10 +286,9 @@ async function loadStats(force) {
     grid.classList.add('loading');
     try {
         const query = `car=${car.id}&from=${bounds.from}&to=${bounds.to}`;
-        const [periods, insights] = await Promise.all([api(`stats/periods?${query}&bucket=${bucket}`), api(`stats/insights?${query}`)]);
+        const [insights] = await Promise.all([api(`stats/insights?${query}`), loadPeriods(car, bounds, bucket)]);
         statsLoadedFor = key;
         renderStatTiles(insights.summary);
-        renderPeriodCharts(periods, bucket);
         document.getElementById('chart-temp-hint').textContent = `${unit.cons()} · trips of 5 km and longer`;
         barChart(document.getElementById('chart-temp'), {
             data: insights.temperature.map(t => ({

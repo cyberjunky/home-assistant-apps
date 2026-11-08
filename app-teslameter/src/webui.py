@@ -123,6 +123,7 @@ class WebUI:
         self._tile_session: aiohttp.ClientSession | None = None
         self._import_task: asyncio.Task | None = None
         self._import_progress: dict = _idle_import_progress()
+        self._visited_cache: dict[tuple, list] = {}
         self._setup_routes()
 
     def _setup_routes(self) -> None:
@@ -770,9 +771,22 @@ class WebUI:
         return web.json_response(result)
 
     async def _handle_visited(self, request: web.Request) -> web.Response:
+        """The cells for the "where you've been" map. Remembered per range until a drive is mapped or
+        removed, so switching between periods doesn't aggregate the same cells again and again."""
+        car_id = self._car_id(request)
         start, end = self._range(request)
-        result = await asyncio.to_thread(stats.visited, self.database, self._car_id(request), start, end)
-        return web.json_response(result)
+        now = int(time.time())
+        pending = self.database.unmapped_drives()
+        mapped = self.database.query_one("SELECT COUNT(*) AS n, COALESCE(SUM(cell_count), 0) AS cells FROM drives")
+        # A range that runs up to now is the same range a minute later
+        key = (car_id, start, None if end >= now else end, mapped["n"], mapped["cells"])
+        points = self._visited_cache.get(key)
+        if points is None:
+            points = await asyncio.to_thread(stats.visited, self.database, car_id, start, end)
+            if len(self._visited_cache) >= 24:
+                self._visited_cache.pop(next(iter(self._visited_cache)))
+            self._visited_cache[key] = points
+        return web.json_response({"points": points, "pending": pending})
 
     # ------------------------------------------------------------------
     # Export

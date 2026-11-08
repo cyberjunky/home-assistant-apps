@@ -33,7 +33,24 @@ ELEVATION_NOISE_M = 3.0
 MIN_LEARN_KWH = 3.0
 MIN_LEARN_KM = 15.0
 
-SCHEMA = """
+VISITED_CELLS_SQL = """
+-- Where the car has driven, as cells of about 100 m (coordinates rounded to 3 decimals), one row
+-- per drive and cell. Filled when a drive ends (drives.cell_count says how many; NULL = not yet),
+-- so the "where you've been" map never has to read the millions of positions behind it.
+CREATE TABLE visited_cells (
+    car_id INTEGER NOT NULL REFERENCES cars(id) ON DELETE CASCADE,
+    drive_id INTEGER NOT NULL REFERENCES drives(id) ON DELETE CASCADE,
+    ts INTEGER NOT NULL,
+    lat REAL NOT NULL,
+    lon REAL NOT NULL,
+    PRIMARY KEY (drive_id, lat, lon)
+) WITHOUT ROWID;
+CREATE INDEX visited_cells_car_ts ON visited_cells(car_id, ts);
+-- Long periods are faster grouped in cell order (no sort of the whole period), short ones in time order
+CREATE INDEX visited_cells_car_cell ON visited_cells(car_id, lat, lon, ts);
+"""
+
+SCHEMA = f"""
 CREATE TABLE cars (
     id INTEGER PRIMARY KEY,
     tesla_id INTEGER NOT NULL UNIQUE,
@@ -87,9 +104,12 @@ CREATE TABLE drives (
     speed_max_kmh REAL, speed_avg_kmh REAL,
     power_max_kw REAL, power_min_kw REAL,
     outside_temp_avg REAL, inside_temp_avg REAL,
-    ascent_m REAL, descent_m REAL
+    ascent_m REAL, descent_m REAL,
+    cell_count INTEGER
 );
 CREATE INDEX drives_car_ts ON drives(car_id, start_ts);
+
+{VISITED_CELLS_SQL}
 
 CREATE TABLE charges (
     id INTEGER PRIMARY KEY,
@@ -169,9 +189,25 @@ INSERT INTO charge_tags (name, price_per_kwh, pos) VALUES ('Home', NULL, 0), ('F
 INSERT INTO location_tags (place_key, tag) VALUES ('home', 'Home');
 """
 
-# Stored in the database file. There is no upgrade path yet: a database of another
-# layout is refused at start, with a message, instead of failing on a missing column later.
-SCHEMA_VERSION = 3
+# Stored in the database file. A database of an older layout is brought up to date at
+# start by the steps below; one of a newer layout (or one so old there is no step for it)
+# is refused with a message instead of failing on a missing column later.
+SCHEMA_VERSION = 4
+
+
+def _statements(sql: str) -> list[str]:
+    """The statements of a schema snippet, one by one, without the comment lines."""
+    code = "\n".join(line for line in sql.splitlines() if not line.lstrip().startswith("--"))
+    return [statement.strip() for statement in code.split(";") if statement.strip()]
+
+
+MIGRATIONS = {
+    # 3 -> 4 (0.5.6): the visited cells behind the Stats map
+    3: [
+        "ALTER TABLE drives ADD COLUMN cell_count INTEGER",
+        *_statements(VISITED_CELLS_SQL),
+    ],
+}
 
 POSITION_COLUMNS = (
     "ts",
@@ -264,12 +300,22 @@ class Database:
             with self._lock:
                 self._conn.executescript(f"BEGIN;{SCHEMA}PRAGMA user_version={SCHEMA_VERSION};COMMIT;")
             logger.info(f"Created database {self.path}")
-        elif version != SCHEMA_VERSION:
+            version = SCHEMA_VERSION
+        elif version > SCHEMA_VERSION or version < min(MIGRATIONS):
             self._conn.close()
             raise DatabaseLayoutError(
                 f"{self.path} was made by another version of TeslaMeter (layout {version}, this version needs"
                 f" {SCHEMA_VERSION}). Remove that file (or uninstall and reinstall the add-on) to start with a new one"
             )
+        while version < SCHEMA_VERSION:
+            with self._lock:
+                self._conn.execute("BEGIN")
+                for statement in MIGRATIONS[version]:
+                    self._conn.execute(statement)
+                self._conn.execute(f"PRAGMA user_version={version + 1}")
+                self._conn.execute("COMMIT")
+            logger.info(f"Database layout {version} brought up to {version + 1}")
+            version += 1
 
     def close(self) -> None:
         with self._lock:
@@ -341,7 +387,16 @@ class Database:
         simply continues; the home zone keeps its tag because it is a setting, not recorded data."""
         with self.transaction() as db:
             # Children first: the foreign keys would otherwise do the same work row by row
-            for table in ("charge_samples", "positions", "drives", "charges", "states", "updates", "addresses"):
+            for table in (
+                "charge_samples",
+                "visited_cells",
+                "positions",
+                "drives",
+                "charges",
+                "states",
+                "updates",
+                "addresses",
+            ):
                 db.execute(f"DELETE FROM {table}")
             db.execute("DELETE FROM location_tags WHERE place_key != 'home'")
         with self._lock:
@@ -547,7 +602,45 @@ class Database:
                     drive_id,
                 ),
             )
+            self.map_drive_cells(drive_id)
             return self.query_one("SELECT * FROM drives WHERE id = ?", (drive_id,))
+
+    def map_drive_cells(self, drive_id: int) -> int:
+        """Record the ~100 m cells a drive passed through, for the Stats map. Returns how many."""
+        with self._lock:
+            self.execute(
+                "INSERT OR IGNORE INTO visited_cells (car_id, drive_id, ts, lat, lon)"
+                " SELECT DISTINCT p.car_id, p.drive_id, d.start_ts, ROUND(p.lat, 3), ROUND(p.lon, 3)"
+                " FROM positions p JOIN drives d ON d.id = p.drive_id WHERE p.drive_id = ? AND p.lat IS NOT NULL",
+                (drive_id,),
+            )
+            count = self.query_one("SELECT COUNT(*) AS n FROM visited_cells WHERE drive_id = ?", (drive_id,))["n"]
+            self.execute("UPDATE drives SET cell_count = ? WHERE id = ?", (count, drive_id))
+            return count
+
+    def unmapped_drives(self) -> int:
+        """How many finished drives still have to be mapped into visited cells."""
+        return self.query_one("SELECT COUNT(*) AS n FROM drives WHERE end_ts IS NOT NULL AND cell_count IS NULL")["n"]
+
+    def map_missing_cells(self, chunk: int = 50, pause: float = 0.2) -> int:
+        """Map every finished drive that hasn't been yet (after an upgrade or an import), a few at a time
+        so the recorder keeps getting at the database in between. Returns the number of drives mapped."""
+        mapped = 0
+        while True:
+            ids = [
+                row["id"]
+                for row in self.query(
+                    "SELECT id FROM drives WHERE end_ts IS NOT NULL AND cell_count IS NULL ORDER BY id LIMIT ?",
+                    (chunk,),
+                )
+            ]
+            if not ids:
+                return mapped
+            with self.transaction():
+                for drive_id in ids:
+                    self.map_drive_cells(drive_id)
+            mapped += len(ids)
+            time.sleep(pause)
 
     def delete_drive(self, drive_id: int) -> bool:
         """Remove a drive; its positions stay as plain (parked) positions."""

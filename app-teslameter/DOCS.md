@@ -118,7 +118,9 @@ overrides that).
   **Set cost** overrides the calculated cost, for example for a fast charger with its own
   price.
 - **Stats** — Pick a period and bar size. Hover any chart for exact values; click a record
-  to open that trip or session.
+  to open that trip or session. The "Where you've been" map is built from cells of about
+  100 m that each trip is mapped into when it ends, so it stays quick however much history
+  there is; right after an update or an import it says "mapping N trips…" while it catches up.
 - **Settings** — Tesla account, vehicles, CSV and database downloads, and what the app is
   configured to do.
 

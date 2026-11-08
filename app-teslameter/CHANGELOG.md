@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.6
+
+**After updating:** nothing to do. The first start maps your trips for the Stats map in the background; the map says "mapping N trips…" until it is done (a minute or so for a few years of history).
+
+- **Stats loads fast again.** The "Where you've been" map used to read every recorded position (millions of them after a TeslaMate import) each time you picked another period or bar size, and every other query waited behind it. The roads driven are now mapped once per trip, when it ends, and kept per period; switching between Day, Week, Month and Year only reloads the bar charts.
+- A database of an older layout is upgraded in place at start instead of being refused.
+- A chart whose values are all the same (one trip in every period, say) no longer fails with "Invalid array length" and leaves the Stats view half drawn.
+
 ## 0.5.5
 
 **After updating:** nothing to do.

@@ -23,6 +23,8 @@ MIN_PARKED_SECONDS = 4 * 3600
 # Consumption by temperature only counts drives long enough to be meaningful
 MIN_TEMP_DRIVE_KM = 5.0
 TEMP_BIN = 5
+# Visited cells are read in cell order for periods longer than this, in time order for shorter ones
+LONG_PERIOD_S = 120 * 86400
 
 
 def _next_period(day: date, bucket: str) -> date:
@@ -280,11 +282,15 @@ def software_updates(db: Database, car_id: int, start: int, end: int) -> list[di
 
 
 def visited(db: Database, car_id: int, start: int, end: int, limit: int = 40000) -> list[list[float]]:
-    """Where the car has driven, as [lat, lon, weight] cells of about 100 m for a heat map."""
+    """Where the car has driven, as [lat, lon, weight] cells of about 100 m for a heat map; the weight is
+    the number of drives through the cell. Reads the cells mapped per drive (Database.map_drive_cells),
+    never the positions themselves: those run into the millions after a few years."""
+    # Over a long period nearly every cell is in play: walking the cells in order and counting
+    # beats collecting the period's rows by time and sorting them (4x on a few years of commuting)
+    index = "visited_cells_car_cell" if end - start > LONG_PERIOD_S else "visited_cells_car_ts"
     rows = db.query(
-        "SELECT ROUND(lat, 3) AS lat, ROUND(lon, 3) AS lon, COUNT(DISTINCT drive_id) AS weight FROM positions"
-        " WHERE car_id = ? AND drive_id IS NOT NULL AND ts >= ? AND ts < ? AND lat IS NOT NULL"
-        " GROUP BY 1, 2 ORDER BY weight DESC LIMIT ?",
+        f"SELECT lat, lon, COUNT(*) AS weight FROM visited_cells INDEXED BY {index}"
+        " WHERE car_id = ? AND ts >= ? AND ts < ? GROUP BY 1, 2 ORDER BY weight DESC LIMIT ?",
         (car_id, start, end, limit),
     )
     return [[row["lat"], row["lon"], row["weight"]] for row in rows]

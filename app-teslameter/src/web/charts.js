@@ -61,12 +61,14 @@ function niceStep(span, ticks) {
 }
 
 function axis(min, max, ticks) {
-    if (max <= min) max = min + 1;
+    // A flat series (every value the same, give or take float noise) has no span: give it one,
+    // or the step comes out smaller than the numbers can resolve and the loop below never ends
+    if (max - min <= Math.abs(max) * 1e-9) max = min + Math.max(1, Math.abs(min) * 0.1);
     const step = niceStep(max - min, ticks);
     const lo = Math.floor(min / step) * step;
     const hi = Math.ceil(max / step) * step;
     const values = [];
-    for (let v = lo; v <= hi + step / 1000; v += step) values.push(Math.round(v * 1e6) / 1e6);
+    for (let v = lo; v <= hi + step / 1000 && values.length < 100; v += step) values.push(Math.round(v * 1e6) / 1e6);
     return {lo, hi, values};
 }
 

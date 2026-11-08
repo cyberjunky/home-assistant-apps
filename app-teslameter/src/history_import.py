@@ -161,6 +161,8 @@ def _import_car(cursor, database: Database, car, progress: dict) -> None:
 
     drive_map = _import_drives(cursor, database, car_id, efficiency, progress)
     _import_positions(cursor, database, car_id, drive_map, progress)
+    progress["message"] = f"Mapping the drives of {name or vin} for the Stats map…"
+    database.map_missing_cells(pause=0.0)
     _import_charges(cursor, database, car_id, progress)
     _import_states(cursor, database, car_id, progress)
     _import_updates(cursor, database, car_id)

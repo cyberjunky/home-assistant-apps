@@ -63,6 +63,15 @@ async def main() -> int:
         await asyncio.sleep(20)
         await places.fill_missing()
 
+    async def map_cells() -> None:
+        # After the update to 0.5.6 (and after an import) the drives still have to be mapped for the
+        # Stats map; a few at a time, in a worker thread, so logging goes on undisturbed
+        pending = database.unmapped_drives()
+        if pending:
+            logger.info(f"Mapping {pending} drives for the Stats map...")
+            mapped = await asyncio.to_thread(database.map_missing_cells)
+            logger.info(f"Mapped {mapped} drives for the Stats map")
+
     async def forever(service) -> None:
         """A service that ends on its own (MQTT without a broker) must not end the add-on."""
         await service
@@ -75,6 +84,7 @@ async def main() -> int:
         asyncio.create_task(forever(costs.run()), name="costs"),
         asyncio.create_task(places.keep_zones_fresh(), name="zones"),
         asyncio.create_task(forever(name_places()), name="places"),
+        asyncio.create_task(forever(map_cells()), name="cells"),
     ]
 
     stop = asyncio.Event()
