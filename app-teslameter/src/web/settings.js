@@ -301,7 +301,16 @@ function openHistoryImport() {
 
     const render = (p) => {
         progress.hidden = false;
-        if (p.phase === 'error') { progress.hidden = true; error.textContent = p.error; return; }
+        if (p.phase === 'error') {
+            // Part of it may be in by now, and it can be started again after fixing what's wrong
+            stopPoll();
+            progress.hidden = true;
+            error.textContent = p.error;
+            start.disabled = false;
+            start.textContent = 'Start import';
+            tripsLoadedFor = null; chargesLoadedFor = null; statsLoadedFor = null;
+            return;
+        }
         const done = !p.running && p.phase === 'done';
         progress.innerHTML = `<b>${done ? 'Done' : escapeHtml(p.message || 'Working…')}</b><br>`
             + `${num(p.drives)} drives · ${num(p.charges)} charges · ${num(p.positions)} positions imported`

@@ -94,6 +94,26 @@ def _f(value) -> float | None:
         return None
 
 
+def _connection_problem(error: Exception, params: dict) -> str:
+    """Why the connection failed, in words. The driver reports the server's answer as a raw dictionary."""
+    host, port = str(params.get("host") or "").strip(), int(params.get("port") or 5432)
+    user = str(params.get("user") or "").strip()
+    answer = error.args[0] if error.args and isinstance(error.args[0], dict) else {}
+    code = answer.get("C")
+    if code == "28P01":
+        return f'The database refused the login: check the user ("{user}") and the password.'
+    if code == "3D000":
+        name = str(params.get("database") or "").strip()
+        return f'The server has no database called "{name}": check the database name.'
+    if answer.get("M"):
+        return f"The database refused the connection: {answer['M']}"
+    if "connection to host" in str(error):
+        return (
+            f"Can't reach a database at {host}, port {port}: check the host and port, and that the database is running."
+        )
+    return f"Can't connect to the database: {error}"
+
+
 def connect(params: dict):
     """Open a connection to the source database. Raises HistoryImportError on failure."""
     try:
@@ -111,7 +131,7 @@ def connect(params: dict):
             ssl_context=True if params.get("ssl") else None,
         )
     except Exception as e:
-        raise HistoryImportError(f"cannot connect to the database: {e}") from e
+        raise HistoryImportError(_connection_problem(e, params)) from e
 
 
 _CARS = "SELECT id, vin, name, model, trim_badging, exterior_color, wheel_type, eid, vid FROM cars"

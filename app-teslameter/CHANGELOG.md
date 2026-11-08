@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1
+
+**After updating:** nothing to do.
+
+- When an import fails, its button works again, so you can correct the details and start it right away. It used to stay on "Importing…" until you closed the dialog.
+- Import connection errors say what to check: the login, the database name, or the host and port.
+
 ## 0.6.0
 
 **After updating:** the first start upgrades the database and maps your trips for the Stats map in the background; the map says "mapping N trips…" until it is done (a minute or so for a few years of history). To add the tire pressures, climate, cables and parked positions to history imported earlier, run **Settings → Data → Import history** again on every database you imported from. It adds what is missing and does not duplicate anything.
