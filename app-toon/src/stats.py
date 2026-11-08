@@ -399,6 +399,16 @@ class Stats:
         return deltas
 
     @staticmethod
+    def _first_reading_day(db: sqlite3.Connection, metric: str) -> str | None:
+        """The local day a counter's readings start."""
+        row = db.execute(
+            "SELECT MIN(ts) FROM (SELECT MIN(ts) AS ts FROM samples WHERE metric = ?"
+            " UNION ALL SELECT MIN(ts) FROM hourly WHERE metric = ?)",
+            (metric, metric),
+        ).fetchone()
+        return day_key(row[0]) if row and row[0] else None
+
+    @staticmethod
     def _samples(db: sqlite3.Connection, metric: str, start: int, end: int) -> list[Point]:
         """A state's samples in a period, with the one before it."""
         before = db.execute(
@@ -650,6 +660,7 @@ class Stats:
             },
             "gauges": {metric: _gauge_summary(days_of, days) for metric, days_of in gauges.items()},
             "base_load": statistics.median(recent_base) if recent_base else None,
+            "burner_hours_since": self._first_reading_day(db, COUNTERS["burner_hours"]),
             "energy": boiler_energy(total(["gas"]), _average(heat), self.gas_kwh_per_m3),
             "heatmap": gas_heatmap(deltas["gas"], heatmap_start, end),
             "cycles": {

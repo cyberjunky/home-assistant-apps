@@ -6,6 +6,7 @@
 
 - The day timeline on the Stats page shows gas per hour, also for days from before the app was installed, as far back as the Toon keeps hourly values (about five years). The Gas flow chart only appears on days that have readings, because the Toon keeps no history of it.
 - New option `boiler_name`: the name of your boiler, shown on the Dashboard and in Settings.
+- **Burner hours** on the Stats page shows the boiler's own hour counter again, with the date it starts from. 0.4.0 used the Toon's history of burner minutes, which is far too low to be real burner time (637 hours where the gas used would take at least 2,270). The number starts small, but it's true.
 
 ## 0.4.1
 

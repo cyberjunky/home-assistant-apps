@@ -237,9 +237,9 @@ function renderStatsTiles(r) {
     const periods = r.buckets.length;
     const per = (v, unitText) => missing(v) || periods < 2 ? '' : `≈ ${num(v / periods, Math.abs(v / periods) < 10 ? 1 : 0)} ${unitText} per ${r.bucket}`;
     const joined = (...parts) => parts.filter(Boolean).join(' · ');
-    // The Toon's own history has burner minutes; its hour counters only exist since logging started
-    const fromMinutes = missing(t.burner_minutes) ? null : t.burner_minutes / 60;
-    const burnerHours = missing(fromMinutes) || t.burner_hours > fromMinutes ? t.burner_hours : fromMinutes;
+    // The boiler's own hour counter, which only exists here since logging started. The Toon's history
+    // of burner minutes is far too low to be real burner time, so it isn't used.
+    const hoursSince = r.burner_hours_since ? `since ${fmtIsoDate(r.burner_hours_since, true)}` : '';
     const e = r.energy;
     document.getElementById('stats-tiles').innerHTML = [
         tile('Energy in gas', unit(e.gas_kwh, 0, 'kWh'), per(e.gas_kwh, 'kWh') || `at ${num(e.kwh_per_m3, 2)} kWh per m³`),
@@ -248,7 +248,7 @@ function renderStatsTiles(r) {
         tile('From grid', unit(t.import, t.import < 10 ? 2 : 0, 'kWh'), per(t.import, 'kWh')),
         tile('To grid', unit(t.export, t.export < 10 ? 2 : 0, 'kWh'), per(t.export, 'kWh')),
         tile('Net electricity', unit(net, Math.abs(net) < 10 ? 2 : 0, 'kWh'), per(net, 'kWh') || 'from minus to grid'),
-        tile('Burner hours', unit(burnerHours, 0, 'h'), joined(per(burnerHours, 'h'), `hot water ${num(t.dhw_hours)} h`)),
+        tile('Burner hours', unit(t.burner_hours, 0, 'h'), joined(hoursSince, `hot water ${num(t.dhw_hours)} h`)),
         tile('Night base load', unit(r.base_load, 0, 'W'), 'recent week'),
         tile('Condensing', c.condensing_share === null ? '–' : unit(c.condensing_share, 0, '%'), joined('return under 55 °C', since)),
     ].join('');

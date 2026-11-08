@@ -309,3 +309,12 @@ def test_boiler_name_option():
     options = {"ssh": {"host": "toon", "password": "x"}}
     assert Config.from_options(options).boiler_name == ""
     assert Config.from_options({**options, "boiler_name": " Calenta Ace 28c "}).boiler_name == "Calenta Ace 28c"
+
+
+def test_report_says_since_when_burner_hours_are_counted(filled):
+    day = (datetime.now() - timedelta(days=3)).date().isoformat()
+    filled.add_samples([("burner_hours", int(datetime.fromisoformat(f"{day}T12:00:00").timestamp()), 100.0)])
+    filled.flush()
+    today = datetime.now().date().isoformat()
+    report = Stats(filled.path).report(day, today, "day")
+    assert report["burner_hours_since"] <= day
