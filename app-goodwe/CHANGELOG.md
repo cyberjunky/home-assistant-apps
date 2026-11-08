@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2
+
+**After updating:** nothing to do.
+
+- The dashboard no longer says "DoD not read yet" (and "Work mode: not read yet") for half an hour when the first settings read fails: the controller tries again every 5 minutes until a read succeeds, the dashboard says the read failed and shows the error, and the log has it as a warning.
+
 ## 0.2.1
 
 **After updating:** nothing to do. The sidebar entry, the dashboard and the Home Assistant device keep working; only the name changes.

@@ -126,6 +126,7 @@ class BatteryController:
         self.budget = {"date": "", "used": 0, "warned": False}
         self.work_mode: int | None = None  # the inverter's work mode, as last read
         self._settings_retry_at = 0.0
+        self.settings_error: str | None = None  # why the last settings read failed, until one succeeds
         self._brake_retry_at = 0.0
         # Surplus signal
         self.surplus = False
@@ -200,6 +201,8 @@ class BatteryController:
             "work_mode_name": WORK_MODES.get(mode) if isinstance(mode, int) else None,
             "work_mode_general": None if not isinstance(mode, int) else mode == GENERAL_MODE,
             "settings_read_at": self.link.settings_at or None,
+            # Only while nothing was read (a manual read from Settings also fills the cache)
+            "settings_error": None if self.link.settings_at else self.settings_error,
             "decision": self.decision,
             "dod_writes_today": self.budget["used"] if self.budget["date"] == date.today().isoformat() else 0,
             "dod_writes_per_day": DOD_WRITES_PER_DAY,
@@ -256,10 +259,15 @@ class BatteryController:
         if due and now >= self._settings_retry_at:
             try:
                 await self.link.read_settings()
+                self.settings_error = None
             except Exception as e:
-                self._settings_retry_at = now + SETTINGS_RETRY_SECONDS
-                logger.info(
-                    f"Settings check: read failed ({e}), trying again in {SETTINGS_RETRY_SECONDS // 60} minutes"
+                # Never read yet: the dashboard has no DoD or work mode, so try again on the next tick.
+                # Read before: the cached settings still hold, so back off.
+                wait = SETTINGS_RETRY_SECONDS if self.link.settings_at else TICK_SECONDS
+                self._settings_retry_at = now + wait
+                self.settings_error = f"{type(e).__name__}: {e}" if str(e) else type(e).__name__
+                logger.warning(
+                    f"Settings check: read failed ({self.settings_error}), trying again in {wait // 60} minutes"
                 )
         self._check_work_mode()
         self._update_capacity()

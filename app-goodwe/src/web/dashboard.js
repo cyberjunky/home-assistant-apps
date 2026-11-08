@@ -25,9 +25,15 @@ function holdInfo(c) {
         return {kind: 'idle', text: 'Auto-hold deciding', detail: 'first check within 5 minutes'};
     }
     const dod = c.dod_reported;
-    if (dod === null || dod === undefined) return {kind: 'idle', text: 'Manual', detail: 'DoD not read yet'};
+    if (dod === null || dod === undefined) return {kind: c.settings_error ? 'warn' : 'idle', text: 'Manual', detail: notReadText(c, 'DoD')};
     if (Number(dod) === 0) return {kind: 'held', text: 'Held', detail: 'manual · no discharge'};
     return {kind: 'discharging', text: 'Normal', detail: `manual · ${floor(Number(dod))}`};
+}
+
+// The settings (DoD, work mode, capacity) come from a settings read the controller does a minute
+// after start: say whether it is still to come or failed
+function notReadText(c, what) {
+    return c.settings_error ? `${what} unknown: settings read failed, retrying` : `${what} not read yet`;
 }
 
 // Equivalent full cycles since recording began, from the commissioned capacity
@@ -78,7 +84,7 @@ function renderDashBattery() {
             <i style="width:${soc || 0}%"></i>
             ${floor === null || floor <= 0 ? '' : `<span class="limit" style="left:calc(${floor}% - 1px)" title="Discharge floor ${floor}%"></span>`}
         </div>
-        <div class="live-note">${floor === null ? 'Discharge floor not read yet.' : `Discharge floor ${floor}% (DoD ${c.dod_reported}%)`}</div>
+        <div class="live-note">${floor === null ? `${escapeHtml(notReadText(c, 'Discharge floor'))}.${c.settings_error ? ` <span title="${escapeHtml(c.settings_error)}">(${escapeHtml(c.settings_error)})</span>` : ''}` : `Discharge floor ${floor}% (DoD ${c.dod_reported}%)`}</div>
         <div class="facts three" style="margin-top:12px">${factsGrid([
             fact('Power', wUnit(d.pbattery1, true), bs === 'charging' ? 'ok' : ''),
             fact('Voltage · current', missing(d.vbattery1) ? '–' : `${num(d.vbattery1, 1)} V <small>${num(d.ibattery1, 1)} A</small>`),
@@ -126,7 +132,7 @@ function renderDashControl() {
     const decision = (c.decision && c.decision.text) || '';
     const mode = c.work_mode_general === false
         ? `<span class="sb-warn">${escapeHtml(c.work_mode_name || '?')}</span> <small>not General</small>`
-        : c.work_mode_general ? 'General' : '<small>not read yet</small>';
+        : c.work_mode_general ? 'General' : `<small${c.settings_error ? ' class="sb-warn"' : ''}>${c.settings_error ? 'read failed, retrying' : 'not read yet'}</small>`;
     const exportText = c.zero_export
         ? `on${c.export_verified ? '' : ' <small>· checking</small>'}${missing(c.export_limit_reported) ? '' : ` <small>· limit ${num(c.export_limit_reported)} W</small>`}`
         : 'off';
