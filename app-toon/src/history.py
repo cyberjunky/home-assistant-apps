@@ -48,6 +48,7 @@ def _archives() -> tuple[Archive, ...]:
         ("elec_quantity_lt", "energy_house_low"),
         ("elec_quantity_nt", "energy_house_normal"),
         ("gas_quantity", "gas_total"),
+        ("boiler_burner_minutes", "burner_minutes"),
     )
     boiler = (
         ("thermstat_realTemps", "room_temperature"),
@@ -55,13 +56,13 @@ def _archives() -> tuple[Archive, ...]:
         ("thermstat_boilerSetpoint", "boiler_setpoint"),
         ("thermstat_boilerChPressure", "boiler_pressure"),
         ("thermstat_programState", "program_state"),
+        ("thermstat_boilerOpMode", "boiler_op_mode"),
     )
     archives = []
     for name, metric in energy:
         archives.append(Archive(name, "10yrdays", metric, 3653 * DAY, DAY, 365 * DAY))
         archives.append(Archive(name, "5yrhours", metric, 1826 * DAY, 3600, 30 * DAY))
     for name, metric in boiler:
-        archives.append(Archive(name, "year", metric, 365 * DAY, 3600, 30 * DAY))
         archives.append(Archive(name, "30days", metric, 30 * DAY, 60, DAY))
     archives.append(Archive("elec_flow", "5min", "power_import", 31 * DAY, 300, 3 * DAY))
     archives.append(Archive("elec_produ_flow", "5min", "power_export", 31 * DAY, 300, 3 * DAY))

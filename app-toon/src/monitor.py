@@ -111,6 +111,8 @@ class ToonMonitor:
         self.host_name = ""
         self.info: dict[str, str] = {}
         self.adapters: dict[str, dict[str, str]] = {}
+        # What comes next in the week program, from the thermostat's dataset
+        self.schedule: dict[str, str] = {}
         self.values: dict[str, float | str] = {}
         self.updated: dict[str, float] = {}
         self.listeners: list[Callable[[], None]] = []
@@ -374,6 +376,7 @@ class ToonMonitor:
         except TimeoutError:
             logger.debug("No answer for the thermostat's dataset")
             return
+        self.schedule = {key: info[key] for key in ("nextTime", "nextState", "nextProgram") if key in info}
         self.set_value("modulation", info.get("currentModulationLevel"))
         self.set_value("active_state", info.get("activeState"))
         self.set_value("opentherm_error", info.get("otCommError"))
@@ -381,6 +384,7 @@ class ToonMonitor:
         self.set_value("boiler_module_connected", info.get("boilerModuleConnected"))
         self.set_value("setpoint_by_load_shifting", info.get("setByLoadShifting"))
         burner = str(info.get("burnerInfo"))
+        self.set_value("burner_code", info.get("burnerInfo"))
         self.set_value("burner_state", BURNER_STATES.get(burner, burner))
 
     async def _poll_slow(self, session: ToonSession, bus: BoxTalkClient) -> None:

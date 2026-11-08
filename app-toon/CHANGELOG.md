@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0
+
+A real dashboard. Still only reads.
+
+- New **Dashboard**: the heating system at a glance, thermostat and boiler state, the next program change, today's use and 24-hour charts.
+- New **Stats**: smart meter, heating and boiler over any period, with burner starts, short runs, temperatures while heating, modulation, pressure trend, night base load, gas per weekday and hour, records, a day timeline and CSV export.
+- New **Settings**: the Toon's health, connection history and configuration.
+- Imports the Toon's burner minutes and boiler operating mode too, also on existing installs. The operating mode is only stored for now, because what its values mean isn't known yet.
+- Records the burner's state over time, which burner statistics are based on.
+- Removed the import of a thermostat year file that doesn't exist; the Toon keeps thermostat values for 30 days.
+
 ## 0.1.2
 
 **After updating:** nothing to do.

@@ -23,6 +23,8 @@ class Metric:
     unsupported: float | None = None
     binary: bool = False
     text: bool = False
+    # Only for the dashboard's own use: no entity in Home Assistant
+    published: bool = True
 
 
 _C = {"unit": "°C", "device_class": "temperature"}
@@ -47,6 +49,10 @@ METRICS: tuple[Metric, ...] = (
     Metric("outside_rate", "Outside rate", icon="mdi:chart-line", enabled=False, **_DIAG),
     Metric("long_term_offset", "Long-term offset", icon="mdi:tune", enabled=False, **_DIAG),
     # Boiler
+    Metric("burner_code", "Burner state code", state_class=None, published=False),
+    Metric("burner_minutes", "Burner minutes", unit="min", state_class="total_increasing", published=False),
+    # What the values of this one mean isn't known; it is kept as the Toon logs it
+    Metric("boiler_op_mode", "Boiler operating mode", state_class=None, published=False),
     Metric("boiler_temperature", "Boiler supply temperature", **_C),
     Metric("boiler_return_temperature", "Boiler return temperature", **_C),
     Metric("boiler_setpoint", "Boiler setpoint", **_C),
@@ -124,6 +130,7 @@ METRICS: tuple[Metric, ...] = (
     Metric("bus_fds", "Toon bus open files", icon="mdi:transit-connection-variant", **_DIAG),
     Metric("load", "Toon load", icon="mdi:gauge", **_DIAG),
 )
+PUBLISHED = tuple(metric for metric in METRICS if metric.published)
 METRIC_BY_KEY = {metric.key: metric for metric in METRICS}
 
 

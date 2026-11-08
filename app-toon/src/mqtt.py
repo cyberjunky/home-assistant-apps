@@ -14,7 +14,7 @@ import paho.mqtt.client as mqtt
 
 from .config import APP_VERSION, Config
 from .ha_client import HAClient
-from .metrics import METRICS
+from .metrics import PUBLISHED
 from .monitor import ToonMonitor
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ PUBLISH_INTERVAL = 5
 def state_payload(monitor: ToonMonitor) -> dict:
     """The state as published. Metrics without a value are left out and become "unknown"."""
     payload = {}
-    for metric in METRICS:
+    for metric in PUBLISHED:
         value = monitor.values.get(metric.key)
         if value is not None:
             payload[metric.key] = ("ON" if value else "OFF") if metric.binary else value
@@ -52,7 +52,7 @@ def discovery_messages(serial: str, version: str, prefix: str, base: str) -> lis
         "availability": [{"topic": f"{base}/status"}, {"topic": f"{base}/{serial}/link"}],
     }
     messages = []
-    for metric in METRICS:
+    for metric in PUBLISHED:
         config = {
             **common,
             "name": metric.name,

@@ -35,12 +35,15 @@ CREATE INDEX IF NOT EXISTS samples_ts ON samples (ts);
 HOUR = 3600
 # Above this range a chart reads the hourly values instead of the samples
 SAMPLES_RANGE_LIMIT = 3 * 86400
+# Values where a reading of 0 isn't a measurement
+NO_ZERO_READINGS = ("boiler_pressure",)
 
 
 class Database:
     """The app's database. All calls come from the event loop and are short."""
 
     def __init__(self, path: Path = DB_FILE):
+        self.path = path
         self._db = sqlite3.connect(path)
         self._db.execute("PRAGMA journal_mode=WAL")
         self._db.execute("PRAGMA synchronous=NORMAL")
@@ -108,9 +111,10 @@ class Database:
         column = "value" if table == "samples" else "avg"
         result: dict[str, list] = {}
         for metric in metrics:
+            floor = f" AND {column} > 0" if metric in NO_ZERO_READINGS else ""
             rows = self._db.execute(
                 f"SELECT ts / ? * ? AS b, AVG({column}) FROM {table}"
-                " WHERE metric = ? AND ts >= ? AND ts <= ? GROUP BY b ORDER BY b",
+                f" WHERE metric = ? AND ts >= ? AND ts <= ?{floor} GROUP BY b ORDER BY b",
                 (bucket, bucket, metric, start, end),
             ).fetchall()
             result[metric] = [[ts, round(value, 3)] for ts, value in rows]
@@ -119,7 +123,8 @@ class Database:
     def counts(self) -> dict[str, int]:
         samples = self._db.execute("SELECT COUNT(*) FROM samples").fetchone()[0]
         hourly = self._db.execute("SELECT COUNT(*) FROM hourly").fetchone()[0]
-        return {"samples": samples, "hourly": hourly}
+        oldest = self._db.execute("SELECT MIN(ts) FROM hourly").fetchone()[0]
+        return {"samples": samples, "hourly": hourly, "oldest": oldest, "size": self.path.stat().st_size}
 
     # Connection history
 
@@ -164,7 +169,3 @@ class Database:
             "INSERT OR REPLACE INTO import_progress VALUES (?, ?, ?, ?)", (logger_name, rra, next_ts, int(done))
         )
         self._db.commit()
-
-    def import_summary(self) -> dict[str, int]:
-        total, done = self._db.execute("SELECT COUNT(*), COALESCE(SUM(done), 0) FROM import_progress").fetchone()
-        return {"started": total, "done": done}

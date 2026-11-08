@@ -40,6 +40,22 @@ Toon: message bus (1337) ──SSH──▶ monitor ──▶ SQLite ──▶ d
 
 ## The dashboard
 
+**Dashboard** shows what matters right now: room and setpoint, the burner, water pressure, power and gas today, a picture of the heating system with its temperatures, the thermostat's preset and program with the next change, the boiler's state, and the last 24 hours in charts.
+
+A notice appears when something needs attention: the Toon can't be reached, its clock is more than 2 minutes off (its week program then runs late or early as well), the boiler reports a fault, or the water pressure is under 1 bar. Usual is 1 to 2 bar, but go by your boiler's manual.
+
+**Stats** is for analysis, over any period and per day, week, month or year:
+
+- **Smart meter:** gas and electricity per period, per tariff, compared with a year earlier; power; the night base load; and when gas is used per weekday and hour.
+- **Heating:** room temperature against setpoint and all the boiler's temperatures, with their lowest, average and highest values.
+- **Boiler:** its hour counters, burner time per state, burner starts and short runs, modulation, supply and return temperature while heating, supply above setpoint, the share of heating time with a return under 55 °C (where a condensing boiler can condense), failed starts, and the water pressure with its trend.
+- **Day detail:** everything of one day on the same time scale, with the burner's periods marked.
+- **Export:** the table per period, all samples or all hourly values of the chosen period as CSV.
+
+Burner starts, burner time and the temperatures while heating are worked out from what the app records, so they start at the first day it runs this version. A day with little data shows little. Use is worked out from meter readings: a meter reading that drops (a replaced or reset meter) and a gap of more than 3 days give no value for that interval, rather than one big jump. "Last top-up seen" is an estimate from the day's lowest pressure over several days.
+
+**Settings** shows the Toon's own health with its charts, the connection history, and the app's configuration without passwords. Change the configuration in the app's page in Home Assistant.
+
 The **Connection history** table shows each time the Toon could not be reached:
 
 | What happened | Meaning |
@@ -50,11 +66,11 @@ The **Connection history** table shows each time the Toon could not be reached:
 
 **Memory free before** is the last value before the outage. Together with the charts for the Toon's memory and bus threads, this helps to find out why a Toon hangs.
 
-A notice appears when the Toon's clock is more than 2 minutes off, because its week program then runs late or early as well.
-
 ## History
 
-The Toon keeps its own history files: meters up to 10 years back per day and 5 years per hour, thermostat values a year per hour and 30 days per minute. They are read in small pieces with a pause in between, which takes up to an hour and continues where it was after an interruption. History has the Toon's own timestamps, so a Toon with a wrong clock has its history off by that much. The one exception is the gap after an outage, which is read back with the known offset taken out.
+The Toon keeps its own history files: meters and burner minutes up to 10 years back per day and 5 years per hour, power per 5 minutes for 31 days, and thermostat values per minute for 30 days. It keeps no thermostat values longer than that; from the day you install this app, the app keeps them itself. History is read in small pieces with a pause in between, which takes up to an hour and continues where it was after an interruption, also for files added by a later version.
+
+History has the Toon's own timestamps, so a Toon with a wrong clock has its history off by that much. The one exception is the gap after an outage, which is read back with the offset at that moment taken out.
 
 ## Sensors you may expect but won't find
 

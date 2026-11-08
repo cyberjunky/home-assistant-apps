@@ -1,95 +1,156 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Toon</title>
-<style>
-:root {
-  color-scheme: light;
-  --surface: #f6f6f4; --card: #fcfcfb; --line: #e4e3df; --grid: #ecebe7;
-  --text: #0b0b0b; --text2: #52514e; --text3: #75746f;
-  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
-  --good: #1baf7a; --critical: #d03b3b;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --surface: #111110; --card: #1a1a19; --line: #2e2e2c; --grid: #262624;
-    --text: #f0efec; --text2: #c3c2b7; --text3: #9a998f;
-    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
-    --good: #199e70; --critical: #e66767;
-  }
-}
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--surface); color: var(--text); font: 14px/1.45 system-ui, sans-serif; }
-main { max-width: 1120px; margin: 0 auto; padding: 16px; }
-header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 16px; }
-h1 { font-size: 20px; margin: 0; font-weight: 600; }
-h2 { font-size: 14px; margin: 24px 0 8px; font-weight: 600; color: var(--text2); }
-.pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border: 1px solid var(--line);
-  border-radius: 999px; background: var(--card); font-size: 13px; }
-.pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--dot, var(--text3)); }
-.muted { color: var(--text3); font-size: 13px; }
-.notice { padding: 8px 12px; margin-bottom: 12px; border: 1px solid var(--line); border-left: 3px solid var(--critical);
-  border-radius: 6px; background: var(--card); }
-.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-.tile { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; min-width: 0; }
-.tile b { display: block; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.tile span { color: var(--text2); font-size: 12px; }
-.ranges { display: flex; gap: 4px; margin-left: auto; }
-button { font: inherit; color: var(--text2); background: var(--card); border: 1px solid var(--line); border-radius: 6px;
-  padding: 3px 10px; cursor: pointer; }
-button[aria-pressed="true"] { color: var(--text); border-color: var(--text3); font-weight: 600; }
-.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 8px; }
-figure { margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
-  position: relative; min-width: 0; }
-figcaption { font-weight: 600; font-size: 13px; }
-.legend { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 12px; color: var(--text2); min-height: 18px; }
-.legend i { display: inline-block; width: 14px; height: 2px; margin-right: 5px; vertical-align: middle; }
-svg { display: block; width: 100%; height: 180px; touch-action: pan-y; }
-svg text { fill: var(--text3); font-size: 11px; }
-.tip { position: absolute; pointer-events: none; display: none; background: var(--card); border: 1px solid var(--line);
-  border-radius: 6px; padding: 6px 8px; font-size: 12px; z-index: 2; box-shadow: 0 2px 8px #0002; white-space: nowrap; }
-.tip div { display: flex; align-items: center; gap: 6px; }
-.tip i { width: 12px; height: 2px; }
-.tip b { font-variant-numeric: tabular-nums; }
-table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: 8px;
-  font-size: 13px; }
-th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--grid); }
-th { color: var(--text2); font-weight: 600; }
-.scroll { overflow-x: auto; }
-details { margin-top: 8px; }
-summary { cursor: pointer; color: var(--text2); font-size: 12px; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Toon</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e8a030' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3c1 4 6 5 6 11a6 6 0 0 1-12 0c0-3 2-4 3-7 1 1 2 2 3 2 0-2 0-4 0-6z'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="static/app.css?v=__VERSION__"/>
 </head>
 <body>
-<main>
-  <header>
-    <h1>Toon</h1>
-    <span id="link" class="pill">…</span>
-    <span id="about" class="muted"></span>
-  </header>
-  <div id="notices"></div>
+    <header class="topbar">
+        <div class="brand">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c1 4 6 5 6 11a6 6 0 0 1-12 0c0-3 2-4 3-7 1 1 2 2 3 2 0-2 0-4 0-6z"/></svg>
+            <span class="brand-name">TOON</span>
+        </div>
+        <nav class="tabs" aria-label="Views">
+            <button type="button" class="tab" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</button>
+            <button type="button" class="tab" data-tab="stats" onclick="switchTab('stats')">Stats</button>
+            <span class="tab-sep" aria-hidden="true"></span>
+            <button type="button" class="tab" data-tab="settings" onclick="switchTab('settings')" title="Configuration, the Toon's health, connection history"><span class="tab-label">Settings</span><span class="tab-icon" aria-hidden="true">⚙</span></button>
+        </nav>
+        <span class="spacer"></span>
+        <div class="tabs" role="group" aria-label="Theme">
+            <button type="button" id="theme-toggle" class="tab icon-tab" onclick="cycleTheme()" title="Theme"><span id="theme-icon" aria-hidden="true">🌓</span></button>
+        </div>
+        <span id="clock" class="clock"></span>
+    </header>
 
-  <h2>Heating</h2>
-  <div id="tiles-heating" class="tiles"></div>
-  <h2>Energy</h2>
-  <div id="tiles-energy" class="tiles"></div>
-  <h2>The Toon itself</h2>
-  <div id="tiles-health" class="tiles"></div>
+    <div class="views">
+        <div class="pages">
+            <div class="container">
+                <!-- Dashboard: what matters right now -->
+                <div id="tab-dashboard" class="tab-content">
+                    <div id="dash-notices"></div>
+                    <div id="dash-tiles" class="tiles kpi-tiles"></div>
+                    <div class="dash-grid">
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Heating system</span><span class="hint" id="heating-hint"></span></div>
+                            <div id="heating" class="heating"></div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body" id="dash-modes"></div></div>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Room</span><span class="hint">last 24 hours · °C</span></div>
+                            <div id="chart-room" class="chart"></div>
+                            <div class="legend" id="legend-room"></div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Boiler</span><span class="hint">last 24 hours · °C</span></div>
+                            <div id="chart-boiler" class="chart"></div>
+                            <div class="legend" id="legend-boiler"></div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Electricity</span><span class="hint">last 24 hours · W</span></div>
+                            <div id="chart-power" class="chart"></div>
+                            <div class="legend" id="legend-power"></div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Gas per hour</span><span class="hint">last 24 hours · m³</span></div>
+                            <div id="chart-gas" class="chart"></div>
+                        </div></div>
+                    </div>
+                </div>
 
-  <header style="margin: 24px 0 8px">
-    <h2 style="margin: 0">History</h2>
-    <div class="ranges" id="ranges"></div>
-  </header>
-  <div id="charts" class="charts"></div>
+                <!-- Stats: everything to analyse -->
+                <div id="tab-stats" class="tab-content">
+                    <div class="filters">
+                        <div class="tabs" role="group" aria-label="Period" id="stats-range"></div>
+                        <select class="select" id="stats-year" aria-label="Year"></select>
+                        <span class="filter-label">Per</span>
+                        <div class="tabs" role="group" aria-label="Group by" id="stats-bucket"></div>
+                        <span id="stats-range-text" class="range-text"></span>
+                    </div>
+                    <div id="stats-tiles" class="tiles"></div>
 
-  <h2>Connection history</h2>
-  <p class="muted" style="margin: 0 0 8px">Restarted means the Toon rebooted during the outage. Connection lost means it kept running but could not be reached.</p>
-  <div class="scroll"><table id="outages"></table></div>
-</main>
-<script src="static/app.js"></script>
-<script src="static/donate.js" data-app="Toon" data-api="api/donate"></script>
+                    <div class="page-section"><span>Smart meter</span><small>gas and electricity</small></div>
+                    <div class="stats-grid" id="stats-meter"></div>
+
+                    <div class="page-section"><span>Heating</span><small>the rooms and all temperatures</small></div>
+                    <div class="stats-grid" id="stats-heating"></div>
+
+                    <div class="page-section"><span>Boiler</span><small>hours, burner behaviour and tuning</small></div>
+                    <div id="stats-boiler-facts" class="facts three" style="margin-bottom:14px"></div>
+                    <div class="stats-grid" id="stats-boiler"></div>
+
+                    <div class="page-section"><span>Day detail</span><small>everything on one timeline</small></div>
+                    <div class="panel"><div class="panel-body">
+                        <div class="chart-title"><span id="day-title">Day</span><span class="date-nav" id="day-nav"></span></div>
+                        <div id="day-facts" class="facts three" style="margin-bottom:12px"></div>
+                        <div id="day-charts" class="day-charts"></div>
+                    </div></div>
+
+                    <div class="page-section"><span>Records and values</span><small id="stats-period-note"></small></div>
+                    <div class="panel"><div class="panel-body"><div class="chart-title"><span>Records</span><span class="hint">in this period</span></div><div id="records" class="records"></div></div></div>
+                    <div class="panel"><div class="panel-body"><div class="chart-title"><span>All measured values</span><span class="hint">lowest, average and highest in this period</span></div><div id="gauge-table" class="table-wrap"></div></div></div>
+
+                    <div class="page-section"><span>Export</span><small>for your own analysis</small></div>
+                    <div class="panel"><div class="panel-body">
+                        <div class="detail-actions">
+                            <a class="btn" id="export-periods" download>This table per period (CSV)</a>
+                            <a class="btn" id="export-samples" download>All samples (CSV)</a>
+                            <a class="btn" id="export-hourly" download>Hourly values (CSV)</a>
+                        </div>
+                        <p class="panel-sub" style="margin-top:10px">For the period above. Samples exist for as long as you keep them in the app's configuration; hourly values stay for good.</p>
+                    </div></div>
+                </div>
+
+                <!-- Settings: the app and the Toon itself -->
+                <div id="tab-settings" class="tab-content">
+                    <div class="page-section"><span>The Toon's health</span><small id="health-note"></small></div>
+                    <div id="health-tiles" class="tiles"></div>
+                    <div class="filters"><div class="tabs" role="group" aria-label="Period" id="health-range"></div></div>
+                    <div class="stats-grid" id="health-charts"></div>
+
+                    <div class="page-section"><span>Connection history</span><small id="outage-summary"></small></div>
+                    <div class="panel"><div class="panel-body">
+                        <p class="panel-sub" style="margin-bottom:10px">Restarted means the Toon rebooted during the outage. Connection lost means it kept running but could not be reached.</p>
+                        <div id="outages" class="table-wrap"></div>
+                    </div></div>
+
+                    <div class="page-section"><span>Configuration</span><small>change these in the app's configuration in Home Assistant</small></div>
+                    <div class="settings-grid">
+                        <div class="panel"><div class="panel-body"><div class="section-title">Connection</div><div id="set-connection"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">MQTT</div><div id="set-mqtt"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Data</div><div id="set-data"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Toon</div><div id="set-toon"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">About</div><div id="set-about"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Donate</div>
+                            <div class="panel-sub" style="margin-bottom:12px">Toon is free and open source. If it's useful to you, please consider supporting its development.</div>
+                            <div class="detail-actions">
+                                <a class="btn btn-primary" href="https://www.paypal.me/cyberjunkynl/" target="_blank" rel="noopener">Donate via PayPal</a>
+                                <a class="btn" href="https://github.com/sponsors/cyberjunky" target="_blank" rel="noopener">Sponsor on GitHub</a>
+                            </div>
+                        </div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="statusbar" id="statusbar"></footer>
+    <div id="toast-root"></div>
+
+    <script src="static/core.js?v=__VERSION__"></script>
+    <script src="static/charts.js?v=__VERSION__"></script>
+    <script src="static/schematic.js?v=__VERSION__"></script>
+    <script src="static/dashboard.js?v=__VERSION__"></script>
+    <script src="static/stats.js?v=__VERSION__"></script>
+    <script src="static/settings.js?v=__VERSION__"></script>
+    <script src="static/main.js?v=__VERSION__"></script>
+    <script src="static/donate.js?v=__VERSION__" data-app="Toon" data-api="api/donate"></script>
 </body>
 </html>
