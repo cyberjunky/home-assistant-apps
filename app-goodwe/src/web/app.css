@@ -1,4 +1,4 @@
-/* GoodWeNerd dashboard. Same design language as the TeslaMeter and Meldkamer add-ons:
+/* GoodWe dashboard. Same design language as the TeslaMeter and Meldkamer add-ons:
    dark palette by default; light when Home Assistant (or, outside it, the system)
    uses a light theme - see applyTheme() in core.js */
 :root {

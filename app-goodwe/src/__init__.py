@@ -1,1 +1,1 @@
-"""GoodWeNerd: GoodWe inverter dashboard and battery controller for Home Assistant."""
+"""GoodWe: GoodWe inverter dashboard and battery controller for Home Assistant."""

@@ -1,4 +1,4 @@
-// GoodWeNerd dashboard - the battery control, on the Settings page: Hold / Normal, the
+// GoodWe dashboard - the battery control, on the Settings page: Hold / Normal, the
 // forecast-driven auto-hold, zero export and the solar-surplus signal for Home Assistant.
 
 let controlRendered = false;

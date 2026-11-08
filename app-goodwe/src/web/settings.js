@@ -1,4 +1,4 @@
-// GoodWeNerd dashboard - Settings view: battery control (control.js), inverter, inverter settings,
+// GoodWe dashboard - Settings view: battery control (control.js), inverter, inverter settings,
 // forecast, MQTT, data, events and debug.
 
 let settingsCache = null;
@@ -159,7 +159,7 @@ function renderAbout() {
     document.getElementById('set-about').innerHTML = `
         ${infoRow('Log level', escapeHtml(cfg.log_level || 'info'))}
         ${infoRow('Inverter library', 'goodwe (Python)')}
-        <p class="panel-sub" style="margin-top:10px">GoodWeNerd is an independent project and is not affiliated with or endorsed by GoodWe Technologies Co., Ltd.</p>`;
+        <p class="panel-sub" style="margin-top:10px">This app is an independent project and is not affiliated with or endorsed by GoodWe Technologies Co., Ltd.</p>`;
 }
 
 async function renderEvents(force) {

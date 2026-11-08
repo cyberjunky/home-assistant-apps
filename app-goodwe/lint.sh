@@ -1,5 +1,5 @@
 #!/bin/bash
-# GoodWeNerd - Lint & Format Script
+# GoodWe - Lint & Format Script
 # Usage: ./lint.sh [check|fix]
 #   check - Report issues only (default, CI-safe)
 #   fix   - Auto-fix and format in place
@@ -15,7 +15,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${YELLOW}GoodWeNerd - Lint & Format${NC}"
+echo -e "${YELLOW}GoodWe - Lint & Format${NC}"
 echo "Mode: $MODE"
 echo "---"
 

@@ -8,15 +8,15 @@
 [![Donate via PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg?style=for-the-badge&logo=paypal)](https://www.paypal.me/cyberjunkynl/)
 [![Sponsor on GitHub](https://img.shields.io/badge/Sponsor-GitHub-red.svg?style=for-the-badge&logo=github)](https://github.com/sponsors/cyberjunky)
 
-<img src="https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-goodwe/icon.png" alt="GoodWeNerd" width="128" align="right">
+<img src="https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-goodwe/icon.png" alt="GoodWe" width="128" align="right">
 
-# GoodWeNerd App for Home Assistant
+# GoodWe App for Home Assistant
 
 GoodWe inverter dashboard and battery controller for Home Assistant — the live energy flow
 between solar, battery, grid and home, statistics on what was produced, used, stored and
 exchanged with the grid, and a controller that times the battery with the solar forecast.
 
-GoodWeNerd talks to the inverter directly over your network, the way the SolarGo app does.
+The app talks to the inverter directly over your network, the way the SolarGo app does.
 It runs entirely on your Home Assistant: no cloud account, no analytics, no telemetry. The
 only thing it fetches from the internet is the solar forecast, and that can be turned off.
 
@@ -24,7 +24,7 @@ only thing it fetches from the internet is the solar forecast, and that can be t
 
 My GoodWe ES inverter doesn't offer a proper zero-export mode. That looks like a gap in the
 firmware rather than a setting I missed. Feed-in earns me nothing and only costs, so every
-kWh I export is wasted. GoodWeNerd keeps the export limit at 0 W with the limit enforced, holds the
+kWh I export is wasted. The app keeps the export limit at 0 W with the limit enforced, holds the
 battery for the evening by the solar forecast, and tells Home Assistant when the battery is
 full and solar is still going spare. I'm preparing to work that way: in summer, use every bit
 of surplus solar myself (miners, boiler, car) instead of giving it to the grid.
@@ -51,8 +51,8 @@ Alternatively:
 1. Go to **Settings → Apps → App Store**
 2. Open the menu (⋮) and choose **Repositories**
 3. Add `https://github.com/cyberjunky/home-assistant-apps`
-4. Install **GoodWeNerd**, enter the inverter's IP address on its Configuration tab, and start it
-5. Open **GoodWeNerd** from the sidebar
+4. Install **GoodWe**, enter the inverter's IP address on its Configuration tab, and start it
+5. Open **GoodWe** from the sidebar
 
 ## Configuration
 
@@ -64,14 +64,14 @@ it handles, the requirements and development notes.
 
 ## Supported inverters
 
-GoodWeNerd uses the [goodwe](https://github.com/marcelblijleven/goodwe) Python library.
+The app uses the [goodwe](https://github.com/marcelblijleven/goodwe) Python library.
 It was built and tested on a GoodWe **ES** (GW3648D-ES); the other hybrid series (EM, BP,
 ET, EH, BT, BH) are read the same way, but the battery control commands are only confirmed
 on the ES. Grid-tied inverters without a battery (XS, DNS, SDT, ...) get the monitoring only.
 
 ## Disclaimer
 
-GoodWeNerd is an independent project. It is not affiliated with, endorsed by or sponsored
+This app is an independent project. It is not affiliated with, endorsed by or sponsored
 by GoodWe Technologies Co., Ltd.; "GoodWe" and "SolarGo" are trademarks of their owner.
 Changing inverter settings is at your own risk.
 

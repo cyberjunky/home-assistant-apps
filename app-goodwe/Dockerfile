@@ -28,7 +28,7 @@ WORKDIR /app
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 LABEL \
-    org.opencontainers.image.title="Home Assistant App: GoodWeNerd" \
+    org.opencontainers.image.title="Home Assistant App: GoodWe" \
     org.opencontainers.image.description="GoodWe inverter dashboard and battery controller for Home Assistant" \
     org.opencontainers.image.source="https://github.com/cyberjunky/home-assistant-apps" \
     org.opencontainers.image.licenses="MIT"

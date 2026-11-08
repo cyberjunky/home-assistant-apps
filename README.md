@@ -41,7 +41,7 @@ keeps flash writes low by recording in RAM.
 
 [:books: Documentation](app-dishylink/DOCS.md) · [:memo: Changelog](app-dishylink/CHANGELOG.md) · [:lock: Security](app-dishylink/SECURITY.md)
 
-### <img src="app-goodwe/icon.png" alt="" width="36" align="absmiddle"> [GoodWeNerd](app-goodwe/)
+### <img src="app-goodwe/icon.png" alt="" width="36" align="absmiddle"> [GoodWe](app-goodwe/)
 
 ![Version][goodwe-version-shield]
 ![Supports aarch64 Architecture][aarch64-shield]

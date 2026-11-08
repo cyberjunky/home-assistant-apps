@@ -220,7 +220,7 @@ class MqttPublisher:
             return
 
         self.broker = f"{host}:{port}"
-        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"goodwe-nerd-{self.base}")
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"goodwe-{self.base}")
         if user:
             client.username_pw_set(user, password or None)
         client.will_set(self.status_topic, "offline", qos=1, retain=True)
@@ -310,7 +310,7 @@ class MqttPublisher:
             "state_topic": self.state_topic,
             "availability_topic": self.status_topic,
             "device": device,
-            "origin": {"name": "GoodWeNerd", "sw_version": ADDON_VERSION},
+            "origin": {"name": "GoodWe", "sw_version": ADDON_VERSION},
         }
         prefix = self.config.mqtt_discovery_prefix
         for key, name, device_class, unit, state_class, icon, diagnostic in SENSORS:
