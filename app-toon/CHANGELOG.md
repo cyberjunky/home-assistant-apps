@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1
+
+**After updating:** nothing to do.
+
+- The flame in the heating diagram's boiler grows with the modulation, from small at low power to big at full power, and flickers while the burner is on.
+
 ## 0.4.0
 
 **After updating:** nothing to do. The Dashboard can now change your thermostat; set the new option `read_only` to turn that off.

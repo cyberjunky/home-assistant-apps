@@ -15,11 +15,14 @@ for (const link of Object.values(FLOW_LINKS)) {
 }
 const FLOW_ICONS = {
     gas: '<circle cx="0" cy="0" r="8"/><path d="M0,0 L4,-5 M-5,3 H5"/>',
-    boiler: '<path d="M0,-9 C1,-5 6,-3 6,2 A6,6 0 0 1 -6,2 C-6,-1 -4,-2 -3,-5 C-2,-4 -1,-3 -1,-2 C0,-4 0,-6 0,-9 Z"/>',
+    boiler: '<g class="flame-flicker"><path class="flame-outer" d="M0,-9 C1,-5 6,-3 6,2 A6,6 0 0 1 -6,2 C-6,-1 -4,-2 -3,-5 C-2,-4 -1,-3 -1,-2 C0,-4 0,-6 0,-9 Z"/><path class="flame-core" d="M0,0 C1,1.5 3,2.5 3,4.5 A3,3 0 0 1 -3,4.5 C-3,2.5 -1,1.5 0,0 Z"/></g>',
     rooms: '<path d="M-8,-7 V7 M-4,-7 V7 M0,-7 V7 M4,-7 V7 M8,-7 V7 M-10,-4 H10 M-10,4 H10"/>',
     water: '<path d="M0,-9 C3,-4 6,-1 6,3 A6,6 0 0 1 -6,3 C-6,-1 -3,-4 0,-9 Z"/>',
 };
 const FLOW_LABELS = {gas: 'Gas', boiler: 'Boiler', rooms: 'Radiators and room', water: 'Hot water'};
+// The flame grows with the modulation, from its base, which stays clear of the text below it
+const FLAME_BASE_Y = 8;
+const flameSize = (on, modulation) => on ? 0.75 + Math.min(100, Math.max(0, modulation)) / 100 * 1.0 : 0.9;
 const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 function flowPoint(link, t) {
@@ -51,7 +54,9 @@ class HeatingFlow {
             return `<g id="flow-node-${key}" class="node-g">
                 <circle class="halo" cx="${n.x}" cy="${n.y}" r="${FLOW_NR + 9}"/>
                 <circle class="node" cx="${n.x}" cy="${n.y}" r="${FLOW_NR}"/>
-                <g class="icon" transform="translate(${n.x},${n.y - 24}) scale(1.15)">${FLOW_ICONS[key]}</g>
+                ${key === 'boiler'
+                    ? `<g class="icon flame" id="flow-flame">${FLOW_ICONS[key]}</g>`
+                    : `<g class="icon" transform="translate(${n.x},${n.y - 24}) scale(1.15)">${FLOW_ICONS[key]}</g>`}
                 <text class="value" x="${n.x}" y="${n.y + 6}">–</text>
                 <text class="sub" x="${n.x}" y="${n.y + 24}"></text>
                 <text class="label" x="${n.x}" y="${labelY}">${FLOW_LABELS[key]}</text>
@@ -132,6 +137,9 @@ class HeatingFlow {
         this.setNode('boiler', on, c.flame, on ? `${num(modulation)}%` : 'Off', `set ${fmtTemp(v.boilerSetpoint, 0)}`);
         this.setNode('rooms', heating, c.supply, fmtTemp(v.room), `set ${fmtTemp(v.setpoint)}`);
         this.setNode('water', hotWater, c.dhw, fmtTemp(v.dhwSetpoint, 0), v.dhwEnabled === 0 ? 'off' : hotWater ? 'running' : 'setpoint');
+
+        const b = FLOW_NODES.boiler;
+        this.svg.querySelector('#flow-flame').style.transform = `translate(${b.x}px, ${b.y - 12}px) scale(${flameSize(on, modulation)}) translateY(${-FLAME_BASE_Y}px)`;
 
         const arc = this.svg.querySelector('#flow-modulation');
         if (!on || modulation < 1) {

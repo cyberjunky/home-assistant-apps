@@ -224,6 +224,13 @@ a { color: var(--primary-color); }
 .flow .node { fill: var(--ha-card-background); stroke: var(--node-color); stroke-width: 2.5; transition: stroke 0.4s; }
 .flow .node-g.on .node { fill: color-mix(in srgb, var(--node-color) 10%, var(--ha-card-background)); }
 .flow .icon { fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.flow .flame { transition: transform 0.8s ease; }
+.flow .flame-core { fill: #fff; stroke: none; opacity: 0; }
+.flow .node-g.on .flame-outer { fill: var(--node-color); }
+.flow .node-g.on .flame-core { opacity: 0.75; }
+.flow .node-g.on .flame-flicker { transform-box: fill-box; transform-origin: 50% 100%; animation: flame-flicker 1.4s ease-in-out infinite; }
+@keyframes flame-flicker { 0%, 100% { transform: scale(1, 1); } 35% { transform: scale(0.96, 1.05); } 70% { transform: scale(1.03, 0.97); } }
+@media (prefers-reduced-motion: reduce) { .flow .node-g.on .flame-flicker { animation: none; } }
 .flow .value { font-size: 17px; font-weight: 600; fill: var(--primary-text-color); text-anchor: middle; font-family: var(--mono); }
 .flow .value.off { fill: var(--muted-text-color); }
 .flow .sub { font-size: 10.5px; fill: var(--secondary-text-color); text-anchor: middle; font-family: var(--mono); }
