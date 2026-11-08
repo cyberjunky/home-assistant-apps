@@ -13,6 +13,12 @@ Cleaner, and focused on what works on the ES: hold the battery for the evening b
 - **New statistics**, per day and period and as Home Assistant sensors: hours the solar-surplus signal was on and the solar used meanwhile (your miners), the solar curtailed under zero export (estimate), battery cycles (from the inverter's commissioned capacity), and battery charged and discharged in total (the ES does not count these itself, so *all time* read 0 before).
 - **Removed:** the charge cap (with zero export it only curtailed solar, and LFP batteries take a full charge in their stride), the separate *while held* DoD (a hold is always DoD 0), the manual export-limit and switch controls (Zero export keeps them right; the Debug section can still send any dedicated command), and the work-mode-changed events that were really energy-mode changes.
 
+## 0.1.2
+
+**After updating:** nothing to do. The forecast option `planes` is now called `panels`; an existing `planes` entry keeps working, but rename it when you next edit the configuration.
+
+- The forecast's roof entries are called **panels** in the configuration (one entry per roof side), and the dashboard and documentation say so too.
+
 ## 0.1.1
 
 **After updating:** nothing to do.

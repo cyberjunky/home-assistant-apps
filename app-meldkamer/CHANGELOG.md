@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.7
+
+**After updating:** nothing to do.
+
+- The database backup downloads as `meldkamer-<date>.db`, the same naming as the other apps (it was `.sqlite3`). Restoring accepts `.db`, `.sqlite3` and `.sqlite` files as before.
+
 ## 1.4.6
 
 **After updating:** nothing to do.

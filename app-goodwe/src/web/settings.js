@@ -105,13 +105,13 @@ function renderForecastSettings() {
     document.getElementById('set-forecast').innerHTML = [
         infoRow('Forecast', f.configured ? '<span class="sb-ok">on</span>' : f.enabled ? '<span class="sb-warn">no location</span>' : 'off'),
         infoRow('Location', f.location ? `${num(f.location.lat, 4)}, ${num(f.location.lon, 4)} <small>(${escapeHtml(f.location.source)})</small>` : '–'),
-        infoRow('Installed', `${num(cfg.total_kwp, 2)} kWp in ${(cfg.planes || []).length} plane${(cfg.planes || []).length === 1 ? '' : 's'}`),
+        infoRow('Installed', `${num(cfg.total_kwp, 2)} kWp in ${(cfg.planes || []).length} panel group${(cfg.planes || []).length === 1 ? '' : 's'}`),
         ...(cfg.planes || []).map(p => infoRow(escapeHtml(p.name), `${num(p.kwp, 2)} kWp · tilt ${p.tilt}° · azimuth ${p.azimuth}°`)),
         infoRow('Source', f.source ? escapeHtml(f.source === 'open-meteo' ? 'Open-Meteo (fallback, less precise)' : 'Forecast.Solar') : '–'),
         infoRow('Fetched', f.fetched_at ? `${fmtDateTime(f.fetched_at)} <small>· next ${fmtTime(f.fetched_at + 1800)}</small>` : '–'),
         f.configured ? infoRow('Today · tomorrow', `${fmtKwh(f.today_kwh)} · ${fmtKwh(f.tomorrow_kwh)}`) : '',
         f.error ? infoRow('Problem', `<span class="sb-warn">${escapeHtml(f.error)}</span>`) : '',
-    ].join('') + `<p class="panel-sub" style="margin-top:10px">Forecast.Solar is asked once per plane every 30 minutes, with Open-Meteo as a fallback. Location and planes are set on the add-on's Configuration tab; leave the location at 0 to use Home Assistant's home.</p>`
+    ].join('') + `<p class="panel-sub" style="margin-top:10px">Forecast.Solar is asked once per panel group every 30 minutes, with Open-Meteo as a fallback. Location and panels are set on the add-on's Configuration tab; leave the location at 0 to use Home Assistant's home.</p>`
         + (f.configured ? '<div class="detail-actions" style="margin-top:10px"><button type="button" class="btn btn-small" onclick="refreshForecast(this)">Fetch again</button></div>' : '');
 }
 

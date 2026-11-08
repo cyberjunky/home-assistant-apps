@@ -11,9 +11,10 @@ configuration:
     description: >-
       Productievoorspelling per uur van Forecast.Solar (gratis, geen account),
       met Open-Meteo als reserve. Laat breedte- en lengtegraad op 0 om de
-      thuislocatie van Home Assistant te gebruiken. Voeg per dakvlak een plane
-      toe met piekvermogen (kWp), hellingshoek (0 = plat, 90 = verticaal) en
-      azimut (0 = zuid, -90 = oost, 90 = west). De voorspelling stuurt het
+      thuislocatie van Home Assistant te gebruiken. Voeg onder panels per dakzijde
+      (de panelen die dezelfde kant op kijken) een regel toe met piekvermogen
+      (kWp), hellingshoek (0 = plat, 90 = verticaal) en azimut (0 = zuid,
+      -90 = oost, 90 = west). De voorspelling stuurt het
       automatisch vasthouden van de accu.
   mqtt:
     name: MQTT

@@ -1014,7 +1014,7 @@ class WebUI:
         path = self.database.db_path + ".backup.tmp"
         try:
             await asyncio.to_thread(self.database.backup_to, path)
-            name = f"meldkamer-{datetime.now().strftime('%Y%m%d-%H%M')}.sqlite3"
+            name = f"meldkamer-{datetime.now().strftime('%Y%m%d-%H%M')}.db"
             response = web.StreamResponse(
                 headers={
                     "Content-Type": "application/vnd.sqlite3",

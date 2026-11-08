@@ -126,7 +126,7 @@ overrides that).
 | `inverter.poll_seconds` | `20` | Seconds between reads. 20 is safe for the ES; faster polling can make its network stack stop answering for a while |
 | `forecast.enabled` | `true` | Fetch the solar forecast (needed for auto-hold and the surplus estimate under zero export) |
 | `forecast.latitude` / `longitude` | `0` | Location of the panels; `0` uses Home Assistant's home location |
-| `forecast.planes` | one plane of 4 kWp | One entry per roof orientation: `name`, `kwp` (peak power), `tilt` (0 = flat, 90 = vertical), `azimuth` (0 = south, −90 = east, 90 = west) |
+| `forecast.panels` | one group of 4 kWp | One entry per roof side, for the panels facing the same way: `name`, `kwp` (peak power), `tilt` (0 = flat, 90 = vertical), `azimuth` (0 = south, −90 = east, 90 = west) |
 | `log_level` | `info` | `debug`, `info`, `warning` or `error` |
 
 ### MQTT
@@ -197,7 +197,7 @@ analytics and no telemetry.
 | From | What | Why |
 |------|------|-----|
 | Your inverter (local network) | Runtime data every poll; the settings once at start and once a day (work mode, capacity, export limit), when you read them, and when the controller verifies a write | The dashboard, the statistics and the controller |
-| Forecast.Solar (`api.forecast.solar`) | The hourly production estimate for your location and planes, every 30 minutes | The forecast, auto-hold and the surplus estimate (`forecast.enabled`) |
+| Forecast.Solar (`api.forecast.solar`) | The hourly production estimate for your location and panels, every 30 minutes | The forecast, auto-hold and the surplus estimate (`forecast.enabled`) |
 | Open-Meteo (`api.open-meteo.com`) | Hourly irradiance for your location, only when Forecast.Solar fails | The same, as a fallback |
 | Home Assistant | Your home location (when the options leave it at 0), time zone, and the MQTT broker's address and login | The forecast, local days, publishing entities |
 
@@ -213,7 +213,7 @@ events), `control.json` (the battery control settings and state) and
 | To | What | When |
 |----|------|------|
 | Your inverter | The dedicated commands, only when you press a button or the controller changes its mind | See Battery control |
-| Forecast.Solar / Open-Meteo | Your coordinates (four decimals) and each plane's kWp, tilt and azimuth | With the forecast on |
+| Forecast.Solar / Open-Meteo | Your coordinates (four decimals) and each panel group's kWp, tilt and azimuth | With the forecast on |
 | Your MQTT broker | The inverter's state and the events | With MQTT on and a broker available |
 | Google Fonts | A request for the IBM Plex fonts, from your browser | When the dashboard loads; without internet it falls back to system fonts |
 
@@ -249,7 +249,7 @@ export limit written to it.
 
 ```bash
 pip install goodwe aiohttp "paho-mqtt>=2.1" ruff
-mkdir -p /tmp/goodwe && echo '{"inverter": {"host": "mock"}, "forecast": {"enabled": true, "latitude": 52.1, "longitude": 5.1, "planes": [{"name": "Roof", "kwp": 4}]}, "mqtt": {"enabled": false}}' > /tmp/goodwe/options.json
+mkdir -p /tmp/goodwe && echo '{"inverter": {"host": "mock"}, "forecast": {"enabled": true, "latitude": 52.1, "longitude": 5.1, "panels": [{"name": "Roof", "kwp": 4}]}, "mqtt": {"enabled": false}}' > /tmp/goodwe/options.json
 GOODWE_MOCK_INVERTER=tools.mock_inverter GOODWE_DATA_DIR=/tmp/goodwe MOCK_SPEED=60 python3 -m src   # http://localhost:8099
 ```
 
