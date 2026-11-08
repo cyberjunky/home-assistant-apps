@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1
+
+**After updating:** nothing to do.
+
+- New icon: a sun in the middle of a ring for the battery level, centred, in the same style as the other apps. The logo now says GoodWe.
+
 ## 0.3.0
 
 **After updating:** nothing to do. To follow your miners, set `miners.power_w` (and optionally `miners.entity`) on the Configuration tab.
