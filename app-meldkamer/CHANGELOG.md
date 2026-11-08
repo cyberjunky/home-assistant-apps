@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.9
+
+**After updating:** nothing to do.
+
+- After two weeks of use, a small card in the corner of the dashboard asks for a donation. It never blocks the dashboard, which keeps running and stays usable. Maybe later asks again after 30, then 60, then every 90 days. Don't show again, or following a donate link, ends it for good.
+
 ## 1.4.8
 
 **After updating:** nothing to do.

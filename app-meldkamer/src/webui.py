@@ -17,6 +17,7 @@ from aiohttp import web
 from . import abbreviation_import, bag_import, capcode_import, vehicle_types
 from .database import Database
 from .decoder import Decoder
+from .donate import DonatePrompt
 from .ha_client import HAClient, HAClientError
 from .message import P2000Message
 from .parser import city_shortname_tags
@@ -230,6 +231,7 @@ class WebUI:
     def _setup_routes(self) -> None:
         """Set up web routes."""
         self.app.router.add_get("/", self._handle_index)
+        DonatePrompt(Path("/data/donate_prompt.json")).add_routes(self.app)
         self.app.router.add_static("/static/", STATIC_DIR, name="static")
         self.app.router.add_get("/api/messages", self._handle_messages)
         self.app.router.add_get("/api/messages/{id}", self._handle_message)
@@ -5318,6 +5320,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             if (p.running && p.batch_total) bagWatch(document.querySelector('[onclick="dbImportBAG(this)"]'));
         }).catch(() => {});
     </script>
+    <script src="__BASE__/static/donate.js?v=__ADDON_VERSION__" data-app="Meldkamer" data-api="__BASE__/api/donate"></script>
 </body>
 </html>
 """
