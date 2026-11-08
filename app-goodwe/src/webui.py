@@ -14,9 +14,10 @@ from pathlib import Path
 from aiohttp import web
 from goodwe import InverterError
 
-from .config import ADDON_VERSION, Config
+from .config import ADDON_VERSION, DATA_DIR, Config
 from .controller import BatteryController
 from .database import TOTAL_KEYS, Database
+from .donate import DonatePrompt
 from .events import EVENT_TYPES, EventBus
 from .forecast import Forecast
 from .inverter import WRITABLE, InverterLink
@@ -96,6 +97,7 @@ class WebUI:
     def _setup_routes(self) -> None:
         get, post = self.app.router.add_get, self.app.router.add_post
         get("/", self._handle_index)
+        DonatePrompt(DATA_DIR / "donate_prompt.json").add_routes(self.app)
         self.app.router.add_static("/web/", WEB_DIR)
 
         get("/api/status", self._handle_status)
