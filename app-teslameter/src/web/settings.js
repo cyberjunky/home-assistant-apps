@@ -263,13 +263,36 @@ function renderVehicles() {
             ${infoRow('VIN', escapeHtml(car.vin || '–'))}
             ${infoRow('Last contact', fmtAgo(car.last_seen))}
             ${infoRow('Rated consumption', `${num(conv.cons(car.efficiency_wh_km), 1)} ${unit.cons()}`)}
-            ${infoRow('Live stream', car.streaming ? 'receiving' : 'idle')}
+            ${car.on_account === false ? infoRow('Tesla account', '<span class="sb-warn">not on this account, not followed</span>') : infoRow('Live stream', car.streaming ? 'receiving' : 'idle')}
             ${car.error ? infoRow('Problem', `<span class="sb-warn">${escapeHtml(car.error)}</span>`) : ''}
             <div class="detail-actions" style="margin-top:8px">
-                <button type="button" class="btn btn-small" onclick="refreshCar(${car.id})" title="Read the car's data now. An asleep car stays asleep.">Read now</button>
+                <button type="button" class="btn btn-small" onclick="refreshCar(${car.id})" title="Read the car's data now. An asleep car stays asleep."${car.on_account === false ? ' hidden' : ''}>Read now</button>
+                ${car.on_account === false ? `<button type="button" class="btn btn-small btn-danger" onclick="removeCar(${car.id})">Remove car</button>` : ''}
             </div>
         </div>`).join('')
         + '<p class="panel-sub">The rated consumption turns range into energy. It is learned from your charging sessions, or fixed with <span class="mono">efficiency_wh_km</span> in the add-on configuration.</p>';
+}
+
+// A car Tesla no longer lists on the account, usually one that came in through an import
+async function removeCar(id) {
+    const car = app.cars.find(c => c.id === id);
+    let counts;
+    try { counts = await api(`cars/${id}/history-counts`); } catch (e) { toast(e.message, 'error'); return; }
+    const ok = await confirmDialog({
+        title: `Remove ${escapeHtml(car.name || car.vin)}?`,
+        message: `This deletes the car (${escapeHtml(car.vin)}) with everything recorded under it: <b>${num(counts.drives)} trips and ${num(counts.charges)} charging sessions</b>`
+            + ` (${fmtKwh(counts.added_kwh, 0)}${missing(counts.cost) ? '' : ', ' + fmtMoney(counts.cost)}). This cannot be undone. An import will not bring the car back, unless it is on your Tesla account again.`,
+        confirmLabel: 'Remove car', danger: true,
+    });
+    if (!ok) return;
+    try {
+        await api(`cars/${id}`, {method: 'DELETE'});
+    } catch (e) { toast(e.message, 'error'); return; }
+    toast('Car removed', 'success');
+    tripsLoadedFor = null; chargesLoadedFor = null; statsLoadedFor = null;
+    if (app.carId === id) app.carId = null;
+    await loadStatus().catch(() => {});
+    renderVehicles();
 }
 
 // Import history from a PostgreSQL database (one-off). Fields aren't stored.

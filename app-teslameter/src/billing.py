@@ -106,6 +106,12 @@ def session_energy(entry: dict) -> float | None:
     return None
 
 
+def sessions_of_car(sessions: list[dict], vin: str) -> list[dict]:
+    """The sessions that belong to this car. Tesla can answer with the whole account's history, whichever
+    VIN was asked for, so each session's own VIN decides. Without one there is nothing to tell them apart."""
+    return [entry for entry in sessions if not entry.get("vin") or entry["vin"] == vin]
+
+
 def session_to_charge(entry: dict, currency: str) -> dict | None:
     """A history entry as an importable charge record, or None when it has no usable start/energy."""
     start = _timestamp(entry.get("chargeStartDateTime"))
@@ -261,7 +267,7 @@ class ChargingCosts:
             self.state, self.detail = "ok", f"{len(sessions)} sessions in your Tesla charging history"
             for charge in charges:
                 self._last_try[charge["id"]] = now
-                self._apply(charge, match(charge, sessions))
+                self._apply(charge, match(charge, sessions_of_car(sessions, vin)))
 
     async def import_history(self) -> int:
         """Add the account's charging sessions from Tesla's history as charges. Returns how many were added.
@@ -273,6 +279,8 @@ class ChargingCosts:
         async with self._import_lock:
             imported = 0
             currency = self.config.currency
+            # A session without a VIN of its own goes to the first car that gets it, not to all of them
+            claimed: set = set()
             for car in self.database.list_cars():
                 vin = car.get("vin")
                 if not vin:
@@ -285,7 +293,14 @@ class ChargingCosts:
                 if sessions is None:
                     raise TeslaApiError("Tesla's charging history has an unexpected layout (see the add-on log)")
                 self.state, self.detail = "ok", f"{len(sessions)} sessions in your Tesla charging history"
-                for entry in sessions:
+                mine = sessions_of_car(sessions, vin)
+                logger.info(f"Tesla charging history: {len(mine)} of {len(sessions)} sessions belong to this car")
+                for entry in mine:
+                    session_id = entry.get("sessionId")
+                    if session_id is not None:
+                        if session_id in claimed:
+                            continue
+                        claimed.add(session_id)
                     charge = session_to_charge(entry, currency)
                     if not charge:
                         continue

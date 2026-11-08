@@ -41,7 +41,9 @@ metric km, so they carry over directly. It only reads; nothing in the source cha
 running it again never duplicates, and it fills in what trips and sessions already here are
 missing, such as tire pressures. Trips imported this way keep their GPS track; home charging
 and Supercharging both come across. Parked positions, cables, chargers and climate settings
-come along too; TeslaMate's sleep timing and geofence prices do not.
+come along too; TeslaMate's sleep timing and geofence prices do not. Every car in that
+database comes along. One that isn't on your Tesla account any more, such as a loan car, shows
+as such under **Settings → Vehicles**, with a **Remove car** button.
 
 ## How it works
 

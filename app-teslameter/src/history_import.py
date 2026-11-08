@@ -229,7 +229,7 @@ def import_all(params: dict, database: Database, progress: dict, cost_per_kwh: f
 
 def _import_car(cursor, database: Database, car, progress: dict, cost_per_kwh: float) -> None:
     tm_id, vin, name, _model, trim, color, wheels, eid, vid = car
-    if not vin:
+    if not vin or database.car_is_removed(vin):
         return
     # Match the car by VIN, or create it (so history imports before the account is linked too).
     # eid is Tesla's id; a synthetic one is used only if the source never recorded it.

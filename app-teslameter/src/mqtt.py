@@ -166,6 +166,7 @@ class MqttPublisher:
             return
 
         self.garage.listeners.append(lambda monitor: self._dirty.add(monitor.car_id))
+        self.garage.removal_listeners.append(self._forget)
         self._dirty.update(self.garage.monitors)
         try:
             while True:
@@ -196,6 +197,21 @@ class MqttPublisher:
         if self.connected:
             logger.warning(f"MQTT: disconnected from {self.broker}: {reason_code}")
         self.connected = False
+
+    def _forget(self, car_id: int, vin: str) -> None:
+        """A removed car: empty retained messages make its entities disappear from Home Assistant."""
+        self._dirty.discard(car_id)
+        self._published.pop(car_id, None)
+        self._discovered.pop(car_id, None)
+        if not vin or not self.connected:
+            return
+        node = f"teslameter_{vin.lower()}"
+        prefix = self.config.mqtt_discovery_prefix
+        topics = [f"{self.base}/{vin}/state", f"{prefix}/device_tracker/{node}/config"]
+        topics += [f"{prefix}/sensor/{node}/{key}/config" for key, *_ in SENSORS]
+        topics += [f"{prefix}/binary_sensor/{node}/{key}/config" for key, *_ in BINARY_SENSORS]
+        for topic in topics:
+            self._client.publish(topic, "", qos=1, retain=True)
 
     def _publish_dirty(self) -> None:
         dirty, self._dirty = self._dirty, set()

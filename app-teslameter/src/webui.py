@@ -147,6 +147,8 @@ class WebUI:
         get("/api/cars/{car:[0-9]+}/heat", self._handle_heat)
         post("/api/cars/{car:[0-9]+}/refresh", self._handle_refresh)
         post("/api/cars/{car:[0-9]+}/wake", self._handle_wake)
+        get("/api/cars/{car:[0-9]+}/history-counts", self._handle_car_counts)
+        self.app.router.add_delete("/api/cars/{car:[0-9]+}", self._handle_remove_car)
 
         get("/api/drives", self._handle_drives)
         get("/api/drives/{id:[0-9]+}", self._handle_drive)
@@ -377,6 +379,7 @@ class WebUI:
                 logger.exception("History import failed")
                 self._import_progress.update(running=False, phase="error", error=f"{type(e).__name__}: {e}")
             # Refresh the monitors so the imported history shows under the matching car
+            self.garage.follow_new_cars()
             for monitor in self.garage.monitors.values():
                 monitor.poke()
             # Trips and sessions the source never finished still need their place names
@@ -529,6 +532,20 @@ class WebUI:
         days = _int(request, "days", 0, 0, 3650)
         since = int(time.time()) - days * 86400 if days > 0 else 0
         return web.json_response({"points": self.database.heat_positions(car_id, since)})
+
+    async def _handle_car_counts(self, request: web.Request) -> web.Response:
+        return web.json_response(self.database.car_history_counts(int(request.match_info["car"])))
+
+    async def _handle_remove_car(self, request: web.Request) -> web.Response:
+        car_id = int(request.match_info["car"])
+        monitor = self.garage.monitors.get(car_id)
+        if not monitor:
+            return _error("Car not found", 404)
+        # A car on the account would simply come back with its next discovery
+        if monitor.on_account is not False:
+            return _error("Only a car that isn't on your Tesla account can be removed")
+        await self.garage.remove(car_id)
+        return web.json_response({"success": True})
 
     async def _handle_refresh(self, request: web.Request) -> web.Response:
         monitor = self.garage.monitors.get(self._car_id(request))

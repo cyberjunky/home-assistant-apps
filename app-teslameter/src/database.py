@@ -85,6 +85,9 @@ def _new_columns(table: str) -> str:
     return "".join(f",\n    {column}" for column in NEW_COLUMNS[table])
 
 
+# Cars removed by hand: an import must not bring them back
+REMOVED_CARS_SQL = "CREATE TABLE removed_cars (vin TEXT PRIMARY KEY, removed_at INTEGER NOT NULL)"
+
 VISITED_CELLS_SQL = """
 -- Where the car has driven, as cells of about 100 m (coordinates rounded to 3 decimals), one row
 -- per drive and cell. Filled when a drive ends (drives.cell_count says how many; NULL = not yet),
@@ -238,6 +241,7 @@ CREATE TABLE location_tags (
     place_key TEXT PRIMARY KEY,
     tag TEXT NOT NULL REFERENCES charge_tags(name) ON DELETE CASCADE ON UPDATE CASCADE
 );
+{REMOVED_CARS_SQL};
 INSERT INTO charge_tags (name, price_per_kwh, pos) VALUES ('Home', NULL, 0), ('Free', 0, 1), ('Public', NULL, 2);
 INSERT INTO location_tags (place_key, tag) VALUES ('home', 'Home');
 """
@@ -245,7 +249,7 @@ INSERT INTO location_tags (place_key, tag) VALUES ('home', 'Home');
 # Stored in the database file. A database of an older layout is brought up to date at
 # start by the steps below; one of a newer layout (or one so old there is no step for it)
 # is refused with a message instead of failing on a missing column later.
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 def _statements(sql: str) -> list[str]:
@@ -262,6 +266,8 @@ MIGRATIONS = {
         *[f"ALTER TABLE {table} ADD COLUMN {column}" for table, columns in NEW_COLUMNS.items() for column in columns],
         POSITIONS_TPMS_INDEX,
     ],
+    # 4 -> 5 (0.6.1): cars removed by hand
+    4: [REMOVED_CARS_SQL],
 }
 
 POSITION_COLUMNS = (
@@ -496,6 +502,35 @@ class Database:
             return
         assignments = ", ".join(f"{column} = ?" for column in fields)
         self.execute(f"UPDATE cars SET {assignments} WHERE id = ?", (*fields.values(), car_id))
+
+    def car_history_counts(self, car_id: int) -> dict:
+        """How much is recorded under a car, to say so before removing it."""
+        return self.query_one(
+            "SELECT (SELECT COUNT(*) FROM drives WHERE car_id = :car) AS drives,"
+            " (SELECT COUNT(*) FROM charges WHERE car_id = :car) AS charges,"
+            " (SELECT COALESCE(SUM(energy_added_kwh), 0) FROM charges WHERE car_id = :car) AS added_kwh,"
+            " (SELECT SUM(cost) FROM charges WHERE car_id = :car) AS cost",
+            {"car": car_id},
+        )
+
+    def remove_car(self, car_id: int) -> None:
+        """Delete a car with everything recorded under it, and remember not to import it again."""
+        with self.transaction() as db:
+            car = db.query_one("SELECT vin FROM cars WHERE id = ?", (car_id,))
+            if car and car["vin"]:
+                db.execute(
+                    "INSERT OR REPLACE INTO removed_cars (vin, removed_at) VALUES (?, ?)",
+                    (car["vin"], int(time.time())),
+                )
+            db.execute("DELETE FROM cars WHERE id = ?", (car_id,))
+
+    def car_is_removed(self, vin: str | None) -> bool:
+        return bool(vin) and self.query_one("SELECT 1 FROM removed_cars WHERE vin = ?", (vin,)) is not None
+
+    def forget_removal(self, vin: str | None) -> None:
+        """The car is on the account (again): it counts as one of ours."""
+        if vin:
+            self.execute("DELETE FROM removed_cars WHERE vin = ?", (vin,))
 
     def save_snapshot(self, car_id: int, snapshot: dict) -> None:
         self.execute("UPDATE cars SET snapshot = ? WHERE id = ?", (json.dumps(snapshot), car_id))

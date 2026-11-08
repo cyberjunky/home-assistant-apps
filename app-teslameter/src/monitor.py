@@ -307,6 +307,10 @@ class CarMonitor:
         # What is known of the car, kept across restarts so the dashboard is never empty
         self.snapshot: dict = database.load_snapshot(self.car_id)
         self.snapshot.setdefault("name", car.get("name") or "")
+        # False: Tesla doesn't list this car on the account (a car from an import, a car no longer yours).
+        # Its history stays, but there is nothing to ask Tesla about it. None: not known yet.
+        self.on_account: bool | None = None
+        self._car_row: dict = {}
         self._car_details = self._read_car_details()
         current = database.current_state(self.car_id)
         self.state: str = current["state"] if current else "unknown"
@@ -355,10 +359,16 @@ class CarMonitor:
             "error": self.last_error,
             "streaming": bool(self.stream and self.stream.live),
             "efficiency_wh_km": self.efficiency,
+            "on_account": self.on_account,
             **self._car_details,
-            # Readable model/trim/colour/wheels, the paint colour and a picture of the car
+            # Readable model/trim/colour/wheels, the paint colour and a picture of the car. A car that
+            # never reported itself (imported) goes by what the import knew.
             **vehicle_specs.describe(
-                snapshot.get("car_type"), snapshot.get("trim"), snapshot.get("color"), snapshot.get("wheels"), self.vin
+                snapshot.get("car_type"),
+                snapshot.get("trim") or self._car_row.get("trim"),
+                snapshot.get("color") or self._car_row.get("color"),
+                snapshot.get("wheels") or self._car_row.get("wheels"),
+                self.vin,
             ),
         }
 
@@ -377,9 +387,14 @@ class CarMonitor:
     def _read_car_details(self) -> dict:
         """What the car doesn't report itself; known from an import. The car's own spoiler report wins."""
         car = self.database.get_car(self.car_id) or {}
+        self._car_row = car
         details = {key: car.get(key) for key in ("marketing_name", "lfp_battery", "free_supercharging")}
         details["spoiler_type"] = self.snapshot.get("spoiler_type") or _word(car.get("spoiler_type"))
         return details
+
+    def refresh_details(self) -> None:
+        self._car_details = self._read_car_details()
+        self._changed()
 
     def poke(self) -> None:
         """Read the car's data now instead of at the next scheduled moment."""
@@ -412,6 +427,13 @@ class CarMonitor:
 
     async def _step(self) -> float:
         """One round of the loop. Returns the seconds to wait before the next."""
+        if self.on_account is False:
+            if self.stream:
+                self.stream.wanted.clear()
+            if self.last_error:
+                self.last_error = ""
+                self._changed()
+            return 3600
         try:
             delay = await self._poll()
         except AuthError as e:
@@ -696,8 +718,27 @@ class Garage:
         self.places = places
         self.monitors: dict[int, CarMonitor] = {}
         self.listeners: list[Callable[[CarMonitor], None]] = []
+        self.removal_listeners: list[Callable[[int, str], None]] = []
         self.last_error = ""
         self._tasks: dict[int, asyncio.Task] = {}
+        self._account_vins: set[str] | None = None
+
+    def follow_new_cars(self) -> None:
+        """Show the cars that came in through an import right away, not after the next restart."""
+        for car in self.database.list_cars():
+            if car["id"] not in self.monitors:
+                self._add(car)
+
+    async def remove(self, car_id: int) -> None:
+        """Stop following a car and delete it with its history."""
+        monitor = self.monitors.pop(car_id, None)
+        task = self._tasks.pop(car_id, None)
+        if task:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+        await asyncio.to_thread(self.database.remove_car, car_id)
+        for listener in self.removal_listeners:
+            listener(car_id, monitor.vin if monitor else "")
 
     def _notify(self, monitor: CarMonitor) -> None:
         for listener in self.listeners:
@@ -708,6 +749,8 @@ class Garage:
 
     def _add(self, car: dict) -> None:
         monitor = CarMonitor(car, self.config, self.database, self.auth, self.api, self.places, self._notify)
+        if self._account_vins is not None:
+            monitor.on_account = monitor.vin in self._account_vins
         self.monitors[car["id"]] = monitor
         self._tasks[car["id"]] = asyncio.create_task(monitor.run())
 
@@ -738,8 +781,16 @@ class Garage:
             await asyncio.gather(*self._tasks.values(), return_exceptions=True)
 
     async def _discover(self) -> None:
-        """Start following vehicles of the account that aren't followed yet."""
-        for vehicle in await self.api.vehicles():
+        """Start following vehicles of the account that aren't followed yet, and note which aren't on it."""
+        vehicles = await self.api.vehicles()
+        # An empty list says more about the answer than about the account: leave things as they are
+        if vehicles:
+            self._account_vins = {vehicle.get("vin") for vehicle in vehicles}
+            for monitor in self.monitors.values():
+                monitor.on_account = monitor.vin in self._account_vins
+                monitor.refresh_details()
+        for vehicle in vehicles:
+            self.database.forget_removal(vehicle.get("vin"))
             car_id = self.database.upsert_car(
                 vehicle["id"], vehicle.get("vehicle_id"), vehicle.get("vin"), vehicle.get("display_name")
             )

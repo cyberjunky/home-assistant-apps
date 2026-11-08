@@ -111,7 +111,18 @@ WHEELS = {
 }
 
 # car_type -> configurator model code and view
-_COMPOSITOR_MODEL = {"model3": "m3", "modely": "my", "models": "ms", "modelx": "mx", "cybertruck": "ct"}
+# Tesla's picture service has no Cybertruck or Roadster: those get the dashboard's own drawing
+_COMPOSITOR_MODEL = {
+    "model3": "m3",
+    "modely": "my",
+    "models": "ms",
+    "models2": "ms",
+    "lychee": "ms",
+    "modelx": "mx",
+    "tamarind": "mx",
+}
+# Tesla only serves the Model Y at this angle, not from the side
+_COMPOSITOR_VIEW = {"my": "STUD_3QTR"}
 _COMPOSITOR_WHEEL = {
     # Model 3
     "Pinwheel18": "W38B",
@@ -129,7 +140,7 @@ _COMPOSITOR_WHEEL = {
     "Induction21": "WY21P",
 }
 # A base wheel per model, used when the car's exact wheel isn't in the map above
-_COMPOSITOR_DEFAULT_WHEEL = {"m3": "W38B", "my": "WY19B", "ms": "WS95", "mx": "WX00"}
+_COMPOSITOR_DEFAULT_WHEEL = {"m3": "W38B", "my": "WY19B", "ms": "WT19", "mx": "WT20"}
 
 
 def _spaced(code: str) -> str:
@@ -209,7 +220,7 @@ def image_url(car_type: str | None, exterior_color: str | None, wheel_type: str 
     options = [paint, wheel] if wheel else [paint]
     query = (
         f"context=design_studio_2&options=${',$'.join(options)}"
-        f"&view=STUD_SIDE&model={model}&size=1400&bkba_opt=1&crop=0,0,0,0"
+        f"&view={_COMPOSITOR_VIEW.get(model, 'STUD_SIDE')}&model={model}&size=1400&bkba_opt=1&crop=0,0,0,0"
     )
     return f"https://static-assets.tesla.com/configurator/compositor?{query}"
 
