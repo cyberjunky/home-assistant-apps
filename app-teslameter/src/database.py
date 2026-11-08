@@ -33,6 +33,58 @@ ELEVATION_NOISE_M = 3.0
 MIN_LEARN_KWH = 3.0
 MIN_LEARN_KM = 15.0
 
+# Added in layout 4: what Tesla reports and other loggers keep, beyond the essentials. In SCHEMA for a
+# new database, added by the migration for an existing one. Nothing else depends on these being filled.
+POSITION_EXTRA_COLUMNS = (
+    "ideal_range_km",
+    "driver_temp",
+    "passenger_temp",
+    "fan_status",
+    "climate_on",
+    "front_defrost",
+    "rear_defrost",
+    "battery_heater",
+    "battery_heater_on",
+    "battery_heater_no_power",
+    "tpms_fl",
+    "tpms_fr",
+    "tpms_rl",
+    "tpms_rr",
+)
+SAMPLE_EXTRA_COLUMNS = (
+    "usable_soc",
+    "ideal_range_km",
+    "pilot_current",
+    "requested_current",
+    "battery_heater",
+    "battery_heater_on",
+    "battery_heater_no_power",
+    "not_enough_power_to_heat",
+)
+NEW_COLUMNS = {
+    "cars": ("spoiler_type TEXT", "marketing_name TEXT", "lfp_battery INTEGER", "free_supercharging INTEGER"),
+    "drives": ("start_ideal_range_km REAL", "end_ideal_range_km REAL"),
+    "positions": tuple(
+        f"{column} {'INTEGER' if column == 'fan_status' else 'REAL'}" for column in POSITION_EXTRA_COLUMNS
+    ),
+    "charges": (
+        "conn_charge_cable TEXT",
+        "fast_charger_type TEXT",
+        "start_ideal_range_km REAL",
+        "end_ideal_range_km REAL",
+    ),
+    "charge_samples": tuple(f"{column} REAL" for column in SAMPLE_EXTRA_COLUMNS),
+}
+# Only the few positions that carry tire pressures, so the tire chart never reads the others
+POSITIONS_TPMS_INDEX = (
+    "CREATE INDEX positions_tpms ON positions(car_id, ts, tpms_fl, tpms_fr, tpms_rl, tpms_rr) WHERE tpms_fl IS NOT NULL"
+)
+
+
+def _new_columns(table: str) -> str:
+    return "".join(f",\n    {column}" for column in NEW_COLUMNS[table])
+
+
 VISITED_CELLS_SQL = """
 -- Where the car has driven, as cells of about 100 m (coordinates rounded to 3 decimals), one row
 -- per drive and cell. Filled when a drive ends (drives.cell_count says how many; NULL = not yet),
@@ -63,7 +115,7 @@ CREATE TABLE cars (
     wheels TEXT,
     efficiency_wh_km REAL,
     snapshot TEXT,
-    added_at INTEGER NOT NULL
+    added_at INTEGER NOT NULL{_new_columns("cars")}
 );
 
 CREATE TABLE positions (
@@ -83,10 +135,11 @@ CREATE TABLE positions (
     est_range_km REAL,
     outside_temp REAL,
     inside_temp REAL,
-    drive_id INTEGER REFERENCES drives(id) ON DELETE SET NULL
+    drive_id INTEGER REFERENCES drives(id) ON DELETE SET NULL{_new_columns("positions")}
 );
 CREATE INDEX positions_car_ts ON positions(car_id, ts);
 CREATE INDEX positions_drive ON positions(drive_id, ts) WHERE drive_id IS NOT NULL;
+{POSITIONS_TPMS_INDEX};
 
 CREATE TABLE drives (
     id INTEGER PRIMARY KEY,
@@ -105,7 +158,7 @@ CREATE TABLE drives (
     power_max_kw REAL, power_min_kw REAL,
     outside_temp_avg REAL, inside_temp_avg REAL,
     ascent_m REAL, descent_m REAL,
-    cell_count INTEGER
+    cell_count INTEGER{_new_columns("drives")}
 );
 CREATE INDEX drives_car_ts ON drives(car_id, start_ts);
 
@@ -131,7 +184,7 @@ CREATE TABLE charges (
     cost REAL,
     cost_manual INTEGER NOT NULL DEFAULT 0,
     billed_amount REAL,
-    billed_currency TEXT
+    billed_currency TEXT{_new_columns("charges")}
 );
 CREATE INDEX charges_car_ts ON charges(car_id, start_ts);
 
@@ -146,7 +199,7 @@ CREATE TABLE charge_samples (
     phases INTEGER,
     energy_added_kwh REAL,
     range_km REAL,
-    outside_temp REAL
+    outside_temp REAL{_new_columns("charge_samples")}
 );
 CREATE INDEX charge_samples_charge ON charge_samples(charge_id, ts);
 
@@ -202,10 +255,12 @@ def _statements(sql: str) -> list[str]:
 
 
 MIGRATIONS = {
-    # 3 -> 4 (0.5.6): the visited cells behind the Stats map
+    # 3 -> 4 (0.6.0): the visited cells behind the Stats map, and everything else Tesla reports
     3: [
         "ALTER TABLE drives ADD COLUMN cell_count INTEGER",
         *_statements(VISITED_CELLS_SQL),
+        *[f"ALTER TABLE {table} ADD COLUMN {column}" for table, columns in NEW_COLUMNS.items() for column in columns],
+        POSITIONS_TPMS_INDEX,
     ],
 }
 
@@ -225,6 +280,8 @@ POSITION_COLUMNS = (
     "outside_temp",
     "inside_temp",
 )
+# Everything stored with a position; POSITION_COLUMNS is what the track of a trip needs
+STORED_POSITION_COLUMNS = (*POSITION_COLUMNS, *POSITION_EXTRA_COLUMNS)
 SAMPLE_COLUMNS = (
     "ts",
     "soc",
@@ -235,6 +292,7 @@ SAMPLE_COLUMNS = (
     "energy_added_kwh",
     "range_km",
     "outside_temp",
+    *SAMPLE_EXTRA_COLUMNS,
 )
 
 
@@ -432,7 +490,7 @@ class Database:
         return self.query_one("SELECT * FROM cars WHERE id = ?", (car_id,))
 
     def update_car(self, car_id: int, **fields: Any) -> None:
-        """Set car columns (name, model, trim, color, wheels, efficiency_wh_km); None values are skipped."""
+        """Set car columns (name, model, trim, color, wheels, efficiency_wh_km, ...); None values are skipped."""
         fields = {k: v for k, v in fields.items() if v is not None}
         if not fields:
             return
@@ -453,11 +511,60 @@ class Database:
     # Positions
     # ------------------------------------------------------------------
     def add_position(self, car_id: int, sample: dict, drive_id: int | None = None) -> int:
-        values = [sample.get(column) for column in POSITION_COLUMNS]
+        values = [sample.get(column) for column in STORED_POSITION_COLUMNS]
         return self.execute(
-            f"INSERT INTO positions (car_id, drive_id, {', '.join(POSITION_COLUMNS)})"
-            f" VALUES (?, ?, {', '.join('?' * len(POSITION_COLUMNS))})",
+            f"INSERT INTO positions (car_id, drive_id, {', '.join(STORED_POSITION_COLUMNS)})"
+            f" VALUES (?, ?, {', '.join('?' * len(STORED_POSITION_COLUMNS))})",
             (car_id, drive_id, *values),
+        )
+
+    def fill_positions(self, rows: list[tuple]) -> None:
+        """Add the extra values to positions already stored, from (ts, drive_id, *POSITION_EXTRA_COLUMNS).
+
+        Each goes to the drive's position closest in time, within half a minute: a drive TeslaMeter
+        recorded itself has positions of its own. Values already there stay."""
+        assignments = ", ".join(f"{column} = COALESCE({column}, ?)" for column in POSITION_EXTRA_COLUMNS)
+        sql = (
+            f"UPDATE positions SET {assignments} WHERE id = (SELECT id FROM positions"
+            " WHERE drive_id = ? AND ts BETWEEN ? AND ? ORDER BY ABS(ts - ?), driver_temp IS NULL, id LIMIT 1)"
+        )
+        with self.transaction():
+            self._conn.executemany(sql, [(*row[2:], row[1], row[0] - 30, row[0] + 30, row[0]) for row in rows])
+
+    def fill_charge_samples(self, charge_id: int, rows: list[tuple]) -> None:
+        """Add the extra values to samples already stored, from (ts, *SAMPLE_EXTRA_COLUMNS). As fill_positions."""
+        assignments = ", ".join(f"{column} = COALESCE({column}, ?)" for column in SAMPLE_EXTRA_COLUMNS)
+        sql = (
+            f"UPDATE charge_samples SET {assignments} WHERE id = (SELECT id FROM charge_samples"
+            " WHERE charge_id = ? AND ts BETWEEN ? AND ? ORDER BY ABS(ts - ?), id LIMIT 1)"
+        )
+        with self.transaction():
+            self._conn.executemany(sql, [(*row[1:], charge_id, row[0] - 30, row[0] + 30, row[0]) for row in rows])
+
+    def parked_position_times(self, car_id: int) -> set[int]:
+        """The times of this car's positions outside a drive, so an import doesn't add them twice."""
+        return {
+            row["ts"] for row in self.query("SELECT ts FROM positions WHERE car_id = ? AND drive_id IS NULL", (car_id,))
+        }
+
+    def covering(self, table: str, car_id: int, ts: int) -> int | None:
+        """The id of a finished drive or charge of this car that was going on at ts (table is code-controlled)."""
+        row = self.query_one(
+            f"SELECT id FROM {table} WHERE car_id = ? AND start_ts <= ? AND end_ts > ? ORDER BY start_ts DESC LIMIT 1",
+            (car_id, ts, ts),
+        )
+        return row["id"] if row else None
+
+    def drive_conditions(self, drive_id: int) -> dict | None:
+        """Climate, battery heater and tire pressures during a drive, from the positions that have them."""
+        return self.query_one(
+            "SELECT COUNT(driver_temp) AS samples, AVG(climate_on) AS climate_share, AVG(driver_temp) AS driver_temp,"
+            " AVG(passenger_temp) AS passenger_temp, AVG(fan_status) AS fan_status,"
+            " AVG(front_defrost) AS front_defrost_share, AVG(rear_defrost) AS rear_defrost_share,"
+            " AVG(COALESCE(battery_heater_on, battery_heater)) AS heater_share,"
+            " AVG(tpms_fl) AS tpms_fl, AVG(tpms_fr) AS tpms_fr, AVG(tpms_rl) AS tpms_rl, AVG(tpms_rr) AS tpms_rr"
+            " FROM positions WHERE drive_id = ?",
+            (drive_id,),
         )
 
     def drive_positions(self, drive_id: int, max_points: int = 0, after_ts: int = 0) -> list[dict]:
@@ -602,6 +709,14 @@ class Database:
                     drive_id,
                 ),
             )
+            self.execute(
+                "UPDATE drives SET start_ideal_range_km = ?, end_ideal_range_km = ? WHERE id = ?",
+                (
+                    self._edge(drive_id, "ideal_range_km", last=False),
+                    self._edge(drive_id, "ideal_range_km", last=True),
+                    drive_id,
+                ),
+            )
             self.map_drive_cells(drive_id)
             return self.query_one("SELECT * FROM drives WHERE id = ?", (drive_id,))
 
@@ -641,6 +756,19 @@ class Database:
                     self.map_drive_cells(drive_id)
             mapped += len(ids)
             time.sleep(pause)
+
+    def discard_if_nowhere(self, drive_id: int) -> bool:
+        """Remove an imported drive that went nowhere together with its positions, so that importing again
+        doesn't leave those behind each time as parked ones (close_drive would keep them). True if removed."""
+        with self._lock:
+            drive = self.query_one("SELECT start_odometer_km FROM drives WHERE id = ?", (drive_id,))
+            start = self._edge(drive_id, "odometer_km", last=False) or (drive or {}).get("start_odometer_km")
+            end = self._edge(drive_id, "odometer_km", last=True)
+            if start is not None and end is not None and end - start >= MIN_DRIVE_KM:
+                return False
+            self.execute("DELETE FROM positions WHERE drive_id = ?", (drive_id,))
+            self.execute("DELETE FROM drives WHERE id = ?", (drive_id,))
+            return True
 
     def delete_drive(self, drive_id: int) -> bool:
         """Remove a drive; its positions stay as plain (parked) positions."""
@@ -686,8 +814,11 @@ class Database:
         )
         return _stride(rows, max_points)
 
-    def close_charge(self, charge_id: int, cost_per_kwh: float) -> dict | None:
-        """Finish a charging session. Returns the charge, or None when nothing was charged."""
+    def close_charge(self, charge_id: int, cost_per_kwh: float, fragment: bool = False) -> dict | None:
+        """Finish a charging session. Returns the charge, or None when nothing was charged.
+
+        `fragment`: the samples may be a later part of a session that was logged in pieces (an import of
+        sessions the source never finished). The car's counter runs on over those, so only its rise counts."""
         with self._lock:
             charge = self.query_one("SELECT * FROM charges WHERE id = ?", (charge_id,))
             if not charge:
@@ -696,7 +827,10 @@ class Database:
             energies = [s["energy_added_kwh"] or 0.0 for s in samples]
             # The car's counter restarts with each session; a first reading can still
             # show the previous session's total, so only count from the lowest reading on
-            added = max(energies[energies.index(min(energies)) :], default=0.0)
+            lowest = energies.index(min(energies)) if energies else 0
+            added = max(energies[lowest:], default=0.0)
+            if fragment and energies:
+                added -= energies[lowest]
             if not samples or added < MIN_CHARGE_KWH:
                 self.execute("DELETE FROM charges WHERE id = ?", (charge_id,))
                 return None
@@ -734,7 +868,26 @@ class Database:
                     charge_id,
                 ),
             )
+            if first["soc"] is not None:
+                self.execute(
+                    "UPDATE charges SET start_soc = COALESCE(start_soc, ?) WHERE id = ?", (first["soc"], charge_id)
+                )
+            ideal = [sample["ideal_range_km"] for sample in samples if sample["ideal_range_km"] is not None]
+            if ideal:
+                self.execute(
+                    "UPDATE charges SET start_ideal_range_km = ?, end_ideal_range_km = ? WHERE id = ?",
+                    (ideal[0], ideal[-1], charge_id),
+                )
             return self.query_one("SELECT * FROM charges WHERE id = ?", (charge_id,))
+
+    def note_charge_hardware(self, charge_id: int, cable: str | None, charger_type: str | None) -> None:
+        """Remember the cable and charger of a session; the car can report them only after a few readings."""
+        if cable or charger_type:
+            self.execute(
+                "UPDATE charges SET conn_charge_cable = COALESCE(?, conn_charge_cable),"
+                " fast_charger_type = COALESCE(?, fast_charger_type) WHERE id = ?",
+                (cable, charger_type, charge_id),
+            )
 
     def open_charges(self, car_id: int) -> list[dict]:
         return self.query("SELECT * FROM charges WHERE car_id = ? AND end_ts IS NULL", (car_id,))

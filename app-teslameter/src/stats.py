@@ -117,6 +117,17 @@ def periods(db: Database, car_id: int, bucket: str, start: int, end: int) -> lis
     return result
 
 
+def tires(db: Database, car_id: int, bucket: str, start: int, end: int) -> list[dict]:
+    """Average tire pressures (bar) per period, from the positions that have them."""
+    expression = BUCKETS.get(bucket, BUCKETS["month"]).format(ts="ts")
+    return db.query(
+        f"SELECT {expression} AS period, AVG(tpms_fl) AS fl, AVG(tpms_fr) AS fr, AVG(tpms_rl) AS rl, AVG(tpms_rr) AS rr"
+        " FROM positions INDEXED BY positions_tpms"
+        " WHERE car_id = ? AND ts >= ? AND ts < ? AND tpms_fl IS NOT NULL GROUP BY 1 ORDER BY 1",
+        (car_id, start, end),
+    )
+
+
 def battery(db: Database, car_id: int, start: int, end: int, efficiency_wh_km: float) -> dict:
     """Battery health: the range a full battery would give, after each charge.
 

@@ -45,12 +45,13 @@ DRIVE_COLUMNS = (
     "id, car_id, start_ts, end_ts, start_place, end_place, start_lat, start_lon, end_lat, end_lon, distance_km,"
     " duration_s, start_soc, end_soc, start_range_km, end_range_km, energy_kwh, speed_max_kmh, speed_avg_kmh,"
     " power_max_kw, power_min_kw, outside_temp_avg, inside_temp_avg, ascent_m, descent_m,"
-    " start_odometer_km, end_odometer_km"
+    " start_odometer_km, end_odometer_km, start_ideal_range_km, end_ideal_range_km"
 )
 CHARGE_COLUMNS = (
     "id, car_id, start_ts, end_ts, lat, lon, place, kind, charger_brand, odometer_km, start_soc, end_soc,"
     " start_range_km, end_range_km, energy_added_kwh, energy_used_kwh, power_max_kw, duration_s,"
-    " outside_temp_avg, cost, cost_manual, billed_amount, billed_currency"
+    " outside_temp_avg, cost, cost_manual, billed_amount, billed_currency, conn_charge_cable, fast_charger_type,"
+    " start_ideal_range_km, end_ideal_range_km"
 )
 
 
@@ -84,6 +85,7 @@ def _idle_import_progress() -> dict:
         "drives": 0,
         "charges": 0,
         "positions": 0,
+        "updated": 0,
         "error": "",
         "finished_at": None,
     }
@@ -159,6 +161,7 @@ class WebUI:
         get("/api/stats/insights", self._handle_insights)
         get("/api/stats/periods", self._handle_periods)
         get("/api/stats/visited", self._handle_visited)
+        get("/api/stats/tires", self._handle_tires)
 
         get("/api/export/{table:drives|charges}.csv", self._handle_export)
         get("/api/backup", self._handle_backup)
@@ -361,7 +364,13 @@ class WebUI:
 
         async def worker() -> None:
             try:
-                await asyncio.to_thread(history_import.import_all, params, self.database, self._import_progress)
+                await asyncio.to_thread(
+                    history_import.import_all,
+                    params,
+                    self.database,
+                    self._import_progress,
+                    self.config.cost_per_kwh,
+                )
             except history_import.HistoryImportError as e:
                 self._import_progress.update(running=False, phase="error", error=str(e))
             except Exception as e:
@@ -370,6 +379,11 @@ class WebUI:
             # Refresh the monitors so the imported history shows under the matching car
             for monitor in self.garage.monitors.values():
                 monitor.poke()
+            # Trips and sessions the source never finished still need their place names
+            try:
+                await self.garage.places.fill_missing()
+            except Exception:
+                logger.exception("Naming the imported places failed")
 
         self._import_task = asyncio.create_task(worker())
         return web.json_response({"started": True})
@@ -557,7 +571,12 @@ class WebUI:
         columns = ("ts", "lat", "lon", "speed_kmh", "power_kw", "elevation_m", "soc", "outside_temp", "inside_temp")
         points = self.database.drive_positions(drive_id, max_points=MAX_TRACK_POINTS)
         return web.json_response(
-            {"drive": drive, "columns": columns, "points": [[p[column] for column in columns] for p in points]}
+            {
+                "drive": drive,
+                "conditions": self.database.drive_conditions(drive_id),
+                "columns": columns,
+                "points": [[p[column] for column in columns] for p in points],
+            }
         )
 
     async def _handle_drive_gpx(self, request: web.Request) -> web.Response:
@@ -608,7 +627,21 @@ class WebUI:
         charge = self.database.query_one(f"SELECT {CHARGE_COLUMNS} FROM charges WHERE id = ?", (charge_id,))
         if not charge:
             return _error("Charge not found", 404)
-        columns = ("ts", "soc", "power_kw", "voltage", "current", "energy_added_kwh", "range_km")
+        columns = (
+            "ts",
+            "soc",
+            "power_kw",
+            "voltage",
+            "current",
+            "energy_added_kwh",
+            "range_km",
+            "pilot_current",
+            "requested_current",
+            "battery_heater",
+            "battery_heater_on",
+            "battery_heater_no_power",
+            "not_enough_power_to_heat",
+        )
         samples = self.database.charge_samples(charge_id, max_points=MAX_CHART_POINTS)
         # How many times this car charged at this same place (by name, else within ~100 m)
         place = charge.get("place")
@@ -768,6 +801,14 @@ class WebUI:
             return _error("Unknown bucket")
         start, end = self._range(request)
         result = await asyncio.to_thread(stats.periods, self.database, self._car_id(request), bucket, start, end)
+        return web.json_response(result)
+
+    async def _handle_tires(self, request: web.Request) -> web.Response:
+        bucket = request.query.get("bucket", "month")
+        if bucket not in stats.BUCKETS:
+            return _error("Unknown bucket")
+        start, end = self._range(request)
+        result = await asyncio.to_thread(stats.tires, self.database, self._car_id(request), bucket, start, end)
         return web.json_response(result)
 
     async def _handle_visited(self, request: web.Request) -> web.Response:

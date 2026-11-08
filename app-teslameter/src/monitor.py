@@ -74,14 +74,23 @@ def charge_power_kw(charge: dict) -> float:
     return min((volts * amps * n / 1000.0 for n in candidates), key=lambda kw: abs(kw - reported))
 
 
+def _word(value) -> str | None:
+    """A value Tesla reports as text, or None for its placeholders."""
+    text = str(value).strip() if value is not None else ""
+    return text if text and text not in ("<invalid>", "None", "Unknown") else None
+
+
 def normalize(data: dict, now: float) -> dict:
     """Tesla's vehicle_data as one flat, metric snapshot of the car."""
     drive = data.get("drive_state") or {}
     charge = data.get("charge_state") or {}
     climate = data.get("climate_state") or {}
-    vehicle = data.get("vehicle_state") or {}
+    # Doors, windows and the like are in closures_state on some cars, in vehicle_state on others
+    vehicle = {**(data.get("closures_state") or {}), **(data.get("vehicle_state") or {})}
     config = data.get("vehicle_config") or {}
+    gui = data.get("gui_settings") or {}
     update = vehicle.get("software_update") or {}
+    speed_limit = vehicle.get("speed_limit_mode") or {}
 
     charging_state = charge.get("charging_state")
     doors = [vehicle.get(k) for k in ("df", "dr", "pf", "pr")]
@@ -91,6 +100,7 @@ def normalize(data: dict, now: float) -> dict:
         for wheel in ("fl", "fr", "rl", "rr")
         if vehicle.get(f"tpms_pressure_{wheel}") is not None
     }
+    tpms_seen = [vehicle.get(f"tpms_last_seen_pressure_time_{wheel}") for wheel in ("fl", "fr", "rl", "rr")]
     return {
         "ts": _seconds(drive.get("timestamp") or vehicle.get("timestamp"), now),
         "name": vehicle.get("vehicle_name") or data.get("display_name") or "",
@@ -104,6 +114,15 @@ def normalize(data: dict, now: float) -> dict:
         "exterior_trim": config.get("exterior_trim") or None,
         "charge_port_type": config.get("charge_port_type") or None,
         "air_suspension": config.get("has_air_suspension"),
+        "spoiler_type": _word(config.get("spoiler_type")),
+        "third_row_seats": _word(config.get("third_row_seats")),
+        "right_hand_drive": config.get("rhd"),
+        # How the car itself is set to show things
+        "car_unit_distance": gui.get("gui_distance_units"),
+        "car_unit_temperature": gui.get("gui_temperature_units"),
+        "car_unit_charge_rate": gui.get("gui_charge_rate_units"),
+        "car_unit_range": gui.get("gui_range_display"),
+        "car_24h_time": gui.get("gui_24_hour_time"),
         # Driving
         "shift": drive.get("shift_state"),
         "speed_kmh": _km(drive.get("speed")) or 0.0,
@@ -125,6 +144,19 @@ def normalize(data: dict, now: float) -> dict:
         "charging_state": charging_state,
         "plugged_in": charging_state not in (None, "Disconnected"),
         "charge_limit_soc": charge.get("charge_limit_soc"),
+        "charge_limit_min": charge.get("charge_limit_soc_min"),
+        "charge_limit_max": charge.get("charge_limit_soc_max"),
+        "charge_current_request": charge.get("charge_current_request"),
+        "charge_current_max": charge.get("charge_current_request_max"),
+        "pilot_current": charge.get("charger_pilot_current"),
+        "cable": _word(charge.get("conn_charge_cable")),
+        "charger_type": _word(charge.get("fast_charger_type")),
+        "charge_port_latch": _word(charge.get("charge_port_latch")),
+        "scheduled_charging_mode": _word(charge.get("scheduled_charging_mode")),
+        "scheduled_departure_minutes": charge.get("scheduled_departure_time_minutes"),
+        "preconditioning_enabled": charge.get("preconditioning_enabled"),
+        "off_peak_enabled": charge.get("off_peak_charging_enabled"),
+        "off_peak_end_minutes": charge.get("off_peak_hours_end_time"),
         "charger_power_kw": round(charge_power_kw(charge), 2),
         "charger_voltage": charge.get("charger_voltage"),
         "charger_current": charge.get("charger_actual_current"),
@@ -136,19 +168,56 @@ def normalize(data: dict, now: float) -> dict:
         "fast_charger": bool(charge.get("fast_charger_present")),
         "charger_brand": charge.get("fast_charger_brand") or None,
         "scheduled_charging_start": charge.get("scheduled_charging_start_time"),
-        "battery_heater": charge.get("battery_heater_on"),
+        "battery_heater_on": charge.get("battery_heater_on"),
+        "battery_heater": climate.get("battery_heater"),
+        "battery_heater_no_power": climate.get("battery_heater_no_power"),
+        "not_enough_power_to_heat": charge.get("not_enough_power_to_heat"),
         # Climate
         "inside_temp": climate.get("inside_temp"),
         "outside_temp": climate.get("outside_temp"),
         "climate_on": bool(climate.get("is_climate_on")),
         "preconditioning": bool(climate.get("is_preconditioning")),
         "target_temp": climate.get("driver_temp_setting"),
+        "passenger_temp": climate.get("passenger_temp_setting"),
+        "fan_status": climate.get("fan_status"),
+        "front_defrost": climate.get("is_front_defroster_on"),
+        "rear_defrost": climate.get("is_rear_defroster_on"),
+        "seat_heater_left": climate.get("seat_heater_left"),
+        "seat_heater_right": climate.get("seat_heater_right"),
+        "seat_heater_rear_left": climate.get("seat_heater_rear_left"),
+        "seat_heater_rear_center": climate.get("seat_heater_rear_center"),
+        "seat_heater_rear_right": climate.get("seat_heater_rear_right"),
+        "steering_wheel_heater": climate.get("steering_wheel_heater"),
+        "mirror_heaters": climate.get("side_mirror_heaters"),
+        "wiper_heater": climate.get("wiper_blade_heater"),
+        "cabin_overheat": _word(climate.get("cabin_overheat_protection")),
+        "climate_keeper": _word(climate.get("climate_keeper_mode")),
         # Vehicle
         "locked": vehicle.get("locked"),
         "sentry": bool(vehicle.get("sentry_mode")),
         "user_present": bool(vehicle.get("is_user_present")),
         "doors_open": any(doors),
         "windows_open": any(windows),
+        "door_driver_front": bool(vehicle.get("df")),
+        "door_driver_rear": bool(vehicle.get("dr")),
+        "door_passenger_front": bool(vehicle.get("pf")),
+        "door_passenger_rear": bool(vehicle.get("pr")),
+        "window_driver_front": bool(vehicle.get("fd_window")),
+        "window_driver_rear": bool(vehicle.get("rd_window")),
+        "window_passenger_front": bool(vehicle.get("fp_window")),
+        "window_passenger_rear": bool(vehicle.get("rp_window")),
+        "sunroof_open_pct": vehicle.get("sun_roof_percent_open"),
+        "valet_mode": vehicle.get("valet_mode"),
+        "speed_limit_active": speed_limit.get("active"),
+        "speed_limit_kmh": _km(speed_limit.get("current_limit_mph")),
+        "remote_start": vehicle.get("remote_start"),
+        "homelink_nearby": vehicle.get("homelink_nearby"),
+        "dashcam": _word(vehicle.get("dashcam_state")),
+        "tpms_warning_fl": vehicle.get("tpms_soft_warning_fl"),
+        "tpms_warning_fr": vehicle.get("tpms_soft_warning_fr"),
+        "tpms_warning_rl": vehicle.get("tpms_soft_warning_rl"),
+        "tpms_warning_rr": vehicle.get("tpms_soft_warning_rr"),
+        "tpms_seen": max((seen for seen in tpms_seen if seen), default=None),
         "frunk_open": bool(vehicle.get("ft")),
         "trunk_open": bool(vehicle.get("rt")),
         "tpms": tpms,
@@ -157,6 +226,11 @@ def normalize(data: dict, now: float) -> dict:
         "update_version": str(update.get("version") or "").strip() or None,
         "update_progress": update.get("install_perc"),
     }
+
+
+def _flag(value) -> bool | None:
+    """Tesla reports a defroster as off/on or as a level (front: 0 to 3, rear: 0 or 2): on or off is enough."""
+    return None if value is None else bool(value)
 
 
 def position_of(snapshot: dict) -> dict:
@@ -176,7 +250,21 @@ def position_of(snapshot: dict) -> dict:
         "outside_temp",
         "inside_temp",
     )
-    return {key: snapshot.get(key) for key in keys}
+    tpms = snapshot.get("tpms") or {}
+    return {
+        **{key: snapshot.get(key) for key in keys},
+        "ideal_range_km": snapshot.get("ideal_range_km"),
+        "driver_temp": snapshot.get("target_temp"),
+        "passenger_temp": snapshot.get("passenger_temp"),
+        "fan_status": snapshot.get("fan_status"),
+        "climate_on": snapshot.get("climate_on"),
+        "front_defrost": _flag(snapshot.get("front_defrost")),
+        "rear_defrost": _flag(snapshot.get("rear_defrost")),
+        "battery_heater": snapshot.get("battery_heater"),
+        "battery_heater_on": snapshot.get("battery_heater_on"),
+        "battery_heater_no_power": snapshot.get("battery_heater_no_power"),
+        **{f"tpms_{wheel}": tpms.get(wheel) for wheel in ("fl", "fr", "rl", "rr")},
+    }
 
 
 def can_sleep(snapshot: dict) -> bool:
@@ -219,6 +307,7 @@ class CarMonitor:
         # What is known of the car, kept across restarts so the dashboard is never empty
         self.snapshot: dict = database.load_snapshot(self.car_id)
         self.snapshot.setdefault("name", car.get("name") or "")
+        self._car_details = self._read_car_details()
         current = database.current_state(self.car_id)
         self.state: str = current["state"] if current else "unknown"
         self.state_since: int = current["start_ts"] if current else int(time.time())
@@ -266,6 +355,7 @@ class CarMonitor:
             "error": self.last_error,
             "streaming": bool(self.stream and self.stream.live),
             "efficiency_wh_km": self.efficiency,
+            **self._car_details,
             # Readable model/trim/colour/wheels, the paint colour and a picture of the car
             **vehicle_specs.describe(
                 snapshot.get("car_type"), snapshot.get("trim"), snapshot.get("color"), snapshot.get("wheels"), self.vin
@@ -284,8 +374,16 @@ class CarMonitor:
             except Exception:
                 logger.exception("Update listener failed")
 
+    def _read_car_details(self) -> dict:
+        """What the car doesn't report itself; known from an import. The car's own spoiler report wins."""
+        car = self.database.get_car(self.car_id) or {}
+        details = {key: car.get(key) for key in ("marketing_name", "lfp_battery", "free_supercharging")}
+        details["spoiler_type"] = self.snapshot.get("spoiler_type") or _word(car.get("spoiler_type"))
+        return details
+
     def poke(self) -> None:
         """Read the car's data now instead of at the next scheduled moment."""
+        self._car_details = self._read_car_details()
         self._activity = True
         self._wake.set()
 
@@ -429,8 +527,17 @@ class CarMonitor:
                     "energy_added_kwh": snapshot["charge_energy_added_kwh"],
                     "range_km": snapshot["range_km"],
                     "outside_temp": snapshot["outside_temp"],
+                    "usable_soc": snapshot["usable_soc"],
+                    "ideal_range_km": snapshot["ideal_range_km"],
+                    "pilot_current": snapshot["pilot_current"],
+                    "requested_current": snapshot["charge_current_request"],
+                    "battery_heater": snapshot["battery_heater"],
+                    "battery_heater_on": snapshot["battery_heater_on"],
+                    "battery_heater_no_power": snapshot["battery_heater_no_power"],
+                    "not_enough_power_to_heat": snapshot["not_enough_power_to_heat"],
                 },
             )
+            self.database.note_charge_hardware(self.charge_id, snapshot["cable"], snapshot["charger_type"])
             self._last_sample_at = now
         elif self.charge_id:
             self._end_charge()

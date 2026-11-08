@@ -304,7 +304,8 @@ function openHistoryImport() {
         if (p.phase === 'error') { progress.hidden = true; error.textContent = p.error; return; }
         const done = !p.running && p.phase === 'done';
         progress.innerHTML = `<b>${done ? 'Done' : escapeHtml(p.message || 'Working…')}</b><br>`
-            + `${num(p.drives)} drives · ${num(p.charges)} charges · ${num(p.positions)} positions imported`;
+            + `${num(p.drives)} drives · ${num(p.charges)} charges · ${num(p.positions)} positions imported`
+            + (p.updated ? ` · ${num(p.updated)} existing readings filled in` : '');
         if (done) {
             stopPoll(); toast('Import finished', 'success'); start.disabled = false; start.textContent = 'Import again';
             // The import replaces sparse billing-only sessions by full ones with new ids: lists held in

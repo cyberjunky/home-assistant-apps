@@ -1,9 +1,13 @@
 # Changelog
 
-## 0.5.6
+## 0.6.0
 
-**After updating:** nothing to do. The first start maps your trips for the Stats map in the background; the map says "mapping N trips…" until it is done (a minute or so for a few years of history).
+**After updating:** the first start upgrades the database and maps your trips for the Stats map in the background; the map says "mapping N trips…" until it is done (a minute or so for a few years of history). To add the tire pressures, climate, cables and parked positions to history imported earlier, run **Settings → Data → Import history** again on every database you imported from. It adds what is missing and does not duplicate anything.
 
+- **Everything the car reports.** The dashboard now shows which door or window is open, ideal range, tire pressure warnings and when the tires were measured, and has new Climate and Charging settings blocks: set temperatures, fan, preconditioning, defrost, seat, steering wheel, mirror and wiper heaters, Dog and Camp mode, cabin overheat protection, battery heater, requested and offered current, cable, port door and latch, schedule and off-peak. Also valet and speed limit mode, dashcam, and how the car is set to show its units.
+- **More history.** Positions now keep tire pressures, ideal range, climate settings and battery heater state; charging sessions keep the cable, charger type, offered and requested current and battery heater state. A new **Tire pressure** chart in Stats follows the four tires over time, and trip and charging details show these values.
+- **Import from TeslaMate brings all of it**, including parked positions, the car's version name and LFP battery and free Supercharging settings. Running it again fills in trips and sessions that are already there, also those TeslaMeter recorded itself, keeping the values it has. TeslaMate's sleep timing and geofence prices are not taken over.
+- **More MQTT entities**, as diagnostics: climate and heater details, each door and window, tire warnings, charger details, valet and speed limit mode.
 - **Stats loads fast again.** The "Where you've been" map used to read every recorded position (millions of them after a TeslaMate import) each time you picked another period or bar size, and every other query waited behind it. The roads driven are now mapped once per trip, when it ends, and kept per period; switching between Day, Week, Month and Year only reloads the bar charts.
 - A database of an older layout is upgraded in place at start instead of being refused.
 - A chart whose values are all the same (one trip in every period, say) no longer fails with "Invalid array length" and leaves the Stats view half drawn.

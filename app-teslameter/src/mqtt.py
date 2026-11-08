@@ -42,6 +42,28 @@ SENSORS = (
     ("tpms_fr", "Tire pressure front right", "pressure", "bar", "measurement", None, True),
     ("tpms_rl", "Tire pressure rear left", "pressure", "bar", "measurement", None, True),
     ("tpms_rr", "Tire pressure rear right", "pressure", "bar", "measurement", None, True),
+    ("ideal_range_km", "Ideal range", "distance", "km", "measurement", "mdi:map-marker-distance", True),
+    ("target_temp", "Climate set temperature", "temperature", "°C", None, None, True),
+    ("passenger_temp", "Climate set temperature passenger", "temperature", "°C", None, None, True),
+    ("fan_status", "Fan speed", None, None, "measurement", "mdi:fan", True),
+    ("seat_heater_left", "Seat heater driver", None, None, None, "mdi:car-seat-heater", True),
+    ("seat_heater_right", "Seat heater passenger", None, None, None, "mdi:car-seat-heater", True),
+    ("seat_heater_rear_left", "Seat heater rear left", None, None, None, "mdi:car-seat-heater", True),
+    ("seat_heater_rear_center", "Seat heater rear middle", None, None, None, "mdi:car-seat-heater", True),
+    ("seat_heater_rear_right", "Seat heater rear right", None, None, None, "mdi:car-seat-heater", True),
+    ("climate_keeper", "Keep climate mode", None, None, None, "mdi:dog", True),
+    ("cabin_overheat", "Cabin overheat protection", None, None, None, "mdi:thermometer-alert", True),
+    ("charger_voltage", "Charger voltage", "voltage", "V", "measurement", None, True),
+    ("charger_current", "Charger current", "current", "A", "measurement", None, True),
+    ("charger_phases", "Charger phases", None, None, None, "mdi:sine-wave", True),
+    ("pilot_current", "Charger offered current", "current", "A", "measurement", None, True),
+    ("charge_current_request", "Requested charge current", "current", "A", None, None, True),
+    ("cable", "Charge cable", None, None, None, "mdi:ev-plug-type2", True),
+    ("charger_type", "Charger type", None, None, None, "mdi:ev-station", True),
+    ("charger_brand", "Charger brand", None, None, None, "mdi:ev-station", True),
+    ("charge_port_latch", "Charge port latch", None, None, None, "mdi:lock-outline", True),
+    ("scheduled_charging_mode", "Scheduled charging", None, None, None, "mdi:calendar-clock", True),
+    ("sunroof_open_pct", "Sunroof open", None, "%", "measurement", "mdi:car-select", True),
 )
 # key, name, device class, icon. "unlocked" is derived: Home Assistant's lock class is on when unlocked.
 BINARY_SENSORS = (
@@ -55,6 +77,26 @@ BINARY_SENSORS = (
     ("frunk_open", "Frunk", "opening", None),
     ("user_present", "Occupied", "occupancy", None),
     ("update_available", "Software update", "update", None),
+    ("preconditioning", "Preconditioning", None, "mdi:car-defrost-front"),
+    ("charge_port_open", "Charge port door", "opening", None),
+    ("battery_heater_active", "Battery heater", "heat", None),
+    ("front_defrost", "Front defrost", None, "mdi:car-defrost-front"),
+    ("rear_defrost", "Rear defrost", None, "mdi:car-defrost-rear"),
+    ("steering_wheel_heater", "Steering wheel heater", None, "mdi:steering"),
+    ("door_driver_front", "Driver door", "door", None),
+    ("door_passenger_front", "Passenger door", "door", None),
+    ("door_driver_rear", "Rear door driver side", "door", None),
+    ("door_passenger_rear", "Rear door passenger side", "door", None),
+    ("window_driver_front", "Driver window", "window", None),
+    ("window_passenger_front", "Passenger window", "window", None),
+    ("window_driver_rear", "Rear window driver side", "window", None),
+    ("window_passenger_rear", "Rear window passenger side", "window", None),
+    ("tpms_warning_fl", "Tire warning front left", "problem", None),
+    ("tpms_warning_fr", "Tire warning front right", "problem", None),
+    ("tpms_warning_rl", "Tire warning rear left", "problem", None),
+    ("tpms_warning_rr", "Tire warning rear right", "problem", None),
+    ("valet_mode", "Valet mode", None, "mdi:account-tie"),
+    ("speed_limit_active", "Speed limit mode", None, "mdi:speedometer-slow"),
 )
 
 
@@ -66,6 +108,7 @@ def state_payload(view: dict) -> dict:
     for key, *_ in BINARY_SENSORS:
         payload[key] = bool(view.get(key))
     payload["unlocked"] = view.get("locked") is False
+    payload["battery_heater_active"] = bool(view.get("battery_heater") or view.get("battery_heater_on"))
     payload["update_available"] = view.get("update_status") in ("available", "scheduled", "downloading")
     # No timestamps: the message is only sent again when something about the car changed
     payload.update({key: view.get(key) for key in ("lat", "lon", "heading", "elevation_m", "name")})

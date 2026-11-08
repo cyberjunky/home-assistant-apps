@@ -255,9 +255,26 @@ async function renderVisited(carId, bounds) {
 }
 
 async function loadPeriods(car, bounds, bucket) {
-    const periods = await api(`stats/periods?car=${car.id}&from=${bounds.from}&to=${bounds.to}&bucket=${bucket}`);
+    const query = `car=${car.id}&from=${bounds.from}&to=${bounds.to}&bucket=${bucket}`;
+    const [periods, tires] = await Promise.all([api(`stats/periods?${query}`), api(`stats/tires?${query}`)]);
     periodsLoadedFor = `${car.id}:${statsRange}:${bucket}`;
     renderPeriodCharts(periods, bucket);
+    renderTires(tires, bucket);
+}
+
+function renderTires(rows, bucket) {
+    const every = Math.max(1, Math.ceil(rows.length / 8));
+    document.getElementById('chart-tires-hint').textContent = `${unit.press()} · average per ${bucket}`;
+    const wheels = [['fl', 'Front left', 'var(--series-1)'], ['fr', 'Front right', 'var(--series-2)'], ['rl', 'Rear left', 'var(--series-3)'], ['rr', 'Rear right', 'var(--series-4)']];
+    lineChart(document.getElementById('chart-tires'), {
+        x: rows.map((r, i) => i),
+        series: wheels.map(([key, name, color]) => ({name, color, values: rows.map(r => missing(r[key]) ? null : conv.press(r[key]))})),
+        height: 190,
+        xTicks: rows.map((r, i) => ({at: i, label: periodLabel(r.period, bucket, i)})).filter((t, i) => i % every === 0),
+        formatX: i => periodTitle(rows[i].period, bucket),
+        formatY: v => `${num(v, imperial() ? 0 : 2)} ${unit.press()}`,
+        empty: 'Needs tire pressures in at least two periods. Run the import again to add them from TeslaMate.',
+    });
 }
 
 async function loadStats(force) {

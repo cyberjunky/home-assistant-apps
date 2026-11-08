@@ -117,6 +117,30 @@ function drawCharge() {
     if (activeTab === 'charging') map.setView([charge.lat, charge.lon], 15);
 }
 
+// Cable, charger and battery heater of a session. Sessions imported before these were kept have none.
+function chargeHardwareFacts(charge, column) {
+    const lastKnown = name => { const values = column(name).filter(v => !missing(v)); return values.length ? values[values.length - 1] : null; };
+    const heated = (() => {
+        const on = column('battery_heater_on');
+        const known = on.filter(v => !missing(v));
+        return known.length ? known.filter(Boolean).length / known.length : null;
+    })();
+    const noPower = column('battery_heater_no_power').some(Boolean) || column('not_enough_power_to_heat').some(Boolean);
+    const pilot = lastKnown('pilot_current');
+    const requested = lastKnown('requested_current');
+    const idealAdded = missing(charge.start_ideal_range_km) || missing(charge.end_ideal_range_km) ? null : charge.end_ideal_range_km - charge.start_ideal_range_km;
+    const items = [
+        charge.conn_charge_cable ? fact('Cable', escapeHtml(charge.conn_charge_cable)) : '',
+        charge.fast_charger_type ? fact('Charger type', escapeHtml(charge.fast_charger_type)) : '',
+        missing(pilot) || charge.kind === 'DC' ? '' : fact('Charger offered', withUnit(num(pilot), 'A')),
+        missing(requested) ? '' : fact('Requested', withUnit(num(requested), 'A')),
+        missing(idealAdded) ? '' : fact('Ideal range added', withUnit(num(conv.dist(idealAdded)), unit.dist())),
+        missing(heated) ? '' : fact('Battery heater', heated > 0 ? `${num(heated * 100)}% of the session` : 'Off'),
+        noPower ? fact('Heating', 'Not enough power', 'warn') : '',
+    ];
+    return items.some(Boolean) ? `<div class="facts three">${factsGrid(items, 3)}</div>` : '';
+}
+
 function renderChargeDetail() {
     const charge = chargeData.charge;
     const column = name => { const i = chargeData.columns.indexOf(name); return chargeData.points.map(p => p[i]); };
@@ -163,6 +187,7 @@ function renderChargeDetail() {
                 ${fact('Price / kWh', missing(perKwh) ? '–' : fmtMoney(perKwh) + ' <small>approx</small>')}
                 ${site.visits > 1 ? fact('Charged here', `${num(site.visits)}× · ${fmtKwh(site.energy, 0)}` + (missing(site.cost) ? '' : ` · ${fmtMoney(site.cost)}`)) : ''}
             </div>
+            ${chargeHardwareFacts(charge, column)}
             ${tagControl}
             <div>
                 <div class="chart-title"><span>Charging power</span><span class="hint">kW</span></div>

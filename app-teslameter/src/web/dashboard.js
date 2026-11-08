@@ -48,9 +48,9 @@ function fact(label, valueHtml, cls) {
 
 // Join fact() cells for the 2-column grid, padding an odd count with a blank
 // cell so the grid's divider background never shows as a grey square.
-function factsGrid(items) {
+function factsGrid(items, columns = 2) {
     const cells = items.filter(Boolean);
-    if (cells.length % 2) cells.push('<div class="fact" aria-hidden="true"></div>');
+    while (cells.length % columns) cells.push('<div class="fact" aria-hidden="true"></div>');
     return cells.join('');
 }
 
@@ -72,13 +72,98 @@ function tiresText(car) {
     return `${p('fl')} ${p('fr')} <small>/</small> ${p('rl')} ${p('rr')} <small>${unit.press()}</small>`;
 }
 
+function tiresWarning(car) {
+    return ['fl', 'fr', 'rl', 'rr'].some(wheel => car[`tpms_warning_${wheel}`]);
+}
+
+const OPENINGS = [
+    ['door_driver_front', 'driver door'], ['door_passenger_front', 'passenger door'],
+    ['door_driver_rear', 'rear door driver side'], ['door_passenger_rear', 'rear door passenger side'],
+    ['window_driver_front', 'driver window'], ['window_passenger_front', 'passenger window'],
+    ['window_driver_rear', 'rear window driver side'], ['window_passenger_rear', 'rear window passenger side'],
+];
+
 function openingsText(car) {
-    const open = [];
-    if (car.doors_open) open.push('door');
-    if (car.windows_open) open.push('window');
+    const open = OPENINGS.filter(([key]) => car[key]).map(([, name]) => name);
+    // Values saved by an older version only say that something is open
+    if (car.doors_open && !open.some(name => name.includes('door'))) open.push('door');
+    if (car.windows_open && !open.some(name => name.includes('window'))) open.push('window');
     if (car.trunk_open) open.push('trunk');
     if (car.frunk_open) open.push('frunk');
+    if (car.sunroof_open_pct > 0) open.push(`sunroof ${car.sunroof_open_pct}%`);
     return open.length ? {text: open.join(', ') + ' open', warn: true} : {text: 'Closed', warn: false};
+}
+
+function onOff(value) { return value ? 'On' : 'Off'; }
+
+// Minutes after midnight, as Tesla reports its charging schedule
+function fmtMinutesOfDay(minutes) {
+    return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+}
+
+function seatHeatersText(car) {
+    const seats = [['seat_heater_left', 'driver'], ['seat_heater_right', 'passenger'], ['seat_heater_rear_left', 'rear left'],
+        ['seat_heater_rear_center', 'rear middle'], ['seat_heater_rear_right', 'rear right']];
+    if (seats.every(([key]) => missing(car[key]))) return null;
+    const on = seats.filter(([key]) => car[key] > 0).map(([key, name]) => `${name} ${car[key]}`);
+    return on.length ? on.join(', ') : 'Off';
+}
+
+function batteryHeaterText(car) {
+    if (car.battery_heater_no_power || car.not_enough_power_to_heat) return 'Wants to heat, not enough power';
+    if (missing(car.battery_heater) && missing(car.battery_heater_on)) return null;
+    return onOff(car.battery_heater || car.battery_heater_on);
+}
+
+const KEEPER_NAMES = {dog: 'Dog mode', camp: 'Camp mode', on: 'Keep climate on', off: 'Off'};
+
+function climateBlock(car) {
+    const seats = seatHeatersText(car);
+    const heater = batteryHeaterText(car);
+    const items = [
+        missing(car.target_temp) ? '' : fact('Set to', fmtTemp(car.target_temp)
+            + (missing(car.passenger_temp) || car.passenger_temp === car.target_temp ? '' : ` <small>passenger ${fmtTemp(car.passenger_temp)}</small>`)),
+        missing(car.fan_status) ? '' : fact('Fan', car.fan_status ? `Speed ${num(car.fan_status)}` : 'Off'),
+        fact('Preconditioning', onOff(car.preconditioning)),
+        missing(car.front_defrost) && missing(car.rear_defrost) ? '' : fact('Defrost', car.front_defrost || car.rear_defrost
+            ? [car.front_defrost ? 'front' : '', car.rear_defrost ? 'rear' : ''].filter(Boolean).join(', ') : 'Off'),
+        seats ? fact('Seat heaters', escapeHtml(seats)) : '',
+        missing(car.steering_wheel_heater) ? '' : fact('Steering wheel heater', onOff(car.steering_wheel_heater)),
+        missing(car.mirror_heaters) ? '' : fact('Mirror heaters', onOff(car.mirror_heaters)),
+        missing(car.wiper_heater) ? '' : fact('Wiper heater', onOff(car.wiper_heater)),
+        car.climate_keeper ? fact('Keep climate', escapeHtml(KEEPER_NAMES[car.climate_keeper] || prettyWord(car.climate_keeper))) : '',
+        car.cabin_overheat ? fact('Cabin overheat protection', escapeHtml(prettyWord(car.cabin_overheat))) : '',
+        heater ? fact('Battery heater', escapeHtml(heater), heater.startsWith('Wants') ? 'warn' : '') : '',
+    ];
+    // Values saved by an older version don't have any of this yet
+    if (missing(car.fan_status) && !seats && missing(car.target_temp)) return '';
+    return `<div class="block"><div class="block-title"><span>Climate</span></div><div class="facts">${factsGrid(items)}</div></div>`;
+}
+
+function chargeSettingsBlock(car) {
+    const limits = missing(car.charge_limit_min) || missing(car.charge_limit_max) ? '' : ` <small>${car.charge_limit_min} to ${car.charge_limit_max}% possible</small>`;
+    const items = [
+        missing(car.charge_limit_soc) ? '' : fact('Charge limit', fmtPct(car.charge_limit_soc) + limits),
+        missing(car.charge_current_request) ? '' : fact('Requested current', withUnit(num(car.charge_current_request), 'A')
+            + (missing(car.charge_current_max) ? '' : ` <small>max ${num(car.charge_current_max)} A</small>`)),
+        car.plugged_in && !missing(car.pilot_current) ? fact('Charger offers', withUnit(num(car.pilot_current), 'A')) : '',
+        car.cable ? fact('Cable', escapeHtml(car.cable)) : '',
+        car.charger_type ? fact('Charger type', escapeHtml(car.charger_type)) : '',
+        missing(car.charge_port_open) ? '' : fact('Port door', car.charge_port_open ? 'Open' : 'Closed'),
+        car.charge_port_latch ? fact('Port latch', escapeHtml(prettyWord(car.charge_port_latch))) : '',
+        car.scheduled_charging_mode ? fact('Scheduled charging', escapeHtml(prettyWord(car.scheduled_charging_mode))) : '',
+        car.preconditioning_enabled && !missing(car.scheduled_departure_minutes) ? fact('Departure', fmtMinutesOfDay(car.scheduled_departure_minutes)) : '',
+        car.off_peak_enabled ? fact('Off-peak until', missing(car.off_peak_end_minutes) ? 'On' : fmtMinutesOfDay(car.off_peak_end_minutes)) : '',
+    ];
+    if (!items.some(Boolean)) return '';
+    return `<div class="block"><div class="block-title"><span>Charging settings</span></div><div class="facts">${factsGrid(items)}</div></div>`;
+}
+
+// How the car itself is set to show things, as one line
+function carUnitsText(car) {
+    const parts = [car.car_unit_distance, car.car_unit_temperature && `°${car.car_unit_temperature}`, car.car_unit_charge_rate, car.car_unit_range].filter(Boolean);
+    if (!missing(car.car_24h_time)) parts.push(car.car_24h_time ? '24-hour clock' : '12-hour clock');
+    return parts.join(' · ');
 }
 
 // The part of the panel that depends on what the car is doing right now
@@ -101,14 +186,18 @@ function contextBlock(car) {
         const electrical = car.fast_charger ? escapeHtml(car.charger_brand || 'DC fast')
             : `${phases > 1 ? phases + ' × ' : ''}${num(car.charger_current)} A <small>${num(car.charger_voltage)} V</small>`;
         return `<div class="block"><div class="block-title"><span>Charging</span><span>${car.fast_charger ? 'DC' : 'AC'}</span></div>
-            <div class="facts three">
-                ${fact('Power', withUnit(num(car.charger_power_kw, 1), 'kW'), 'big')}
-                ${fact('Added', withUnit(num(car.charge_energy_added_kwh, 1), 'kWh'), 'big')}
-                ${fact('Time left', missing(car.minutes_to_full) ? '–' : fmtDuration(car.minutes_to_full * 60), 'big')}
-                ${fact('Charger', electrical)}
-                ${fact('Rate', missing(car.charge_rate_kmh) ? '–' : withUnit(num(conv.dist(car.charge_rate_kmh)), unit.speed()))}
-                ${fact('Limit', fmtPct(car.charge_limit_soc))}
-            </div></div>`;
+            <div class="facts three">${factsGrid([
+                fact('Power', withUnit(num(car.charger_power_kw, 1), 'kW'), 'big'),
+                fact('Added', withUnit(num(car.charge_energy_added_kwh, 1), 'kWh'), 'big'),
+                fact('Time left', missing(car.minutes_to_full) ? '–' : fmtDuration(car.minutes_to_full * 60), 'big'),
+                fact('Charger', electrical),
+                fact('Rate', missing(car.charge_rate_kmh) ? '–' : withUnit(num(conv.dist(car.charge_rate_kmh)), unit.speed())),
+                fact('Limit', fmtPct(car.charge_limit_soc)),
+                missing(car.charge_current_request) ? '' : fact('Requested', withUnit(num(car.charge_current_request), 'A')),
+                missing(car.pilot_current) || car.fast_charger ? '' : fact('Charger offers', withUnit(num(car.pilot_current), 'A')),
+                car.cable ? fact('Cable', escapeHtml(car.cable)) : '',
+                car.battery_heater_on || car.battery_heater ? fact('Battery heater', 'On') : '',
+            ], 3)}</div></div>`;
     }
     if (car.state === 'asleep' || car.state === 'offline') {
         const text = car.state === 'asleep'
@@ -135,6 +224,7 @@ function renderCarPanel(car) {
     const software = car.version ? escapeHtml(car.version) + (car.update_status === 'available' || car.update_status === 'scheduled'
         ? ` <small>→ ${escapeHtml(car.update_version || 'update')}</small>` : '') : '–';
     const climate = car.climate_on ? `On${missing(car.target_temp) ? '' : ` <small>${fmtTemp(car.target_temp)}</small>`}` : 'Off';
+    const carUnits = carUnitsText(car);
     return `
         <div class="block"><div class="car-head">
             <div class="ch-left"><h2>${escapeHtml(car.name || 'Tesla')}</h2><div class="sub">${escapeHtml(sub)}</div></div>
@@ -160,20 +250,36 @@ function renderCarPanel(car) {
                 fact('Odometer', missing(car.odometer_km) ? '–' : withUnit(num(conv.dist(car.odometer_km)), unit.dist())),
                 fact('Software', software),
                 car.usable_soc != null && car.usable_soc !== car.soc ? fact('Usable charge', fmtPct(car.usable_soc)) : '',
+                missing(car.ideal_range_km) ? '' : fact('Ideal range', fmtDist(car.ideal_range_km, 0)),
                 fact('Inside', fmtTemp(car.inside_temp)),
                 fact('Outside', fmtTemp(car.outside_temp)),
                 fact('Climate', climate),
                 fact('Sentry mode', car.sentry ? 'On' : 'Off'),
                 fact('Lock', car.locked === false ? 'Unlocked' : car.locked ? 'Locked' : '–', car.locked === false && !car.user_present ? 'warn' : ''),
-                fact('Doors & windows', escapeHtml(openings.text), openings.warn ? 'warn' : ''),
-                fact('Tires', tiresText(car)),
+                fact('Doors & windows', escapeHtml(openings.text), openings.warn ? 'warn wrap' : 'wrap'),
+                fact('Tires', tiresText(car) + (tiresWarning(car) ? ' <small>low pressure warning</small>' : ''), tiresWarning(car) ? 'warn wrap' : ''),
+                car.tpms_seen ? fact('Tires measured', fmtDateTime(car.tpms_seen)) : '',
                 fact('Charge port', car.plugged_in ? 'Plugged in' : 'Unplugged'),
                 car.charge_port_type ? fact('Charge port type', escapeHtml(portTypeName(car.charge_port_type))) : '',
                 car.roof_color && car.roof_color !== 'None' ? fact('Roof', escapeHtml(prettyWord(car.roof_color))) : '',
                 car.exterior_trim && car.exterior_trim !== 'None' ? fact('Exterior trim', escapeHtml(prettyWord(car.exterior_trim))) : '',
                 car.air_suspension === true ? fact('Suspension', 'Air') : '',
+                car.marketing_name ? fact('Version', escapeHtml(car.marketing_name)) : '',
+                missing(car.lfp_battery) ? '' : fact('Battery type', car.lfp_battery ? 'LFP' : 'NCA or NMC'),
+                car.free_supercharging ? fact('Supercharging', 'Free') : '',
+                car.spoiler_type ? fact('Spoiler', escapeHtml(prettyWord(car.spoiler_type))) : '',
+                car.third_row_seats ? fact('Third row', escapeHtml(prettyWord(car.third_row_seats))) : '',
+                car.right_hand_drive === true ? fact('Steering', 'Right-hand drive') : '',
+                car.valet_mode ? fact('Valet mode', 'On', 'warn') : '',
+                car.speed_limit_active ? fact('Speed limit mode', missing(car.speed_limit_kmh) ? 'On' : withUnit(num(conv.dist(car.speed_limit_kmh)), unit.speed())) : '',
+                car.remote_start ? fact('Remote start', 'On', 'warn') : '',
+                car.dashcam ? fact('Dashcam', escapeHtml(prettyWord(car.dashcam))) : '',
+                car.homelink_nearby ? fact('HomeLink', 'Nearby') : '',
+                carUnits ? fact('Car shows', escapeHtml(carUnits), 'wrap') : '',
             ])}</div>
-        </div>`;
+        </div>
+        ${climateBlock(car)}
+        ${chargeSettingsBlock(car)}`;
 }
 
 function renderOverview() {

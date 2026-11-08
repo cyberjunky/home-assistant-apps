@@ -64,7 +64,7 @@ async def main() -> int:
         await places.fill_missing()
 
     async def map_cells() -> None:
-        # After the update to 0.5.6 (and after an import) the drives still have to be mapped for the
+        # After the update to 0.6.0 (and after an import) the drives still have to be mapped for the
         # Stats map; a few at a time, in a worker thread, so logging goes on undisturbed
         pending = database.unmapped_drives()
         if pending:

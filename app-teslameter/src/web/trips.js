@@ -181,6 +181,23 @@ function setTripMetric(key) {
     renderTripChart();
 }
 
+// Climate, heater and tires during a trip. Older trips, and trips imported before these were kept, have none.
+function tripConditionsFacts(drive, c) {
+    const share = v => `${num(v * 100)}% of the trip`;
+    const idealUsed = missing(drive.start_ideal_range_km) || missing(drive.end_ideal_range_km) ? null : drive.start_ideal_range_km - drive.end_ideal_range_km;
+    const hasTires = c && !missing(c.tpms_fl);
+    const items = [
+        missing(idealUsed) ? '' : fact('Ideal range used', withUnit(num(conv.dist(idealUsed)), unit.dist())),
+        !c || missing(c.climate_share) ? '' : fact('Climate on', share(c.climate_share)),
+        !c || missing(c.driver_temp) ? '' : fact('Set to', fmtTemp(c.driver_temp)),
+        !c || missing(c.fan_status) ? '' : fact('Fan', `Speed ${num(c.fan_status, 1)} <small>average</small>`),
+        !c || !(c.front_defrost_share > 0 || c.rear_defrost_share > 0) ? '' : fact('Defrost', share(Math.max(c.front_defrost_share || 0, c.rear_defrost_share || 0))),
+        !c || !(c.heater_share > 0) ? '' : fact('Battery heater', share(c.heater_share)),
+        hasTires ? fact('Tires', tiresText({tpms: {fl: c.tpms_fl, fr: c.tpms_fr, rl: c.tpms_rl, rr: c.tpms_rr}})) : '',
+    ];
+    return items.some(Boolean) ? `<div class="facts three">${factsGrid(items, 3)}</div>` : '';
+}
+
 function renderTripDetail() {
     const drive = tripData.drive;
     const cons = consumption(drive);
@@ -207,6 +224,7 @@ function renderTripDetail() {
                 ${fact('Inside', fmtTemp(drive.inside_temp_avg))}
                 ${fact('Climb', climb || '–')}
             </div>
+            ${tripConditionsFacts(drive, tripData.conditions)}
             <div>
                 <div class="chart-title"><div class="tabs" id="trip-metric"></div></div>
                 <div id="trip-chart" class="chart"></div>
