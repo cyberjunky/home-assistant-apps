@@ -1,4 +1,4 @@
-# Python dependencies for GoodWe Monitor (installed in the Dockerfile).
+# Python dependencies for GoodWe Nerd (installed in the Dockerfile).
 # goodwe    - the inverter protocol (AA55/UDP for ES, Modbus/UDP for ET and others)
 # aiohttp   - web server, ingress, and the forecast and Home Assistant API clients
 # paho-mqtt - MQTT publishing with Home Assistant discovery

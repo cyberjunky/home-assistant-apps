@@ -1,4 +1,4 @@
-// GoodWe Monitor dashboard - Dashboard view: everything live. Tiles, the energy flow, the battery,
+// GoodWe Nerd dashboard - Dashboard view: everything live. Tiles, the energy flow, the battery,
 // the solar panels and strings, what the controller is doing, live power and today's charts.
 
 let flowDiagram = null;

@@ -1,4 +1,4 @@
-// GoodWe Monitor dashboard - startup. Loaded last.
+// GoodWe Nerd dashboard - startup. Loaded last.
 
 (async function start() {
     initThemeToggle();

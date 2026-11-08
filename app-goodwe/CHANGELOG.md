@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1
+
+**After updating:** nothing to do. The sidebar entry, the dashboard and the Home Assistant device keep working; only the name changes.
+
+- Renamed to **GoodWe Nerd** (the app's slug, image and data stay the same, so nothing needs reinstalling).
+- The README says why it exists: an ES inverter without a proper zero-export mode, and a summer of using every bit of surplus solar at home.
+
 ## 0.2.0
 
 **After updating:** nothing to do. If the charge cap was braking charging, it is released once at start. In Home Assistant the *Charge cap braking* entity disappears, and the *Work mode* sensor now shows the inverter's work mode (General, Backup, …) instead of its energy mode (that moved to the new *Energy mode* sensor).

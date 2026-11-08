@@ -1,4 +1,4 @@
-// GoodWe Monitor dashboard - the live energy flow diagram and the daily Sankey.
+// GoodWe Nerd dashboard - the live energy flow diagram and the daily Sankey.
 
 // ---------------------------------------------------------------------
 // Energy flow: four nodes (solar top, grid left, home right, battery bottom) joined by the

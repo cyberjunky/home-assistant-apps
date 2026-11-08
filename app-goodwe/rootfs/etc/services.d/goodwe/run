@@ -1,9 +1,9 @@
 #!/usr/bin/with-contenv bashio
 # ==============================================================================
-# GoodWe Monitor - S6 Service Runner
+# GoodWe Nerd - S6 Service Runner
 # ==============================================================================
 
-echo "[INFO] Starting GoodWe Monitor..."
+echo "[INFO] Starting GoodWe Nerd..."
 
 # Get timezone from Home Assistant supervisor API
 TIMEZONE=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" http://supervisor/info 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('data',{}).get('timezone','UTC'))" 2>/dev/null || echo "UTC")

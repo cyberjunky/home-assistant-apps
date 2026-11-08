@@ -1,4 +1,4 @@
-"""Configuration management for GoodWe Monitor."""
+"""Configuration management for GoodWe Nerd."""
 
 import json
 import logging

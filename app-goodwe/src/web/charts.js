@@ -1,4 +1,4 @@
-// GoodWe Monitor dashboard - small SVG charts: bars (stacked or grouped) and lines, with a shared tooltip.
+// GoodWe Nerd dashboard - small SVG charts: bars (stacked or grouped) and lines, with a shared tooltip.
 // Charts are drawn at the pixel width of their container and redrawn when it changes.
 
 const SVG_NS = 'http://www.w3.org/2000/svg';

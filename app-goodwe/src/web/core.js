@@ -1,4 +1,4 @@
-// GoodWe Monitor dashboard - shared state, formatting, theme, modals and the live stream.
+// GoodWe Nerd dashboard - shared state, formatting, theme, modals and the live stream.
 // Plain scripts sharing one global scope, loaded in the order index.html lists them.
 
 const basePath = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
@@ -395,7 +395,7 @@ function renderStatusbar() {
     if (app.mqtt.enabled) {
         parts.push(`<span class="sb-extra">MQTT <b class="${app.mqtt.connected ? 'sb-ok' : 'sb-bad'}">${app.mqtt.connected ? 'connected' : 'offline'}</b></span>`);
     }
-    parts.push(`<span class="spacer"></span><span class="sb-extra">GoodWe Monitor ${escapeHtml(app.version)}</span>`);
+    parts.push(`<span class="spacer"></span><span class="sb-extra">GoodWe Nerd ${escapeHtml(app.version)}</span>`);
     document.getElementById('statusbar').innerHTML = parts.join('');
 }
 
