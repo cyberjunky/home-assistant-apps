@@ -381,13 +381,31 @@ async function loadDay() {
     const step = 120;
     const charts = dayCharts();
     const metrics = charts.flatMap(c => c.series.map(s => s.metric));
-    const data = await api(`history?start=${start}&end=${end}&metrics=${[...metrics, 'burner_code'].join(',')}`);
+    const [data, gasHours] = await Promise.all([
+        api(`history?start=${start}&end=${end}&metrics=${[...metrics, 'burner_code'].join(',')}`),
+        api(`gas-hours?day=${stats.day}`),
+    ]);
+    // The Toon keeps no history of the gas flow: only days the app was logging have it
+    const shown = charts.filter(c => c.id !== 'day-gas' || (data.gas_flow || []).length);
+    const gasTotal = gasHours.reduce((total, h) => total + h.gas, 0);
     const xs = gridTimes(start, end, step);
     const bands = burnerBands(data.burner_code, start, end, step);
     const ticks = hourTicks(start, end, 3);
     const host = document.getElementById('day-charts');
-    host.innerHTML = charts.map(c => `<div class="chart-label">${escapeHtml(c.title)}</div><div id="${c.id}" class="chart"></div><div class="legend" id="${c.id}-legend" style="margin-bottom:12px"></div>`).join('');
-    charts.forEach(c => {
+    host.innerHTML = `<div class="chart-label">Gas per hour · m³${gasHours.length ? ` · ${num(gasTotal, 2)} m³ this day` : ''}</div><div id="day-gas-hours" class="chart"></div>` + shown.map(c => `<div class="chart-label">${escapeHtml(c.title)}</div><div id="${c.id}" class="chart"></div><div class="legend" id="${c.id}-legend" style="margin-bottom:12px"></div>`).join('');
+    barChart(document.getElementById('day-gas-hours'), {
+        data: gasHours.map(h => ({
+            label: `${String(new Date(h.ts * 1000).getHours()).padStart(2, '0')}:00`,
+            tipTitle: fmtDateTime(h.ts),
+            values: [h.gas],
+        })),
+        series: [{name: 'Gas', color: color('series-4')}],
+        format: fmtGas,
+        height: 110,
+        labelWidth: 48,
+        empty: gasHours.length ? 'No gas used on this day' : 'No hourly gas for this day: the Toon keeps about five years',
+    });
+    shown.forEach(c => {
         const series = c.series.map(s => ({name: s.name, color: color(s.color), width: s.width, area: s.area, values: grid(data[s.metric], start, end, step, 1800)}));
         lineChart(document.getElementById(c.id), {
             x: xs, series, xTicks: ticks, zero: c.zero, height: c.height, formatX: fmtDateTime, formatY: c.format,

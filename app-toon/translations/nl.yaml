@@ -54,6 +54,9 @@ configuration:
       discovery_prefix:
         name: Discovery-prefix
         description: De discovery-prefix van Home Assistant.
+  boiler_name:
+    name: Naam van de ketel
+    description: Merk en type van je ketel, getoond op het dashboard en bij Instellingen. Alleen een label.
   read_only:
     name: Alleen lezen
     description: Zet de bediening op het dashboard uit, zodat deze app niets op je Toon kan wijzigen.

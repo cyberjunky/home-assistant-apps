@@ -136,6 +136,20 @@ def sum_by_day(deltas: list[tuple[int, float, int]]) -> dict[str, float]:
     return dict(days)
 
 
+def gas_per_hour(points: list[Point], hours: list[int]) -> list[dict]:
+    """Gas used in each of these hours (their starts) from a counter's readings. Empty when the readings
+    are too far apart to tell: the Toon only keeps hourly values for about five years."""
+    rows = [{"ts": hour, "gas": 0.0} for hour in hours]
+    by_ts = {row["ts"]: row for row in rows}
+    known = False
+    for ts, amount, span in counter_deltas(points):
+        row = by_ts.get(ts // HOUR * HOUR)
+        if row and span <= 2 * HOUR:
+            row["gas"] = round(row["gas"] + amount, 3)
+            known = True
+    return rows if known else []
+
+
 def usage_between(points: list[Point], start: int, end: int) -> float | None:
     """Use between two moments from readings around them; None without any reading in the period."""
     deltas = [(ts, value) for ts, value in points if ts <= end]
@@ -457,15 +471,7 @@ class Stats:
                 usage["yesterday"][name] = usage_between(points[name], yesterday, start)
 
             hour_now = now // HOUR * HOUR
-            gas_hours = [{"ts": hour_now - HOUR * i, "gas": 0.0} for i in range(23, -1, -1)]
-            by_ts = {row["ts"]: row for row in gas_hours}
-            known = False
-            for ts, amount, span in counter_deltas(points["gas"]):
-                if span <= 2 * HOUR:
-                    row = by_ts.get(ts // HOUR * HOUR)
-                    if row:
-                        row["gas"] = round(row["gas"] + amount, 3)
-                        known = True
+            gas_hours = gas_per_hour(points["gas"], [hour_now - HOUR * i for i in range(23, -1, -1)])
 
             segments, runs, since = self._burner(db, start, now)
             seconds = {"heat": 0, "preheat": 0, "dhw": 0}
@@ -480,7 +486,7 @@ class Stats:
             base = night_base_load(low, normal)
             return {
                 "usage": usage,
-                "gas_hours": gas_hours if known else [],
+                "gas_hours": gas_hours,
                 "burner": {
                     "heat_minutes": round((seconds["heat"] + seconds["preheat"]) / 60),
                     "dhw_minutes": round(seconds["dhw"] / 60),
@@ -494,6 +500,17 @@ class Stats:
             }
         finally:
             db.close()
+
+    def day_gas_hours(self, day: str) -> list[dict]:
+        """Gas used per hour of a local day, from the counter's readings."""
+        start = int(datetime.fromisoformat(day).timestamp())
+        end = int((datetime.fromisoformat(day) + timedelta(days=1)).timestamp())
+        db = self._connect()
+        try:
+            points = self._points(db, COUNTERS["gas"], start - 2 * HOUR, end + HOUR)
+        finally:
+            db.close()
+        return gas_per_hour(points, list(range(start, end, HOUR)))
 
     def raw_csv(self, metrics: list[str], first: str, last: str, hourly: bool = False) -> str:
         """The stored values of a period, one per line: every sample, or the hourly values."""

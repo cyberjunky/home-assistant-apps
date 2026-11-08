@@ -45,6 +45,7 @@ def public_config(config) -> dict:
         "log_level": config.log_level,
         "gas_kwh_per_m3": config.gas_kwh_per_m3,
         "read_only": config.read_only,
+        "boiler_name": config.boiler_name,
     }
 
 
@@ -85,6 +86,7 @@ class WebUI:
         DonatePrompt(DATA_DIR / "donate_prompt.json").add_routes(self.app)
         self.app.router.add_get("/api/today", self._today)
         self.app.router.add_get("/api/stats", self._stats)
+        self.app.router.add_get("/api/gas-hours", self._gas_hours)
         self.app.router.add_post("/api/control", self._control)
         self.app.router.add_get("/api/backup", self._backup)
         self.app.router.add_get("/api/database", self._database)
@@ -219,6 +221,14 @@ class WebUI:
     async def _today(self, request: web.Request) -> web.Response:
         self.database.flush()
         return web.json_response(await asyncio.to_thread(self.stats.today))
+
+    async def _gas_hours(self, request: web.Request) -> web.Response:
+        try:
+            day = date.fromisoformat(request.query.get("day", "")).isoformat()
+        except ValueError as e:
+            raise web.HTTPBadRequest(text="day must be a date") from e
+        self.database.flush()
+        return web.json_response(await asyncio.to_thread(self.stats.day_gas_hours, day))
 
     @staticmethod
     def _period(request: web.Request) -> tuple[str, str]:

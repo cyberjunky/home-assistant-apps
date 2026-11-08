@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.2
+
+**After updating:** nothing to do.
+
+- The day timeline on the Stats page shows gas per hour, also for days from before the app was installed, as far back as the Toon keeps hourly values (about five years). The Gas flow chart only appears on days that have readings, because the Toon keeps no history of it.
+- New option `boiler_name`: the name of your boiler, shown on the Dashboard and in Settings.
+
 ## 0.4.1
 
 **After updating:** nothing to do.

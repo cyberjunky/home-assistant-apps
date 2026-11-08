@@ -147,7 +147,7 @@ function drawModes() {
                 : `<div class="preset ${active === state ? 'active' : ''}">${PRESETS[state]}<b>${fmtTemp(value(key))}</b></div>`).join('')}</div>
         </div>
         <div class="block">
-            <div class="block-title"><span>Boiler</span><span>${stateLabel(value('boiler_fault') ? 'bad' : 'ok', value('boiler_fault') ? 'fault' : 'no fault')}</span></div>
+            <div class="block-title"><span>Boiler${s.config.boiler_name ? ` · ${escapeHtml(s.config.boiler_name)}` : ''}</span><span>${stateLabel(value('boiler_fault') ? 'bad' : 'ok', value('boiler_fault') ? 'fault' : 'no fault')}</span></div>
             <div class="facts three">${factsGrid([
                 fact('Burner hours', unit(value('burner_hours'), 0, 'h')),
                 fact('Hot water hours', unit(value('dhw_burner_hours'), 0, 'h')),

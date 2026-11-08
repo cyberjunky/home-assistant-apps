@@ -24,6 +24,7 @@ from src.stats import (
     cycle_summary,
     estimated_efficiency,
     gas_heatmap,
+    gas_per_hour,
     modulation_distribution,
     night_base_load,
     pressure_summary,
@@ -285,3 +286,26 @@ def test_boiler_energy_is_an_estimate_from_the_return_temperature():
     # Without a return temperature, only what's measured
     assert boiler_energy(100.0, None, 9.77)["heat_kwh"] is None
     assert boiler_energy(None, 40.0, 9.77)["gas_kwh"] is None
+
+
+def test_gas_per_hour():
+    base = 1_000_000 // HOUR * HOUR
+    points = [(base, 10.0), (base + HOUR, 10.5), (base + 2 * HOUR, 11.25)]
+    rows = gas_per_hour(points, [base, base + HOUR, base + 2 * HOUR])
+    assert [row["gas"] for row in rows] == [0.5, 0.75, 0.0]
+    # Daily readings say nothing about the hours
+    assert gas_per_hour([(base, 10.0), (base + DAY, 20.0)], list(range(base, base + DAY, HOUR))) == []
+
+
+async def test_gas_hours_api(client):
+    assert (await client.get("/api/gas-hours?day=nonsense")).status == 400
+    assert (await client.get("/api/gas-hours")).status == 400
+    response = await client.get(f"/api/gas-hours?day={datetime.now().date().isoformat()}")
+    assert response.status == 200
+    assert isinstance(await response.json(), list)
+
+
+def test_boiler_name_option():
+    options = {"ssh": {"host": "toon", "password": "x"}}
+    assert Config.from_options(options).boiler_name == ""
+    assert Config.from_options({**options, "boiler_name": " Calenta Ace 28c "}).boiler_name == "Calenta Ace 28c"

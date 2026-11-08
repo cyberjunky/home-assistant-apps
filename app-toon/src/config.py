@@ -53,6 +53,8 @@ class Config:
     mqtt_base_topic: str = "toon"
     mqtt_discovery_prefix: str = "homeassistant"
 
+    # Your boiler's name, only shown on the pages
+    boiler_name: str = ""
     # Leave out everything that can change the thermostat
     read_only: bool = False
 
@@ -94,6 +96,7 @@ class Config:
             mqtt_password=str(mqtt.get("password") or ""),
             mqtt_base_topic=str(mqtt.get("base_topic") or "toon"),
             mqtt_discovery_prefix=str(mqtt.get("discovery_prefix") or "homeassistant"),
+            boiler_name=str(options.get("boiler_name") or "").strip(),
             read_only=bool(options.get("read_only", False)),
             gas_kwh_per_m3=float(options.get("gas_kwh_per_m3") or 9.77),
             outside_temperature=str(options.get("outside_temperature") or "").strip(),

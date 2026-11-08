@@ -61,6 +61,7 @@ function renderConfig() {
     ].join('');
     const adapter = s.adapters.boiler_adapter || {};
     document.getElementById('set-toon').innerHTML = [
+        c.boiler_name ? infoRow('Boiler', escapeHtml(c.boiler_name)) : '',
         infoRow('Firmware', escapeHtml(s.info.vers || '–')),
         infoRow('Serial number', escapeHtml(s.info.serialNumber || '–')),
         infoRow('Part number', escapeHtml(s.info.partNumber || '–')),
