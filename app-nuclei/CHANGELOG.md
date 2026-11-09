@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+**After updating:** nothing to do.
+
+- A Rescan button in the device detail window runs a new scan of the scan object that device belongs to.
+
 ## 0.1.1
 
 **After updating:** nothing to do.

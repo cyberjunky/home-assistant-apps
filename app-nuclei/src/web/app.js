@@ -131,7 +131,7 @@ function editDevice(id, d) {
     <label>Description</label><textarea id="d-desc" class="note-field" placeholder="What is it, where is it, who owns it">${esc(d.description || '')}</textarea>
     <label>Tags (comma separated)</label><input id="d-tags" value="${esc(d.tags.join(', '))}" style="width:100%">
     <div class="filters" style="margin-top:6px;max-height:110px;overflow:auto">${DEVICE_TAG_SUGGESTIONS.map(t => `<button class="chip" data-add="${t}">+ ${t}</button>`).join('')}</div>
-    <div class="row" style="margin-top:14px"><button class="btn btn-primary" id="d-save">Save</button><button class="btn btn-danger" id="d-del">Remove</button><button class="btn" data-close>Close</button></div>
+    <div class="row" style="margin-top:14px"><button class="btn btn-primary" id="d-save">Save</button><button class="btn" id="d-rescan" ${d.object_id ? 'title="Runs a new scan of the scan object this device belongs to"' : 'disabled title="The scan object this device came from was removed"'}>Rescan</button><button class="btn btn-danger" id="d-del">Remove</button><button class="btn" data-close>Close</button></div>
   `);
   document.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {
     const input = document.getElementById('d-tags');
@@ -143,6 +143,13 @@ function editDevice(id, d) {
     try {
       await api('devices/' + id, {method: 'PATCH', body: {name: document.getElementById('d-name').value, description: document.getElementById('d-desc').value, tags: document.getElementById('d-tags').value}});
       closeModal(); loadDevices();
+    } catch (e) { toast(e.message); }
+  };
+  document.getElementById('d-rescan').onclick = async () => {
+    try {
+      await api(`objects/${d.object_id}/scan`, {method: 'POST'});
+      toast('Scan started');
+      closeModal();
     } catch (e) { toast(e.message); }
   };
   document.getElementById('d-del').onclick = async () => {
