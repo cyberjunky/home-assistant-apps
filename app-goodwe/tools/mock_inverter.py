@@ -105,7 +105,9 @@ class ES:
         self.soc = max(0.0, min(100.0, self.soc + pbat * dt_h / CAPACITY_WH * 100))
         if self.soc >= 100:
             pbat = max(0.0, pbat * 0.05)
-        self.e_day += potential * dt_h / 1000
+        # Like the real ES: the inverter's output, so without what goes into the battery and with what
+        # comes out of it
+        self.e_day += max(potential - pbat, 0) * dt_h / 1000
         self.e_total += potential * dt_h / 1000
         self.e_total_imp += max(grid, 0) * dt_h / 1000
         self.e_total_exp += max(-grid, 0) * dt_h / 1000

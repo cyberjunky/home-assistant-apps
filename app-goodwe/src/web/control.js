@@ -23,7 +23,7 @@ function renderControl(force) {
     controlRendered = true;
     const row = (label, sub, control, hint, id) => `<div class="control-row"><div class="cl">${label}<small>${sub}</small></div><div>${control}</div><div class="ch" ${id ? `id="${id}"` : ''}>${hint}</div></div>`;
     el.innerHTML = `
-        ${c.work_mode_general === false ? `<div class="note warn" style="margin-bottom:12px">The inverter is in <b>${escapeHtml(c.work_mode_name || '?')}</b> mode. Auto-hold only works in General mode, so it is paused; switch back under <i>Inverter settings</i> below.</div>` : ''}
+        ${c.work_mode_general === false ? `<div class="note warn" style="margin-bottom:12px">The inverter is in <b>${escapeHtml(c.work_mode_name || '?')}</b> mode. Auto-hold only works in General mode: with auto-hold on, the app switches it back (at most once an hour), otherwise it is paused; switch back under <i>Inverter settings</i> below.</div>` : ''}
         <div class="control-group">
             <div class="section-title">Discharge</div>
             <div class="control-rows">

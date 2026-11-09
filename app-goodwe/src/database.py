@@ -335,9 +335,12 @@ class Database:
         }
         return {"date": day, "links": links, "sources": sources, "destinations": destinations, "samples": samples}
 
-    def update_derived(self, day: str | None = None) -> None:
+    def update_derived(self, day: str | None = None, derived_only: bool = False) -> None:
         """Fill a day's import, export, house and battery energies from its snapshots (MAX-merged with
-        whatever the inverter reported itself, so a platform that has the counters keeps them)."""
+        whatever the inverter reported itself, so a platform that has the counters keeps them).
+
+        With derived_only (the ES, which counts none of these correctly) the integration replaces what
+        is stored, solar and the forecast log's actual production included."""
         day, start, end = _day_bounds(day)
         links, imp_by_hour, samples, extra = self._integrate(start, end)
         if samples < 2:
@@ -347,6 +350,15 @@ class Database:
             return round(sum(links[k] for k in keys) / 1000, 3)
 
         self.con.execute("INSERT INTO daily_summary(date) VALUES (?) ON CONFLICT(date) DO NOTHING", (day,))
+        if derived_only:
+            solar = kwh("solar_load", "solar_batt", "solar_grid")
+            # Zeroed first, so the merge below ends up with the integration alone
+            self.con.execute(
+                "UPDATE daily_summary SET e_day = ?, e_day_imp = 0, e_day_exp = 0, e_load_day = 0,"
+                " e_bat_charge_day = 0, e_bat_discharge_day = 0 WHERE date = ?",
+                (solar, day),
+            )
+            self.con.execute("UPDATE forecast_log SET actual_kwh = ? WHERE date = ?", (round(solar, 2), day))
         self.con.execute(
             """
             UPDATE daily_summary SET
@@ -394,12 +406,12 @@ class Database:
 
     def energy_totals(self) -> dict:
         """Today's derived day energies and surplus statistics, plus lifetime import, export and battery
-        sums since recording began (kWh), for the live data. The ES counts none of these itself."""
+        sums since recording began (kWh), for the live data. The ES counts none of these correctly."""
         today = self.day_row(datetime.now().strftime("%Y-%m-%d")) or {}
         total = self.con.execute(
             "SELECT SUM(e_day_imp), SUM(e_day_exp), SUM(e_bat_charge_day), SUM(e_bat_discharge_day) FROM daily_summary"
         ).fetchone()
-        out = {k: float(today.get(k) or 0) for k in (*DAY_KEYS[1:], *DERIVED_KEYS)}
+        out = {k: float(today.get(k) or 0) for k in (*DAY_KEYS, *DERIVED_KEYS)}
         for i, key in enumerate(("e_total_imp", "e_total_exp", "e_bat_charge_total", "e_bat_discharge_total")):
             out[key] = round(float(total[i] or 0), 2)
         return out

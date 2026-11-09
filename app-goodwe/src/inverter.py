@@ -25,7 +25,7 @@ import logging
 import os
 import time
 from collections import deque
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 import goodwe
@@ -98,6 +98,7 @@ class InverterLink:
         self.last_error = ""
         # Day energies derived from the recorded snapshots (the ES has no such counters); merged into the data
         self.extra: dict = {}
+        self.extra_day = ""  # the local date that extra's day energies belong to
         # The settings as last read from the inverter (a full AA55 read, so only on request)
         self.settings: dict = {}
         self.settings_at = 0
@@ -172,8 +173,11 @@ class InverterLink:
             try:
                 raw = await self._request(self.inverter.read_runtime_data)
                 data = self.normalise({str(k): _plain(v) for k, v in raw.items()})
+                # After midnight the day energies are yesterday's until the next derive: stored under
+                # the new day they would stick. The lifetime sums stay valid.
+                same_day = self.extra_day == date.today().isoformat()
                 for key, value in self.extra.items():
-                    if not data.get(key):
+                    if not data.get(key) and (same_day or "_total" in key):
                         data[key] = value
                 self.data, self.data_at, self.read_at = data, time.monotonic(), int(time.time())
                 self.polls += 1
@@ -283,6 +287,12 @@ class InverterLink:
             elif self.is_es:
                 # The ES reports grid power negative while importing
                 d["pgrid"] = -p
+        if self.is_es:
+            # "Today's PV Generation" on the ES is not solar: it leaves out what goes straight into the
+            # battery and keeps climbing on battery power after dark. The day's solar is derived from
+            # the power instead; the counter stays visible in the raw data under Debug.
+            d["e_day_counter"] = d.get("e_day")
+            d["e_day"] = 0
         if self.is_es and d.get("pbattery1") is not None:
             # The ES reports charging as negative
             d["pbattery1"] = -float(d["pbattery1"])

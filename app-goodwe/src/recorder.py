@@ -83,19 +83,24 @@ class Recorder:
 
     async def run(self) -> None:
         """Derive the day energies every five minutes; log forecast against production hourly."""
+        # Which energies can be trusted depends on the platform, known once connected
+        while self.link.inverter is None:
+            await asyncio.sleep(5)
+        derived_only = self.link.is_es
         try:
             # Older days were derived while they were recent; years of history need no recomputing
             for day in self.database.snapshot_dates(since=int(time.time()) - (SNAPSHOT_DAYS + 1) * 86400):
-                self.database.update_derived(day)
+                self.database.update_derived(day, derived_only)
         except Exception as e:
             logger.warning(f"Derived energy backfill failed: {e}")
         cycles = 0
         while True:
             try:
                 today = date.today()
-                self.database.update_derived((today - timedelta(days=1)).isoformat())
-                self.database.update_derived(today.isoformat())
+                self.database.update_derived((today - timedelta(days=1)).isoformat(), derived_only)
+                self.database.update_derived(today.isoformat(), derived_only)
                 self.link.extra = self.database.energy_totals()
+                self.link.extra_day = today.isoformat()
             except Exception as e:
                 logger.warning(f"Derived energies: {e}")
             if cycles % 12 == 0:

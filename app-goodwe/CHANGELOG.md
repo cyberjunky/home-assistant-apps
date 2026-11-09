@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.5
+
+**After updating:** nothing to do. Auto-hold switches on, also if you had switched it off; switch it off again under *Settings → Battery control* if you don't want it. At start the app recalculates the last two weeks from its snapshots, so the solar history and the forecast accuracy change. In Home Assistant *PV today* jumps to the corrected figure once, up or down.
+
+- **Auto-hold is on by default.** The solar forecast is what controls the battery, but auto-hold was off until switched on, so nothing happened. It now holds the battery while solar is expected and releases it when production drops off.
+- **Auto-hold puts the inverter back in General mode.** It used to pause and only warn when the inverter was in another mode (Eco, say). With auto-hold on, the app now switches it back to General (at most once an hour) and carries on. With auto-hold off it leaves the mode alone.
+- **Checked every hour instead of once a day.** The app reads the inverter's settings every hour, so a work mode or DoD changed elsewhere (SolarGo, the GoodWe cloud) is put right within the hour. That is one read per hour, no extra writes.
+- **Solar today was wrong on ES inverters.** The inverter's "today's PV generation" counter left out solar that went straight into the battery and kept climbing on battery power after dark. Solar is now calculated from the measured power, like the other energies. That corrects the dashboard, % of forecast, the forecast accuracy and its bias, Stats and the *PV today* sensor. It updates every five minutes.
+- **Yesterday's totals could carry into the new day.** Polls just after midnight stored yesterday's home, grid and battery energies under the new day, and they stuck until the real figure passed them. Fixed, and past days are corrected by the recalculation.
+
 ## 0.3.4
 
 **After updating:** nothing to do.

@@ -8,8 +8,8 @@ that read the inverter back only when the polled numbers say something is off.
 
 Work mode. All of this assumes General mode, which on ES firmware already
 self-consumes: solar → house → battery → grid, never charging from the grid.
-The settings are read once at start and once a day; in any other mode auto-hold
-pauses and an event says so (Backup does not hold the battery on the ES, and Eco
+The settings are read at start and every hour; in any other mode an event says
+so and auto-hold, when on, switches back to General (Backup does not hold the battery on the ES, and Eco
 follows its own schedule).
 
 Discharge hold. Battery discharge is timed with the on-grid depth of discharge
@@ -62,11 +62,14 @@ DOD_WRITES_PER_DAY = 12
 IDLE_W = 50
 # The settings (work mode, battery capacity) are read at start and then this often; a failed read
 # is tried again after the retry interval, not on the next tick
-SETTINGS_CHECK_SECONDS = 86400
+SETTINGS_CHECK_SECONDS = 3600
 SETTINGS_RETRY_SECONDS = 1800
 # A settings read this recent is reused instead of asking the inverter again
 SETTINGS_FRESH_SECONDS = 60
 GENERAL_MODE = 0
+# With auto-hold on, a work mode other than General is put back at most this often (a mode that will
+# not stick must not cost a write every tick)
+GENERAL_RETRY_SECONDS = 3600
 # Nominal voltage of a 16-cell LFP pack, for the commissioned capacity (Ah) in kWh
 NOMINAL_PACK_V = 51.2
 # Charge current restored when a charge cap from an earlier version left charging braked
@@ -77,7 +80,7 @@ RELEASE_CHARGE_A = 50
 @dataclass
 class ControlSettings:
     # Forecast-driven discharge hold
-    auto_hold: bool = False
+    auto_hold: bool = True
     threshold_kwh: float = 0.1  # hold while this hour's forecast (or live PV) is at least this
     forecast_offset_pct: int = 0  # correction applied to the forecast before the test (-50..50)
     night_dod: int = 80  # DoD once released (80 = discharge to a floor of 20%)
@@ -92,6 +95,7 @@ class ControlSettings:
     # Controller state (persisted, not settings)
     battery_capacity_kwh: float = 0.0  # from the inverter's commissioned capacity, for the cycle count
     release_charge_brake: bool = False  # an earlier version's charge cap left charging braked
+    defaults_version: int = 0  # 1 = auto-hold was switched on once (0.3.5 made it the default)
 
 
 SETTING_BOUNDS = {
@@ -104,7 +108,7 @@ SETTING_BOUNDS = {
     "surplus_off_import_w": (0, 50000),
     "surplus_debounce_s": (0, 3600),
 }
-STATE_FIELDS = ("battery_capacity_kwh", "release_charge_brake")
+STATE_FIELDS = ("battery_capacity_kwh", "release_charge_brake", "defaults_version")
 BOOL_FIELDS = ("auto_hold", "zero_export")
 
 
@@ -115,6 +119,7 @@ class BatteryController:
         self.events = events
         self.file = data_dir / "control.json"
         self.settings = self._load()
+        self._save()  # keeps a one-off change of _load
         # Runtime
         self.held: bool | None = None  # what auto-hold last decided
         self.last_dod: int | None = None  # the DoD auto-hold last wrote and confirmed
@@ -129,6 +134,7 @@ class BatteryController:
         self.settings_error: str | None = None  # why the last settings read failed, until one succeeds
         self.miners = None  # the surplus loads (miners.Miners), set by __main__
         self._brake_retry_at = 0.0
+        self._general_at = 0.0  # when the work mode was last put back to General
         # Surplus signal
         self.surplus = False
         self.surplus_w = 0
@@ -157,6 +163,11 @@ class BatteryController:
         # that was on at the update is released once
         if data.get("charge_cap_active"):
             settings.release_charge_brake = True
+        # Up to 0.3.4 auto-hold was off by default, so the forecast controlled nothing until switched
+        # on: switch it on once
+        if settings.defaults_version < 1:
+            settings.auto_hold = True
+            settings.defaults_version = 1
         return settings
 
     def _save(self) -> None:
@@ -272,7 +283,18 @@ class BatteryController:
                     f"Settings check: read failed ({self.settings_error}), trying again in {wait // 60} minutes"
                 )
         self._check_work_mode()
+        self._check_dod()
         self._update_capacity()
+
+    def _check_dod(self) -> None:
+        """A DoD changed behind the controller's back (SolarGo, the cloud) is written again on this tick."""
+        if not self.settings.auto_hold or self.last_dod is None:
+            return
+        with contextlib.suppress(KeyError, TypeError, ValueError):
+            dod = int(self.link.settings["dod"])
+            if dod != self.last_dod:
+                logger.info(f"The inverter's DoD is {dod}%, auto-hold set {self.last_dod}%: setting it again")
+                self.last_dod = None
 
     def _check_work_mode(self) -> None:
         try:
@@ -293,8 +315,8 @@ class BatteryController:
         if mode != GENERAL_MODE:
             self.events.emit(
                 "work_mode_not_general",
-                f"The inverter is in {name} mode, not General: auto-hold is paused."
-                " Switch back to General on the Settings page.",
+                f"The inverter is in {name} mode, not General: "
+                + ("auto-hold switches it back." if self.settings.auto_hold else "auto-hold is off, so it stays."),
                 level="warning",
                 mode=name,
             )
@@ -335,8 +357,23 @@ class BatteryController:
             return
         if self.work_mode not in (None, GENERAL_MODE):
             name = WORK_MODES.get(self.work_mode, str(self.work_mode))
-            self.decision = {"text": f"Paused: the inverter is in {name} mode, not General"}
-            return
+            if time.time() - self._general_at < GENERAL_RETRY_SECONDS:
+                self.decision = {"text": f"Paused: the inverter is still in {name} mode, trying General again later"}
+                return
+            self._general_at = time.time()
+            try:
+                await self.link.apply("work_mode", GENERAL_MODE, "auto-hold")
+            except Exception as e:
+                self.decision = {"text": f"Paused: the inverter is in {name} mode and switching to General failed"}
+                logger.warning(f"Back to General failed: {e}")
+                return
+            # Read the mode back now rather than at tomorrow's settings check
+            self.link.settings_at = 0
+            self._settings_retry_at = 0.0
+            await self._settings_check()
+            if self.work_mode != GENERAL_MODE:
+                self.decision = {"text": f"Paused: the inverter stayed in {name} mode after switching to General"}
+                return
         if not self.forecast.configured:
             self.decision = {"text": "Forecast not configured, auto-hold cannot decide"}
             return

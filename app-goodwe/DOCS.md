@@ -32,12 +32,15 @@ inverter ──▶ read every 20 s ──▶ snapshots (SQLite) ──▶ dashbo
   power above zero is import, below zero export; battery power above zero is charging, below
   zero discharging; "home" is the whole house (on the ES the `house_consumption` field, which
   balances the flow diagram).
-- **Energies.** ES inverters count solar production but not import, export, house or
-  battery energy. Those are derived every five minutes by integrating the recorded power
+- **Energies.** ES inverters count no import, export, house or battery energy, and their
+  "today's PV generation" counter is not solar: it leaves out what goes straight into the
+  battery and keeps climbing on battery power after dark. All of these, solar included, are
+  derived every five minutes by integrating the recorded power
   with a priority model (solar → home, then battery, then grid; battery → home; grid → home,
   then battery). The same integration gives the day's Sankey diagram and the battery's
-  state over the day. Where an inverter does report such counters, the larger of the two
-  wins. Everything is kept for good: the snapshots at full resolution for 14 days and
+  state over the day. Solar therefore misses what was produced while the app or the inverter
+  connection was down. On other series, where the inverter reports such counters, the larger
+  of the two wins. Everything is kept for good: the snapshots at full resolution for 14 days and
   averaged per minute after that (energies stay exact), the daily energies, the forecast
   log and the events.
 - **Writing.** The controller only writes the on-grid depth of discharge
@@ -58,15 +61,18 @@ folder. The Dashboard shows what the controller is doing.
 - **General mode.** Everything here assumes the inverter's work mode is *General*, which on
   the ES already self-consumes: solar goes to the house first, then into the battery, then to
   the grid, and the battery never charges from the grid. The controller reads the inverter's
-  settings once at start and once a day; in any other mode auto-hold pauses, the binary
-  sensor *Work mode not General* turns on and a `work_mode_not_general` event is raised.
-  *Settings → Inverter settings* has a **Back to General** button. (Backup mode does not hold
+  settings at start and every hour; with auto-hold on, a DoD that was changed elsewhere is
+  set again. In any other mode the binary sensor *Work mode not
+  General* turns on and a `work_mode_not_general` event is raised; with auto-hold on, the
+  app then switches the inverter back to General (at most once an hour, logged as an
+  `inverter_write`), with auto-hold off it leaves the mode alone. *Settings → Inverter
+  settings* has a **Back to General** button. (Backup mode does not hold
   the battery on the ES, and Eco follows its own schedule, so neither is offered.)
 - **Hold / Normal.** Sets the on-grid depth of discharge (DoD): *Hold* = DoD 0, the
   battery stops discharging and the grid covers the house; *Normal* = DoD 80, the battery
   may discharge to 20% (the **discharge floor** setting). Backup mode does not hold the
   battery on the ES; the DoD does.
-- **Auto-hold.** Every five minutes the controller compares the solar forecast for the
+- **Auto-hold** (on by default). Every five minutes the controller compares the solar forecast for the
   current hour (and the live production, so a wrong forecast can't trick it) with the
   **threshold**. At or above it the battery is held, so the solar surplus goes into the
   battery and the evening runs on a full battery; below it the battery is released. That
@@ -210,7 +216,7 @@ analytics and no telemetry.
 
 | From | What | Why |
 |------|------|-----|
-| Your inverter (local network) | Runtime data every poll; the settings once at start and once a day (work mode, capacity, export limit), when you read them, and when the controller verifies a write | The dashboard, the statistics and the controller |
+| Your inverter (local network) | Runtime data every poll; the settings at start and every hour (work mode, capacity, export limit), when you read them, and when the controller verifies a write | The dashboard, the statistics and the controller |
 | Forecast.Solar (`api.forecast.solar`) | The hourly production estimate for your location and panels, every 30 minutes | The forecast, auto-hold and the surplus estimate (`forecast.enabled`) |
 | Open-Meteo (`api.open-meteo.com`) | Hourly irradiance for your location, only when Forecast.Solar fails | The same, as a fallback |
 | Home Assistant | Your home location (when the options leave it at 0), time zone, and the MQTT broker's address and login | The forecast, local days, publishing entities |

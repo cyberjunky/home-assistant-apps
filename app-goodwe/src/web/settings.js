@@ -56,7 +56,7 @@ function renderInverterControl() {
         infoRow('Discharge voltage · current', missing(s.discharge_v) ? '–' : `${num(s.discharge_v, 1)} V · ${num(s.discharge_i)} A`),
         missing(s.battery_soc_protection) ? '' : infoRow('SoC protection', fmtPct(s.battery_soc_protection)),
         missing(s.backup_supply) ? '' : infoRow('Backup supply', `${Number(s.backup_supply) ? 'on' : 'off'} <small>· set in SolarGo (not writable on the ES)</small>`),
-    ].join('') + `<p class="panel-sub" style="margin-top:10px">Read once a day by the controller${settingsReadAt ? `, last ${fmtAgo(settingsReadAt)}` : ''}. Auto-hold needs General mode; on the ES that is also the mode that self-consumes.
+    ].join('') + `<p class="panel-sub" style="margin-top:10px">Read every hour by the controller${settingsReadAt ? `, last ${fmtAgo(settingsReadAt)}` : ''}. Auto-hold needs General mode; on the ES that is also the mode that self-consumes.
             <button type="button" class="btn btn-small" onclick="readSettings(this)"${inv.connected ? '' : ' disabled'}>Read now</button></p>`;
 }
 
