@@ -134,14 +134,25 @@ button, select, input { font-family: inherit; }
 .statusbar b { color: var(--primary-text-color); font-weight: 500; }
 .decoder-ok { color: var(--success-color); }
 .decoder-warn { color: var(--prio-2); }
-.integration-warning { display: flex; gap: 12px; align-items: flex-start; margin: 10px 14px 0; padding: 12px 14px;
-    border: 1px solid var(--prio-2); border-left-width: 4px; border-radius: 8px; background: var(--ha-card-background);
-    color: var(--primary-text-color); }
+.integration-warning { display: flex; gap: 12px; align-items: flex-start; margin: 16px 20px 0; padding: 12px 16px;
+    border: 1px solid var(--prio-2); border-left-width: 4px; border-radius: 6px; background: rgba(245,165,36,0.08);
+    color: var(--primary-text-color); line-height: 1.5; }
 .integration-warning[hidden] { display: none; }
 .integration-warning .iw-icon { color: var(--prio-2); font-size: 18px; line-height: 1.3; }
 .integration-warning .iw-title { font-weight: 600; margin-bottom: 4px; }
 .integration-warning ol { margin: 6px 0 4px 18px; padding: 0; }
+.integration-warning a { color: inherit; text-decoration: underline; }
 .integration-warning .iw-note { color: var(--secondary-text-color); font-size: 12px; margin-top: 4px; }
+/* KPI strip under the top bar, like the GoodWe dashboard */
+.top-kpis { flex-shrink: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px;
+    margin: 16px 20px; background: var(--divider-color); border: var(--card-border); border-radius: 6px; overflow: hidden; }
+.top-kpis[hidden] { display: none; }
+.top-kpi { padding: 8px 14px; background: var(--ha-card-background); min-width: 0; }
+.top-kpi .l { font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--secondary-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-kpi .v { font-family: var(--mono); font-size: 20px; font-weight: 600; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-kpi .s { font-size: 11.5px; color: var(--secondary-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-kpi .v.ok { color: var(--success-color); }
+.top-kpi .v.bad { color: var(--danger-color); }
 .decoder-bad { color: var(--danger-color); }
 
 /* ---------- Views ---------- */

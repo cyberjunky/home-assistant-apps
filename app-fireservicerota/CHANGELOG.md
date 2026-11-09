@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2
+
+**After updating:** nothing to do.
+
+- New key figures strip at the top of the Console: incidents today, last 7 days, acknowledged share and median answer time over 30 days, duty, and time since the last incident.
+- The "sensors not detected" warning now has the same margins and look as the notes in the GoodWe app.
+
 ## 0.1.1
 
 **After updating:** nothing to do.

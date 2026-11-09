@@ -405,6 +405,7 @@ function switchTab(tabName) {
     document.querySelectorAll('.tab[data-tab]').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tabName));
     localStorage.setItem('fsr_tab', tabName);
+    document.getElementById('top-kpis').hidden = tabName !== 'console';
     if (tabName === 'stats') loadStats();
     if (tabName === 'data') dbLoadInfo();
     if (VIEWS.includes(tabName)) {
@@ -587,6 +588,35 @@ function dutyText(duty) {
     const on = duty.state === 'on';
     const shift = a.start_time && a.end_time ? `${formatShortDate(a.start_time)} – ${formatTime(a.end_time)}` : '';
     return {on, shift, func: a.assigned_function || '', a};
+}
+
+// Key figures strip: today, the last week, answer rate and speed over 30 days, duty
+let kpiStats = {week: null, month: null};
+function loadTopKpis() {
+    Promise.all(['7', '30'].map(p => fetch(`${basePath}api/stats?period=${p}`).then(r => r.json())))
+        .then(([week, month]) => { kpiStats = {week, month}; renderTopKpis(); }).catch(() => {});
+}
+function renderTopKpis() {
+    const el = document.getElementById('top-kpis');
+    if (!el || !lastData) return;
+    const today = latest.filter(x => isToday(incidentTime(x)));
+    const ackToday = today.filter(x => x.response && x.response.status === 'acknowledged').length;
+    const {week, month} = kpiStats;
+    const pct = (n, t) => t ? Math.round(n / t * 100) + '%' : '—';
+    const d = dutyText(lastData.current.duty);
+    const known = lastData.current.duty.state !== undefined && lastData.current.duty.state !== null;
+    const last = latest[0];
+    const cell = (label, value, sub, cls = '') => `<div class="top-kpi"><div class="l">${label}</div>
+        <div class="v ${cls}">${value}</div><div class="s">${sub || '&nbsp;'}</div></div>`;
+    el.innerHTML = [
+        cell('Today', today.length, `${ackToday} acknowledged`),
+        cell('Last 7 days', week ? week.total : '—', week ? `${(week.total / 7).toFixed(1)} per day` : ''),
+        cell('Acknowledged · 30 d', month ? pct(month.responses.acknowledged, month.total) : '—',
+            month ? `${month.responses.rejected} rejected · ${month.responses.none} unanswered` : '', 'ok'),
+        cell('Median answer · 30 d', month && month.median_answer_minutes !== null ? month.median_answer_minutes + ' min' : '—', 'after the alarm'),
+        cell('Duty', known ? (d.on ? 'On duty' : 'Off duty') : '—', [d.func, d.shift].filter(Boolean).join(' · '), d.on ? 'ok' : ''),
+        cell('Last incident', last ? escapeHtml(formatAgo(incidentTime(last))) : '—', last ? escapeHtml(last.type || '') : 'none yet'),
+    ].join('');
 }
 
 function renderDutyPill(duty) {
@@ -972,6 +1002,7 @@ function update(data) {
     const cur0 = data.current.incident;
     if (activeView === 'wallboard' && cur0 && cur0.id !== focusedId) { focusedId = cur0.id; focusIncident(cur0, false); }
     renderConsole();
+    renderTopKpis();
     const sig = JSON.stringify(latest.map(i => [i.id, i.latitude, i.longitude]));
     if (sig !== markersSig) { markersSig = sig; updateMarkers(latest); }
     updateInfo(status, data.counts);
@@ -1083,6 +1114,8 @@ setInterval(() => {
     tickCountdowns();
 }, 30000);
 setInterval(() => { if (activeView === 'wallboard') loadTimeline(); }, 5 * 60000);
+setInterval(loadTopKpis, 60000);
+loadTopKpis();
 
 // =====================================================================
 // Info tab
