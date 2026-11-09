@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+
+**After updating:** nothing to do.
+
+- A warning banner appears when the FireServiceRota sensors are not detected. It says to install and configure the FireServiceRota integration first, with the steps, and it goes away by itself once the sensors are found. The app looks for them again every minute, so installing the integration needs no restart.
+- FIRESERVICEROTA stays visible next to the icon in the top bar. It was hidden on windows up to 1200 px wide, which is most of the time with the Home Assistant sidebar open.
+
 ## 0.1.0
 
 **After installing:** set up the FireServiceRota integration in Home Assistant first (Settings → Devices & services). The app finds its entities by itself.

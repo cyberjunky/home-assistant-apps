@@ -114,10 +114,39 @@ class Tracker:
         return self.version
 
     async def _tick(self) -> None:
-        """The response window and quiet hours change with time alone: let the dashboards know."""
+        """The response window and quiet hours change with time alone: let the dashboards know. While
+        sensors are missing it also looks for them again, so installing the integration needs no restart."""
+        ticks = 0
         while True:
             await asyncio.sleep(30)
+            ticks += 1
+            if ticks % 2 == 0 and self.ws.connected and self.sensors_missing():
+                await self.rediscover()
             self.changed()
+
+    def sensors_missing(self) -> bool:
+        return any(kind not in self.entities for kind in KINDS)
+
+    async def rediscover(self) -> None:
+        """Look for the integration's entities again and start following any that turned up."""
+        before = dict(self.entities)
+        try:
+            await self._discover()
+        except Exception:
+            logger.exception("Looking for the FireServiceRota entities again failed")
+            return
+        new = {kind: eid for kind, eid in self.entities.items() if before.get(kind) != eid}
+        for kind, entity_id in new.items():
+            try:
+                state = await self.ha.get_state(entity_id)
+            except HAClientError as e:
+                logger.warning(f"Could not read {entity_id}: {e}")
+                continue
+            if state:
+                self._process(kind, state, source="live", notify=False)
+        if new:
+            logger.info("Found the FireServiceRota entities: " + ", ".join(new.values()))
+            self.background(self.run_backfill())
 
     # ------------------------------------------------------- connection setup
 

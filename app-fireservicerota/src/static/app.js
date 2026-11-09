@@ -987,8 +987,43 @@ function update(data) {
     openDeepLink();
 }
 
+const INTEGRATION_DOCS = 'https://www.home-assistant.io/integrations/fireservicerota/';
+const SENSOR_NAMES = {incidents: 'incidents sensor', duty: 'duty sensor', response: 'response switch'};
+
+// This app only shows what Home Assistant's FireServiceRota integration reports, so without that
+// integration (or with some of its entities missing) there is nothing to show: say so, and say what to do.
+function renderIntegrationWarning(status) {
+    const el = document.getElementById('integration-warning');
+    const ents = (status && status.entities) || {};
+    const missing = ['incidents', 'duty', 'response'].filter(k => !(ents[k] && ents[k].entity_id));
+    // Offline or not yet connected says nothing about the sensors
+    if (!status || !status.connected || !missing.length) { el.hidden = true; el.innerHTML = ''; return; }
+    const notInstalled = !status.config_entries && status.entity_source !== 'options';
+    const unreadable = /^Could not read/.test(status.discovery_error || '');
+    let html;
+    if (unreadable) {
+        html = `<div class="iw-title">Could not look for the FireServiceRota sensors</div>
+            <div>${escapeHtml(status.discovery_error)}. The app tries again every minute.</div>`;
+    } else if (notInstalled) {
+        html = `<div class="iw-title">FireServiceRota sensors not detected</div>
+            <div>This dashboard shows what Home Assistant's FireServiceRota integration reports, so install and configure that integration first:</div>
+            <ol>
+                <li>Go to <b>Settings → Devices &amp; services → Add integration</b> and choose <b>FireServiceRota</b>.</li>
+                <li>Sign in with your FireServiceRota account (the integration is <a href="${INTEGRATION_DOCS}" target="_blank" rel="noopener">documented here</a>).</li>
+                <li>Come back here: this page finds the sensors by itself within a minute.</li>
+            </ol>`;
+    } else {
+        html = `<div class="iw-title">Some FireServiceRota sensors are missing</div>
+            <div>Not found in Home Assistant: <b>${missing.map(k => SENSOR_NAMES[k]).join(', ')}</b>. The integration is set up, but did not create ${missing.length === 1 ? 'it' : 'them'}.
+            Check that it works under <b>Settings → Devices &amp; services → FireServiceRota</b>, or set the entity IDs in this app's options. The app looks again every minute.</div>`;
+    }
+    el.innerHTML = `<span class="iw-icon" aria-hidden="true">⚠</span><div>${html}</div>`;
+    el.hidden = false;
+}
+
 let streamState = 'CONNECTING…';
 function renderStatus(status) {
+    renderIntegrationWarning(status);
     const el = document.getElementById('ha-status');
     let cls, text, title;
     if (streamState) {
