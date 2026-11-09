@@ -116,6 +116,11 @@
                                 <a class="btn" id="export-daily" download>Daily energies (CSV)</a>
                                 <a class="btn" id="export-db" download>Database backup</a>
                             </div>
+                            <div class="danger-zone">
+                                <div class="section-title">Danger zone</div>
+                                <p class="panel-sub">Deletes every recorded day, snapshot, event and forecast comparison. Your options and the inverter are not touched, and recording starts again from now. Download a backup first if you may want the data back.</p>
+                                <button type="button" class="btn btn-danger" onclick="deleteAllData()">Delete all recorded data</button>
+                            </div>
                         </div></div>
                         <div class="panel"><div class="panel-body"><div class="section-title">Support</div><div id="set-support"></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="section-title">About</div><div id="set-about"></div></div></div>

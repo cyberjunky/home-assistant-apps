@@ -236,6 +236,8 @@ the app: `goodwe.db` (snapshots, kept for good and averaged per minute after 14 
 events), `control.json` (the battery control settings and state) and
 `forecast_cache.json`.
 
+**Settings → Data** has a **Database backup** download, and a **Danger zone** that deletes everything recorded (days, snapshots, events and forecast comparisons) after you type DELETE. Your options, the battery control settings and the inverter are not touched, and recording starts again from now.
+
 ### What it sends
 
 | To | What | When |

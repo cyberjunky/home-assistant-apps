@@ -115,6 +115,7 @@ class WebUI:
         get("/api/events", self._handle_events)
         get("/api/export/daily.csv", self._handle_export)
         get("/api/backup", self._handle_backup)
+        post("/api/data/delete", self._handle_delete_data)
 
     async def start(self) -> None:
         # Open dashboards hold a live stream each: don't wait for them when stopping
@@ -354,6 +355,15 @@ class WebUI:
             content_type="text/csv",
             headers={"Content-Disposition": 'attachment; filename="goodwe-daily.csv"'},
         )
+
+    async def _handle_delete_data(self, request: web.Request) -> web.Response:
+        """The danger zone: delete everything recorded. The page asks for DELETE to be typed; so does this."""
+        body = await _json_body(request)
+        if body.get("confirm") != "DELETE":
+            return _json({"error": "Type DELETE to confirm"}, 400)
+        removed = self.database.wipe()
+        logger.warning(f"All recorded data was deleted: {removed}")
+        return _json({"ok": True, "removed": removed})
 
     async def _handle_backup(self, request: web.Request) -> web.StreamResponse:
         """Download a copy of the database."""

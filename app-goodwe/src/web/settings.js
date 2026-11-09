@@ -189,6 +189,27 @@ function renderDataSettings() {
     document.getElementById('export-db').href = `${basePath}api/backup`;
 }
 
+// Danger zone: wipe everything recorded. The options and the inverter stay.
+async function deleteAllData() {
+    const ok = await confirmDialog({
+        title: 'Delete all recorded data?',
+        message: 'Every recorded day, snapshot, event and forecast comparison is removed. <b>This cannot be undone.</b><br><br>Your options and the inverter are not touched, and recording starts again from now.',
+        confirmLabel: 'Delete all recorded data', danger: true, typeToConfirm: 'DELETE',
+    });
+    if (!ok) return;
+    try {
+        await api('data/delete', {method: 'POST', body: {confirm: 'DELETE'}});
+    } catch (e) {
+        toast(e.message, 'error');
+        return;
+    }
+    // The statistics still hold the old numbers; load them again when opened
+    statsLoadedFor = null;
+    toast('All recorded data deleted', 'success');
+    try { await loadStatus(); } catch (e) { /* the next refresh brings the counts */ }
+    renderDataSettings();
+}
+
 function renderAbout() {
     const cfg = (app.status && app.status.config) || {};
     document.getElementById('set-support').innerHTML = `

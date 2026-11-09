@@ -635,6 +635,18 @@ class Database:
         ).fetchone()
         return {"snapshots": row[0], "days": row[1], "events": row[2]}
 
+    def wipe(self) -> dict:
+        """Empty every table: the Settings danger zone. Returns what was there. The file stays, and the
+        space is given back. The options and the inverter are not touched."""
+        removed = self.counts()
+        for table in ("events", "forecast_log", "daily_summary", "snapshots"):
+            self.con.execute(f"DELETE FROM {table}")
+        self.con.commit()
+        self.con.execute("VACUUM")
+        # In WAL mode the freed space only goes back to the disk once the log is merged and cut down
+        self.con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        return removed
+
     def size_bytes(self) -> int:
         try:
             return self.path.stat().st_size + (

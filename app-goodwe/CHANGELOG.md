@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.8
+
+**After updating:** nothing to do.
+
+- A **Danger zone** at the bottom of Settings → Data deletes everything recorded: days, snapshots, events and forecast comparisons. You have to type DELETE to confirm. Your options and the inverter are not touched, and recording starts again from now. The **Database backup** button above it takes a copy first.
+
 ## 0.3.7
 
 **After updating:** nothing to do.

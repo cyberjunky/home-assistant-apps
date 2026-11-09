@@ -396,6 +396,9 @@ pre.json { font-family: var(--mono); font-size: 11.5px; white-space: pre-wrap; o
 .btn-primary:hover { background: var(--primary-color); filter: brightness(1.1); }
 .btn-danger { background: transparent; color: var(--danger-color); border-color: var(--danger-color); }
 .btn-danger:hover { background: var(--danger-bg); }
+.danger-zone { margin-top: 16px; padding: 12px 14px; border: 1px solid var(--danger-color); border-radius: 6px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.danger-zone .section-title { color: var(--danger-color); margin-bottom: 0; }
+.danger-zone .panel-sub { margin: 0; }
 .btn-danger-solid { background: var(--danger-color); border-color: var(--danger-color); color: #fff; }
 .btn-small { height: 24px; padding: 0 8px; font-size: 12px; }
 .btn.active { background: var(--selected-bg); border-color: var(--primary-color); }
