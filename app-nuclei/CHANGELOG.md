@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.3
+
+**After updating:** nothing to do.
+
+- Fixed: dates showed as an ambiguous all-numeric "09/11/2026", which reads as 9 November or
+  September 11 depending on the browser's locale. Dates now spell the month out (e.g. "09 Nov 2026").
+- Every scan now says what it actually did: which passes ran, on how many targets, and whether
+  the default-credential check was on, both in the app's log and as a tooltip on its status in
+  Recent scans.
+
 ## 0.1.2
 
 **After updating:** nothing to do.

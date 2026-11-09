@@ -125,6 +125,7 @@ class Engine:
                 self.database.record_finding(finding)
                 self.database.update_scan(scan_id, {"findings": len(seen)})
 
+            self.database.update_scan(scan_id, {"detail": self.scanner.scan_summary(targets_for_nuclei)})
             await self.scanner.scan_targets(targets_for_nuclei, on_finding)
             self.database.auto_resolve(obj["id"], seen)
             self.database.finish_scan(scan_id, "done")

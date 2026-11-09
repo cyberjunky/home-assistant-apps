@@ -4,7 +4,8 @@ const SEVERITIES = ['critical', 'high', 'medium', 'low', 'info'];
 const STATUSES = ['open', 'in_progress', 'false_positive', 'wont_fix', 'resolved'];
 const STATUS_LABEL = {open: 'Open', in_progress: 'In progress', false_positive: 'False positive', wont_fix: "Won't fix", resolved: 'Resolved'};
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
-const fmtTime = t => t ? new Date(t * 1000).toLocaleString([], {dateStyle: 'short', timeStyle: 'short'}) : '–';
+// day/month/year spelled unambiguously (never all-numeric: "09/11/2026" reads as Sep 11 or Nov 9 depending on locale)
+const fmtTime = t => t ? new Date(t * 1000).toLocaleString([], {day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false}) : '–';
 let activeTab = 'dashboard';
 
 async function api(path, options) {
@@ -68,9 +69,12 @@ async function loadDashboard() {
   document.getElementById('recent-tickets').innerHTML = tickets.length ? ticketTable(tickets) : '<div class="empty">No open tickets.</div>';
 }
 function scanStatus(sc) {
-  if (sc.status === 'running') return '<span class="pill in_progress">running</span>';
-  if (sc.status === 'failed') return `<span class="pill" style="color:var(--critical)" title="${esc(sc.error || '')}">failed</span>`;
-  return '<span class="pill resolved">done</span>';
+  // The detail line (which passes ran, on how many targets, whether the credential check was on) is
+  // on every pill as a title, so hovering a scan says what actually ran without reading the app log.
+  const detail = esc(sc.detail || (sc.status === 'running' ? 'starting…' : ''));
+  if (sc.status === 'running') return `<span class="pill in_progress" title="${detail}">running</span>`;
+  if (sc.status === 'failed') return `<span class="pill" style="color:var(--critical)" title="${esc(sc.error || '')}${sc.error && detail ? ' · ' : ''}${detail}">failed</span>`;
+  return `<span class="pill resolved" title="${detail}">done</span>`;
 }
 function table(headers, rows) {
   return `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${

@@ -20,6 +20,9 @@ class FakeScanner:
     async def discover_ports(self, hosts):
         return [HostResult(hosts[0], [443])]
 
+    def scan_summary(self, targets):
+        return f"web pass: {len(targets)} target(s) · credential check: off"
+
     async def scan_targets(self, targets, on_finding):
         on_finding(
             {
@@ -89,6 +92,13 @@ async def test_url_object_skips_port_scan(setup):
     oid = db.add_object("https://10.0.0.5", "url", "", None, authorised=True)
     assert await engine.scan_object(oid) == 1
     assert db.scans()[0]["open_ports"] == 0
+
+
+async def test_scan_detail_records_what_ran(setup):
+    db, engine = setup
+    oid = db.add_object("10.0.0.5", "ip", "", None, authorised=True)
+    await engine.scan_object(oid)
+    assert db.scans()[0]["detail"] == "web pass: 1 target(s) · credential check: off"
 
 
 async def test_risky_ports_become_tickets_and_devices_are_labelled(tmp_path):

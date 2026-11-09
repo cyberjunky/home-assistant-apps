@@ -54,3 +54,18 @@ def test_extracted_results_list_becomes_text_proof():
     )
     finding = parse_nuclei_line(line)
     assert finding["proof"] == "password\npublickey"
+
+
+def test_scan_summary_reports_passes_and_credential_check():
+    from src.config import Config
+    from src.scanner import Scanner
+
+    on = Scanner(Config(default_credentials=True))
+    off = Scanner(Config(default_credentials=False))
+    both = ["https://a.example/", "10.0.0.5:22"]
+
+    assert on.scan_summary(both) == "web pass: 1 target · protocol pass: 1 target · credential check: on"
+    assert off.scan_summary(both) == "web pass: 1 target · protocol pass: 1 target · credential check: off"
+    assert on.scan_summary(["https://a.example/", "https://b.example/"]) == "web pass: 2 targets · credential check: on"
+    assert on.scan_summary(["10.0.0.5:22"]) == "protocol pass: 1 target · credential check: on"
+    assert on.scan_summary([]) == "credential check: on"

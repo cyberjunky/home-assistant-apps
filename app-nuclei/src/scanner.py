@@ -376,6 +376,19 @@ class Scanner:
             argv += ["-etags", ",".join(exclude)]
         return argv
 
+    def scan_summary(self, targets: list[str]) -> str:
+        """A short, human-readable line of what a nuclei run on these targets will do: which passes run,
+        on how many targets, and whether the default-credential check is active. Shown on the scan so
+        it is possible to tell, without reading the container log, whether the credential check ran."""
+        web, protocol = split_targets(targets)
+        parts = []
+        if web:
+            parts.append(f"web pass: {len(web)} target{'s' if len(web) != 1 else ''}")
+        if protocol:
+            parts.append(f"protocol pass: {len(protocol)} target{'s' if len(protocol) != 1 else ''}")
+        parts.append(f"credential check: {'on' if self.config.default_credentials else 'off'}")
+        return " · ".join(parts)
+
     async def scan_targets(self, targets: list[str], on_finding) -> int:
         """Run nuclei against host:port (or URL) targets, in two passes so every target gets the templates
         that fit it: web templates (http and TLS) on web ports, and protocol templates (ssh, smb, ftp,
@@ -390,9 +403,11 @@ class Scanner:
                 count += 1
                 on_finding(finding)
 
-        for batch, protocols in ((web, WEB_PROTOCOLS), (protocol, PROTOCOL_PROTOCOLS)):
+        cred_check = "on" if self.config.default_credentials else "off"
+        for batch, protocols, label in ((web, WEB_PROTOCOLS, "web"), (protocol, PROTOCOL_PROTOCOLS, "protocol")):
             if not batch:
                 continue
+            logger.info("nuclei %s pass: %d target(s), credential check %s", label, len(batch), cred_check)
             with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=True) as handle:
                 handle.write("\n".join(batch))
                 handle.flush()
