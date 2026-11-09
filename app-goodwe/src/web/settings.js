@@ -36,6 +36,37 @@ function renderInverterInfo() {
     ].join('') + '<p class="panel-sub" style="margin-top:10px">The address and the poll interval are set on the add-on\'s Configuration tab in Home Assistant.</p>';
 }
 
+// A row that does not apply right now (an Eco schedule outside Eco mode, say): shown greyed out
+function ghostRow(label, valueHtml, ghost) {
+    if (!ghost) return infoRow(label, valueHtml);
+    return `<div class="info-row ghost" title="Not in use in the current mode"><span class="info-label">${label}</span><span class="info-value">${valueHtml}</span></div>`;
+}
+
+function renderReadings() {
+    const el = document.getElementById('set-readings');
+    if (!el) return;
+    const d = app.data || {};
+    const v = (key, digits, unit) => missing(d[key]) ? '–' : `${num(d[key], digits)}${unit ? ` <small>${unit}</small>` : ''}`;
+    const t = key => missing(d[key]) || d[key] === '' ? '–' : escapeHtml(String(d[key]));
+    const string = n => `${v(`vpv${n}`, 1, 'V')} · ${v(`ipv${n}`, 1, 'A')} · ${v(`ppv${n}`, 0, 'W')} <small>· ${t(`pv${n}_mode_label`)}</small>`;
+    el.innerHTML = [
+        infoRow('PV1', string(1)),
+        infoRow('PV2', string(2)),
+        infoRow('Solar total · run hours', `${v('e_total', 1, 'kWh')} · ${v('h_total', 0, 'h')} <small>· the inverter's own counters</small>`),
+        infoRow('Grid', `${v('vgrid', 1, 'V')} · ${v('igrid', 1, 'A')} · ${v('fgrid', 2, 'Hz')} · power factor ${v('meter_power_factor', 3)}`),
+        infoRow('Grid status', `${t('grid_mode_label')} <small>· ${t('grid_in_out_label')} · meter status ${t('meter_status')}</small>`),
+        ghostRow('Backup output', `${v('vload', 1, 'V')} · ${v('iload', 1, 'A')} · ${v('fload', 2, 'Hz')} · ${v('pload', 0, 'W')} <small>· ${t('load_mode_label')} · backup ${v('pback_up', 0, 'W')}</small>`, !Number(d.pload) && !Number(d.pback_up)),
+        infoRow('Inverter output', `${v('plant_power', 0, 'W')} <small>· total power ${v('total_power', 0, 'W')} · house ${v('house_consumption', 0, 'W')}</small>`),
+        infoRow('Home total', `${v('e_load_total', 1, 'kWh')} <small>· today by the inverter ${v('e_load_day', 2, 'kWh')}</small>`),
+        infoRow('Today by the inverter', `${v('e_day_counter', 2, 'kWh')} <small>· its "PV generation" counter, which on the ES is not solar</small>`),
+        infoRow('Battery', `${t('battery_mode_label')} <small>· status ${t('battery_status')} · SoH ${v('battery_soh', 0, '%')}</small>`),
+        infoRow('Battery limits (BMS)', `charge ${v('battery_charge_limit', 0, 'A')} · discharge ${v('battery_discharge_limit', 0, 'A')}`),
+        infoRow('Battery warning · error', `${t('battery_warning')} · ${t('battery_error')}`),
+        infoRow('Energy mode', `${t('work_mode_label')} <small>· code ${t('work_mode')} · effective ${t('effective_work_mode')} · relay ${t('effective_relay_control')}</small>`),
+        infoRow('Diagnosis', `${t('diagnose_result_label')} <small>· code ${t('diagnose_result')} · errors ${t('error_codes')}</small>`),
+    ].join('') + '<p class="panel-sub" style="margin-top:10px">Everything the inverter reports, live; the same values are MQTT sensors (diagnostic) in Home Assistant.</p>';
+}
+
 function renderInverterControl() {
     const inv = app.inverter, c = app.control, s = settingsCache || {};
     const value = v => missing(v) ? '–' : escapeHtml(String(v));
@@ -47,6 +78,7 @@ function renderInverterControl() {
     const exportText = missing(s.grid_export_limit) ? 'not read yet'
         : `${num(s.grid_export_limit)} W · ${Number(s.grid_export) ? 'enforced' : '<span class="sb-warn">not enforced</span>'}`;
     const capacity = Number(c.battery_capacity_kwh || 0);
+    const eco = c.work_mode === 3;
     document.getElementById('set-inverter-control').innerHTML = [
         infoRow('Work mode', mode),
         infoRow('Export limit', `${exportText} <small>· kept at 0 W by Zero export</small>`),
@@ -56,6 +88,13 @@ function renderInverterControl() {
         infoRow('Discharge voltage · current', missing(s.discharge_v) ? '–' : `${num(s.discharge_v, 1)} V · ${num(s.discharge_i)} A`),
         missing(s.battery_soc_protection) ? '' : infoRow('SoC protection', fmtPct(s.battery_soc_protection)),
         missing(s.backup_supply) ? '' : infoRow('Backup supply', `${Number(s.backup_supply) ? 'on' : 'off'} <small>· set in SolarGo (not writable on the ES)</small>`),
+        ...[1, 2, 3, 4].map(n => missing(s[`eco_mode_${n}`]) ? '' : ghostRow(`Eco schedule ${n}`,
+            `${value(s[`eco_mode_${n}`])}${missing(s[`eco_mode_${n}_switch`]) ? '' : ` <small>· group ${Number(s[`eco_mode_${n}_switch`]) ? 'on' : 'off'}</small>`}`, !eco)),
+        missing(s.fast_charging) ? '' : ghostRow('Fast charging', `${Number(s.fast_charging) ? 'on' : 'off'}${missing(s.fast_charging_soc) ? '' : ` <small>· to ${num(s.fast_charging_soc)}%</small>`}`, !Number(s.fast_charging)),
+        missing(s['off-grid_charge']) ? '' : ghostRow('Off-grid charge', `${value(s['off-grid_charge'])} <small>· BP off-grid charge ${value(s.bp_off_grid_charge)} · BP PV discharge ${value(s.bp_pv_discharge)}</small>`, c.work_mode !== 1),
+        missing(s.battery_activated) ? '' : infoRow('Battery activated · BMS protocol', `${value(s.battery_activated)} · ${value(s.bp_bms_protocol)}`),
+        missing(s.power_factor) ? '' : infoRow('Power factor setting', value(s.power_factor)),
+        missing(s.shadow_scan) ? '' : infoRow('Shadow scan · grid quality check', `${value(s.shadow_scan)} · ${value(s.grid_quality_check)}`),
     ].join('') + `<p class="panel-sub" style="margin-top:10px">Read every hour by the controller${settingsReadAt ? `, last ${fmtAgo(settingsReadAt)}` : ''}. Auto-hold needs General mode; on the ES that is also the mode that self-consumes.
             <button type="button" class="btn btn-small" onclick="readSettings(this)"${inv.connected ? '' : ' disabled'}>Read now</button></p>`;
 }
@@ -228,6 +267,7 @@ async function debugWrite() {
 function renderSettings() {
     renderControl(true);
     renderInverterInfo();
+    renderReadings();
     renderInverterControl();
     renderForecastSettings();
     renderMqttSettings();
@@ -256,6 +296,7 @@ onLive(() => {
     if (activeTab !== 'settings') return;
     renderControl(false);
     renderInverterInfo();
+    renderReadings();
     renderEvents(false);
     if (debugRendered && document.getElementById('debug-details').open && !document.activeElement.closest('#debug')) renderDebug();
 });

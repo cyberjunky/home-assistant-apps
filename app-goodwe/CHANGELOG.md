@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.6
+
+**After updating:** nothing to do. Home Assistant gets about forty new diagnostic entities, fifteen of them disabled until you switch them on on the inverter's device.
+
+- **Everything the inverter reports is shown.** A new *Inverter readings* panel on the Settings page shows, live, all the values that were only in Debug: PV1 and PV2 voltage, current and mode, grid current, power factor and status, the backup (EPS) output, the inverter's own output and counters, the battery's status, BMS limits, warnings and errors, and the diagnosis.
+- **All inverter settings are shown.** *Inverter settings* adds the four Eco schedule slots in plain text (so you can see what an Eco mode would follow), fast charging, off-grid charge, battery activation and BMS protocol, the power factor setting, shadow scan and the grid quality check.
+- **The same values as MQTT sensors** (diagnostic), the eco schedules and the settings included. The modes, Eco schedules, backup output and backup supply are added disabled: switch them on in Home Assistant if you want them.
+- Rows that don't apply in the current mode are greyed out: the Eco schedules outside Eco mode, the off-grid charge settings outside Off-grid mode, fast charging while it is off, and the backup output while nothing draws from it.
+
 ## 0.3.5
 
 **After updating:** nothing to do. Auto-hold switches on, also if you had switched it off; switch it off again under *Settings → Battery control* if you don't want it. At start the app recalculates the last two weeks from its snapshots, so the solar history and the forecast accuracy change. In Home Assistant *PV today* jumps to the corrected figure once, up or down.

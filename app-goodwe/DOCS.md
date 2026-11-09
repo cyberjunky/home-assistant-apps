@@ -166,6 +166,14 @@ The inverter becomes a device named after its model with:
   the solar surplus in watts, solar surplus today (hours) and the solar used during it,
   curtailed power and curtailed today (estimates), and the forecast for today, tomorrow and
   this hour; with miners configured also their power, hours today and energy today
+- **Diagnostic sensors** — everything else the inverter reports: PV1 and PV2 voltage and
+  current, grid current, meter power factor and grid status, the inverter's output and
+  total power, home total, the battery's status, BMS charge and discharge limits, warning
+  and error, the diagnosis, and from the settings the export limit, SoC protection and the
+  charge and discharge voltage and current. The PV modes, meter status, backup output
+  (voltage, current, frequency, power, mode), effective work mode, relay control, backup
+  supply and the four Eco schedules are added disabled; switch them on in Home Assistant
+  when you want them
 - **Binary sensors** — inverter connected, **solar surplus**, battery held, auto-hold,
   zero export, exporting, work mode not General, fault; with miners configured, *running*
 - **Events** — an event entity whose `event_type` is one of the app's events, with the

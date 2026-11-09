@@ -20,6 +20,7 @@ every caller writes only on a change of mind, never on a loop.
 """
 
 import asyncio
+import contextlib
 import importlib
 import logging
 import os
@@ -65,8 +66,26 @@ RECONNECT_DELAY_MAX = 120
 MOCK_MODULE = os.environ.get("GOODWE_MOCK_INVERTER", "")
 
 
+def _eco_text(slot: Any) -> str:
+    """An eco mode schedule slot as text: "00:00-23:59 Mon-Sun, charge 100%, on"."""
+    if slot.start_h == 48 or slot.end_h == 48:
+        return "unset"
+    power = int(slot.power or 0)
+    action = f"charge {-power}%" if power < 0 else f"discharge {power}%" if power > 0 else "0%"
+    soc = getattr(slot, "soc", 100)
+    target = f" to {soc}%" if power < 0 and soc not in (None, 100) else ""
+    on = str(slot).rsplit(" ", 1)[-1].lower()
+    return (
+        f"{slot.start_h:02d}:{slot.start_m:02d}-{slot.end_h:02d}:{slot.end_m:02d} {slot.days or ''},"
+        f" {action}{target}, {on}"
+    )
+
+
 def _plain(value: Any) -> Any:
     """A runtime or settings value as something JSON can carry."""
+    if hasattr(value, "start_h") and hasattr(value, "power"):
+        with contextlib.suppress(Exception):
+            return _eco_text(value)
     if hasattr(value, "value"):
         value = value.value
     if isinstance(value, datetime):

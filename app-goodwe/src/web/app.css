@@ -329,6 +329,7 @@ a { color: var(--primary-color); }
 .stats-grid.loading { opacity: 0.55; transition: opacity 0.15s; }
 .info-row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--divider-color); font-size: 13.5px; }
 .info-row:last-child { border-bottom: none; }
+.info-row.ghost { opacity: .45; }
 .info-label { color: var(--secondary-text-color); }
 .info-value { color: var(--primary-text-color); font-family: var(--mono); font-size: 13px; text-align: right; min-width: 0; overflow-wrap: anywhere; }
 .records { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1px; background: var(--divider-color); border: var(--card-border); border-radius: 6px; overflow: hidden; }

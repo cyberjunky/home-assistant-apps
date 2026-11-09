@@ -71,6 +71,66 @@ SENSORS = (
     ("forecast_today", "Forecast today", "energy", "kWh", None, "mdi:weather-sunny", False),
     ("forecast_tomorrow", "Forecast tomorrow", "energy", "kWh", None, "mdi:weather-sunny", False),
     ("forecast_hour", "Forecast this hour", "energy", "kWh", None, "mdi:weather-sunny", True),
+    # Everything else the inverter reports
+    ("pv1_voltage", "PV1 voltage", "voltage", "V", "measurement", None, True),
+    ("pv1_current", "PV1 current", "current", "A", "measurement", None, True),
+    ("pv1_mode", "PV1 mode", None, None, None, "mdi:solar-panel", True),
+    ("pv2_voltage", "PV2 voltage", "voltage", "V", "measurement", None, True),
+    ("pv2_current", "PV2 current", "current", "A", "measurement", None, True),
+    ("pv2_mode", "PV2 mode", None, None, None, "mdi:solar-panel", True),
+    ("grid_current", "Grid current", "current", "A", "measurement", None, True),
+    ("grid_power_factor", "Meter power factor", "power_factor", None, "measurement", None, True),
+    ("grid_status", "Grid status", None, None, None, "mdi:transmission-tower", True),
+    ("meter_status", "Meter status", None, None, None, "mdi:meter-electric", True),
+    ("backup_voltage", "Backup voltage", "voltage", "V", "measurement", None, True),
+    ("backup_current", "Backup current", "current", "A", "measurement", None, True),
+    ("backup_frequency", "Backup frequency", "frequency", "Hz", "measurement", None, True),
+    ("backup_load_power", "Backup load power", "power", "W", "measurement", "mdi:power-plug", True),
+    ("backup_mode", "Backup mode", None, None, None, "mdi:power-plug", True),
+    ("inverter_power", "Inverter output", "power", "W", "measurement", "mdi:flash", True),
+    ("inverter_total_power", "Inverter total power", "power", "W", "measurement", "mdi:flash", True),
+    ("load_total", "Home total", "energy", "kWh", "total_increasing", None, True),
+    ("battery_status", "Battery status", None, None, None, "mdi:battery-unknown", True),
+    ("battery_charge_limit", "Battery charge limit", "current", "A", "measurement", None, True),
+    ("battery_discharge_limit", "Battery discharge limit", "current", "A", "measurement", None, True),
+    ("battery_warning", "Battery warning", None, None, None, "mdi:battery-alert", True),
+    ("battery_error", "Battery error", None, None, None, "mdi:battery-alert", True),
+    ("effective_work_mode", "Effective work mode", None, None, None, "mdi:cog", True),
+    ("relay_control", "Relay control", None, None, None, "mdi:electric-switch", True),
+    ("diagnose", "Diagnosis", None, None, None, "mdi:stethoscope", True),
+    # Settings (read every hour)
+    ("export_limit", "Export limit", "power", "W", None, "mdi:transmission-tower-off", True),
+    ("soc_protection", "SoC protection", None, "%", None, "mdi:battery-lock", True),
+    ("backup_supply", "Backup supply", None, None, None, "mdi:power-plug-battery", True),
+    ("charge_voltage", "Charge voltage", "voltage", "V", None, None, True),
+    ("charge_current", "Charge current", "current", "A", None, None, True),
+    ("discharge_voltage", "Discharge voltage", "voltage", "V", None, None, True),
+    ("discharge_current", "Discharge current", "current", "A", None, None, True),
+    ("eco_slot_1", "Eco schedule 1", None, None, None, "mdi:calendar-clock", True),
+    ("eco_slot_2", "Eco schedule 2", None, None, None, "mdi:calendar-clock", True),
+    ("eco_slot_3", "Eco schedule 3", None, None, None, "mdi:calendar-clock", True),
+    ("eco_slot_4", "Eco schedule 4", None, None, None, "mdi:calendar-clock", True),
+)
+# Modes, schedules and settings that only matter outside General mode or with a backup load:
+# announced disabled, to switch on in Home Assistant when wanted
+OPTIONAL = frozenset(
+    (
+        "pv1_mode",
+        "pv2_mode",
+        "meter_status",
+        "backup_voltage",
+        "backup_current",
+        "backup_frequency",
+        "backup_load_power",
+        "backup_mode",
+        "effective_work_mode",
+        "relay_control",
+        "backup_supply",
+        "eco_slot_1",
+        "eco_slot_2",
+        "eco_slot_3",
+        "eco_slot_4",
+    )
 )
 # key, name, device class, icon
 BINARY_SENSORS = (
@@ -94,8 +154,28 @@ MINER_BINARY_SENSORS = (("miners_running", "Miners running", "running", "mdi:bit
 REMOVED = (("binary_sensor", "charge_cap_active"),)
 
 
-def state_payload(data: dict, control: dict, inverter: dict, forecast: dict) -> dict:
+def state_payload(data: dict, control: dict, inverter: dict, forecast: dict, settings: dict | None = None) -> dict:
     """The inverter, the controller and the forecast as one flat message for the entities."""
+    settings = settings or {}
+
+    def text(key, source=None):
+        value = (data if source is None else source).get(key)
+        return None if value is None or value == "" else str(value)
+
+    def setting(key, digits=1):
+        try:
+            return round(float(settings[key]), digits)
+        except (KeyError, TypeError, ValueError):
+            return None
+
+    def eco(n):
+        slot = text(f"eco_mode_{n}", settings)
+        switch = settings.get(f"eco_mode_{n}_switch")
+        if slot is not None and switch is not None and not int(switch or 0):
+            slot += " (group off)"
+        return slot
+
+    on_off = {0: "off", 1: "on"}
 
     def num(key, digits=2):
         value = data.get(key)
@@ -170,6 +250,45 @@ def state_payload(data: dict, control: dict, inverter: dict, forecast: dict) -> 
         "miners_today": num("miners_hours"),
         "miners_energy_today": num("e_miners_day"),
         "miners_running": bool(miners.get("on")),
+        "pv1_voltage": num("vpv1", 1),
+        "pv1_current": num("ipv1", 1),
+        "pv1_mode": text("pv1_mode_label"),
+        "pv2_voltage": num("vpv2", 1),
+        "pv2_current": num("ipv2", 1),
+        "pv2_mode": text("pv2_mode_label"),
+        "grid_current": num("igrid", 1),
+        "grid_power_factor": num("meter_power_factor", 3),
+        "grid_status": text("grid_mode_label"),
+        "meter_status": text("meter_status"),
+        "backup_voltage": num("vload", 1),
+        "backup_current": num("iload", 1),
+        "backup_frequency": num("fload"),
+        "backup_load_power": num("pload", 0),
+        "backup_mode": text("load_mode_label"),
+        "inverter_power": num("plant_power", 0),
+        "inverter_total_power": num("total_power", 0),
+        "load_total": num("e_load_total", 1),
+        "battery_status": text("battery_status"),
+        "battery_charge_limit": num("battery_charge_limit", 0),
+        "battery_discharge_limit": num("battery_discharge_limit", 0),
+        "battery_warning": text("battery_warning"),
+        "battery_error": text("battery_error"),
+        "effective_work_mode": text("effective_work_mode"),
+        "relay_control": text("effective_relay_control"),
+        "diagnose": text("diagnose_result_label") or "none",
+        "export_limit": setting("grid_export_limit", 0),
+        "soc_protection": setting("battery_soc_protection", 0),
+        "backup_supply": on_off.get(int(settings["backup_supply"]))
+        if settings.get("backup_supply") is not None
+        else None,
+        "charge_voltage": setting("charge_v"),
+        "charge_current": setting("charge_i", 0),
+        "discharge_voltage": setting("discharge_v"),
+        "discharge_current": setting("discharge_i", 0),
+        "eco_slot_1": eco(1),
+        "eco_slot_2": eco(2),
+        "eco_slot_3": eco(3),
+        "eco_slot_4": eco(4),
     }
 
 
@@ -284,7 +403,9 @@ class MqttPublisher:
             return
         self._discover(inverter)
         payload = json.dumps(
-            state_payload(self.link.data, self.controller.state(), inverter, self.forecast.summary()),
+            state_payload(
+                self.link.data, self.controller.state(), inverter, self.forecast.summary(), self.link.settings
+            ),
             sort_keys=True,
             default=str,
         )
@@ -357,6 +478,8 @@ class MqttPublisher:
                 config["icon"] = icon
             if diagnostic:
                 config["entity_category"] = "diagnostic"
+            if key in OPTIONAL:
+                config["enabled_by_default"] = False
             self._client.publish(f"{prefix}/sensor/{node}/{key}/config", json.dumps(config), qos=1, retain=True)
         for key, name, device_class, icon in binary_sensors:
             config = {
