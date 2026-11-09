@@ -16,6 +16,7 @@ updates:
   - package-ecosystem: docker
     directories:
       - /app-dishylink
+      - /app-fireservicerota
       - /app-goodwe
       - /app-meldkamer
       - /app-pgadmin4
@@ -29,9 +30,10 @@ updates:
         update-types:
           - version-update:semver-major
 
-  # The Python packages of Tesla and GoodWe, pinned in their requirements.txt.
+  # The Python packages of Tesla, GoodWe and FireServiceRota, pinned in their requirements.txt.
   - package-ecosystem: pip
     directories:
+      - /app-fireservicerota
       - /app-goodwe
       - /app-tesla
     schedule:

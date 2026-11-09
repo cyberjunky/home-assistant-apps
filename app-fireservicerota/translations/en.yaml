@@ -1,0 +1,40 @@
+configuration:
+  incidents_entity:
+    name: Incidents sensor
+    description: >-
+      The FireServiceRota integration's incidents sensor, e.g.
+      sensor.jan_jansen_incidents. Leave empty to find it automatically.
+  duty_entity:
+    name: Duty sensor
+    description: >-
+      The integration's duty binary sensor, e.g. binary_sensor.jan_jansen_duty.
+      Leave empty to find it automatically.
+  response_entity:
+    name: Incident response switch
+    description: >-
+      The integration's incident response switch, e.g.
+      switch.jan_jansen_incident_response. Acknowledge and Reject switch it.
+      Leave empty to find it automatically.
+  history_days:
+    name: History to import (days)
+    description: >-
+      At the first start, how many days of Home Assistant's recorder history
+      to import. The recorder keeps 10 days unless you changed its purge_keep_days.
+      0 imports nothing; later starts only fill the gap since the last change.
+  ha_events:
+    name: Home Assistant events
+    description: >-
+      Fire fireservicerota_app_incident for every new incident and update,
+      with a dashboard_url that opens it in this app, for use as an
+      automation trigger.
+  announce:
+    name: Announce on speakers
+    description: >-
+      Speak new incidents on Home Assistant media players with tts.speak.
+      tts_entity is e.g. tts.google_translate_nl_nl, media_players is a
+      comma-separated list of media_player entities. quiet_hours (e.g.
+      23:00-07:00) silences the speakers and the dashboard's sound, speech
+      and notifications between those times.
+  log_level:
+    name: Log level
+    description: How much the app writes to its log.

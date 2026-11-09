@@ -51,6 +51,7 @@ jobs:
       fail-fast: false
       matrix:
         app:
+          - app-fireservicerota
           - app-goodwe
           - app-meldkamer
           - app-tesla

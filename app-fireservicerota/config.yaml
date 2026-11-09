@@ -1,0 +1,46 @@
+name: FireServiceRota
+version: "0.1.0"
+slug: app-fireservicerota
+description: "FireServiceRota / Brandweerrooster dashboard for Home Assistant - live incident, respond, duty and history, read from the FireServiceRota integration"
+url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-fireservicerota"
+# The dashboard map needs core's map_tiles proxy (added in 2026.9)
+homeassistant: "2026.9.0"
+init: false
+arch:
+  - aarch64
+  - amd64
+# Prebuilt by the repository Builder workflow; bump `version` to publish a new image
+image: "ghcr.io/cyberjunky/app-fireservicerota"
+ingress: true
+panel_icon: mdi:fire-truck
+panel_title: FireServiceRota
+# Everything is read from (and sent through) Home Assistant's FireServiceRota integration
+homeassistant_api: true
+# The time zone and this app's ingress path (for the dashboard_url in events) from the Supervisor
+hassio_api: true
+
+options:
+  incidents_entity: ""
+  duty_entity: ""
+  response_entity: ""
+  history_days: 30
+  ha_events: true
+  announce:
+    tts_entity: ""
+    media_players: ""
+    language: nl
+    quiet_hours: ""
+  log_level: info
+
+schema:
+  incidents_entity: 'match(^(sensor\.[a-z0-9_]+)?$)?'
+  duty_entity: 'match(^(binary_sensor\.[a-z0-9_]+)?$)?'
+  response_entity: 'match(^(switch\.[a-z0-9_]+)?$)?'
+  history_days: int(0,365)?
+  ha_events: bool?
+  announce:
+    tts_entity: 'match(^(tts\.[a-z0-9_]+)?$)?'
+    media_players: str?
+    language: str?
+    quiet_hours: 'match(^\s*(\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2})?\s*$)?'
+  log_level: list(debug|info|warning|error)?

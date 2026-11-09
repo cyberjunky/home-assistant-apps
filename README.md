@@ -41,6 +41,19 @@ keeps flash writes low by recording in RAM.
 
 [:books: Documentation](app-dishylink/DOCS.md) · [:memo: Changelog](app-dishylink/CHANGELOG.md) · [:lock: Security](app-dishylink/SECURITY.md)
 
+### <img src="app-fireservicerota/icon.png" alt="" width="36" align="absmiddle"> [FireServiceRota](app-fireservicerota/)
+
+![Version][fireservicerota-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+Unofficial dashboard for Home Assistant's FireServiceRota (Brandweerrooster) integration,
+opened from the sidebar. The incident you are called for on a live map with a countdown and
+acknowledge/reject buttons, your duty, a Wallboard for an always-on screen, and the history
+of every incident and response with statistics. Reads everything from Home Assistant.
+
+[:books: Documentation](app-fireservicerota/DOCS.md) · [:memo: Changelog](app-fireservicerota/CHANGELOG.md) · [:lock: Security](app-fireservicerota/SECURITY.md)
+
 ### <img src="app-goodwe/icon.png" alt="" width="36" align="absmiddle"> [GoodWe](app-goodwe/)
 
 ![Version][goodwe-version-shield]
@@ -176,3 +189,4 @@ software each app packages keeps its own license, noted in the app's README.
 [meldkamer-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-meldkamer%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [tesla-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-tesla%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [toon-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-toon%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[fireservicerota-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-fireservicerota%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge

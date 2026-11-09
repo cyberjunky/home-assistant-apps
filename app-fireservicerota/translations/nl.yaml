@@ -1,0 +1,41 @@
+configuration:
+  incidents_entity:
+    name: Incidentensensor
+    description: >-
+      De incidentensensor van de FireServiceRota-integratie, bijv.
+      sensor.jan_jansen_incidents. Leeg laten om hem automatisch te vinden.
+  duty_entity:
+    name: Dienstsensor
+    description: >-
+      De dienst-binaire sensor van de integratie, bijv.
+      binary_sensor.jan_jansen_duty. Leeg laten om hem automatisch te vinden.
+  response_entity:
+    name: Schakelaar incidentreactie
+    description: >-
+      De schakelaar incidentreactie van de integratie, bijv.
+      switch.jan_jansen_incident_response. Bevestigen en Afwijzen zetten hem
+      aan of uit. Leeg laten om hem automatisch te vinden.
+  history_days:
+    name: Geschiedenis importeren (dagen)
+    description: >-
+      Bij de eerste start: hoeveel dagen van de recorder-geschiedenis van Home
+      Assistant de app importeert. De recorder bewaart 10 dagen, tenzij je
+      purge_keep_days hebt aangepast. 0 importeert niets; latere starts vullen
+      alleen het gat sinds de laatste wijziging.
+  ha_events:
+    name: Home Assistant-events
+    description: >-
+      Vuur fireservicerota_app_incident af bij elk nieuw incident en elke
+      update, met een dashboard_url die het in deze app opent, om automatiseringen
+      mee te starten.
+  announce:
+    name: Omroepen op speakers
+    description: >-
+      Spreek nieuwe incidenten uit op mediaspelers in Home Assistant met
+      tts.speak. tts_entity is bijv. tts.google_translate_nl_nl, media_players
+      een kommagescheiden lijst met media_player-entiteiten. quiet_hours (bijv.
+      23:00-07:00) houdt de speakers en het geluid, de spraak en meldingen van
+      het dashboard stil tussen die tijden.
+  log_level:
+    name: Logniveau
+    description: Hoeveel de app in zijn log schrijft.
