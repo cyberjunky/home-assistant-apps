@@ -262,6 +262,44 @@ function buildChips(containerId, options, current, onChange) {
     };
 }
 
+// A confirmation. opts.typeToConfirm: a word the user must type before the button works (for what can't be undone)
+function confirmDialog(opts) {
+    return new Promise((resolve) => {
+        const word = opts.typeToConfirm || '';
+        const root = document.getElementById('modal-root');
+        root.innerHTML = `
+            <div class="modal-overlay">
+                <div class="modal" role="dialog" aria-modal="true" aria-label="${escapeHtml(opts.title || 'Are you sure?')}">
+                    <div class="modal-head"><span>${escapeHtml(opts.title || 'Are you sure?')}</span>
+                        <button class="modal-close" data-close aria-label="Close">✕</button></div>
+                    <div class="modal-body"><div>${opts.message || ''}</div>${word ? `
+                        <div class="form-field"><label>Type <span class="mono">${escapeHtml(word)}</span> to confirm</label>
+                        <input class="input" data-confirm-word autocomplete="off" spellcheck="false" aria-label="Type ${escapeHtml(word)} to confirm"></div>` : ''}</div>
+                    <div class="modal-foot">
+                        <button class="btn" data-close>Cancel</button>
+                        <button class="btn ${opts.danger ? 'btn-danger-solid' : 'btn-primary'}" data-confirm>${escapeHtml(opts.confirmLabel || 'Confirm')}</button>
+                    </div>
+                </div>
+            </div>`;
+        const overlay = root.querySelector('.modal-overlay');
+        const finish = (answer) => { root.innerHTML = ''; document.removeEventListener('keydown', onKey); resolve(answer); };
+        const onKey = (e) => { if (e.key === 'Escape') finish(false); };
+        document.addEventListener('keydown', onKey);
+        const button = root.querySelector('[data-confirm]');
+        if (word) {
+            const input = root.querySelector('[data-confirm-word]');
+            button.disabled = true;
+            input.addEventListener('input', () => { button.disabled = input.value.trim() !== word; });
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !button.disabled) button.click(); });
+            input.focus();
+        }
+        button.addEventListener('click', () => finish(true));
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay || e.target.hasAttribute('data-close')) finish(false);
+        });
+    });
+}
+
 function toast(message) {
     const el = document.createElement('div');
     el.className = 'toast error';

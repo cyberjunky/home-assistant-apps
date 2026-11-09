@@ -133,6 +133,11 @@
                         <div class="panel"><div class="panel-body"><div class="section-title">Data</div><div id="set-data"></div>
                             <div class="detail-actions" style="margin-top:12px"><a class="btn" href="api/backup" download>Database backup</a></div>
                             <p class="panel-sub" style="margin-top:8px">A copy of all recorded values. Your options and passwords aren't in it.</p>
+                            <div class="danger-zone">
+                                <div class="section-title">Danger zone</div>
+                                <p class="panel-sub">Deletes every recorded value, the hourly history and the list of connection outages, including those of your external sensors. Your options are not touched. The app fetches the Toon's own history again, and records from now. Download a backup first if you may want the data back.</p>
+                                <button type="button" class="btn btn-danger" onclick="deleteAllData()">Delete all recorded data</button>
+                            </div>
                         </div></div>
                         <div class="panel"><div class="panel-body"><div class="section-title">Database</div><div id="set-database"></div></div></div>
                         <div class="panel" id="set-external-panel"><div class="panel-body"><div class="section-title">External sensors</div><div id="set-external"></div></div></div>
@@ -153,6 +158,7 @@
 
     <footer class="statusbar" id="statusbar"></footer>
     <div id="toast-root"></div>
+    <div id="modal-root"></div>
 
     <script src="static/core.js?v=__VERSION__"></script>
     <script src="static/charts.js?v=__VERSION__"></script>

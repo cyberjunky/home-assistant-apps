@@ -141,6 +141,27 @@ async function loadHealthCharts() {
     });
 }
 
+// Danger zone: wipe everything recorded. The options stay.
+async function deleteAllData() {
+    const ok = await confirmDialog({
+        title: 'Delete all recorded data?',
+        message: 'Every recorded value, the hourly history and the connection outages are removed, including those of your external sensors. <b>This cannot be undone.</b><br><br>Your options are not touched. The app fetches the Toon\'s own history again, and records from now.',
+        confirmLabel: 'Delete all recorded data', danger: true, typeToConfirm: 'DELETE',
+    });
+    if (!ok) return;
+    try {
+        await apiPost('data/delete', {confirm: 'DELETE'});
+    } catch (e) {
+        toast(e.message);
+        return;
+    }
+    // The other pages still hold the old numbers; load them again when opened
+    app.today = null;
+    stats.report = null;
+    try { await loadStatus(); } catch (e) { /* the next refresh brings the counts */ }
+    showSettings();
+}
+
 async function showSettings() {
     renderHealth();
     renderConfig();

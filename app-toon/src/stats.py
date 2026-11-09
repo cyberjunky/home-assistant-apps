@@ -353,6 +353,12 @@ class Stats:
         self._deltas: dict[str, _Cached] = {}
         self._today: _Cached | None = None
 
+    def clear_cache(self) -> None:
+        """Forget what was worked out from the database: after a wipe it would show numbers that are gone."""
+        with self._lock:
+            self._deltas.clear()
+            self._today = None
+
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(f"file:{self.path}?mode=ro", uri=True, timeout=5)
 

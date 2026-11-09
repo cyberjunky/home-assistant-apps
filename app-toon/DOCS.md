@@ -109,6 +109,8 @@ Measuring the heat itself takes the water's flow as well as its temperatures: he
 
 **Settings → Database backup** downloads a copy of all recorded values while the app keeps running. Your options and passwords aren't in it.
 
+The **Danger zone** under it deletes everything recorded (values, hourly history, outages and the history of your external sensors) after you type DELETE. Your options are not touched. The app then fetches the Toon's own history again and records from now.
+
 ## Controlling the thermostat
 
 The Thermostat panel on the Dashboard has controls:

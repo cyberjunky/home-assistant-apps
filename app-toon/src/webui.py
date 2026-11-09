@@ -88,6 +88,7 @@ class WebUI:
         self.app.router.add_get("/api/stats", self._stats)
         self.app.router.add_get("/api/gas-hours", self._gas_hours)
         self.app.router.add_post("/api/control", self._control)
+        self.app.router.add_post("/api/data/delete", self._delete_data)
         self.app.router.add_get("/api/backup", self._backup)
         self.app.router.add_get("/api/database", self._database)
         self.app.router.add_get("/api/export/periods.csv", self._export_periods)
@@ -179,6 +180,33 @@ class WebUI:
             logger.warning(f"Changing the thermostat failed: {e!r}")
             return web.json_response({"error": f"The change didn't go through: {e}"}, status=502)
         return web.json_response({"ok": True})
+
+    async def _delete_data(self, request: web.Request) -> web.Response:
+        """The danger zone: delete everything recorded. The page asks for DELETE to be typed; so does this."""
+        # Under Home Assistant only its signed-in ingress proxy may do this, not other apps on the network
+        if os.environ.get("SUPERVISOR_TOKEN") and request.remote != INGRESS_ADDRESS:
+            return web.json_response({"error": "Use the sidebar"}, status=403)
+        if request.content_type != "application/json":
+            return web.json_response({"error": "Send JSON"}, status=415)
+        try:
+            body = await request.json()
+        except ValueError:
+            body = None
+        if not isinstance(body, dict) or body.get("confirm") != "DELETE":
+            return web.json_response({"error": "Type DELETE to confirm"}, status=400)
+        if self.monitor.importer.running:
+            return web.json_response(
+                {
+                    "error": "The history import is running. Try again when it has finished: Settings shows its progress."
+                },
+                status=409,
+            )
+        self.database.flush()
+        removed = self.database.wipe()
+        self.stats.clear_cache()
+        self.monitor.after_wipe()
+        logger.warning(f"All recorded data was deleted: {removed}")
+        return web.json_response({"ok": True, "removed": removed})
 
     async def _backup(self, request: web.Request) -> web.StreamResponse:
         """Download a copy of the database. The Toon's SSH key and the options aren't in it."""

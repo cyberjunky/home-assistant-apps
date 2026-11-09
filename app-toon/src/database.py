@@ -154,6 +154,24 @@ class Database:
             result[metric] = [[ts, round(value, 3)] for ts, value in rows]
         return result
 
+    def wipe(self) -> dict[str, int]:
+        """Empty every table: the Settings danger zone. Returns what was there. The file stays and the space
+        goes back to the disk. Samples not written out yet go too; the import positions are cleared, so the
+        Toon's own history can be fetched again."""
+        self._pending = []
+        removed = {
+            "samples": self._db.execute("SELECT COUNT(*) FROM samples").fetchone()[0],
+            "hourly": self._db.execute("SELECT COUNT(*) FROM hourly").fetchone()[0],
+            "outages": self._db.execute("SELECT COUNT(*) FROM outages").fetchone()[0],
+        }
+        for table in ("samples", "hourly", "outages", "import_progress"):
+            self._db.execute(f"DELETE FROM {table}")
+        self._db.commit()
+        self._db.execute("VACUUM")
+        # In WAL mode the freed space only returns once the log is merged and cut down
+        self._db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        return removed
+
     def counts(self) -> dict[str, int]:
         samples = self._db.execute("SELECT COUNT(*) FROM samples").fetchone()[0]
         hourly = self._db.execute("SELECT COUNT(*) FROM hourly").fetchone()[0]

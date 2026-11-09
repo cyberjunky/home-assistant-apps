@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.5
+
+**After updating:** nothing to do.
+
+- A **Danger zone** at the bottom of Settings → Data deletes everything recorded: all values, the hourly history, the connection outages and the history of your external sensors. You have to type DELETE to confirm. Your options are not touched. The app fetches the Toon's own history again and records from now. It refuses while that history import is running. The **Database backup** button above it takes a copy first.
+
 ## 0.4.4
 
 **After updating:** nothing to do.

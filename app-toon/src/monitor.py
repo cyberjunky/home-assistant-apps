@@ -184,6 +184,21 @@ class ToonMonitor:
         except (BoxTalkError, TimeoutError, OSError) as e:
             logger.debug(f"Reading the thermostat after a change failed: {e!r}")
 
+    def after_wipe(self) -> None:
+        """The database was emptied: store values again from the next reading, and fetch the Toon's own
+        history again, as after a first start."""
+        self._stored.clear()
+        if self.config.import_history and self.connected and self._bus is not None:
+            task = asyncio.create_task(self._reimport(self._bus), name="reimport-history")
+            self._after_change.add(task)
+            task.add_done_callback(self._after_change.discard)
+
+    async def _reimport(self, bus: BoxTalkClient) -> None:
+        try:
+            await self.importer.import_all(bus, self.host_name)
+        except (OSError, TimeoutError, asyncssh.Error, ValueError, BoxTalkError) as e:
+            logger.info(f"History import interrupted, continuing later: {_describe(e)}")
+
     def _announce(self) -> None:
         for listener in self.listeners:
             listener()
