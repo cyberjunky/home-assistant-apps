@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+
+**After updating:** nothing to do.
+
+- README redesigned to match the other apps: badges, icon, installation steps and a support section.
+- The donation card (same one used by the other apps) now also appears here once in a while.
+
 ## 0.1.0
 
 First version.

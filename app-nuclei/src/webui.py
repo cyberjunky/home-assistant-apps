@@ -10,9 +10,10 @@ from pathlib import Path
 from aiohttp import web
 
 from . import targets
-from .config import APP_VERSION
+from .config import APP_VERSION, DATA_DIR
 from .custom_templates import CustomTemplates, TemplateError
 from .database import TICKET_STATUSES, Database, backup_copy, database_report
+from .donate import DonatePrompt
 from .engine import Engine, NotAuthorised
 
 logger = logging.getLogger(__name__)
@@ -68,6 +69,7 @@ class WebUI:
         add("/api/backup", self._backup)
         add("/api/database", self._database)
         post("/api/wipe", self._wipe)
+        DonatePrompt(DATA_DIR / "donate_prompt.json").add_routes(self.app)
         self.app.router.add_static("/static", WEB_DIR)
 
     @web.middleware
