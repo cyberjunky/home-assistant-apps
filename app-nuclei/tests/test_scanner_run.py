@@ -1,5 +1,7 @@
 """How the scanner runs its binaries: failures are reported, never mistaken for a clean scan."""
 
+import time
+
 import pytest
 
 from src import scanner as scanner_module
@@ -25,6 +27,7 @@ def scanner_with(code=0, stderr="", lines=()):
 @pytest.fixture
 def templates(tmp_path, monkeypatch):
     monkeypatch.setattr(scanner_module, "TEMPLATES_DIR", tmp_path / "templates")
+    monkeypatch.setattr(scanner_module, "TEMPLATES_UPDATED_FILE", tmp_path / "templates-updated-at")
     (tmp_path / "templates").mkdir()
     (tmp_path / "templates" / "a.yaml").write_text("id: a")
 
@@ -104,6 +107,23 @@ async def test_update_uses_update_template_dir(templates):
     assert argv[:2] == ["nuclei", "-update-templates"] and "-update-template-dir" in argv
     # -duc / -disable-update-check makes nuclei skip the update and exit 0 (checked on v3.11.1)
     assert "-duc" not in argv and "-disable-update-check" not in argv
+
+
+async def test_successful_update_records_when(templates):
+    s = scanner_with()
+    assert s.templates_updated_at() is None
+    await s.update_templates()
+    updated_at = s.templates_updated_at()
+    assert updated_at is not None and abs(time.time() - updated_at) < 5
+
+
+async def test_failed_update_does_not_touch_the_recorded_time(templates):
+    s = scanner_with()
+    await s.update_templates()
+    first = s.templates_updated_at()
+    assert await scanner_with(code=1, stderr="no route to host").update_templates() is False
+    # templates_updated_at is on the class/module marker file, shared across instances in these tests
+    assert scanner_module.Scanner.templates_updated_at() == first
 
 
 async def test_failed_update_keeps_installed_templates_but_needs_some(tmp_path, monkeypatch, templates):

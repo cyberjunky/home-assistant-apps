@@ -20,6 +20,12 @@ class Scan:
     async def update_templates(self):
         return True
 
+    def template_count(self):
+        return 4321
+
+    def templates_updated_at(self):
+        return 1700000000
+
     async def discover_ports(self, hosts):
         return [HostResult(hosts[0], [23])]
 
@@ -98,8 +104,9 @@ async def test_scan_creates_device_and_tickets_that_can_be_worked(client):
 
 async def test_templates_roundtrip(client):
     assert (await post(client, "templates/my-check", {"body": "id: my-check"}, method="put"))[0] == 200
-    listing = (await (await client.get("/api/templates")).json())["templates"]
-    assert listing[0]["name"] == "my-check"
+    payload = await (await client.get("/api/templates")).json()
+    assert payload["templates"][0]["name"] == "my-check"
+    assert payload["community_count"] == 4321 and payload["community_updated_at"] == 1700000000
     assert (await post(client, "templates/Bad Name", {"body": "x"}, method="put"))[0] == 400
     assert (await client.delete("/api/templates/my-check")).status == 200
 

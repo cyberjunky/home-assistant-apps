@@ -51,7 +51,7 @@ async function loadDashboard() {
   const s = await api('status');
   const sum = s.summary;
   const sev = sum.open_by_severity || {};
-  const kpi = (l, v, cls) => `<div class="kpi"><div class="l">${l}</div><div class="v" style="color:${cls || 'var(--text)'}">${v}</div></div>`;
+  const kpi = (l, v, cls, title) => `<div class="kpi"${title ? ` title="${esc(title)}"` : ''}><div class="l">${l}</div><div class="v" style="color:${cls || 'var(--text)'}">${v}</div></div>`;
   document.getElementById('kpis').innerHTML =
     kpi('Open tickets', sum.open_total || 0) +
     kpi('Critical', sev.critical || 0, 'var(--critical)') +
@@ -59,7 +59,7 @@ async function loadDashboard() {
     kpi('Medium', sev.medium || 0, 'var(--medium)') +
     kpi('Devices online', `${sum.devices_online || 0}<span class="muted" style="font-size:15px"> / ${sum.devices_total || 0}</span>`) +
     kpi('Scan objects', sum.objects || 0) +
-    kpi('Last scan', sum.last_scan ? fmtTime(sum.last_scan).split(',')[0] : '–');
+    kpi('Last scan', sum.last_scan ? agoAgo(sum.last_scan) : '–', null, sum.last_scan ? fmtTime(sum.last_scan) : '');
   const scans = (await api('scans')).scans.slice(0, 8);
   document.getElementById('recent-scans').innerHTML = scans.length ? table(
     ['Target', 'Trigger', 'Status', 'Ports', 'Findings', 'Started'],
@@ -67,6 +67,7 @@ async function loadDashboard() {
   ) : '<div class="empty">No scans yet. Add a scan object and run one.</div>';
   const tickets = (await api('tickets?status=open')).tickets.slice(0, 8);
   document.getElementById('recent-tickets').innerHTML = tickets.length ? ticketTable(tickets) : '<div class="empty">No open tickets.</div>';
+  document.querySelectorAll('#recent-tickets tbody tr').forEach(tr => tr.onclick = () => openTicket(tr.dataset.id));
 }
 function scanStatus(sc) {
   // The detail line (which passes ran, on how many targets, whether the credential check was on) is
@@ -96,6 +97,11 @@ function ago(ts) {
   if (s < 5400) return Math.round(s / 60) + ' min';
   if (s < 129600) return Math.round(s / 3600) + ' h';
   return Math.round(s / 86400) + ' d';
+}
+// Like ago(), but reads as a full phrase: "just now", "3 min ago", "2 d ago"
+function agoAgo(ts) {
+  const a = ago(ts);
+  return a === 'just now' ? a : a + ' ago';
 }
 function statusText(d) {
   if (d.online === null || d.online === undefined) return 'not checked yet';
@@ -174,8 +180,13 @@ function loadTickets() {
     document.querySelectorAll('#tickets-table tbody tr').forEach(tr => tr.onclick = () => openTicket(tr.dataset.id));
   });
 }
+// A named device shows its name, with the address underneath in small print; otherwise just the address
+function hostLabel(t) {
+  const addr = esc(t.host) + (t.port ? ':' + t.port : '');
+  return t.device_name ? `${esc(t.device_name)}<div class="muted mono" style="font-size:11px">${addr}</div>` : `<span class="mono">${addr}</span>`;
+}
 function ticketTable(tickets) {
-  const rows = tickets.map(t => `<tr data-id="${t.id}"><td>${sevBadge(t.severity)}</td><td>${esc(t.name)}${t.cve ? ` <span class="pill">${esc(t.cve)}</span>` : ''}</td><td class="mono">${esc(t.host)}${t.port ? ':' + t.port : ''}</td><td><span class="pill ${t.status}">${STATUS_LABEL[t.status] || t.status}</span></td><td>${t.cvss ?? '–'}</td><td>${fmtTime(t.last_seen)}</td></tr>`).join('');
+  const rows = tickets.map(t => `<tr data-id="${t.id}"><td>${sevBadge(t.severity)}</td><td>${esc(t.name)}${t.cve ? ` <span class="pill">${esc(t.cve)}</span>` : ''}</td><td>${hostLabel(t)}</td><td><span class="pill ${t.status}">${STATUS_LABEL[t.status] || t.status}</span></td><td>${t.cvss ?? '–'}</td><td>${fmtTime(t.last_seen)}</td></tr>`).join('');
   return `<table><thead><tr><th>Sev</th><th>Issue</th><th>Host</th><th>Status</th><th>CVSS</th><th>Last seen</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 async function openTicket(id) {
@@ -183,7 +194,7 @@ async function openTicket(id) {
   const field = (l, v) => v ? `<label>${l}</label><div class="mono" style="white-space:pre-wrap;word-break:break-word">${esc(v)}</div>` : '';
   modal(`
     <h3>${sevBadge(t.severity)} ${esc(t.name)}</h3>
-    <div class="row" style="margin-bottom:8px">${t.cve ? `<span class="pill">${esc(t.cve)}</span>` : ''}${t.cvss ? `<span class="pill">CVSS ${t.cvss}</span>` : ''}<span class="mono">${esc(t.host)}${t.port ? ':' + t.port : ''}</span></div>
+    <div class="row" style="margin-bottom:8px">${t.cve ? `<span class="pill">${esc(t.cve)}</span>` : ''}${t.cvss ? `<span class="pill">CVSS ${t.cvss}</span>` : ''}<span>${t.device_name ? `${esc(t.device_name)} · ` : ''}<span class="mono">${esc(t.host)}${t.port ? ':' + t.port : ''}</span></span></div>
     <label>Status</label>
     <select id="t-status">${STATUSES.map(s => `<option value="${s}" ${s === t.status ? 'selected' : ''}>${STATUS_LABEL[s]}</option>`).join('')}</select>
     ${field('Where', t.matched_at)}
@@ -247,6 +258,11 @@ document.getElementById('obj-preview').onclick = async () => {
 // ---- templates ----
 async function loadTemplates() {
   const d = await api('templates');
+  const kpi = (l, v) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div></div>`;
+  document.getElementById('template-kpis').innerHTML =
+    kpi('Community templates', d.community_count || 0) +
+    kpi('Last updated', d.community_updated_at ? ago(d.community_updated_at) + ' ago' : 'never') +
+    kpi('Your templates', d.templates.length);
   document.getElementById('templates-table').innerHTML = d.templates.length ?
     `<table><tbody>${d.templates.map(t => `<tr><td class="mono">${esc(t.name)}</td><td>${t.size} bytes</td><td><div class="row"><button class="btn btn-small" data-edit="${esc(t.name)}">Edit</button><button class="btn btn-small btn-danger" data-delt="${esc(t.name)}">×</button></div></td></tr>`).join('')}</tbody></table>` :
     '<div class="empty">No custom templates yet.</div>';

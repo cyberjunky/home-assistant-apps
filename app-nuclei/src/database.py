@@ -454,22 +454,30 @@ class Database:
     def findings(self, status: str | None = None, object_id: int | None = None, limit: int = 1000) -> list[dict]:
         where, params = [], []
         if status == "open":
-            where.append("status IN ('open','in_progress')")
+            where.append("f.status IN ('open','in_progress')")
         elif status:
-            where.append("status = ?")
+            where.append("f.status = ?")
             params.append(status)
         if object_id:
-            where.append("object_id = ?")
+            where.append("f.object_id = ?")
             params.append(object_id)
         clause = (" WHERE " + " AND ".join(where)) if where else ""
         order = (
-            " ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2"
-            " WHEN 'low' THEN 3 ELSE 4 END, last_seen DESC LIMIT ?"
+            " ORDER BY CASE f.severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2"
+            " WHEN 'low' THEN 3 ELSE 4 END, f.last_seen DESC LIMIT ?"
         )
-        return self._rows(f"SELECT * FROM findings{clause}{order}", (*params, limit))
+        # d.name as device_name: the host's own name, if the device was renamed, so a ticket can show
+        # that instead of a bare IP (findings.name is the vulnerability's name, not the device's)
+        return self._rows(
+            f"SELECT f.*, d.name AS device_name FROM findings f LEFT JOIN devices d ON d.host = f.host{clause}{order}",
+            (*params, limit),
+        )
 
     def finding(self, finding_id: int) -> dict | None:
-        row = self._row("SELECT * FROM findings WHERE id = ?", (finding_id,))
+        row = self._row(
+            "SELECT f.*, d.name AS device_name FROM findings f LEFT JOIN devices d ON d.host = f.host WHERE f.id = ?",
+            (finding_id,),
+        )
         if row:
             row["events"] = self._rows(
                 "SELECT ts, field, old_value, new_value FROM ticket_events WHERE finding_id = ? ORDER BY ts",

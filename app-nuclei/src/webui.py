@@ -215,7 +215,13 @@ class WebUI:
 
     # -- custom templates ---------------------------------------------------
     async def _list_templates(self, request: web.Request) -> web.Response:
-        return web.json_response({"templates": self.templates.list()})
+        return web.json_response(
+            {
+                "templates": self.templates.list(),
+                "community_count": self.engine.scanner.template_count(),
+                "community_updated_at": self.engine.scanner.templates_updated_at(),
+            }
+        )
 
     async def _get_template(self, request: web.Request) -> web.Response:
         try:

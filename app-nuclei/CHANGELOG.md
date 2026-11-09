@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.4
+
+**After updating:** nothing to do.
+
+- Templates tab now shows how many community templates are installed and when they were last
+  updated.
+- The "Last scan" dashboard figure shows the actual time ago (e.g. "7 min ago"), not just the date,
+  with the exact time on hover.
+- A ticket or scan on a named device now shows that name next to its address, instead of a bare
+  IP, in the Tickets tab, the ticket detail and the dashboard.
+- Fixed: the dashboard's "Newest open tickets" rows did nothing when clicked; they now open the
+  ticket, like the rows on the Tickets tab always have.
+
 ## 0.1.3
 
 **After updating:** nothing to do.

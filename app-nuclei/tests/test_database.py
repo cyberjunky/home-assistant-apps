@@ -135,3 +135,18 @@ def test_a_database_from_an_older_version_gets_the_new_columns(tmp_path):
     assert db.device(device["id"])["online"] == 1
     db.close()
     Database(path).close()  # opening it again must not try to add them twice
+
+
+def test_findings_carry_the_devices_name(db):
+    db.record_device("10.0.0.5", None, "linux", [], [22])
+    device = db.device_by_host("10.0.0.5")
+    db.update_device(device["id"], {"name": "Backup server"})
+    db.record_finding(finding(host="10.0.0.5"))
+    db.record_finding(finding(fp="fp2", host="10.0.0.9"))  # no device: unaffected
+
+    rows = {r["host"]: r["device_name"] for r in db.findings()}
+    assert rows["10.0.0.5"] == "Backup server"
+    assert rows["10.0.0.9"] is None
+
+    one = db.findings()[0] if db.findings()[0]["host"] == "10.0.0.5" else db.findings()[1]
+    assert db.finding(one["id"])["device_name"] == "Backup server"

@@ -16,8 +16,10 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import shutil
 import tempfile
+import time
 from dataclasses import dataclass, field
 
 from .config import DATA_DIR, SEVERITIES, Config, nuclei_env
@@ -28,6 +30,8 @@ logger = logging.getLogger(__name__)
 NUCLEI = "nuclei"
 NAABU = "naabu"
 TEMPLATES_DIR = DATA_DIR / "nuclei-templates"
+# Written whenever the community templates are updated, so "last updated" survives a restart
+TEMPLATES_UPDATED_FILE = DATA_DIR / "templates-updated-at"
 # Ports naabu checks by default: its "top 100", enough for the usual exposed services without a full sweep
 DEFAULT_TOP_PORTS = "100"
 # A big network takes hours: completeness matters more than speed. This only stops a scanner that hangs.
@@ -297,6 +301,23 @@ class Scanner:
         """How many community templates are installed."""
         return sum(1 for _ in TEMPLATES_DIR.rglob("*.yaml")) if TEMPLATES_DIR.exists() else 0
 
+    @staticmethod
+    def templates_updated_at() -> int | None:
+        """When the community templates were last successfully updated, or None if never."""
+        try:
+            return int(TEMPLATES_UPDATED_FILE.read_text().strip())
+        except (OSError, ValueError):
+            return None
+
+    @staticmethod
+    def _mark_templates_updated() -> None:
+        tmp = TEMPLATES_UPDATED_FILE.with_name(TEMPLATES_UPDATED_FILE.name + ".tmp")
+        try:
+            tmp.write_text(str(int(time.time())))
+            os.replace(tmp, TEMPLATES_UPDATED_FILE)
+        except OSError as e:
+            logger.warning("Could not record the template update time: %s", e)
+
     async def update_templates(self) -> bool:
         """Pull the latest templates so every scan has the newest CVEs. Returns whether it succeeded. A failed
         update (no internet, say) keeps the templates already installed, but there must be some.
@@ -308,6 +329,7 @@ class Scanner:
             )
             if not self.template_count():
                 raise ScannerError("the update finished but installed no templates")
+            self._mark_templates_updated()
             return True
         except ScannerError as e:
             if not self.template_count():
