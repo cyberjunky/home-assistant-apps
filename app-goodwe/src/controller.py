@@ -286,6 +286,15 @@ class BatteryController:
         self._check_dod()
         self._update_capacity()
 
+    def _dod_on_inverter(self) -> int | None:
+        """The DoD from the last settings read, when that read is recent enough to trust."""
+        if not self.link.settings_at or time.time() - self.link.settings_at > SETTINGS_CHECK_SECONDS:
+            return None
+        try:
+            return int(self.link.settings["dod"])
+        except (KeyError, TypeError, ValueError):
+            return None
+
     def _check_dod(self) -> None:
         """A DoD changed behind the controller's back (SolarGo, the cloud) is written again on this tick."""
         if not self.settings.auto_hold or self.last_dod is None:
@@ -409,6 +418,9 @@ class BatteryController:
         self.held = held
         if not held:
             self.hold_strikes = 0  # discharging is expected once released
+        if self.last_dod is None and self._dod_on_inverter() == desired:
+            # After a restart: the inverter already has it, so no write (the flash has limited endurance)
+            self.last_dod = desired
         if desired != self.last_dod:
             ok = await self._apply_dod_verified(desired, held, reason)
             self.last_dod = desired if ok else None  # unconfirmed: try again next tick
@@ -429,7 +441,8 @@ class BatteryController:
         unverifiable (read timed out: assume applied); False when the inverter reports another value."""
         last_read = None
         confirmed = False
-        for _ in range(3):
+        error = ""
+        for attempt in range(3):
             if not self._budget_take():
                 if not self.budget["warned"]:
                     self.budget["warned"] = True
@@ -443,17 +456,13 @@ class BatteryController:
                 return False
             try:
                 await self.link.apply("dod", target, source, notify=False)
+                error = ""
             except Exception as e:
-                self.events.emit(
-                    "inverter_write_failed",
-                    f"on-grid DoD → {target} failed ({source}): {e}",
-                    level="warning",
-                    key="dod",
-                    value=target,
-                    source=source,
-                    error=str(e),
-                )
-                return False
+                # The ES's Wi-Fi module drops an answer now and then; the command may still have
+                # arrived. Give it a moment, then read back and send again if it did not.
+                error = f"{type(e).__name__}: {e}".strip(": ")
+                logger.warning(f"DoD → {target}: attempt {attempt + 1} got no answer ({error}), checking")
+                await asyncio.sleep(10)
             await asyncio.sleep(3)
             try:
                 last_read = int(await self.link.read_setting("dod"))
@@ -463,10 +472,12 @@ class BatteryController:
             except Exception:
                 last_read = None
             await asyncio.sleep(2)
-        ok = confirmed or last_read is None
+        ok = confirmed or (last_read is None and not error)
         state = (
             "confirmed"
             if confirmed
+            else f"no answer after 3 attempts ({error})"
+            if error and last_read is None
             else "sent, read-back timed out"
             if last_read is None
             else f"not applied, the inverter still reports {last_read}%"

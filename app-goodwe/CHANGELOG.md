@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.7
+
+**After updating:** nothing to do.
+
+- **No DoD write after a restart.** After every restart (an update, say) auto-hold wrote the DoD again although the inverter already had it. It now compares with the inverter's settings first and only writes when they differ, to spare the inverter's flash.
+- **A DoD write that gets no answer is retried at once.** The inverter's Wi-Fi module drops an answer now and then. Auto-hold used to report *inverter_write_failed* and wait for its next check five minutes later. It now waits ten seconds, reads the DoD back (the command often arrived anyway) and sends it again if needed, up to three times. *inverter_write_failed* now only appears when all three attempts fail, and the next check (five minutes) tries again.
+
 ## 0.3.6
 
 **After updating:** nothing to do. Home Assistant gets about forty new diagnostic entities, fifteen of them disabled until you switch them on on the inverter's device.
