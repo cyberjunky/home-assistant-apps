@@ -1,0 +1,33 @@
+configuration:
+  max_concurrent_hosts:
+    name: Concurrent hosts
+    description: How many hosts naabu probes for open ports at once.
+  requests_per_second:
+    name: Requests per second
+    description: The rate limit for naabu and nuclei together. Lower it to be gentler on a target.
+  min_severity:
+    name: Minimum severity
+    description: The lowest severity that becomes a ticket.
+  nuclei_tags:
+    name: Only these tags
+    description: Limit nuclei to templates with these tags (comma separated). Empty runs all applicable templates.
+  nuclei_exclude_tags:
+    name: Exclude tags
+    description: Templates with these tags are skipped. Keep dos, fuzzing and intrusive here unless you mean to run them.
+  default_credentials:
+    name: Default-credential check
+    description: >-
+      Try a small built-in list of default logins against discovered services. Off by default: it can
+      lock accounts and trip alarms. There is no password stuffing from a file.
+  retention_days:
+    name: Keep data (days)
+    description: Resolved tickets and finished scans older than this are removed. Open tickets are always kept.
+  presence_interval_minutes:
+    name: Online check (minutes)
+    description: How often known devices are checked for being online. 0 turns the check off.
+  update_templates:
+    name: Update templates
+    description: Pull the newest nuclei templates before a scan, so you always have the latest CVE checks.
+  log_level:
+    name: Log level
+    description: Amount of logging.

@@ -1,0 +1,11 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Nuclei Scanner - S6 Service Runner
+# ==============================================================================
+echo "[INFO] Starting Nuclei Scanner..."
+TIMEZONE=$(curl -s -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" http://supervisor/info 2>/dev/null \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin).get("data",{}).get("timezone","UTC"))' 2>/dev/null || echo UTC)
+export TZ="${TIMEZONE}"
+echo "[INFO] Timezone: ${TZ}"
+cd /app
+exec python3 -m src

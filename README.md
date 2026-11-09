@@ -79,6 +79,19 @@ street-level pins, statistics, Home Assistant sensors, events and text-to-speech
 
 [:books: Documentation](app-meldkamer/DOCS.md) · [:memo: Changelog](app-meldkamer/CHANGELOG.md) · [:lock: Security](app-meldkamer/SECURITY.md)
 
+### <img src="app-nuclei/icon.png" alt="" width="36" align="absmiddle"> [Nuclei Scanner](app-nuclei/)
+
+![Version][nuclei-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+Internal vulnerability scanner, opened from the sidebar. Finds open ports, known CVEs and exposed
+services on the networks you register, with nuclei and naabu, and turns every finding into a
+ticket you work through. Lists the devices it finds with their services, and whether they are online.
+For systems you own or are authorised to test.
+
+[:books: Documentation](app-nuclei/DOCS.md) · [:memo: Changelog](app-nuclei/CHANGELOG.md) · [:lock: Security](app-nuclei/SECURITY.md)
+
 ### <img src="app-pgadmin4/icon.png" alt="" width="36" align="absmiddle"> [pgAdmin 4](app-pgadmin4/)
 
 ![Version][pgadmin4-version-shield]
@@ -190,3 +203,4 @@ software each app packages keeps its own license, noted in the app's README.
 [tesla-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-tesla%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [toon-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-toon%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [fireservicerota-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-fireservicerota%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[nuclei-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-nuclei%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge

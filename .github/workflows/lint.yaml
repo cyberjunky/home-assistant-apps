@@ -56,6 +56,7 @@ jobs:
           - app-meldkamer
           - app-tesla
           - app-toon
+          - app-nuclei
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v7.0.1

@@ -1,0 +1,3 @@
+# Python dependencies for Nuclei Scanner (installed in the Dockerfile).
+# aiohttp - web server and ingress. The scanners themselves are the nuclei and naabu binaries.
+aiohttp>=3.14.5,<4
