@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3
+
+**After updating:** nothing to do.
+
+- Fixed: the sensors-not-detected warning had no gap below it, so it touched the content underneath. It now has the same margin on all four sides.
+
 ## 0.1.2
 
 **After updating:** nothing to do.
