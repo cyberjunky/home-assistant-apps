@@ -28,6 +28,7 @@ class Metric:
 
 
 _C = {"unit": "°C", "device_class": "temperature"}
+GAS_FLOW_SCALE = 12 / 1000
 _KWH = {"unit": "kWh", "device_class": "energy", "state_class": "total_increasing", "scale": 0.001}
 _W = {"unit": "W", "device_class": "power"}
 _DIAG = {"diagnostic": True}
@@ -109,12 +110,14 @@ METRICS: tuple[Metric, ...] = (
         state_class="total_increasing",
         scale=0.001,
     ),
+    # The Toon gives the litres of the meter's last 5-minute step (checked against the meter's
+    # history on 10 November 2026), so times 12 per hour and divided by 1000 for m³
     Metric(
         "gas_flow",
         "Gas flow",
         unit="m³/h",
         device_class="volume_flow_rate",
-        scale=0.001,
+        scale=GAS_FLOW_SCALE,
         icon="mdi:gas-burner",
     ),
     # Not gas_total: this one counts from another start, so only its changes mean something

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.10
+
+**After updating:** nothing to do. The app corrects the gas flow it stored before, once, when it starts.
+
+- **Gas flow was shown 12 times too low.** The Toon gives the litres of the gas meter's last 5-minute step, not litres per hour. Checked on a Toon: 52 and 71 in its gas flow went with steps of 52 and 71 litres on the meter. The Dashboard, the day timeline, the Stats table and the **Gas flow** sensor in Home Assistant now show m³ per hour. Home Assistant's own history of that sensor from before the update stays as it was.
+
 ## 0.4.9
 
 **After updating:** nothing to do.

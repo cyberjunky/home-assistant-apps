@@ -141,7 +141,7 @@ async def test_request_times_out_without_answer():
 def test_convert_rejects_what_is_not_a_value():
     assert convert(METRIC_BY_KEY["burner_starts"], "65535") is None
     assert convert(METRIC_BY_KEY["gas_flow"], "NaN") is None
-    assert convert(METRIC_BY_KEY["gas_flow"], "39.00") == 0.039
+    assert convert(METRIC_BY_KEY["gas_flow"], "39.00") == pytest.approx(0.468)
     assert convert(METRIC_BY_KEY["energy_import_low"], "1677228") == 1677.228
     assert convert(METRIC_BY_KEY["next_setpoint"], "2100.00") == 21.0
     assert convert(METRIC_BY_KEY["room_temperature"], None) is None
@@ -260,7 +260,7 @@ def test_monitor_ignores_nonsense(database):
     monitor = make_monitor(database)
     monitor.set_value("gas_flow", "0.039e3")
     monitor.set_value("gas_flow", "NaN")
-    assert monitor.values["gas_flow"] == 0.039
+    assert monitor.values["gas_flow"] == pytest.approx(0.468)
     monitor.set_value("no_such_metric", "1")
     assert "no_such_metric" not in monitor.values
 
@@ -286,3 +286,32 @@ def test_mqtt_payload_and_discovery(database):
     connected = messages["homeassistant/binary_sensor/toon_00_00_000_000/connected/config"]
     assert connected["availability_topic"] == "toon/status"
     assert connected["state_topic"] == "toon/00-00-000-000/link"
+
+
+def test_gas_flow_is_litres_per_five_minutes():
+    """On the Toon, 52 in CurrentGasFlow went with a meter step of 52 litres in 5 minutes."""
+    assert convert(METRIC_BY_KEY["gas_flow"], "52.00") == pytest.approx(0.624)
+
+
+def test_old_gas_flow_is_corrected_once(tmp_path):
+    import sqlite3
+
+    path = tmp_path / "old.db"
+    old = sqlite3.connect(path)
+    old.executescript(
+        "CREATE TABLE samples (metric TEXT NOT NULL, ts INTEGER NOT NULL, value REAL NOT NULL,"
+        " PRIMARY KEY (metric, ts)) WITHOUT ROWID;"
+        "CREATE TABLE hourly (metric TEXT NOT NULL, ts INTEGER NOT NULL, avg REAL NOT NULL, min REAL NOT NULL,"
+        " max REAL NOT NULL, last REAL NOT NULL, PRIMARY KEY (metric, ts)) WITHOUT ROWID;"
+        "INSERT INTO samples VALUES ('gas_flow', 100, 0.052), ('boiler_pressure', 100, 1.5);"
+        "INSERT INTO hourly VALUES ('gas_flow', 0, 0.05, 0.0, 0.1, 0.052);"
+    )
+    old.commit()
+    old.close()
+    for _ in range(2):  # opening it again doesn't correct it twice
+        Database(path).close()
+    check = sqlite3.connect(path)
+    assert check.execute("SELECT value FROM samples WHERE metric = 'gas_flow'").fetchone()[0] == pytest.approx(0.624)
+    assert check.execute("SELECT value FROM samples WHERE metric = 'boiler_pressure'").fetchone()[0] == 1.5
+    assert check.execute("SELECT max, last FROM hourly").fetchone() == pytest.approx((1.2, 0.624))
+    check.close()

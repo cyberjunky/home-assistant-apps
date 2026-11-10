@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS import_progress (
 CREATE INDEX IF NOT EXISTS samples_ts ON samples (ts);
 """
 HOUR = 3600
+# How much the gas flow stored before version 0.4.10 is to be multiplied by (see _migrate)
+GAS_FLOW_FIX = 12
 # Above this range a chart reads the hourly values instead of the samples
 SAMPLES_RANGE_LIMIT = 3 * 86400
 # Values where a reading of 0 isn't a measurement
@@ -82,8 +84,22 @@ class Database:
         self._db.execute("PRAGMA journal_mode=WAL")
         self._db.execute("PRAGMA synchronous=NORMAL")
         self._db.executescript(SCHEMA)
+        self._migrate()
         self._db.commit()
         self._pending: list[tuple[str, int, float]] = []
+
+    def _migrate(self) -> None:
+        """Bring the stored values of an older version up to date, once."""
+        version = self._db.execute("PRAGMA user_version").fetchone()[0]
+        if version < 1:
+            # Up to 0.4.9 the gas flow was stored 12 times too low: the Toon's number is litres per
+            # 5 minutes, not per hour
+            self._db.execute(f"UPDATE samples SET value = value * {GAS_FLOW_FIX} WHERE metric = 'gas_flow'")
+            self._db.execute(
+                f"UPDATE hourly SET avg = avg * {GAS_FLOW_FIX}, min = min * {GAS_FLOW_FIX},"
+                f" max = max * {GAS_FLOW_FIX}, last = last * {GAS_FLOW_FIX} WHERE metric = 'gas_flow'"
+            )
+            self._db.execute("PRAGMA user_version = 1")
 
     def close(self) -> None:
         self.flush()
