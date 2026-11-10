@@ -26,7 +26,7 @@ function sevBadge(s) { return `<span class="sev ${s}">${s}</span>`; }
 function applyTheme(t) { if (t) document.documentElement.dataset.theme = t; }
 try { applyTheme(localStorage.getItem('nuclei_theme')); } catch (e) {}
 document.getElementById('theme-toggle').onclick = () => {
-  const t = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+  const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
   applyTheme(t); try { localStorage.setItem('nuclei_theme', t); } catch (e) {}
 };
 

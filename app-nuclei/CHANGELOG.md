@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.5
+
+**After updating:** nothing to do.
+
+- The dashboard starts in the light theme. The theme button still switches to dark, and the
+  browser remembers that choice.
+
 ## 0.1.4
 
 **After updating:** nothing to do.

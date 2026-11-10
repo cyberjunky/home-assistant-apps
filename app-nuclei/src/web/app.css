@@ -1,16 +1,17 @@
+/* Light by default; the theme button switches to dark and remembers it */
 :root {
-  color-scheme: dark;
-  --bg: #0b0e12; --card: #12161c; --line: #242b35; --grid: #1c222b;
-  --text: #e7ebf0; --text2: #9ba5b3; --text3: #7b8594;
-  --primary: #4c8dff; --selected: rgba(76,141,255,0.14); --hover: rgba(255,255,255,0.05);
-  --critical: #ff5b6e; --high: #ff8f4c; --medium: #f5c542; --low: #4c8dff; --info: #7b8594; --ok: #5fd68a;
-  --mono: 'IBM Plex Mono', ui-monospace, monospace;
-}
-:root[data-theme="light"] {
   color-scheme: light;
   --bg: #f3f5f7; --card: #ffffff; --line: #e1e5ea; --grid: #eef1f4;
   --text: #1a1f26; --text2: #5b6573; --text3: #828c99;
-  --selected: rgba(76,141,255,0.12); --hover: rgba(0,0,0,0.04);
+  --primary: #4c8dff; --selected: rgba(76,141,255,0.12); --hover: rgba(0,0,0,0.04);
+  --critical: #ff5b6e; --high: #ff8f4c; --medium: #f5c542; --low: #4c8dff; --info: #7b8594; --ok: #5fd68a;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b0e12; --card: #12161c; --line: #242b35; --grid: #1c222b;
+  --text: #e7ebf0; --text2: #9ba5b3; --text3: #7b8594;
+  --selected: rgba(76,141,255,0.14); --hover: rgba(255,255,255,0.05);
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text);
