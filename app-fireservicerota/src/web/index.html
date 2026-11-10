@@ -77,8 +77,12 @@
                         <div id="wall-incident" class="wall-incident"><div class="empty-state">No incidents yet</div></div>
                         <div id="wall-duty" class="wall-duty"></div>
                         <div class="wall-history">
-                            <div class="chart-title">Incidents, last 48 hours</div>
-                            <div id="wall-history"></div>
+                            <div class="chart-title wall-chart-head">Incidents per hour, last 48 hours<span id="wall-history-legend" class="wall-legend"></span></div>
+                            <div id="wall-history" class="wall-chart"></div>
+                        </div>
+                        <div class="wall-recent">
+                            <div class="chart-title">Last 10 calls</div>
+                            <div id="wall-recent" class="wall-recent-rows"></div>
                         </div>
                     </div>
                     <div class="wall-map">
@@ -86,7 +90,6 @@
                         <div id="wall-kpis" class="wall-kpis"></div>
                     </div>
                 </div>
-                <div id="wall-ticker" class="ticker"></div>
             </div>
         </section>
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.4
+
+**After updating:** nothing to do.
+
+- Wallboard: the incident card is about half as high. The text is two lines at most, and the rest of the column is for the history.
+- Wallboard: the incident's details are shown as small facts under the address: alarm and deadline time, status, responder mode, location type, number of tasks, updates, who responds and whether you were available at the alarm.
+- After you acknowledge or reject, the countdown keeps running in grey with "You can change your answer for": it is the time you have left to change your mind. Your answer's button is outlined, and the other button changes it. This also applies to the Console.
+- Wallboard: the 48-hour strip is now a sharp bar chart of incidents per hour, stacked by priority, with a legend, day boundaries, a now line and the incidents of each hour on hover. It was stretched and blurry.
+- Wallboard: the last 10 calls are listed under the chart. The ticker along the bottom is gone.
+- Wallboard: the map zooms in to street level (16) on the incident, instead of fitting your home and the incident together. Zoom out by hand and it remembers that, separately from the Console.
 ## 0.1.3
 
 **After updating:** nothing to do.

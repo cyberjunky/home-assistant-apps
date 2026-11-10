@@ -29,7 +29,7 @@ records stays in the app's data folder and is included in your Home Assistant ba
 - ⏱️ **Response window**: a countdown to `can_respond_until`, with a bar that runs out
 - ✅ **Acknowledge or reject** from the dashboard, after a confirmation; greyed out with the reason when you are off duty or the window has closed
 - 🟢 **Duty**: on or off duty, your shift and function, and your hours on duty
-- 🖥️ **Wallboard**: the incident in large text with the buttons, duty, the last 48 hours and the map, for an always-on screen down to 1024x600
+- 🖥️ **Wallboard**: the incident with its details and the buttons, duty, an hourly chart of the last 48 hours, the last 10 calls and the map, for an always-on screen down to 1024x600
 - 🗂️ **History**: every incident, its updates, your responses and duty, stored live and imported from Home Assistant's recorder, never twice
 - 📊 **Statistics**: incidents per day, week or month, by type, priority and hour, how often and how fast you answered
 - 🔊 **Spoken message**: play FireServiceRota's spoken message in your browser; sound, browser speech and browser notifications on a new incident

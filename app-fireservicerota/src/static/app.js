@@ -334,8 +334,17 @@ try { savedView = JSON.parse(localStorage.getItem('fsr_map_view')); } catch (e) 
 const map = savedView
     ? L.map('map').setView([savedView.lat, savedView.lng], savedView.zoom)
     : L.map('map').setView([52.2, 5.3], 8);
+const WALL_ZOOM = 16;
 let focusZoom = parseInt(localStorage.getItem('fsr_map_zoom'), 10) || FOCUS_ZOOM;
-map.on('zoomend', () => { focusZoom = map.getZoom(); localStorage.setItem('fsr_map_zoom', focusZoom); });
+let wallZoom = parseInt(localStorage.getItem('fsr_wall_zoom'), 10) || WALL_ZOOM;
+// Only zooms you make yourself are remembered (per view), not the app's own moves
+let autoMove = false;
+function moveMap(fn) { autoMove = true; try { fn(); } finally { autoMove = false; } }
+map.on('zoomend', () => {
+    if (autoMove) return;
+    if (activeView === 'wallboard') { wallZoom = map.getZoom(); localStorage.setItem('fsr_wall_zoom', wallZoom); }
+    else { focusZoom = map.getZoom(); localStorage.setItem('fsr_map_zoom', focusZoom); }
+});
 map.on('moveend', () => {
     const c = map.getCenter();
     localStorage.setItem('fsr_map_view', JSON.stringify({lat: c.lat, lng: c.lng, zoom: map.getZoom()}));
@@ -361,7 +370,7 @@ function renderHome(home) {
     const house = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9h13v-9"/><path d="M10 19v-5h4v5"/></svg>';
     L.marker(homeLatLng, {icon: L.divIcon({className: 'home-marker', html: house, iconSize: [24, 24], iconAnchor: [12, 12]}), keyboard: false})
         .addTo(homeLayer).bindTooltip(escapeHtml(home.name || 'Home'), {sticky: true});
-    if (!savedView) map.setView(homeLatLng, 11, {animate: false});
+    if (!savedView) moveMap(() => map.setView(homeLatLng, 11, {animate: false}));
 }
 
 const markers = [];
@@ -385,12 +394,8 @@ function focusIncident(i, openPopup) {
     if (currentMarker) map.removeLayer(currentMarker);
     currentMarker = L.marker([i.latitude, i.longitude]).addTo(map);
     currentMarker.bindPopup(`<b>${escapeHtml([prioLabel(i), i.type].filter(Boolean).join(' · '))}</b><br><small>${escapeHtml(i.formatted_address || '')}</small><br><div style="margin-top:6px;max-width:250px;word-wrap:break-word;">${escapeHtml(i.body || '')}</div>`);
-    if (homeLatLng && activeView === 'wallboard') {
-        // The route home - incident in one view on the always-on screen
-        map.fitBounds(L.latLngBounds([homeLatLng, [i.latitude, i.longitude]]).pad(0.35), {animate: false, maxZoom: 15});
-    } else {
-        map.setView([i.latitude, i.longitude], focusZoom, {animate: false});
-    }
+    // The Wallboard zooms in to street level (16) on the incident; zoom out by hand and it remembers that
+    moveMap(() => map.setView([i.latitude, i.longitude], activeView === 'wallboard' ? wallZoom : focusZoom, {animate: false}));
     if (openPopup) currentMarker.openPopup();
 }
 
@@ -502,6 +507,16 @@ function respondReason() {
     return '';
 }
 
+// Your answer on the current incident: 'acknowledged', 'rejected' or null
+function answered() {
+    const r = lastData && lastData.current.response;
+    return r && (r.status === 'acknowledged' || r.status === 'rejected') ? r.status : null;
+}
+// Before you answer the countdown is the deadline; after, it is how long you can still change your mind
+function respondLabel() {
+    return answered() ? 'You can change your answer for' : 'Respond within';
+}
+
 function countdownHTML(incident) {
     const w = windowState(incident);
     if (!w.until) return '<span class="countdown closed">no response deadline</span>';
@@ -515,6 +530,7 @@ function windowBarHTML(incident) {
 }
 
 function tickCountdowns() {
+    const done = answered();
     document.querySelectorAll('.countdown[data-until]').forEach(el => {
         const left = new Date(el.dataset.until) - Date.now();
         if (left <= 0) {
@@ -525,21 +541,28 @@ function tickCountdowns() {
         const s = Math.floor(left / 1000);
         const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
         el.textContent = (h ? `${h}:${String(m).padStart(2, '0')}` : `${m}`) + ':' + String(sec).padStart(2, '0');
-        el.className = 'countdown' + (left < 5 * 60000 ? ' closing' : '');
-        el.title = 'Respond before ' + formatTime(el.dataset.until);
+        el.className = 'countdown' + (done ? ' answered' : (left < 5 * 60000 ? ' closing' : ''));
+        el.title = (done ? 'You can change your answer until ' : 'Respond before ') + formatTime(el.dataset.until);
     });
+    document.querySelectorAll('[data-respond-label]').forEach(el => { el.textContent = respondLabel(); });
     document.querySelectorAll('.window-bar[data-until]').forEach(el => {
         const from = new Date(el.dataset.from), until = new Date(el.dataset.until);
         const left = until - Date.now();
         const share = until > from ? Math.max(0, Math.min(1, left / (until - from))) : 0;
         el.firstElementChild.style.width = (share * 100).toFixed(1) + '%';
-        el.classList.toggle('closing', left < 5 * 60000);
+        el.classList.toggle('closing', !done && left < 5 * 60000);
+        el.classList.toggle('answered', Boolean(done));
     });
-    // The buttons close with the window, without waiting for the server
+    // The buttons close with the window, without waiting for the server.
+    // After answering, both stay usable so you can change your mind; your answer is outlined.
     document.querySelectorAll('[data-respond]').forEach(btn => {
         const reason = respondReason();
+        const mine = done && (btn.dataset.respond === 'acknowledge') === (done === 'acknowledged');
         btn.disabled = Boolean(reason) || responding;
-        btn.title = reason || (btn.dataset.respond === 'acknowledge' ? 'Acknowledge: switch the response switch on' : 'Reject: switch the response switch off');
+        btn.classList.toggle('chosen', Boolean(mine));
+        btn.classList.toggle('not-chosen', Boolean(done && !mine));
+        btn.title = reason || (mine ? 'Your current answer'
+            : btn.dataset.respond === 'acknowledge' ? 'Acknowledge: switch the response switch on' : 'Reject: switch the response switch off');
     });
     document.querySelectorAll('[data-respond-reason]').forEach(el => { el.textContent = respondReason(); });
 }
@@ -662,7 +685,7 @@ function renderCurrent() {
             <div class="respond-row">${answerHTML(c.response, c.switch)}</div>
         </div>
         <div class="act">
-            <div class="respond-row"><span class="where">Respond within</span> ${countdownHTML(i)}</div>
+            <div class="respond-row"><span class="where" data-respond-label>${respondLabel()}</span> ${countdownHTML(i)}</div>
             <div class="respond-row">${respondButtonsHTML()}</div>
             <div class="respond-reason" data-respond-reason></div>
         </div>`;
@@ -682,10 +705,11 @@ function renderWallboard() {
                 <span class="age">${escapeHtml(formatTime(incidentTime(i)))} · ${ago(incidentTime(i))} ago</span></div>
             <div class="wall-body">${escapeHtml(i.body || '(text not available)')}</div>
             <div class="wall-where"><b>${escapeHtml(i.formatted_address || 'No address')}</b>${km(i) ? ' · ' + escapeHtml(km(i)) : ''}</div>
-            <div class="wall-answer">${answerHTML(c.response, c.switch)}${i.message_to_speech_url
+            ${wallFactsHTML(i, c)}
+            <div class="wall-answer">${answerHTML(c.response, null)}${i.message_to_speech_url
                 ? `<audio controls preload="none" src="${escapeHtml(i.message_to_speech_url)}" title="Spoken message, played by this browser from FireServiceRota"></audio>` : ''}</div>
             <div class="wall-respond">
-                <div><div class="sub">Respond within</div>${countdownHTML(i)}</div>
+                <div><div class="sub" data-respond-label>${respondLabel()}</div>${countdownHTML(i)}</div>
                 <div class="wall-buttons">${respondButtonsHTML()}</div>
                 ${windowBarHTML(i)}
                 <div class="sub" data-respond-reason style="grid-column: 1 / -1;"></div>
@@ -705,11 +729,37 @@ function renderWallboard() {
         <div class="wall-kpi"><div class="v">${answered}</div><div class="l">Acknowledged</div></div>
         <div class="wall-kpi"><div class="v">${i && i.distance_km !== null && i.distance_km !== undefined ? i.distance_km : '—'}</div><div class="l">km</div></div>`;
 
-    document.getElementById('wall-ticker').innerHTML = latest.slice(1, 5).map(x => `
-        <button type="button" class="tick" onclick="switchTab('console'); openIncident('${escapeHtml(x.id)}')">
-            <span class="meta"><span>${escapeHtml(rowTime(incidentTime(x)))}</span>${prioChip(x)}<span>${escapeHtml(x.type || '')}</span>${respChip(x.response)}</span>
-            <span class="text">${escapeHtml(x.body || '')}</span>
-        </button>`).join('');
+    const recent = latest.filter(x => !i || x.id !== i.id).slice(0, 10);
+    document.getElementById('wall-recent').innerHTML = recent.length ? recent.map(x => `
+        <button type="button" class="recent-row" onclick="switchTab('console'); openIncident('${escapeHtml(x.id)}')"
+            title="${escapeHtml([formatDate(incidentTime(x)), x.formatted_address, x.body].filter(Boolean).join('\n'))}">
+            <span class="time">${escapeHtml(rowTime(incidentTime(x)))}</span>${prioChip(x)}<span class="type">${escapeHtml(x.type || '')}</span>
+            <span class="text">${escapeHtml(x.body || '(text not available)')}</span>${respChip(x.response)}
+        </button>`).join('') : '<div class="panel-sub" style="padding: 8px 24px;">No earlier calls</div>';
+}
+
+// The incident's and your response's attributes, as small facts under the address
+// (your function and shift are in the duty row below)
+const RESPONDER_MODES = {available_in_schedule_is_acknowledgment: 'on schedule = acknowledged'};
+function wallFactsHTML(i, c) {
+    const sw = (c.switch && c.switch.attributes) || {};
+    const yesNo = v => (v === true || v === 'True' || v === 'true' || v === 1 || v === '1') ? 'yes'
+        : (v === false || v === 'False' || v === 'false' || v === 0 || v === '0') ? 'no' : String(v);
+    const has = v => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && !v.length);
+    const facts = [
+        ['Alarm', i.created_at && formatTime(i.created_at)],
+        ['Deadline', i.can_respond_until && formatTime(i.can_respond_until)],
+        ['Status', i.state],
+        ['Mode', i.responder_mode && (RESPONDER_MODES[i.responder_mode] || String(i.responder_mode).replace(/_/g, ' '))],
+        ['Location', i.address_type && String(i.address_type).replace(/_/g, ' ')],
+        ['Tasks', has(i.task_ids) ? (Array.isArray(i.task_ids) ? i.task_ids.length : i.task_ids) : null],
+        ['Updates', i.updates > 1 ? i.updates : null],
+        ['Responder', sw.user_name],
+        ['Reported', sw.reported_status],
+        ['Available at alarm', has(sw.available_at_incident_creation) ? yesNo(sw.available_at_incident_creation) : null],
+    ].filter(([, v]) => has(v));
+    if (!facts.length) return '';
+    return `<div class="wall-facts">${facts.map(([k, v]) => `<span class="fact" title="${escapeHtml(k)}: ${escapeHtml(v)}"><span class="k">${escapeHtml(k)}</span><span class="v">${escapeHtml(v)}</span></span>`).join('')}</div>`;
 }
 
 // History strip: the incident sensor over the last 48 hours
@@ -717,29 +767,80 @@ let timelineItems = [];
 function loadTimeline() {
     fetch(basePath + 'api/timeline?hours=48').then(r => r.json()).then(data => { timelineItems = data.items; renderTimeline(); }).catch(() => {});
 }
+// One bar per clock hour, stacked by priority, drawn at the element's real pixel size
+// (no stretching, so lines and text stay sharp). Updates of an incident are not counted again.
+const PRIO_ORDER = ['p1', 'amb', 'p2', 'other'];
+const PRIO_FILL = {p1: 'var(--prio-1)', amb: 'var(--disc-ambulance)', p2: 'var(--prio-2)', other: 'var(--primary-color)'};
+const PRIO_NAME = {p1: 'Prio 1', amb: 'Ambulance', p2: 'Prio 2', other: 'Other'};
 function renderTimeline() {
     const el = document.getElementById('wall-history');
-    const width = 600, height = 40, hours = 48;
-    const now = Date.now(), start = now - hours * 3600000;
-    const x = ts => (new Date(ts) - start) / (now - start) * width;
-    let ticks = '';
-    for (let h = 0; h <= hours; h += 6) {
-        const t = new Date(start + h * 3600000);
-        const tx = h / hours * width;
-        ticks += `<line x1="${tx}" y1="0" x2="${tx}" y2="${height}" stroke="var(--divider-color)" stroke-width="0.6"/>`;
-        if (h < hours) ticks += `<text x="${tx + 2}" y="${height + 9}" font-size="8" fill="var(--secondary-text-color)">${t.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', hour12: false})}</text>`;
+    if (!el || !el.clientWidth) return;
+    const hours = 48, width = el.clientWidth, full = el.clientHeight || 80;
+    const top = 12, bottom = 16, height = Math.max(24, full - top - bottom);
+    const end = new Date(); end.setMinutes(0, 0, 0); end.setHours(end.getHours() + 1);
+    const start = end - hours * 3600000;
+    const slots = Array.from({length: hours}, (_, n) => ({t: start + n * 3600000, kinds: {}, items: []}));
+    const seen = new Set();
+    timelineItems.forEach(u => {
+        if (u.trigger === 'update' || seen.has(u.incident_id)) return;
+        seen.add(u.incident_id);
+        const n = Math.floor((new Date(u.ts) - start) / 3600000);
+        if (n < 0 || n >= hours) return;
+        const k = prioKind(u);
+        slots[n].kinds[k] = (slots[n].kinds[k] || 0) + 1;
+        slots[n].items.push(u);
+    });
+    const max = Math.max(1, ...slots.map(s => s.items.length));
+    const unit = height / max, slot = width / hours, base = top + height;
+    const hh = t => new Date(t).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', hour12: false});
+    let grid = '';
+    // Horizontal guides at whole counts (at most 3)
+    const step = Math.max(1, Math.ceil(max / 3));
+    for (let v = step; v <= max; v += step) {
+        const y = Math.round(base - v * unit) + 0.5;
+        grid += `<line x1="0" y1="${y}" x2="${width}" y2="${y}" stroke="var(--divider-color)" stroke-dasharray="2 3"/>`
+            + `<text x="${width}" y="${y - 2}" font-size="10" text-anchor="end" fill="var(--secondary-text-color)">${v}</text>`;
     }
-    const colors = {p1: 'var(--prio-1)', amb: 'var(--disc-ambulance)', p2: 'var(--prio-2)', other: 'var(--primary-color)'};
-    const bars = timelineItems.map(u => {
-        const bx = x(u.ts);
-        const h = u.trigger === 'update' ? height * 0.55 : height;
-        return `<g><title>${escapeHtml(formatShortDate(u.ts) + ' · ' + [prioLabel(u), u.type, u.trigger].filter(Boolean).join(' · ') + '\n' + (u.body || ''))}</title>`
-            + `<rect x="${bx - 2}" y="${height - h}" width="4" height="${h}" rx="1" fill="${colors[prioKind(u)]}" style="cursor:pointer" onclick="switchTab('console'); openIncident('${escapeHtml(u.incident_id)}')"/></g>`;
+    // Time labels every 6 hours, midnight drawn as a day boundary
+    slots.forEach((s, n) => {
+        const d = new Date(s.t);
+        const x = Math.round(n * slot) + 0.5;
+        if (d.getHours() === 0) {
+            grid += `<line x1="${x}" y1="${top - 4}" x2="${x}" y2="${base}" stroke="var(--secondary-text-color)" stroke-opacity="0.5"/>`
+                + `<text x="${x + 3}" y="${top - 3}" font-size="10" fill="var(--secondary-text-color)">${escapeHtml(d.toLocaleDateString([], {weekday: 'short', day: 'numeric'}))}</text>`;
+        }
+        if (d.getHours() % 6 === 0 && x > 14 && x < width - 20) {
+            grid += `<text x="${x}" y="${base + 12}" font-size="10" text-anchor="middle" fill="var(--secondary-text-color)">${hh(s.t)}</text>`;
+        }
+    });
+    const gap = slot > 6 ? 1.5 : 0.5;
+    const bars = slots.map((s, n) => {
+        const x = n * slot + gap / 2, w = Math.max(1, slot - gap);
+        let y = base, rects = '';
+        PRIO_ORDER.forEach(k => {
+            const c = s.kinds[k];
+            if (!c) return;
+            const h = c * unit;
+            y -= h;
+            rects += `<rect class="bar" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="${Math.min(1.5, w / 4).toFixed(1)}" fill="${PRIO_FILL[k]}"/>`;
+        });
+        const tip = `${hh(s.t)}–${hh(s.t + 3600000)}: ${s.items.length ? s.items.length + ' incident' + (s.items.length > 1 ? 's' : '') : 'none'}`
+            + s.items.map(u => `\n${formatTime(u.ts)} · ${[prioLabel(u), u.type].filter(Boolean).join(' · ')}${u.body ? ' — ' + u.body.slice(0, 80) : ''}`).join('');
+        const click = s.items.length ? ` onclick="switchTab('console'); openIncident('${escapeHtml(s.items[s.items.length - 1].incident_id)}')" style="cursor:pointer"` : '';
+        return `<g class="slot"${click}><title>${escapeHtml(tip)}</title><rect class="hit" x="${(n * slot).toFixed(1)}" y="${top}" width="${slot.toFixed(1)}" height="${height}" fill="transparent"/>${rects}</g>`;
     }).join('');
-    el.innerHTML = `<svg viewBox="0 0 ${width} ${height + 11}" preserveAspectRatio="none">${ticks}`
-        + `<line x1="0" y1="${height}" x2="${width}" y2="${height}" stroke="var(--divider-color)"/>${bars}</svg>`
-        + (timelineItems.length ? '' : '<div class="panel-sub" style="margin-top: -30px; text-align: center;">No incidents in the last 48 hours</div>');
+    const nowX = Math.round((Date.now() - start) / (end - start) * width) + 0.5;
+    const used = PRIO_ORDER.filter(k => slots.some(s => s.kinds[k]));
+    const legendEl = document.getElementById('wall-history-legend');
+    if (legendEl) legendEl.innerHTML = used.map(k => `<span><i style="background:${PRIO_FILL[k]}"></i>${PRIO_NAME[k]}</span>`).join('');
+    el.innerHTML = `<svg width="${width}" height="${full}" viewBox="0 0 ${width} ${full}" shape-rendering="crispEdges">
+        ${grid}<line x1="0" y1="${base + 0.5}" x2="${width}" y2="${base + 0.5}" stroke="var(--divider-color)"/>
+        <g shape-rendering="geometricPrecision">${bars}</g>
+        <line x1="${nowX}" y1="${top}" x2="${nowX}" y2="${base}" stroke="var(--primary-color)" stroke-width="1.5"><title>now</title></line>
+        ${seen.size ? '' : `<text x="${width / 2}" y="${top + height / 2 + 4}" font-size="12" text-anchor="middle" fill="var(--secondary-text-color)">No incidents in the last 48 hours</text>`}
+    </svg>`;
 }
+if (window.ResizeObserver) new ResizeObserver(() => renderTimeline()).observe(document.getElementById('wall-history'));
 
 // Console feed: the live list (plus older incidents on demand) or, while
 // searching, results from the database; both narrowed by the chips

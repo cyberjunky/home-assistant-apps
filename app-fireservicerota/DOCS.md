@@ -71,11 +71,18 @@ The tabs in the top bar:
   Click an incident to see it on the map and in full under the map: all its fields, a
   player for the spoken message, and the timeline of its updates and your responses.
   `j`/`k` or the arrow keys step through the list.
-- **Wallboard**: for a screen that is always on. The current incident in large text,
-  the countdown with a bar that runs out, the buttons, your duty, a strip with the
-  incidents of the last 48 hours, and the map with your home and the incident. It fits
-  a 1024x600 screen (the size of a Nest Hub) and 1280x800 tablets. Open the app with
+- **Wallboard**: for a screen that is always on. The current incident with its details
+  (alarm and deadline time, status, responder mode, tasks, who responds and whether you
+  were available at the alarm), the countdown with a bar that runs out, the buttons and
+  your duty. Below that a chart of incidents per hour over the last 48 hours, by
+  priority, and the last 10 calls; click one to open it on the Console. The map zooms in
+  to street level on the incident (zoom out by hand and it remembers that). It fits a
+  1024x600 screen (the size of a Nest Hub) and 1280x800 tablets. Open the app with
   `#tab=wallboard` at the end of the address to start on it.
+
+  After you acknowledge or reject, the countdown keeps running, in grey: it is the time
+  you can still change your answer. Your answer is outlined; press the other button to
+  change it.
 - **Stats**: for 7, 30 or 90 days, a year or everything: incidents per day, week or
   month, by type and priority, the busiest hours and weekdays, how often you acknowledged,
   rejected or didn't answer, the median time to answer, and your hours on duty with the
