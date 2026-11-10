@@ -401,6 +401,19 @@ function flowFromMeter(points) {
     return flow;
 }
 
+// Live readings are stored at least every 15 minutes while connected: a longer stretch without one
+// means the app wasn't recording, and there the flow worked out from the meter's history fills in.
+const LIVE_GAP = 18 * 60;
+
+function flowWithMeter(live, meter, start, end) {
+    if (!live.length) return meter;
+    const times = [start, ...live.map(p => p[0]), end];
+    const gaps = [];
+    for (let i = 1; i < times.length; i++) if (times[i] - times[i - 1] > LIVE_GAP) gaps.push([times[i - 1], times[i]]);
+    const filled = meter.filter(([ts]) => gaps.some(([a, b]) => ts > a && ts < b));
+    return [...live, ...filled].sort((a, b) => a[0] - b[0]);
+}
+
 async function loadDay() {
     document.getElementById('day-nav').innerHTML = dateNavHtml('dayStep', stats.day);
     document.getElementById('day-title').textContent = 'Timeline';
@@ -413,9 +426,9 @@ async function loadDay() {
         api(`history?start=${start}&end=${end}&metrics=${[...metrics, 'burner_code'].join(',')}`),
         api(`gas-hours?day=${stats.day}`),
     ]);
-    // The Toon keeps no history of the gas flow. Days without live readings get it from the meter's
-    // 5-minute history, which only goes back about a week before the app was installed.
-    if (!(data.gas_flow || []).length) data.gas_flow = flowFromMeter(data.gas_delivered);
+    // The Toon keeps no history of the gas flow. Where there are no live readings (days before the app,
+    // or an outage) it comes from the meter's 5-minute history, which goes back about a week.
+    data.gas_flow = flowWithMeter(data.gas_flow || [], flowFromMeter(data.gas_delivered), start, Math.min(end, Math.floor(Date.now() / 1000)));
     const shown = charts.filter(c => c.id !== 'day-gas' || (data.gas_flow || []).length);
     const gasTotal = gasHours.reduce((total, h) => total + h.gas, 0);
     const xs = gridTimes(start, end, step);

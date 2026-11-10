@@ -83,7 +83,7 @@ History has the Toon's own timestamps, so a Toon with a wrong clock has its hist
 
 The Toon keeps logging while it can't be reached, so the app fills what it missed. After every connect it looks for gaps in what it stored and fetches those stretches from the Toon. This covers outages, and also the app being stopped or restarted, for example by an update. The **Fetch missing history** button under **Settings → Connection history** does the same on request. It only reads from the Toon, and live values stay as they are.
 
-Filled: room temperature, setpoint, boiler setpoint, water pressure and the program state per minute, and power and gas per 5 minutes, as far back as the Toon keeps them (about 30 days). Supply and return temperature, modulation and the burner state can't be filled, because the Toon keeps no history of them.
+Filled: room temperature, setpoint, boiler setpoint, water pressure and the program state per minute, and power and gas per 5 minutes, as far back as the Toon keeps them (about 30 days). Gas per hour and gas flow on the day timeline are worked out from the gas meter's readings for those hours. Supply and return temperature, modulation and the burner state can't be filled, because the Toon keeps no history of them.
 
 ## Sensors you may expect but won't find
 

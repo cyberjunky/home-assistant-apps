@@ -8,6 +8,7 @@ period takes a moment on small hardware and the connection to the Toon must not 
 
 import csv
 import io
+import itertools
 import sqlite3
 import statistics
 import threading
@@ -136,17 +137,33 @@ def sum_by_day(deltas: list[tuple[int, float, int]]) -> dict[str, float]:
     return dict(days)
 
 
-def gas_per_hour(points: list[Point], hours: list[int]) -> list[dict]:
+def gas_per_hour(points: list[Point], hours: list[int], fine: list[Point] | None = None) -> list[dict]:
     """Gas used in each of these hours (their starts) from a counter's readings. Empty when the readings
-    are too far apart to tell: the Toon only keeps hourly values for about five years."""
+    are too far apart to tell: the Toon only keeps hourly values for about five years.
+
+    fine are the gas meter's 5-minute readings (gas_delivered). They count from another start, so only
+    their changes are used, and only where the counter's own readings are too far apart: after an
+    outage the app has no readings of the counter, but those of the meter's history are filled in.
+    """
     rows = [{"ts": hour, "gas": 0.0} for hour in hours]
     by_ts = {row["ts"]: row for row in rows}
     known = False
-    for ts, amount, span in counter_deltas(points):
+
+    def add(ts: int, amount: float) -> None:
+        nonlocal known
         row = by_ts.get(ts // HOUR * HOUR)
-        if row and span <= 2 * HOUR:
+        if row:
             row["gas"] = round(row["gas"] + amount, 3)
             known = True
+
+    for ts, amount, span in counter_deltas(points):
+        if span <= 2 * HOUR:
+            add(ts, amount)
+    if fine:
+        covered = [(a[0], b[0]) for a, b in itertools.pairwise(points) if b[0] - a[0] <= 2 * HOUR]
+        for ts, amount, span in counter_deltas(fine):
+            if span <= 2 * HOUR and not any(a <= ts <= b for a, b in covered):
+                add(ts, amount)
     return rows if known else []
 
 
@@ -566,9 +583,10 @@ class Stats:
         db = self._connect()
         try:
             points = self._points(db, COUNTERS["gas"], start - 2 * HOUR, end + HOUR)
+            fine = self._samples(db, "gas_delivered", start, end + HOUR)
         finally:
             db.close()
-        return gas_per_hour(points, list(range(start, end, HOUR)))
+        return gas_per_hour(points, list(range(start, end, HOUR)), fine)
 
     def raw_csv(self, metrics: list[str], first: str, last: str, hourly: bool = False) -> str:
         """The stored values of a period, one per line: every sample, or the hourly values."""

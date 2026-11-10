@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.9
+
+**After updating:** nothing to do.
+
+- **Gas per hour** and **Gas flow** on the day timeline also cover a gap in the live readings, from the gas meter's 5-minute history that the app fills in after an outage. Before, a day with some live readings showed nothing for the hours in between.
+
 ## 0.4.8
 
 **After updating:** nothing to do. On its first connect the app fills the gaps it can by itself.

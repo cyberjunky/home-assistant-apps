@@ -297,6 +297,22 @@ def test_gas_per_hour():
     assert gas_per_hour([(base, 10.0), (base + DAY, 20.0)], list(range(base, base + DAY, HOUR))) == []
 
 
+def test_gas_per_hour_fills_a_gap_from_the_meters_history():
+    """10 November: no counter readings from 04:32 to 12:47, but the meter's 5-minute history has them.
+    It counts from another start, so only its changes count, and only inside the gap."""
+    base = 1_000_000 // HOUR * HOUR
+    hours = [base + i * HOUR for i in range(6)]
+    counter = [(base, 10.0), (base + HOUR, 10.5), (base + 5 * HOUR, 13.0), (base + 6 * HOUR, 13.2)]
+    meter = [(base + i * 300, 500.0 + 0.002 * i) for i in range(12 * 6 + 1)]
+    rows = gas_per_hour(counter, hours, meter)
+    gas = [row["gas"] for row in rows]
+    # The first hour from the counter, not doubled with the meter's
+    assert gas[0] == 0.5
+    # Hours 1 to 4 had no counter readings: 12 meter steps of 0.002 each
+    assert gas[1:5] == [0.024, 0.024, 0.024, 0.024]
+    assert gas[5] == 0.2
+
+
 async def test_gas_hours_api(client):
     assert (await client.get("/api/gas-hours?day=nonsense")).status == 400
     assert (await client.get("/api/gas-hours")).status == 400

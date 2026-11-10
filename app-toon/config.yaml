@@ -1,5 +1,5 @@
 name: Toon
-version: "0.4.8"
+version: "0.4.9"
 slug: app-toon
 description: "Logger and dashboard for a rooted Toon thermostat - boiler, heating, energy and the Toon's own health"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-toon"
