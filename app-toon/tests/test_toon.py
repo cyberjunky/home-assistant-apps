@@ -291,27 +291,3 @@ def test_mqtt_payload_and_discovery(database):
 def test_gas_flow_is_litres_per_five_minutes():
     """On the Toon, 52 in CurrentGasFlow went with a meter step of 52 litres in 5 minutes."""
     assert convert(METRIC_BY_KEY["gas_flow"], "52.00") == pytest.approx(0.624)
-
-
-def test_old_gas_flow_is_corrected_once(tmp_path):
-    import sqlite3
-
-    path = tmp_path / "old.db"
-    old = sqlite3.connect(path)
-    old.executescript(
-        "CREATE TABLE samples (metric TEXT NOT NULL, ts INTEGER NOT NULL, value REAL NOT NULL,"
-        " PRIMARY KEY (metric, ts)) WITHOUT ROWID;"
-        "CREATE TABLE hourly (metric TEXT NOT NULL, ts INTEGER NOT NULL, avg REAL NOT NULL, min REAL NOT NULL,"
-        " max REAL NOT NULL, last REAL NOT NULL, PRIMARY KEY (metric, ts)) WITHOUT ROWID;"
-        "INSERT INTO samples VALUES ('gas_flow', 100, 0.052), ('boiler_pressure', 100, 1.5);"
-        "INSERT INTO hourly VALUES ('gas_flow', 0, 0.05, 0.0, 0.1, 0.052);"
-    )
-    old.commit()
-    old.close()
-    for _ in range(2):  # opening it again doesn't correct it twice
-        Database(path).close()
-    check = sqlite3.connect(path)
-    assert check.execute("SELECT value FROM samples WHERE metric = 'gas_flow'").fetchone()[0] == pytest.approx(0.624)
-    assert check.execute("SELECT value FROM samples WHERE metric = 'boiler_pressure'").fetchone()[0] == 1.5
-    assert check.execute("SELECT max, last FROM hourly").fetchone() == pytest.approx((1.2, 0.624))
-    check.close()

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.11
+
+**After updating:** nothing to do.
+
+- Removed the one-time correction of the stored gas flow from 0.4.10, now that it has run. A database backup from before 0.4.10 keeps its gas flow 12 times too low if you restore it.
+
 ## 0.4.10
 
 **After updating:** nothing to do. The app corrects the gas flow it stored before, once, when it starts.
