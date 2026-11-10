@@ -3,6 +3,7 @@
 import json
 import os
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 
 # App storage: options.json, the database and the Toon's SSH key live here.
@@ -63,6 +64,8 @@ class Config:
     # Sensors read from Home Assistant: the outside temperature, and any others
     outside_temperature: str = ""
     external_sensors: list[dict] = field(default_factory=list)
+    # Energy prices, each from its start date until the next one starts
+    prices: list[dict] = field(default_factory=list)
 
     log_level: str = "info"
 
@@ -105,6 +108,7 @@ class Config:
                 for item in options.get("external_sensors") or []
                 if item.get("name") and item.get("entity")
             ],
+            prices=parse_prices(options.get("prices") or []),
             log_level=str(options.get("log_level") or "info"),
         )
         if not config.ssh_host:
@@ -112,3 +116,37 @@ class Config:
         if not config.ssh_password:
             raise ValueError("ssh.password is not set: enter the root password of your Toon")
         return config
+
+
+def parse_prices(items: list) -> list[dict]:
+    """The energy contracts, oldest first. Raises ValueError for a start date that isn't a date.
+
+    Returned electricity costs what used electricity costs unless set: net metering, as in the
+    Netherlands until 2027. Fixed costs per day are 0 unless set, and may be negative (a tax credit).
+    """
+    prices = []
+    for item in items:
+        start = str(item.get("start") or "").strip()
+        try:
+            date.fromisoformat(start)
+        except ValueError as e:
+            raise ValueError(f"prices: start {start!r} isn't a date like 2026-01-01") from e
+
+        def number(key: str, default: float = 0.0, item: dict = item) -> float:
+            value = item.get(key)
+            return default if value is None or value == "" else float(value)
+
+        low, normal = number("electricity_low"), number("electricity_normal")
+        prices.append(
+            {
+                "start": start,
+                "electricity_low": low,
+                "electricity_normal": normal,
+                "return_low": number("return_low", low),
+                "return_normal": number("return_normal", normal),
+                "electricity_fixed_per_day": number("electricity_fixed_per_day"),
+                "gas": number("gas"),
+                "gas_fixed_per_day": number("gas_fixed_per_day"),
+            }
+        )
+    return sorted(prices, key=lambda p: p["start"])

@@ -47,6 +47,7 @@ def public_config(config) -> dict:
         "gas_kwh_per_m3": config.gas_kwh_per_m3,
         "read_only": config.read_only,
         "boiler_name": config.boiler_name,
+        "prices": config.prices,
     }
 
 
@@ -78,7 +79,7 @@ class WebUI:
         for stale in database.path.parent.glob("backup-*.db"):
             stale.unlink(missing_ok=True)
         extra = tuple(sorted(external.keys)) if external else ()
-        self.stats = Stats(database.path, monitor.config.gas_kwh_per_m3, extra)
+        self.stats = Stats(database.path, monitor.config.gas_kwh_per_m3, extra, monitor.config.prices)
         # The last "Fetch missing history" on request: running, or what it gave
         self.fill: dict = {}
         self._fill_task: asyncio.Task | None = None

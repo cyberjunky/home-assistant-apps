@@ -17,7 +17,8 @@
         </div>
         <nav class="tabs" aria-label="Views">
             <button type="button" class="tab" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</button>
-            <button type="button" class="tab" data-tab="stats" onclick="switchTab('stats')">Stats</button>
+            <button type="button" class="tab" data-tab="electricity" onclick="switchTab('electricity')">Electricity</button>
+            <button type="button" class="tab" data-tab="gas" onclick="switchTab('gas')">Gas &amp; heating</button>
             <span class="tab-sep" aria-hidden="true"></span>
             <button type="button" class="tab" data-tab="settings" onclick="switchTab('settings')" title="Configuration, the Toon's health, connection history"><span class="tab-label">Settings</span><span class="tab-icon" aria-hidden="true">⚙</span></button>
         </nav>
@@ -70,19 +71,32 @@
                     <div id="dash-external"></div>
                 </div>
 
-                <!-- Stats: everything to analyse -->
-                <div id="tab-stats" class="tab-content">
-                    <div class="filters">
-                        <div class="tabs" role="group" aria-label="Period" id="stats-range"></div>
-                        <select class="select" id="stats-year" aria-label="Year"></select>
-                        <span class="filter-label">Per</span>
-                        <div class="tabs" role="group" aria-label="Group by" id="stats-bucket"></div>
-                        <span id="stats-range-text" class="range-text"></span>
-                    </div>
-                    <div id="stats-tiles" class="tiles"></div>
+                <!-- Electricity: the smart meter's electricity, its costs and when it's used -->
+                <div id="tab-electricity" class="tab-content">
+                    <div class="stats-mount"></div>
+                    <div id="elec-tiles" class="tiles"></div>
 
-                    <div class="page-section"><span>Smart meter</span><small>gas and electricity</small></div>
-                    <div class="stats-grid" id="stats-meter"></div>
+                    <div class="page-section"><span>Electricity</span><small>from and to the grid, per tariff</small></div>
+                    <div class="stats-grid" id="elec-meter"></div>
+
+                    <div class="page-section"><span>Trends</span><small>when electricity is used</small></div>
+                    <div class="stats-grid" id="elec-trends"></div>
+
+                    <div class="day-mount"></div>
+
+                    <div class="page-section"><span>Records and values</span><small class="period-note"></small></div>
+                    <div class="panel"><div class="panel-body"><div class="chart-title"><span>Records</span><span class="hint">in this period</span></div><div id="records-electricity" class="records"></div></div></div>
+                    <div class="panel"><div class="panel-body"><div class="chart-title"><span>All measured values</span><span class="hint">lowest, average and highest in this period</span></div><div id="gauge-table-electricity" class="table-wrap"></div></div></div>
+                    <div class="export-mount"></div>
+                </div>
+
+                <!-- Gas & heating: gas, the rooms and the boiler -->
+                <div id="tab-gas" class="tab-content">
+                    <div class="stats-mount"></div>
+                    <div id="gas-tiles" class="tiles"></div>
+
+                    <div class="page-section"><span>Gas</span><small>what was used, its costs and when</small></div>
+                    <div class="stats-grid" id="gas-meter"></div>
 
                     <div class="page-section"><span>Heating</span><small>the rooms and all temperatures</small></div>
                     <div class="stats-grid" id="stats-heating"></div>
@@ -95,26 +109,42 @@
                         <div id="fault-log" class="table-wrap"></div>
                     </div></div>
 
-                    <div class="page-section"><span>Day detail</span><small>everything on one timeline</small></div>
-                    <div class="panel"><div class="panel-body">
-                        <div class="chart-title"><span id="day-title">Day</span><span class="date-nav" id="day-nav"></span></div>
-                        <div id="day-facts" class="facts three" style="margin-bottom:12px"></div>
-                        <div id="day-charts" class="day-charts"></div>
-                    </div></div>
+                    <div class="day-mount"></div>
 
-                    <div class="page-section"><span>Records and values</span><small id="stats-period-note"></small></div>
-                    <div class="panel"><div class="panel-body"><div class="chart-title"><span>Records</span><span class="hint">in this period</span></div><div id="records" class="records"></div></div></div>
-                    <div class="panel"><div class="panel-body"><div class="chart-title"><span>All measured values</span><span class="hint">lowest, average and highest in this period</span></div><div id="gauge-table" class="table-wrap"></div></div></div>
+                    <div class="page-section"><span>Records and values</span><small class="period-note"></small></div>
+                    <div class="panel"><div class="panel-body"><div class="chart-title"><span>Records</span><span class="hint">in this period</span></div><div id="records-gas" class="records"></div></div></div>
+                    <div class="panel"><div class="panel-body"><div class="chart-title"><span>All measured values</span><span class="hint">lowest, average and highest in this period</span></div><div id="gauge-table-gas" class="table-wrap"></div></div></div>
+                    <div class="export-mount"></div>
+                </div>
 
-                    <div class="page-section"><span>Export</span><small>for your own analysis</small></div>
-                    <div class="panel"><div class="panel-body">
-                        <div class="detail-actions">
-                            <a class="btn" id="export-periods" download>This table per period (CSV)</a>
-                            <a class="btn" id="export-samples" download>All samples (CSV)</a>
-                            <a class="btn" id="export-hourly" download>Hourly values (CSV)</a>
-                        </div>
-                        <p class="panel-sub" style="margin-top:10px">For the period above. Samples exist for as long as you keep them in the app's configuration; hourly values stay for good.</p>
-                    </div></div>
+                <!-- Shared by both pages above: moved into the one that is open -->
+                <div id="stats-shared" hidden>
+                    <div class="filters" id="stats-filters">
+                        <div class="tabs" role="group" aria-label="Period" id="stats-range"></div>
+                        <select class="select" id="stats-year" aria-label="Year"></select>
+                        <span class="filter-label">Per</span>
+                        <div class="tabs" role="group" aria-label="Group by" id="stats-bucket"></div>
+                        <span id="stats-range-text" class="range-text"></span>
+                    </div>
+                    <div id="day-section">
+                        <div class="page-section"><span>Day detail</span><small>everything on one timeline</small></div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span id="day-title">Day</span><span class="date-nav" id="day-nav"></span></div>
+                            <div id="day-facts" class="facts three" style="margin-bottom:12px"></div>
+                            <div id="day-charts" class="day-charts"></div>
+                        </div></div>
+                    </div>
+                    <div id="export-section">
+                        <div class="page-section"><span>Export</span><small>for your own analysis</small></div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="detail-actions">
+                                <a class="btn" id="export-periods" download>This table per period (CSV)</a>
+                                <a class="btn" id="export-samples" download>All samples (CSV)</a>
+                                <a class="btn" id="export-hourly" download>Hourly values (CSV)</a>
+                            </div>
+                            <p class="panel-sub" style="margin-top:10px">For the period above, with electricity, gas and heating together. Samples exist for as long as you keep them in the app's configuration; hourly values stay for good.</p>
+                        </div></div>
+                    </div>
                 </div>
 
                 <!-- Settings: the app and the Toon itself -->

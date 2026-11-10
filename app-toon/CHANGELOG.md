@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0
+
+**After updating:** nothing to do. For costs, add your prices under the new option `prices`: see Prices in the documentation.
+
+- **Stats is now two pages:** **Electricity** and **Gas & heating**. They share the chosen period. Each has its own tiles, day timeline, records and table of values.
+- **Costs:** with your contract prices in `prices`, both pages show the costs per day, week, month or year, with fixed costs included. Returned electricity is deducted. The Dashboard shows the costs of today. Each price entry applies from its start date, so the past keeps its own prices.
+- **Trends:** when electricity is used per weekday and hour, and the low tariff's share of what came from the grid.
+- A bookmark to the old Stats page opens Electricity.
+
 ## 0.4.11
 
 **After updating:** nothing to do.

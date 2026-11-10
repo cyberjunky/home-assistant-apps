@@ -8,7 +8,7 @@
     const hashTab = window.location.hash.slice(1);
     let stored = null;
     try { stored = localStorage.getItem(LS + 'tab'); } catch (e) { /* only a convenience */ }
-    const tab = TABS.includes(hashTab) ? hashTab : stored;
+    const tab = TABS.includes(hashTab) || hashTab === 'stats' ? hashTab : stored;
 
     try {
         app.status = await api('status');

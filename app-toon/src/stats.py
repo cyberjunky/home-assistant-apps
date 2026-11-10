@@ -353,6 +353,45 @@ def gas_heatmap(deltas: list[tuple[int, float, int]], start: int, end: int) -> l
     return [[round(totals[d][h] / counts[d][h], 4) if counts[d][h] else None for h in range(24)] for d in range(7)]
 
 
+def add_heatmaps(a: list[list[float | None]], b: list[list[float | None]]) -> list[list[float | None]]:
+    """Two counters' heatmaps added, cell by cell: the low and normal tariff make the electricity."""
+    return [
+        [None if x is None and y is None else round((x or 0) + (y or 0), 4) for x, y in zip(ra, rb, strict=True)]
+        for ra, rb in zip(a, b, strict=True)
+    ]
+
+
+def price_on(prices: list[dict], day: str) -> dict | None:
+    """The contract a day falls under: the last one started on or before it."""
+    found = None
+    for price in prices:
+        if price["start"] <= day:
+            found = price
+    return found
+
+
+def day_costs(prices: list[dict], day: str, used: dict[str, float | None]) -> dict[str, float | None]:
+    """What a day's electricity and gas cost, fixed costs included. None without a price for that day,
+    or without any reading of it."""
+    price = price_on(prices, day)
+    if price is None:
+        return {"electricity": None, "gas": None}
+    names = ("import_low", "import_normal", "export_low", "export_normal")
+    electricity = None
+    if any(used.get(name) is not None for name in names):
+        electricity = (
+            (used.get("import_low") or 0) * price["electricity_low"]
+            + (used.get("import_normal") or 0) * price["electricity_normal"]
+            - (used.get("export_low") or 0) * price["return_low"]
+            - (used.get("export_normal") or 0) * price["return_normal"]
+            + price["electricity_fixed_per_day"]
+        )
+    gas = None
+    if used.get("gas") is not None:
+        gas = used["gas"] * price["gas"] + price["gas_fixed_per_day"]
+    return {"electricity": electricity, "gas": gas}
+
+
 @dataclass
 class _Cached:
     at: float
@@ -362,9 +401,16 @@ class _Cached:
 class Stats:
     """Answers the dashboard's questions about the past. Call from a worker thread."""
 
-    def __init__(self, path: Path, gas_kwh_per_m3: float = 9.77, extra_gauges: tuple[str, ...] = ()):
+    def __init__(
+        self,
+        path: Path,
+        gas_kwh_per_m3: float = 9.77,
+        extra_gauges: tuple[str, ...] = (),
+        prices: list[dict] | None = None,
+    ):
         self.path = path
         self.gas_kwh_per_m3 = gas_kwh_per_m3
+        self.prices = prices or []
         self.gauges = (*GAUGES, *extra_gauges)
         self._lock = threading.Lock()
         self._deltas: dict[str, _Cached] = {}
@@ -559,8 +605,15 @@ class Stats:
             low = counter_deltas(self._points(db, COUNTERS["import_low"], now - 9 * DAY, now))
             normal = counter_deltas(self._points(db, COUNTERS["import_normal"], now - 9 * DAY, now))
             base = night_base_load(low, normal)
+            costs = None
+            if self.prices:
+                costs = {
+                    "today": day_costs(self.prices, day_key(now), usage["today"]),
+                    "yesterday": day_costs(self.prices, day_key(yesterday), usage["yesterday"]),
+                }
             return {
                 "usage": usage,
+                "costs": costs,
                 "gas_hours": gas_hours,
                 "burner": {
                     "heat_minutes": round((seconds["heat"] + seconds["preheat"]) / 60),
@@ -666,6 +719,15 @@ class Stats:
             per_day_seconds[day_key(a)][kind] += b - a
         gauges = {metric: self._daily_gauge(db, metric, start, end) for metric in self.gauges}
 
+        cost_per_day: dict[str, dict] = {}
+        if self.prices:
+            for day in days:
+                used = {
+                    name: daily[name].get(day)
+                    for name in ("gas", "import_low", "import_normal", "export_low", "export_normal")
+                }
+                cost_per_day[day] = day_costs(self.prices, day, used)
+
         buckets = []
         for key in order:
             span = rows[key]["days"]
@@ -697,6 +759,9 @@ class Stats:
             for kind, seconds in on_time.items():
                 row[f"{kind}_minutes"] = round(seconds / 60, 1) if row["starts"] is not None else None
             row["gauges"] = {metric: _gauge_summary(days_of, span) for metric, days_of in gauges.items()}
+            for kind in ("electricity", "gas"):
+                values = [cost_per_day[d][kind] for d in span if cost_per_day.get(d, {}).get(kind) is not None]
+                row[f"cost_{kind}"] = round(sum(values), 2) if values else None
             buckets.append(row)
 
         total = lambda names, span=days: _sum_daily(daily, names, span)  # noqa: E731
@@ -729,6 +794,11 @@ class Stats:
             "burner_hours_since": self._first_reading_day(db, COUNTERS["burner_hours"]),
             "energy": boiler_energy(total(["gas"]), _average(heat), self.gas_kwh_per_m3),
             "heatmap": gas_heatmap(deltas["gas"], heatmap_start, end),
+            "heatmap_electricity": add_heatmaps(
+                gas_heatmap(deltas["import_low"], heatmap_start, end),
+                gas_heatmap(deltas["import_normal"], heatmap_start, end),
+            ),
+            "costs": _cost_totals(cost_per_day, days) if self.prices else None,
             "cycles": {
                 "collecting_since": collecting,
                 "burning_hours": round(elapsed / HOUR, 1),
@@ -792,17 +862,34 @@ def _sum_daily(daily: dict[str, dict[str, float]], names: list[str], span: list[
     return round(sum(values), 3) if values else None
 
 
+def _cost_totals(cost_per_day: dict[str, dict], days: list[str]) -> dict:
+    """The costs of the whole period, per kind and together."""
+    totals = {}
+    for kind in ("electricity", "gas"):
+        values = [cost_per_day[d][kind] for d in days if cost_per_day.get(d, {}).get(kind) is not None]
+        totals[kind] = round(sum(values), 2) if values else None
+    known = [v for v in totals.values() if v is not None]
+    totals["total"] = round(sum(known), 2) if known else None
+    priced = [
+        d
+        for d in days
+        if cost_per_day.get(d, {}).get("electricity") is not None or cost_per_day.get(d, {}).get("gas") is not None
+    ]
+    totals["days"] = len(priced)
+    return totals
+
+
 def _records(daily: dict, days: list[str], room: dict, pressure: dict, power: dict, runs: list) -> list[dict]:
     """The extremes of the period."""
     records = []
 
-    def highest(label: str, values: dict[str, float], unit: str) -> None:
+    def highest(label: str, values: dict[str, float], unit: str, page: str) -> None:
         inside = {d: values[d] for d in days if d in values and values[d] > 0}
         if inside:
             day = max(inside, key=inside.get)
-            records.append({"label": label, "value": round(inside[day], 2), "unit": unit, "day": day})
+            records.append({"label": label, "value": round(inside[day], 2), "unit": unit, "day": day, "page": page})
 
-    highest("Most gas in a day", daily["gas"], "m³")
+    highest("Most gas in a day", daily["gas"], "m³", "gas")
     combined_import = defaultdict(float)
     combined_export = defaultdict(float)
     for name in ("import_low", "import_normal"):
@@ -811,21 +898,39 @@ def _records(daily: dict, days: list[str], room: dict, pressure: dict, power: di
     for name in ("export_low", "export_normal"):
         for day, amount in daily[name].items():
             combined_export[day] += amount
-    highest("Most electricity from the grid", combined_import, "kWh")
-    highest("Most electricity to the grid", combined_export, "kWh")
+    highest("Most electricity from the grid", combined_import, "kWh", "electricity")
+    highest("Most electricity to the grid", combined_export, "kWh", "electricity")
     if power:
         day = max(power, key=lambda d: power[d]["max"])
         records.append(
-            {"label": "Highest power from the grid", "value": round(power[day]["max"]), "unit": "W", "day": day}
+            {
+                "label": "Highest power from the grid",
+                "value": round(power[day]["max"]),
+                "unit": "W",
+                "day": day,
+                "page": "electricity",
+            }
         )
     if room:
         day = min(room, key=lambda d: room[d]["min"])
-        records.append({"label": "Coldest room", "value": round(room[day]["min"], 1), "unit": "°C", "day": day})
+        records.append(
+            {"label": "Coldest room", "value": round(room[day]["min"], 1), "unit": "°C", "day": day, "page": "gas"}
+        )
         day = max(room, key=lambda d: room[d]["max"])
-        records.append({"label": "Warmest room", "value": round(room[day]["max"], 1), "unit": "°C", "day": day})
+        records.append(
+            {"label": "Warmest room", "value": round(room[day]["max"], 1), "unit": "°C", "day": day, "page": "gas"}
+        )
     if pressure:
         day = min(pressure, key=lambda d: pressure[d]["min"])
-        records.append({"label": "Lowest pressure", "value": round(pressure[day]["min"], 2), "unit": "bar", "day": day})
+        records.append(
+            {
+                "label": "Lowest pressure",
+                "value": round(pressure[day]["min"], 2),
+                "unit": "bar",
+                "day": day,
+                "page": "gas",
+            }
+        )
     if runs:
         longest = max(runs, key=lambda run: run[1] - run[0])
         records.append(
@@ -834,6 +939,7 @@ def _records(daily: dict, days: list[str], room: dict, pressure: dict, power: di
                 "value": round((longest[1] - longest[0]) / 60),
                 "unit": "min",
                 "day": day_key(longest[0]),
+                "page": "gas",
             }
         )
     return records

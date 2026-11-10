@@ -154,6 +154,18 @@ function setpointControl() {
     </div>`;
 }
 
+// What today costs so far, fixed costs included; only with prices in the configuration
+function costsToday(costs) {
+    if (!costs) return [];
+    const now = costs.today;
+    const total = [now.electricity, now.gas].filter(v => !missing(v));
+    return [
+        fact('Electricity costs', escapeHtml(fmtEuro(now.electricity))),
+        fact('Gas costs', escapeHtml(fmtEuro(now.gas))),
+        fact('Costs today', total.length ? escapeHtml(fmtEuro(total.reduce((a, b) => a + b, 0))) : '–'),
+    ];
+}
+
 function renderModes() {
     settleChoice();
     const focused = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.control : null;
@@ -215,6 +227,7 @@ function drawModes() {
                 fact('Average run', fmtMinutes(burn.average_minutes)),
                 fact('From grid', fmtKwh(importToday)),
                 fact('To grid', fmtKwh(exportToday)),
+                ...costsToday(today.costs),
             ], 3)}</div>
         </div>`;
 }

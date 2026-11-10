@@ -81,6 +81,37 @@ configuration:
       entity:
         name: Entiteit
         description: De Home Assistant-entiteit, bijvoorbeeld sensor.pipe_supply.
+  prices:
+    name: Energieprijzen
+    description: >-
+      Je contractprijzen, voor de kosten op de pagina's Electricity en Gas & heating.
+      Voeg een nieuwe regel toe als de prijzen veranderen: elke geldt vanaf de
+      begindatum tot de volgende. Prijzen in euro, inclusief btw en energiebelasting.
+    fields:
+      start:
+        name: Vanaf
+        description: De eerste dag van deze prijzen, bijvoorbeeld 2026-01-01.
+      electricity_low:
+        name: Stroom, daltarief (€/kWh)
+        description: Wat een kWh van het net kost in het daltarief.
+      electricity_normal:
+        name: Stroom, normaal tarief (€/kWh)
+        description: Wat een kWh van het net kost in het normale tarief.
+      return_low:
+        name: Teruglevering, daltarief (€/kWh)
+        description: Wat een kWh naar het net oplevert. Leeg is gelijk aan de prijs van het net (salderen).
+      return_normal:
+        name: Teruglevering, normaal tarief (€/kWh)
+        description: Wat een kWh naar het net oplevert. Leeg is gelijk aan de prijs van het net (salderen).
+      electricity_fixed_per_day:
+        name: Stroom, vaste kosten per dag (€)
+        description: Vastrecht en netbeheerkosten per dag, min de vermindering energiebelasting. Mag negatief zijn.
+      gas:
+        name: Gas (€/m³)
+        description: Wat een m³ gas kost.
+      gas_fixed_per_day:
+        name: Gas, vaste kosten per dag (€)
+        description: Vastrecht en netbeheerkosten voor gas per dag.
   log_level:
     name: Logniveau
     description: Hoeveelheid logging.

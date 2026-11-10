@@ -67,6 +67,7 @@ function fmtW(watts) {
 }
 function energyDigits(kwh) { return Math.abs(kwh) < 10 ? 2 : Math.abs(kwh) < 1000 ? 1 : 0; }
 const fmtKwh = kwh => missing(kwh) ? '–' : `${num(kwh, energyDigits(kwh))} kWh`;
+const fmtEuro = v => missing(v) ? '–' : `€ ${num(v, 2)}`;
 const fmtGas = m3 => missing(m3) ? '–' : `${num(m3, Math.abs(m3) < 10 ? 2 : Math.abs(m3) < 1000 ? 1 : 0)} m³`;
 const sum = (a, b) => (missing(a) && missing(b)) ? null : (a || 0) + (b || 0);
 
@@ -228,7 +229,7 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', app
 // =====================================================================
 // Views
 // =====================================================================
-const TABS = ['dashboard', 'stats', 'settings'];
+const TABS = ['dashboard', 'electricity', 'gas', 'settings'];
 const tabHooks = {};
 const liveHooks = {};
 let activeTab = null;
@@ -239,6 +240,8 @@ function onTab(name, show, live) {
 }
 
 function switchTab(tabName) {
+    // The Stats page of versions before 0.5.0 is now two pages
+    if (tabName === 'stats') tabName = 'electricity';
     if (!TABS.includes(tabName)) tabName = 'dashboard';
     activeTab = tabName;
     document.querySelectorAll('.tab[data-tab]').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));

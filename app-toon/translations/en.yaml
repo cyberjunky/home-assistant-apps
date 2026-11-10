@@ -80,6 +80,37 @@ configuration:
       entity:
         name: Entity
         description: The Home Assistant entity, for example sensor.pipe_supply.
+  prices:
+    name: Energy prices
+    description: >-
+      Your contract prices, for the costs on the Electricity and Gas & heating
+      pages. Add a new entry when prices change: each applies from its start date
+      until the next one. Prices in euro, including VAT and energy tax.
+    fields:
+      start:
+        name: From
+        description: The first day of these prices, for example 2026-01-01.
+      electricity_low:
+        name: Electricity, low tariff (€/kWh)
+        description: What a kWh from the grid costs in the low tariff.
+      electricity_normal:
+        name: Electricity, normal tariff (€/kWh)
+        description: What a kWh from the grid costs in the normal tariff.
+      return_low:
+        name: Returned, low tariff (€/kWh)
+        description: What a kWh to the grid earns. Empty is the same as the price from the grid (net metering).
+      return_normal:
+        name: Returned, normal tariff (€/kWh)
+        description: What a kWh to the grid earns. Empty is the same as the price from the grid (net metering).
+      electricity_fixed_per_day:
+        name: Electricity, fixed costs per day (€)
+        description: Standing charge and network costs per day, minus the energy tax credit. May be negative.
+      gas:
+        name: Gas (€/m³)
+        description: What a m³ of gas costs.
+      gas_fixed_per_day:
+        name: Gas, fixed costs per day (€)
+        description: Standing charge and network costs for gas per day.
   log_level:
     name: Log level
     description: Amount of logging.

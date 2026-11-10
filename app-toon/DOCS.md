@@ -22,6 +22,7 @@ The Toon appears in Home Assistant by itself when an MQTT broker is available. W
 | `import_history` | `true` | Read the history the Toon keeps itself into the database |
 | `raw_retention_days` | `90` | How long every single sample is kept. Hourly values are kept for good |
 | `mqtt.*` | | Broker details; empty uses the broker Home Assistant knows |
+| `prices` | | Your energy contract's prices, for the costs. See [Prices](#prices) |
 | `log_level` | `info` | Amount of logging |
 
 ## How it works
@@ -51,13 +52,23 @@ When the boiler reports a fault, a red **Boiler fault** banner shows two codes a
 
 Both are shown exactly as the Toon gives them. 255 also appears while nothing is wrong, so on its own it doesn't tell what the fault is: check the boiler's own display. The banner shows the water pressure because low pressure is a common cause.
 
-**Stats** is for analysis, over any period and per day, week, month or year:
+**Electricity** and **Gas & heating** are for analysis, over any period and per day, week, month or year. Both pages share the period you choose.
 
-- **Smart meter:** gas and electricity per period, per tariff, compared with a year earlier; power; the night base load; and when gas is used per weekday and hour.
+**Electricity:**
+
+- **Electricity:** from and to the grid per tariff, power, the night base load, and the costs.
+- **Trends:** when electricity is used, per weekday and hour, and the share of the low tariff.
+- **Day detail:** power from and to the grid on one day.
+- **Records and values** for electricity, and **Export**.
+
+**Gas & heating:**
+
+- **Gas:** per period, compared with a year earlier, the costs, and when gas is used per weekday and hour.
 - **Heating:** room temperature against setpoint and all the boiler's temperatures, with their lowest, average and highest values.
 - **Boiler:** its hour counters, burner time per state, burner starts and short runs, modulation, supply and return temperature while heating, supply above setpoint, the share of heating time with a return under 55 °C (where a condensing boiler can condense), failed starts, the water pressure with its trend, and a log of boiler faults with their codes and the lowest pressure during each.
-- **Day detail:** everything of one day on the same time scale, with the burner's periods marked.
-- **Export:** the table per period, all samples or all hourly values of the chosen period as CSV.
+- **Day detail:** gas per hour, the boiler, the room and the water pressure of one day on the same time scale, with the burner's periods marked.
+- **Records and values** for gas and heating.
+- **Export:** the table per period, all samples or all hourly values of the chosen period as CSV, electricity, gas and heating together. It's the same on both pages.
 
 Burner starts, burner time and the temperatures while heating are worked out from what the app records, so they start at the first day it runs this version. A day with little data shows little. Use is worked out from meter readings: a meter reading that drops (a replaced or reset meter) and a gap of more than 3 days give no value for that interval, rather than one big jump. "Last top-up seen" is an estimate from the day's lowest pressure over several days.
 
@@ -108,15 +119,30 @@ external_sensors:
     entity: sensor.pipe_return
 ```
 
-They are read once a minute and stored like the Toon's own values: every reading for the days under `raw_retention_days`, and hourly values for good. Each gets a tile on the Dashboard, and they appear in the charts there and on the Stats page: the outside temperature with the room, other temperatures with the boiler, and other units in a chart of their own. The table of measured values and the CSV exports include them too. Keep a sensor's name once set, because its history is stored under it.
+They are read once a minute and stored like the Toon's own values: every reading for the days under `raw_retention_days`, and hourly values for good. Each gets a tile on the Dashboard, and they appear in the charts there and on the Gas & heating page: the outside temperature with the room, other temperatures with the boiler, and other units in a chart of their own. The table of measured values and the CSV exports include them too. Keep a sensor's name once set, because its history is stored under it.
 
 ## Boiler energy
 
-**Energy in gas** on the Stats page is measured: the gas you used times `gas_kwh_per_m3`. The default of 9.77 kWh per m³ is the upper heating value of Dutch gas, and your energy bill may show a slightly different number.
+**Energy in gas** on the Gas & heating page is measured: the gas you used times `gas_kwh_per_m3`. The default of 9.77 kWh per m³ is the upper heating value of Dutch gas, and your energy bill may show a slightly different number.
 
 **Heat, estimated** is not measured. It assumes a typical condensing boiler: about 97% of that energy at a return temperature of 30 °C or lower, down to about 88% at 55 °C or higher. It doesn't know your boiler, or how much went to hot water. Return temperatures are only recorded from version 0.2.0 on, so over a longer period the estimate applies recent temperatures to older gas use.
 
 Measuring the heat itself takes the water's flow as well as its temperatures: heat is flow times the difference between supply and return. Sensors on the pipes give you the temperatures, which the Toon already reports for the boiler, but not the flow. For a real figure you need a flow meter or a heat meter.
+
+## Prices
+
+With prices in `prices`, the Electricity and Gas & heating pages show what was used costs, and the Dashboard shows the costs of today. Each entry applies from its `start` date until the next one starts, so the costs of the past keep the prices of their own time. Add an entry when your prices change; don't change an old one.
+
+| Field | What it is |
+|---|---|
+| `start` | The first day of these prices, for example `2026-01-01` |
+| `electricity_low`, `electricity_normal` | € per kWh from the grid, low and normal tariff |
+| `return_low`, `return_normal` | € per kWh to the grid. Empty is the price from the grid (net metering, in the Netherlands until 2027) |
+| `electricity_fixed_per_day` | Standing charge and network costs for electricity per day, minus the energy tax credit per day. May be negative |
+| `gas` | € per m³ |
+| `gas_fixed_per_day` | Standing charge and network costs for gas per day |
+
+Use prices including VAT and energy tax, as on your contract. Fixed costs count for every day with readings. Days before the first `start` have no costs.
 
 ## Backup
 

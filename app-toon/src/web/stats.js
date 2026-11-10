@@ -1,4 +1,5 @@
-// Toon dashboard - Stats: everything to analyse heating, smart meter and boiler.
+// Toon dashboard - the Electricity and Gas & heating pages: everything to analyse, per subject.
+// Both pages share one period, one report from the server and the day timeline.
 // Charts are defined as data, so another source (such as sensors on the pipes) only needs entries.
 
 const RANGES = [
@@ -13,7 +14,7 @@ const GROUPS = [{key: 'day', label: 'Day'}, {key: 'week', label: 'Week'}, {key: 
 const DEFAULT_GROUP = {'7d': 'day', '30d': 'day', '90d': 'week', '12m': 'month', year: 'month', all: 'year'};
 const MAX_BUCKETS = 370;
 
-const stats = {range: '30d', year: '', bucket: 'day', report: null, day: todayIso(), loading: 0};
+const stats = {range: '30d', year: '', bucket: 'day', report: null, day: todayIso(), loading: 0, view: 'electricity'};
 
 function statsBounds() {
     const today = todayIso();
@@ -43,11 +44,19 @@ function bucketTitle(key, bucket) {
 // Chart definitions. kind: bars or line; rows: which fields of a period
 // =====================================================================
 const COLLECTING = 'Collecting since this version: the Toon has no history of this.';
-const METER_CHARTS = [
+const GAS_CHARTS = [
     {id: 'gas', title: 'Gas', unit: 'm³', wide: true, kind: 'bars', grouped: true, format: fmtGas, series: [
         {name: 'This period', field: 'gas', color: 'series-4'},
         {name: 'A year earlier', field: 'gas_year_before', color: 'muted-text-color', optional: true},
     ]},
+];
+const GAS_COST_CHART = {id: 'cost-gas', title: 'Gas costs', unit: '€, fixed costs included', wide: true, kind: 'bars', format: fmtEuro, series: [
+    {name: 'Costs', field: 'cost_gas', color: 'series-4'},
+]};
+const ELECTRICITY_COST_CHART = {id: 'cost-electricity', title: 'Electricity costs', unit: '€, fixed costs included, minus what was returned', wide: true, kind: 'bars', format: fmtEuro, series: [
+    {name: 'Costs', field: 'cost_electricity', color: 'series-1'},
+]};
+const ELECTRICITY_CHARTS = [
     {id: 'import', title: 'Electricity from the grid', unit: 'kWh', kind: 'bars', format: fmtKwh, series: [
         {name: 'Low tariff', field: 'import_low', color: 'series-1'},
         {name: 'Normal tariff', field: 'import_normal', color: 'series-2'},
@@ -227,29 +236,54 @@ function drawDefinedChart(c, periods, bucket) {
     });
 }
 
-function renderStatsTiles(r) {
+// The tiles are totals of the period; "Per" adds what that comes to per day, week, month or year
+function perPeriod(r) {
+    const periods = r.buckets.length;
+    return (v, unitText) => missing(v) || periods < 2 ? '' : `≈ ${num(v / periods, Math.abs(v / periods) < 10 ? 1 : 0)} ${unitText} per ${r.bucket}`;
+}
+const joined = (...parts) => parts.filter(Boolean).join(' · ');
+
+function costTile(r, kind) {
+    const costs = r.costs;
+    if (!costs) return '';
+    const per = perPeriod(r);
+    const value = costs[kind];
+    return tile(kind === 'gas' ? 'Gas costs' : 'Electricity costs', missing(value) ? '–' : escapeHtml(fmtEuro(value)),
+        per(value, '€') ? `≈ ${fmtEuro(value / r.buckets.length)} per ${r.bucket}` : 'fixed costs included');
+}
+
+function renderElectricityTiles(r) {
     const t = r.totals;
+    const per = perPeriod(r);
     const net = missing(t.import) && missing(t.export) ? null : (t.import || 0) - (t.export || 0);
+    const low = r.buckets.reduce((total, b) => total + (b.import_low || 0), 0);
+    const share = t.import ? Math.round(low / t.import * 100) : null;
+    document.getElementById('elec-tiles').innerHTML = [
+        tile('From grid', unit(t.import, t.import < 10 ? 2 : 0, 'kWh'), per(t.import, 'kWh')),
+        tile('To grid', unit(t.export, t.export < 10 ? 2 : 0, 'kWh'), per(t.export, 'kWh')),
+        tile('Net electricity', unit(net, Math.abs(net) < 10 ? 2 : 0, 'kWh'), per(net, 'kWh') || 'from minus to grid'),
+        costTile(r, 'electricity'),
+        tile('Low tariff', share === null ? '–' : unit(share, 0, '%'), share === null ? '' : `of what came from the grid · normal ${100 - share}%`),
+        tile('Night base load', unit(r.base_load, 0, 'W'), 'recent week'),
+    ].join('');
+}
+
+function renderGasTiles(r) {
+    const t = r.totals;
+    const per = perPeriod(r);
     const change = !missing(t.gas) && t.gas_year_before ? Math.round((t.gas - t.gas_year_before) / t.gas_year_before * 100) : null;
     const c = r.cycles;
     const since = c.collecting_since ? `since ${fmtIsoDate(c.collecting_since, true)}` : '';
-    // The tiles are totals of the period; "Per" adds what that comes to per day, week, month or year
-    const periods = r.buckets.length;
-    const per = (v, unitText) => missing(v) || periods < 2 ? '' : `≈ ${num(v / periods, Math.abs(v / periods) < 10 ? 1 : 0)} ${unitText} per ${r.bucket}`;
-    const joined = (...parts) => parts.filter(Boolean).join(' · ');
     // The boiler's own hour counter, which only exists here since logging started. The Toon's history
     // of burner minutes is far too low to be real burner time, so it isn't used.
     const hoursSince = r.burner_hours_since ? `since ${fmtIsoDate(r.burner_hours_since, true)}` : '';
     const e = r.energy;
-    document.getElementById('stats-tiles').innerHTML = [
+    document.getElementById('gas-tiles').innerHTML = [
+        tile('Gas', unit(t.gas, t.gas < 10 ? 2 : 0, 'm³'), joined(per(t.gas, 'm³'), change === null ? '' : `${change > 0 ? '+' : ''}${change}% on a year earlier`)),
+        costTile(r, 'gas'),
         tile('Energy in gas', unit(e.gas_kwh, 0, 'kWh'), per(e.gas_kwh, 'kWh') || `at ${num(e.kwh_per_m3, 2)} kWh per m³`),
         tile('Heat, estimated', missing(e.heat_kwh) ? '–' : `≈ ${unit(e.heat_kwh, 0, 'kWh')}`, missing(e.efficiency) ? 'needs return temperatures' : joined(`≈ ${num(e.efficiency * 100)}%`, 'not measured')),
-        tile('Gas', unit(t.gas, t.gas < 10 ? 2 : 0, 'm³'), joined(per(t.gas, 'm³'), change === null ? '' : `${change > 0 ? '+' : ''}${change}% on a year earlier`)),
-        tile('From grid', unit(t.import, t.import < 10 ? 2 : 0, 'kWh'), per(t.import, 'kWh')),
-        tile('To grid', unit(t.export, t.export < 10 ? 2 : 0, 'kWh'), per(t.export, 'kWh')),
-        tile('Net electricity', unit(net, Math.abs(net) < 10 ? 2 : 0, 'kWh'), per(net, 'kWh') || 'from minus to grid'),
         tile('Burner hours', unit(t.burner_hours, 0, 'h'), joined(hoursSince, `hot water ${num(t.dhw_hours)} h`)),
-        tile('Night base load', unit(r.base_load, 0, 'W'), 'recent week'),
         tile('Condensing', c.condensing_share === null ? '–' : unit(c.condensing_share, 0, '%'), joined('return under 55 °C', since)),
     ].join('');
 }
@@ -283,13 +317,18 @@ function renderModulation(r) {
     });
 }
 
-function renderHeatmap(r) {
-    const el = document.getElementById('heatmap');
-    const rows = r.heatmap;
-    const all = rows.flat().filter(v => !missing(v));
+function heatmapPanel(id, title) {
+    return `<div class="panel wide"><div class="panel-body">
+        <div class="chart-title"><span>${escapeHtml(title)}</span><span class="hint">average per weekday and hour · up to the last 12 months</span></div>
+        <div id="${id}" class="heatmap"></div><div id="${id}-scale" class="scale"></div></div></div>`;
+}
+
+function renderHeatmap(id, rows, unitText, digits, emptyText) {
+    const el = document.getElementById(id);
+    const all = (rows || []).flat().filter(v => !missing(v));
     if (!all.some(v => v > 0)) {
-        el.innerHTML = '<div class="empty-state">No gas use per hour in this period</div>';
-        document.getElementById('heatmap-scale').innerHTML = '';
+        el.innerHTML = `<div class="empty-state">${escapeHtml(emptyText)}</div>`;
+        document.getElementById(id + '-scale').innerHTML = '';
         return;
     }
     const max = Math.max(...all);
@@ -303,19 +342,22 @@ function renderHeatmap(r) {
     rows.forEach((hours, d) => {
         html += `<span class="d">${escapeHtml(dayNames[d])}</span>`;
         hours.forEach((v, h) => {
-            const title = `${dayNames[d]} ${String(h).padStart(2, '0')}:00: ${missing(v) ? 'no data' : num(v, 3) + ' m³ per hour on average'}`;
+            const title = `${dayNames[d]} ${String(h).padStart(2, '0')}:00: ${missing(v) ? 'no data' : num(v, digits) + ' ' + unitText + ' on average'}`;
             html += `<div class="cell" style="${shade(v)}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"></div>`;
         });
     });
     el.innerHTML = html;
-    document.getElementById('heatmap-scale').innerHTML = `<span>0</span>${[1, 2, 3, 4, 5].map(i => `<i style="background:var(--seq-${i})"></i>`).join('')}<span>${num(max, 2)} m³ per hour</span>`;
+    document.getElementById(id + '-scale').innerHTML = `<span>0</span>${[1, 2, 3, 4, 5].map(i => `<i style="background:var(--seq-${i})"></i>`).join('')}<span>${num(max, digits)} ${escapeHtml(unitText)}</span>`;
 }
+
+const ELECTRICITY_GAUGES = ['power_import', 'power_export'];
 
 function renderGaugeTable(r) {
     const metrics = app.status.metrics;
-    const rows = Object.entries(r.gauges);
+    const mine = key => ELECTRICITY_GAUGES.includes(key) === (stats.view === 'electricity');
+    const rows = Object.entries(r.gauges).filter(([key]) => mine(key));
     const fmt = (v, key) => missing(v) ? '–' : num(v, ['power_import', 'power_export'].includes(key) ? 0 : 2);
-    document.getElementById('gauge-table').innerHTML = `<table class="data"><thead><tr><th>Value</th><th class="n">Lowest</th><th class="n">Average</th><th class="n">Highest</th><th>Unit</th></tr></thead><tbody>${rows.map(([key, g]) => `<tr>
+    document.getElementById('gauge-table-' + stats.view).innerHTML = `<table class="data"><thead><tr><th>Value</th><th class="n">Lowest</th><th class="n">Average</th><th class="n">Highest</th><th>Unit</th></tr></thead><tbody>${rows.map(([key, g]) => `<tr>
         <td>${escapeHtml(metrics[key] ? metrics[key].name : key)}</td>
         <td class="n">${g ? fmt(g.min, key) : '–'}</td><td class="n">${g ? fmt(g.avg, key) : '–'}</td><td class="n">${g ? fmt(g.max, key) : '–'}</td>
         <td>${escapeHtml(metrics[key] && metrics[key].unit || '')}</td>
@@ -323,7 +365,8 @@ function renderGaugeTable(r) {
 }
 
 function renderRecords(r) {
-    document.getElementById('records').innerHTML = r.records.length ? r.records.map(rec => `<div class="record">
+    const records = r.records.filter(rec => rec.page === stats.view);
+    document.getElementById('records-' + stats.view).innerHTML = records.length ? records.map(rec => `<div class="record">
         <div class="l">${escapeHtml(rec.label)}</div>
         <div class="v">${num(rec.value, rec.value < 10 ? 2 : rec.value < 100 ? 1 : 0)} <small>${escapeHtml(rec.unit)}</small></div>
         <div class="d">${escapeHtml(fmtIsoDate(rec.day, true))}</div>
@@ -353,23 +396,32 @@ function renderFaults(r) {
 }
 
 function renderReport(r) {
-    renderStatsTiles(r);
     const rows = r.buckets;
-    document.getElementById('stats-range-text').textContent = `${fmtIsoDate(r.first, true)} to ${fmtIsoDate(r.last, true)}`;
-    document.getElementById('stats-period-note').textContent = `${fmtIsoDate(r.first, true)} to ${fmtIsoDate(r.last, true)}`;
-    document.getElementById('stats-meter').innerHTML = panelsHtml(METER_CHARTS) + `<div class="panel wide"><div class="panel-body">
-        <div class="chart-title"><span>When gas is used</span><span class="hint">average per weekday and hour · up to the last 12 months</span></div>
-        <div id="heatmap" class="heatmap"></div><div id="heatmap-scale" class="scale"></div></div></div>`;
-    const extraCharts = externalPeriodCharts();
-    document.getElementById('stats-heating').innerHTML = panelsHtml([...HEATING_CHARTS, ...extraCharts]);
-    document.getElementById('stats-boiler').innerHTML = panelsHtml(BOILER_CHARTS) + `<div class="panel"><div class="panel-body">
-        <div class="chart-title"><span>Modulation while heating</span><span class="hint">hours at each level</span></div>
-        <div id="chart-modulation" class="chart"></div></div></div>`;
-    [...METER_CHARTS, ...HEATING_CHARTS, ...extraCharts, ...BOILER_CHARTS].forEach(c => drawDefinedChart(c, rows, r.bucket));
-    renderHeatmap(r);
-    renderModulation(r);
-    renderBoilerFacts(r);
-    renderFaults(r);
+    const period = `${fmtIsoDate(r.first, true)} to ${fmtIsoDate(r.last, true)}`;
+    document.getElementById('stats-range-text').textContent = period;
+    document.querySelectorAll('.period-note').forEach(el => { el.textContent = period; });
+    if (stats.view === 'electricity') {
+        renderElectricityTiles(r);
+        const charts = [...ELECTRICITY_CHARTS, ...(r.costs ? [ELECTRICITY_COST_CHART] : [])];
+        document.getElementById('elec-meter').innerHTML = panelsHtml(charts);
+        document.getElementById('elec-trends').innerHTML = heatmapPanel('heatmap-electricity', 'When electricity is used');
+        charts.forEach(c => drawDefinedChart(c, rows, r.bucket));
+        renderHeatmap('heatmap-electricity', r.heatmap_electricity, 'kWh per hour', 2, 'No electricity use per hour in this period');
+    } else {
+        renderGasTiles(r);
+        const gasCharts = [...GAS_CHARTS, ...(r.costs ? [GAS_COST_CHART] : [])];
+        document.getElementById('gas-meter').innerHTML = panelsHtml(gasCharts) + heatmapPanel('heatmap-gas', 'When gas is used');
+        const extraCharts = externalPeriodCharts();
+        document.getElementById('stats-heating').innerHTML = panelsHtml([...HEATING_CHARTS, ...extraCharts]);
+        document.getElementById('stats-boiler').innerHTML = panelsHtml(BOILER_CHARTS) + `<div class="panel"><div class="panel-body">
+            <div class="chart-title"><span>Modulation while heating</span><span class="hint">hours at each level</span></div>
+            <div id="chart-modulation" class="chart"></div></div></div>`;
+        [...gasCharts, ...HEATING_CHARTS, ...extraCharts, ...BOILER_CHARTS].forEach(c => drawDefinedChart(c, rows, r.bucket));
+        renderHeatmap('heatmap-gas', r.heatmap, 'm³ per hour', 3, 'No gas use per hour in this period');
+        renderModulation(r);
+        renderBoilerFacts(r);
+        renderFaults(r);
+    }
     renderRecords(r);
     renderGaugeTable(r);
     renderExports();
@@ -378,10 +430,12 @@ function renderReport(r) {
 async function loadReport() {
     const ticket = ++stats.loading;
     const {from, to} = statsBounds();
+    const key = `${from}/${to}/${stats.bucket}`;
     try {
         const report = await api(`stats?from=${from}&to=${to}&bucket=${stats.bucket}`);
         if (ticket !== stats.loading) return;
         stats.report = report;
+        stats.reportKey = key;
         renderReport(report);
     } catch (e) {
         toast('Cannot load the statistics: ' + e.message);
@@ -420,7 +474,8 @@ async function loadDay() {
     const start = Math.floor(new Date(stats.day + 'T00:00:00').getTime() / 1000);
     const end = Math.floor(new Date(shiftDate(stats.day, 1) + 'T00:00:00').getTime() / 1000);
     const step = 120;
-    const charts = dayCharts();
+    const electricity = stats.view === 'electricity';
+    const charts = dayCharts().filter(c => (c.id === 'day-power') === electricity);
     const metrics = [...charts.flatMap(c => c.series.map(s => s.metric)), 'gas_delivered'];
     const [data, gasHours] = await Promise.all([
         api(`history?start=${start}&end=${end}&metrics=${[...metrics, 'burner_code'].join(',')}`),
@@ -435,8 +490,9 @@ async function loadDay() {
     const bands = burnerBands(data.burner_code, start, end, step);
     const ticks = hourTicks(start, end, 3);
     const host = document.getElementById('day-charts');
-    host.innerHTML = `<div class="chart-label">Gas per hour · m³${gasHours.length ? ` · ${num(gasTotal, 2)} m³ this day` : ''}</div><div id="day-gas-hours" class="chart"></div>` + shown.map(c => `<div class="chart-label">${escapeHtml(c.title)}</div><div id="${c.id}" class="chart"></div><div class="legend" id="${c.id}-legend" style="margin-bottom:12px"></div>`).join('');
-    barChart(document.getElementById('day-gas-hours'), {
+    const gasLabel = electricity ? '' : `<div class="chart-label">Gas per hour · m³${gasHours.length ? ` · ${num(gasTotal, 2)} m³ this day` : ''}</div><div id="day-gas-hours" class="chart"></div>`;
+    host.innerHTML = gasLabel + shown.map(c => `<div class="chart-label">${escapeHtml(c.title)}</div><div id="${c.id}" class="chart"></div><div class="legend" id="${c.id}-legend" style="margin-bottom:12px"></div>`).join('');
+    if (!electricity) barChart(document.getElementById('day-gas-hours'), {
         data: gasHours.map(h => ({
             label: `${String(new Date(h.ts * 1000).getHours()).padStart(2, '0')}:00`,
             tipTitle: fmtDateTime(h.ts),
@@ -467,6 +523,16 @@ async function loadDay() {
     const room = peak(data.room_temperature);
     const pressure = peak(data.boiler_pressure);
     const burning = bands.reduce((total, b) => total + (b.to - b.from), 0);
+    if (electricity) {
+        const power = peak(data.power_import);
+        const back = peak(data.power_export);
+        document.getElementById('day-facts').innerHTML = factsGrid([
+            fact('Highest from grid', power ? fmtW(power.max) : '–'),
+            fact('Lowest from grid', power ? fmtW(power.min) : '–'),
+            fact('Highest to grid', back ? fmtW(back.max) : '–'),
+        ], 3);
+        return;
+    }
     document.getElementById('day-facts').innerHTML = factsGrid([
         fact('Burner on', bands.length ? escapeHtml(fmtDuration(burning)) : '–'),
         fact('Burner periods', bands.length ? num(bands.length) : '–'),
@@ -517,12 +583,24 @@ function buildRanges() {
     });
 }
 
-function showStats() {
+function mountShared(tab) {
+    const page = document.getElementById('tab-' + tab);
+    page.querySelector('.stats-mount').appendChild(document.getElementById('stats-filters'));
+    page.querySelector('.day-mount').appendChild(document.getElementById('day-section'));
+    page.querySelector('.export-mount').appendChild(document.getElementById('export-section'));
+}
+
+function showStats(view) {
+    stats.view = view;
+    mountShared(view);
     buildRanges();
     buildYearSelect();
     buildGroups();
-    loadReport();
+    const {from, to} = statsBounds();
+    if (stats.report && stats.reportKey === `${from}/${to}/${stats.bucket}`) renderReport(stats.report);
+    else loadReport();
     loadDay().catch(e => toast('Cannot load this day: ' + e.message));
 }
 
-onTab('stats', showStats, () => {});
+onTab('electricity', () => showStats('electricity'), () => {});
+onTab('gas', () => showStats('gas'), () => {});

@@ -30,6 +30,21 @@ function renderHealth() {
     ].join('');
 }
 
+// The contract that applies now, and how many there are
+function pricesRows(prices) {
+    if (!prices.length) return [infoRow('Prices', 'not set: no costs')];
+    const today = todayIso();
+    const now = prices.filter(p => p.start <= today).pop() || prices[0];
+    const euro = v => escapeHtml(`€ ${num(v, 4)}`);
+    return [
+        infoRow('Prices', `${prices.length} ${prices.length === 1 ? 'contract' : 'contracts'}, this one from ${escapeHtml(fmtIsoDate(now.start, true))}`),
+        infoRow('Electricity low / normal', `${euro(now.electricity_low)} / ${euro(now.electricity_normal)} per kWh`),
+        infoRow('Returned low / normal', `${euro(now.return_low)} / ${euro(now.return_normal)} per kWh`),
+        infoRow('Gas', `${euro(now.gas)} per m³`),
+        infoRow('Fixed per day', `electricity ${euro(now.electricity_fixed_per_day)} · gas ${euro(now.gas_fixed_per_day)}`),
+    ];
+}
+
 function renderConfig() {
     const s = app.status;
     const c = s.config;
@@ -58,6 +73,7 @@ function renderConfig() {
         infoRow('Oldest value', when),
         infoRow('Database size', `${num(s.database.size / 1048576, 1)} MB`),
         infoRow('Energy in gas', `${num(c.gas_kwh_per_m3, 2)} kWh per m³`),
+        ...pricesRows(c.prices || []),
     ].join('');
     const adapter = s.adapters.boiler_adapter || {};
     document.getElementById('set-toon').innerHTML = [
