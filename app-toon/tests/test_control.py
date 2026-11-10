@@ -257,3 +257,91 @@ async def test_reading_back_only_asks_for_what_a_change_affects(tmp_path):
 
     await monitor._read_after_change(Lost())
     database.close()
+
+
+# Home Assistant's climate entity over MQTT
+
+
+def test_climate_commands_map_to_the_dashboard_changes():
+    from src.mqtt import climate_change
+
+    assert climate_change("setpoint", "20.5") == {"setpoint": 20.5}
+    assert climate_change("preset", "sleep") == {"preset": 2}
+    assert climate_change("mode", "auto") == {"program": True}
+    assert climate_change("mode", "heat") == {"program": False}
+    for command, payload in (("preset", "eco"), ("mode", "off"), ("fan", "on"), ("setpoint", "warm")):
+        with pytest.raises(ValueError):
+            climate_change(command, payload)
+
+
+def test_climate_discovery_and_read_only():
+    from src.mqtt import discovery_messages
+
+    topic = "homeassistant/climate/toon_00_00_000_000/thermostat/config"
+    climate = dict(discovery_messages("00-00-000-000", "6.3.30", "homeassistant", "toon"))[topic]
+    assert climate["temperature_command_topic"] == "toon/00-00-000-000/set/setpoint"
+    assert climate["preset_modes"] == ["comfort", "home", "sleep", "away"]
+    assert climate["current_temperature_topic"] == "toon/00-00-000-000/state"
+    read_only = dict(discovery_messages("00-00-000-000", "6.3.30", "homeassistant", "toon", controls=False))[topic]
+    assert not any(key.endswith("command_topic") for key in read_only)
+
+
+def test_climate_templates_render():
+    """The templates Home Assistant will run, with Jinja as it would."""
+    jinja2 = pytest.importorskip("jinja2")
+    from src.mqtt import discovery_messages
+
+    climate = dict(discovery_messages("s", "v", "homeassistant", "toon"))[
+        "homeassistant/climate/toon_s/thermostat/config"
+    ]
+    env = jinja2.Environment()
+    env.filters["int"] = lambda value, default=0: int(float(value)) if value not in (None, "") else default
+
+    def render(key, **state):
+        return env.from_string(climate[key]).render(value_json=state).strip()
+
+    assert render("preset_mode_value_template", active_state=2.0) == "sleep"
+    assert render("preset_mode_value_template", active_state=4.0) == "none"
+    assert render("mode_state_template", program_state=0.0) == "heat"
+    assert render("mode_state_template", program_state=2.0) == "auto"
+    assert render("action_template", burner_state="preheating") == "heating"
+    assert render("action_template", burner_state="hot_water") == "idle"
+    assert render("current_temperature_template", room_temperature=18.9) == "18.9"
+
+
+class FakeMessage:
+    def __init__(self, topic, payload, retain=False):
+        self.topic, self.payload, self.retain = topic, payload.encode(), retain
+
+
+async def test_climate_command_goes_to_the_toon(tmp_path):
+    from src.mqtt import MqttPublisher
+
+    monitor, _ui, _database, _calls = make(tmp_path)
+    monitor.info["serialNumber"] = "00-00-000-000"
+    session = FakeSession()
+    connect(monitor, session)
+    publisher = MqttPublisher(monitor.config, None, monitor)
+    publisher._loop = asyncio.get_running_loop()
+    publisher._on_message(None, None, FakeMessage("toon/00-00-000-000/set/setpoint", "20.5"))
+    # A retained command, or one for another Toon, is ignored
+    publisher._on_message(None, None, FakeMessage("toon/00-00-000-000/set/preset", "sleep", retain=True))
+    publisher._on_message(None, None, FakeMessage("toon/11-11-111-111/set/preset", "sleep"))
+    for _ in range(50):
+        await asyncio.sleep(0.02)
+        if session.sent:
+            break
+    await asyncio.sleep(0.1)
+    assert session.sent == ["/happ_thermstat?action=setSetpoint&Setpoint=2050"]
+
+
+async def test_read_only_takes_no_climate_commands(tmp_path):
+    from src.mqtt import MqttPublisher
+
+    monitor, _ui, _database, _calls = make(tmp_path, read_only=True)
+    monitor.info["serialNumber"] = "s"
+    session = FakeSession()
+    connect(monitor, session)
+    publisher = MqttPublisher(monitor.config, None, monitor)
+    await publisher._command("setpoint", "20")
+    assert session.sent == []

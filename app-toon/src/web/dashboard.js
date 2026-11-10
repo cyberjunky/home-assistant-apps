@@ -145,7 +145,11 @@ function setpointControl() {
     const button = (direction, sign, name, limit) => `<button type="button" class="stepper-btn" data-control="${name}" aria-label="${name === 'down' ? 'Lower' : 'Raise'} the setpoint" ${disabled || shown === limit ? 'disabled' : ''} onclick="stepSetpoint(${direction})">${sign}</button>`;
     return `<div class="stepper">
         ${button(-1, '−', 'down', SETPOINT_MIN)}
-        <div class="stepper-value"><b>${fmtTemp(shown)}</b><small>${thermostat.sending ? 'sending…' : `setpoint · room ${fmtTemp(value('room_temperature'))}`}</small></div>
+        <div class="stepper-value">
+            <span class="stepper-label">Setpoint</span>
+            <b>${fmtTemp(shown)}</b>
+            <small>${thermostat.sending ? 'sending…' : `room now ${fmtTemp(value('room_temperature'))}`}</small>
+        </div>
         ${button(1, '+', 'up', SETPOINT_MAX)}
     </div>`;
 }

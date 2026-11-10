@@ -127,3 +127,17 @@ The Thermostat panel on the Dashboard has controls:
 - **Turn on, Turn off and Back to program** control the week program.
 
 Set `read_only: true` to remove the controls and refuse changes. The controls also disappear while the Toon isn't connected.
+
+### In Home Assistant
+
+With MQTT, the Toon device also has a **Thermostat** climate entity, so it works with the thermostat card, voice assistants and automations. It replaces the toon_climate integration:
+
+| In Home Assistant | On the Toon |
+|---|---|
+| Target temperature | The setpoint, as with − and + |
+| Preset Comfort, Home, Sleep, Away | That preset until the next change in the week program |
+| Mode **Auto** | The week program on, or back to the program after a temporary change |
+| Mode **Heat** | The week program off: the Toon holds the setpoint |
+| Action Heating / Idle | Heating while the burner heats or preheats; idle when it's off or making hot water |
+
+Holiday mode shows as no preset. Changes go through the same checked commands as the Dashboard's controls, and the new state shows within a few seconds. A change the Toon refuses is logged in the app's log. With `read_only: true`, the entity only shows the state and accepts no changes.

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.7
+
+**After updating:** nothing to do.
+
+- A **Thermostat** climate entity in Home Assistant, through MQTT: target temperature, the presets Comfort, Home, Sleep and Away, and the modes Auto (week program) and Heat (program off). It uses the same commands as the Dashboard's controls, so you can remove the toon_climate integration. With `read_only: true` it only shows the state.
+- The thermostat's setpoint control on the Dashboard is labelled **Setpoint**, and the room temperature under it reads "room now …". The old line "setpoint · room 18.9 °C" made the room temperature look like the setpoint.
+
 ## 0.4.6
 
 **After updating:** nothing to do. Codes are recorded from this version on.

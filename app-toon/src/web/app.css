@@ -403,6 +403,7 @@ button.preset:disabled { cursor: default; opacity: 0.65; }
 .stepper-value { flex: 1; text-align: center; }
 .stepper-value b { display: block; font-family: var(--mono); font-size: 26px; font-weight: 600; line-height: 1.2; }
 .stepper-value small { font-size: 12px; color: var(--secondary-text-color); }
+.stepper-label { display: block; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--secondary-text-color); }
 .program { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 
 /* ---------- Smaller screens ---------- */
