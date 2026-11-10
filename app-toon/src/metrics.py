@@ -82,6 +82,8 @@ METRICS: tuple[Metric, ...] = (
         "pump_starts", "Pump starts", state_class="total_increasing", icon="mdi:pump", enabled=False, unsupported=65535
     ),
     Metric("oem_fault_code", "OEM fault code", state_class=None, icon="mdi:alert-circle-outline", **_DIAG),
+    # The number the Toon's own screen shows with a boiler fault ("Errorcode", "ketelstoring")
+    Metric("boiler_error_code", "Boiler error code", state_class=None, icon="mdi:alert-circle-outline", **_DIAG),
     Metric("slave_state", "Boiler status flags", state_class=None, icon="mdi:flag-outline", **_DIAG),
     Metric("opentherm_error", "OpenTherm error", state_class=None, binary=True, icon="mdi:alert", **_DIAG),
     Metric("boiler_fault", "Boiler fault", device_class="problem", state_class=None, binary=True),

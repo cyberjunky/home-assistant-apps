@@ -344,3 +344,49 @@ def test_new_histories_are_imported_and_counted(tmp_path):
     assert importer._store(meter, parse_rows(meter, {str(ts): 811447})) == 1
     assert db.history(["gas_delivered"], ts - 60, ts + 60)["gas_delivered"][0][1] == pytest.approx(811.447)
     db.close()
+
+
+def test_fault_log_with_codes_and_pressure(tmp_path):
+    db = Database(tmp_path / "t.db")
+    now = int(time.time())
+    t = now - 5 * HOUR
+    # An earlier fault that has ended, and one still going on
+    for ts, flag in ((t, 0), (t + 600, 1), (t + 1800, 1), (t + 3000, 0), (now - 1200, 1)):
+        db.record("boiler_fault", ts, flag)
+    for ts, code in ((t, 255), (t + 610, 255), (now - 1190, 255)):
+        db.record("boiler_error_code", ts, code)
+        db.record("oem_fault_code", ts, code)
+    for ts, bar in ((t, 0.9), (t + 900, 0.62), (t + 2000, 0.7), (now - 1100, 0.55)):
+        db.record("boiler_pressure", ts, bar)
+    db.flush()
+    today = datetime.fromtimestamp(now).date().isoformat()
+    first = datetime.fromtimestamp(t).date().isoformat()
+    report = Stats(db.path).report(first, today, "day", now=now)
+    faults = report["faults"]
+    assert len(faults) == 2
+    ongoing, ended = faults
+    assert ongoing["end"] is None and ongoing["start"] == now - 1200
+    assert ongoing["error_codes"] == [255] and ongoing["pressure_min"] == 0.55
+    assert ended["start"] == t + 600 and ended["end"] == t + 3000
+    assert ended["minutes"] == 40.0
+    assert ended["oem_codes"] == [255] and ended["pressure_min"] == 0.62
+    # A reading from before a fault doesn't count as its lowest pressure
+    db.record("boiler_pressure", now - 600, 0.8)
+    db.record("boiler_pressure", now - 1250, 0.3)
+    db.flush()
+    assert Stats(db.path).report(first, today, "day", now=now)["faults"][0]["pressure_min"] == 0.55
+    db.close()
+
+
+async def test_poll_reads_the_error_code(tmp_path):
+    class Bus:
+        async def action(self, destination, service, name, arguments=None, timeout=5):
+            return {"hasBoilerFault": "1", "errorFound": "255", "burnerInfo": "0"}
+
+    db = Database(tmp_path / "t.db")
+    monitor = ToonMonitor(Config(ssh_host="x", ssh_password="x"), db, None)
+    await monitor._poll_fast(Bus())
+    assert monitor.values["boiler_fault"] == 1
+    assert monitor.values["boiler_error_code"] == 255
+    db.flush()
+    db.close()

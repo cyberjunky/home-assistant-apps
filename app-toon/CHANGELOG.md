@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.6
+
+**After updating:** nothing to do. Codes are recorded from this version on.
+
+- A boiler fault gets a red **Boiler fault** banner at the top of the Dashboard, with the code the Toon's own screen shows, the boiler's own (OEM) code and the water pressure.
+- The Dashboard's Boiler block shows both codes all the time.
+- Stats has a **Boiler faults** log for the chosen period: when each fault started, how long it lasted, its codes and the lowest water pressure meanwhile.
+- New diagnostic sensor **Boiler error code** in Home Assistant: the number the Toon shows with a fault ("Errorcode" or "ketelstoring"). The app now records it too.
+
 ## 0.4.5
 
 **After updating:** nothing to do.

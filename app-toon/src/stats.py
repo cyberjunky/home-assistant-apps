@@ -425,6 +425,48 @@ class Stats:
         ).fetchall()
         return ([before] if before else []) + rows
 
+    @classmethod
+    def _faults(cls, db: sqlite3.Connection, start: int, end: int, now: int) -> list[dict]:
+        """Every time the boiler reported a fault in a period, newest first: when, how long, the codes
+        the Toon and the boiler gave, and the water pressure meanwhile."""
+        periods: list[list] = []
+        for ts, flag in cls._samples(db, "boiler_fault", start, end):
+            if flag and not (periods and periods[-1][1] is None):
+                periods.append([ts, None])
+            elif not flag and periods and periods[-1][1] is None:
+                periods[-1][1] = ts
+        faults = []
+        if periods and periods[0][0] < start:
+            # A fault already going on when the period starts: find where it really began
+            row = db.execute(
+                "SELECT MIN(ts) FROM samples WHERE metric = 'boiler_fault' AND ts <= ? AND ts > COALESCE("
+                "(SELECT MAX(ts) FROM samples WHERE metric = 'boiler_fault' AND value = 0 AND ts < ?), 0)",
+                (periods[0][0], periods[0][0]),
+            ).fetchone()
+            periods[0][0] = row[0] if row and row[0] else periods[0][0]
+        for begin, finish in periods:
+            until = finish if finish is not None else now
+            if until < start:
+                continue
+            codes = {
+                key: sorted({int(v) for _, v in cls._samples(db, metric, begin, until) if v is not None})
+                for key, metric in (("error_codes", "boiler_error_code"), ("oem_codes", "oem_fault_code"))
+            }
+            # Readings during the fault; the last one before it only when there are none, as that may be old
+            readings = cls._samples(db, "boiler_pressure", begin, until)
+            during = [v for ts, v in readings if ts >= begin and v is not None]
+            pressures = during or [v for _, v in readings[:1] if v is not None]
+            faults.append(
+                {
+                    "start": int(begin),
+                    "end": int(finish) if finish is not None else None,
+                    "minutes": round((until - begin) / 60, 1),
+                    **codes,
+                    "pressure_min": round(min(pressures), 2) if pressures else None,
+                }
+            )
+        return faults[::-1]
+
     @staticmethod
     def _daily_gauge(db: sqlite3.Connection, metric: str, start: int, end: int) -> dict[str, dict]:
         """Lowest, highest and average per local day of a measured value, from the hourly values."""
@@ -683,6 +725,7 @@ class Stats:
                 {d: v["min"] for d, v in self._daily_gauge(db, "boiler_pressure", now - 400 * DAY, now).items()}, today
             ),
             "records": _records(daily, days, room, pressure, power, runs),
+            "faults": self._faults(db, start, end, now),
         }
 
 

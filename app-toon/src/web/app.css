@@ -150,6 +150,15 @@ a { color: var(--primary-color); }
     background: rgba(245, 165, 36, 0.12); border: 1px solid var(--warning-color); font-size: 12.5px;
 }
 .setup-hint span { flex: 1; white-space: normal; }
+.fault-banner {
+    margin: 0 0 14px; padding: 12px 14px; border-radius: 6px;
+    background: var(--danger-bg); border: 1px solid var(--danger-color); border-left-width: 4px;
+}
+.fault-title { color: var(--danger-color); font-weight: 600; font-size: 15px; margin-bottom: 6px; }
+.fault-title::before { content: "⚠ "; }
+.fault-facts { display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: 12.5px; color: var(--secondary-text-color); }
+.fault-facts b { color: var(--primary-text-color); font-family: var(--mono); font-weight: 600; margin-left: 4px; }
+.fault-facts b.low { color: var(--danger-color); }
 
 .badge { padding: 1px 6px; border-radius: 3px; font-size: 11px; font-weight: 600; white-space: nowrap; background: var(--tag-bg); color: var(--tag-text); }
 .badge.warn { background: rgba(245,165,36,0.16); color: var(--warning-color); }

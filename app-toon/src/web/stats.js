@@ -338,6 +338,20 @@ function renderExports() {
     document.getElementById('export-hourly').href = `api/export/values.csv?${query}&source=hourly`;
 }
 
+function renderFaults(r) {
+    const faults = r.faults || [];
+    const codes = list => list && list.length ? list.join(', ') : '–';
+    document.getElementById('fault-log').innerHTML = faults.length ? `<table class="data"><thead><tr>
+            <th>Started</th><th>Duration</th><th class="n">Code on the Toon</th><th class="n">Boiler's own code</th><th class="n">Lowest water pressure</th>
+        </tr></thead><tbody>${faults.map(f => `<tr>
+            <td>${escapeHtml(fmtDateTime(f.start))}</td>
+            <td>${escapeHtml(fmtDuration(f.minutes * 60) + (f.end ? '' : ', ongoing'))}</td>
+            <td class="n">${escapeHtml(codes(f.error_codes))}</td>
+            <td class="n">${escapeHtml(codes(f.oem_codes))}</td>
+            <td class="n">${missing(f.pressure_min) ? '–' : num(f.pressure_min, 2) + ' bar'}</td>
+        </tr>`).join('')}</tbody></table>` : '<div class="empty-state">No boiler faults in this period</div>';
+}
+
 function renderReport(r) {
     renderStatsTiles(r);
     const rows = r.buckets;
@@ -355,6 +369,7 @@ function renderReport(r) {
     renderHeatmap(r);
     renderModulation(r);
     renderBoilerFacts(r);
+    renderFaults(r);
     renderRecords(r);
     renderGaugeTable(r);
     renderExports();

@@ -436,6 +436,7 @@ class ToonMonitor:
         self.set_value("active_state", info.get("activeState"))
         self.set_value("opentherm_error", info.get("otCommError"))
         self.set_value("boiler_fault", info.get("hasBoilerFault"))
+        self.set_value("boiler_error_code", info.get("errorFound"))
         self.set_value("boiler_module_connected", info.get("boilerModuleConnected"))
         self.set_value("setpoint_by_load_shifting", info.get("setByLoadShifting"))
         burner = str(info.get("burnerInfo"))

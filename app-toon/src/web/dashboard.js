@@ -10,13 +10,34 @@ function renderNotices() {
     if (!missing(offset) && Math.abs(offset) > 120) {
         notes.push(`The Toon's clock is ${fmtDuration(Math.abs(offset))} ${offset < 0 ? 'behind' : 'ahead'}, so its week program runs that much off.`);
     }
-    if (value('boiler_fault')) notes.push('The boiler reports a fault.');
     if (value('opentherm_error')) notes.push('The Toon reports an OpenTherm communication error with the boiler.');
     const pressure = value('boiler_pressure');
-    if (!missing(pressure) && pressure < PRESSURE_LOW) {
+    // The fault banner already shows a low pressure
+    if (!missing(pressure) && pressure < PRESSURE_LOW && !value('boiler_fault')) {
         notes.push(`The boiler's water pressure is low: ${num(pressure, 2)} bar. Usual is 1 to 2 bar; see your boiler's manual.`);
     }
-    document.getElementById('dash-notices').innerHTML = notes.map(text => `<div class="setup-hint"><span>⚠ ${escapeHtml(text)}</span></div>`).join('');
+    document.getElementById('dash-notices').innerHTML = faultBanner()
+        + notes.map(text => `<div class="setup-hint"><span>⚠ ${escapeHtml(text)}</span></div>`).join('');
+}
+
+// The codes as the Toon gives them: the number its own screen shows, and the boiler's own (OEM) code
+function faultCode(key) {
+    const code = value(key);
+    return missing(code) ? '–' : String(Math.round(code));
+}
+
+function faultBanner() {
+    if (!value('boiler_fault')) return '';
+    const pressure = value('boiler_pressure');
+    const low = !missing(pressure) && pressure < PRESSURE_LOW;
+    return `<div class="fault-banner" role="alert">
+        <div class="fault-title">Boiler fault</div>
+        <div class="fault-facts">
+            <span>Code on the Toon <b>${faultCode('boiler_error_code')}</b></span>
+            <span>Boiler's own code <b>${faultCode('oem_fault_code')}</b></span>
+            <span>Water pressure <b class="${low ? 'low' : ''}">${missing(pressure) ? '–' : num(pressure, 2) + ' bar'}${low ? ' · low' : ''}</b></span>
+        </div>
+    </div>`;
 }
 
 function renderTiles() {
@@ -177,6 +198,8 @@ function drawModes() {
                 fact('OpenTherm', value('opentherm_error') ? stateLabel('bad', 'error') : stateLabel('ok', 'ok')),
                 fact('Maximum temp.', fmtTemp(value('max_heater_temperature'), 0)),
                 fact('Water loss', missing(pressure.loss_per_week) ? '–' : `${num(pressure.loss_per_week, 2)}<small> bar/week</small>`),
+                fact('Code on the Toon', faultCode('boiler_error_code')),
+                fact("Boiler's own code", faultCode('oem_fault_code')),
             ], 3)}</div>
         </div>
         <div class="block">

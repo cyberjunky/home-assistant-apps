@@ -42,13 +42,20 @@ Toon: message bus (1337) ──SSH──▶ monitor ──▶ SQLite ──▶ d
 
 **Dashboard** shows what matters right now: room and setpoint, the burner, water pressure, power and gas today, a picture of the heating system with its temperatures, the thermostat's preset and program with the next change, the boiler's state, and the last 24 hours in charts.
 
-A notice appears when something needs attention: the Toon can't be reached, its clock is more than 2 minutes off (its week program then runs late or early as well), the boiler reports a fault, or the water pressure is under 1 bar. Usual is 1 to 2 bar, but go by your boiler's manual.
+A notice appears when something needs attention: the Toon can't be reached, its clock is more than 2 minutes off (its week program then runs late or early as well), or the water pressure is under 1 bar. Usual is 1 to 2 bar, but go by your boiler's manual.
+
+When the boiler reports a fault, a red **Boiler fault** banner shows two codes and the water pressure:
+
+- **Code on the Toon** is the number the Toon's own screen shows with the fault ("Errorcode" or "ketelstoring"). It comes from the Toon's `errorFound`.
+- **Boiler's own code** is the fault code the boiler sends over OpenTherm (`OTBoilerOEMFaultCode`). Your boiler's manual says what it means.
+
+Both are shown exactly as the Toon gives them. 255 also appears while nothing is wrong, so on its own it doesn't tell what the fault is: check the boiler's own display. The banner shows the water pressure because low pressure is a common cause.
 
 **Stats** is for analysis, over any period and per day, week, month or year:
 
 - **Smart meter:** gas and electricity per period, per tariff, compared with a year earlier; power; the night base load; and when gas is used per weekday and hour.
 - **Heating:** room temperature against setpoint and all the boiler's temperatures, with their lowest, average and highest values.
-- **Boiler:** its hour counters, burner time per state, burner starts and short runs, modulation, supply and return temperature while heating, supply above setpoint, the share of heating time with a return under 55 °C (where a condensing boiler can condense), failed starts, and the water pressure with its trend.
+- **Boiler:** its hour counters, burner time per state, burner starts and short runs, modulation, supply and return temperature while heating, supply above setpoint, the share of heating time with a return under 55 °C (where a condensing boiler can condense), failed starts, the water pressure with its trend, and a log of boiler faults with their codes and the lowest pressure during each.
 - **Day detail:** everything of one day on the same time scale, with the burner's periods marked.
 - **Export:** the table per period, all samples or all hourly values of the chosen period as CSV.
 
