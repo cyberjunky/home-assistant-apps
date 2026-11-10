@@ -128,6 +128,10 @@
                     <div class="panel"><div class="panel-body">
                         <p class="panel-sub" style="margin-bottom:10px">Restarted means the Toon rebooted during the outage. Connection lost means it kept running but could not be reached.</p>
                         <div id="outages" class="table-wrap"></div>
+                        <div class="detail-actions" style="margin-top:12px; align-items:center">
+                            <button type="button" class="btn" id="fill-history" onclick="fillHistory()">Fetch missing history</button>
+                            <span class="panel-sub" id="fill-status">Fills gaps from the Toon's own history: room, setpoints, water pressure, power and gas, up to about 30 days back. Only reads from the Toon.</span>
+                        </div>
                     </div></div>
 
                     <div class="page-section"><span>Configuration</span><small>change these in the app's configuration in Home Assistant</small></div>

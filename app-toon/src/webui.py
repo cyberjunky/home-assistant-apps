@@ -12,6 +12,7 @@ from pathlib import Path
 import asyncssh
 from aiohttp import web
 
+from .boxtalk import BoxTalkError
 from .config import APP_VERSION, DATA_DIR
 from .control import CommandRefused
 from .database import Database, backup_copy, database_report
@@ -78,6 +79,9 @@ class WebUI:
             stale.unlink(missing_ok=True)
         extra = tuple(sorted(external.keys)) if external else ()
         self.stats = Stats(database.path, monitor.config.gas_kwh_per_m3, extra)
+        # The last "Fetch missing history" on request: running, or what it gave
+        self.fill: dict = {}
+        self._fill_task: asyncio.Task | None = None
         self.app = web.Application()
         self.app.router.add_get("/", self._index)
         self.app.router.add_get("/api/status", self._status)
@@ -89,6 +93,7 @@ class WebUI:
         self.app.router.add_get("/api/gas-hours", self._gas_hours)
         self.app.router.add_post("/api/control", self._control)
         self.app.router.add_post("/api/data/delete", self._delete_data)
+        self.app.router.add_post("/api/history/fill", self._fill_history)
         self.app.router.add_get("/api/backup", self._backup)
         self.app.router.add_get("/api/database", self._database)
         self.app.router.add_get("/api/export/periods.csv", self._export_periods)
@@ -144,6 +149,7 @@ class WebUI:
                     "total": len(ARCHIVES),
                     "done": sum(self.database.import_position(a.logger, a.rra)[1] for a in ARCHIVES),
                 },
+                "fill": self.fill,
             }
         )
 
@@ -180,6 +186,34 @@ class WebUI:
             logger.warning(f"Changing the thermostat failed: {e!r}")
             return web.json_response({"error": f"The change didn't go through: {e}"}, status=502)
         return web.json_response({"ok": True})
+
+    async def _fill_history(self, request: web.Request) -> web.Response:
+        """Fetch what's missing from the Toon's own history. Only reads from the Toon; runs in the background."""
+        if os.environ.get("SUPERVISOR_TOKEN") and request.remote != INGRESS_ADDRESS:
+            return web.json_response({"error": "Use the sidebar"}, status=403)
+        if request.content_type != "application/json":
+            return web.json_response({"error": "Send JSON"}, status=415)
+        if self._fill_task and not self._fill_task.done():
+            return web.json_response({"error": "Already fetching"}, status=409)
+        if not self.monitor.connected:
+            return web.json_response({"error": "The Toon isn't connected"}, status=503)
+        if self.monitor.importer.running:
+            return web.json_response(
+                {"error": "The history import is running. Try again when it has finished."}, status=409
+            )
+        self.fill = {"running": True, "started": int(time.time())}
+        self._fill_task = asyncio.create_task(self._run_fill(), name="fill-history")
+        return web.json_response({"ok": True})
+
+    async def _run_fill(self) -> None:
+        started = self.fill.get("started")
+        try:
+            values = await self.monitor.fill_missing()
+            self.fill = {"running": False, "started": started, "ended": int(time.time()), "values": values}
+            self.stats.clear_cache()
+        except (ToonNotConnected, RuntimeError, OSError, TimeoutError, asyncssh.Error, BoxTalkError, ValueError) as e:
+            logger.warning(f"Fetching missing history failed: {e!r}")
+            self.fill = {"running": False, "started": started, "ended": int(time.time()), "error": str(e)}
 
     async def _delete_data(self, request: web.Request) -> web.Response:
         """The danger zone: delete everything recorded. The page asks for DELETE to be typed; so does this."""

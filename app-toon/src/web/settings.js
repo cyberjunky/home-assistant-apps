@@ -141,6 +141,38 @@ async function loadHealthCharts() {
     });
 }
 
+// Fetch what the app missed from the Toon's own history. It runs on the server; follow it via the status.
+async function fillHistory() {
+    const button = document.getElementById('fill-history');
+    button.disabled = true;
+    try {
+        await apiPost('history/fill', {});
+    } catch (e) {
+        toast(e.message);
+        button.disabled = false;
+        return;
+    }
+    showFill({running: true});
+    for (;;) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        let fill;
+        try { fill = (await api('status')).fill || {}; } catch (e) { continue; }
+        showFill(fill);
+        if (!fill.running) break;
+    }
+    button.disabled = false;
+    // The charts and statistics load again with the filled values
+    app.today = null;
+    stats.report = null;
+}
+
+function showFill(fill) {
+    const el = document.getElementById('fill-status');
+    if (fill.running) el.textContent = 'Fetching from the Toon… this can take a few minutes.';
+    else if (fill.error) el.textContent = `Didn't finish: ${fill.error}`;
+    else if (fill.values !== undefined) el.textContent = fill.values ? `Done: ${num(fill.values)} values added.` : 'Done: nothing was missing that the Toon still has.';
+}
+
 // Danger zone: wipe everything recorded. The options stay.
 async function deleteAllData() {
     const ok = await confirmDialog({

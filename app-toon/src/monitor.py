@@ -360,9 +360,29 @@ class ToonMonitor:
                 await self.importer.fill_gap(bus, self.host_name, outage_start, time.time(), offset)
             if self.config.import_history:
                 await self.importer.import_all(bus, self.host_name)
+            # Gaps the outage record doesn't know of, such as the app restarting during an outage
+            await self.importer.fill_missing(bus, self.host_name, self._clock_offset_at)
         except (OSError, TimeoutError, asyncssh.Error, ValueError, BoxTalkError) as e:
             logger.info(f"History import interrupted, continuing later: {_describe(e)}")
         await asyncio.Event().wait()
+
+    def _clock_offset_at(self, ts: int) -> float:
+        """How far the Toon's clock was off at a moment, which its history is stamped with."""
+        offset = self.database.value_before("clock_offset", ts)
+        if offset is None:
+            offset = self.values.get("clock_offset")
+        return float(offset or 0)
+
+    async def fill_missing(self) -> int:
+        """Fill the gaps in the stored values from the Toon's own history, on request."""
+        bus = self._bus
+        if not self.connected or bus is None:
+            raise ToonNotConnected("the Toon isn't connected")
+        if self.importer.running:
+            raise RuntimeError("the history import is running; try again when it has finished")
+        values = await self.importer.fill_missing(bus, self.host_name, self._clock_offset_at)
+        logger.info(f"Fetching missing history: {values} values added")
+        return values
 
     # The bus
 

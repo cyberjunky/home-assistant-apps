@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.8
+
+**After updating:** nothing to do. On its first connect the app fills the gaps it can by itself.
+
+- Gaps are filled from the Toon's own history after every connect, also when the app was restarted during an outage. Before, a restart (for example by an update) cut the outage short, and only the part after the restart was filled.
+- **Fetch missing history** button under Settings → Connection history, which does the same on request. It only reads from the Toon.
+
 ## 0.4.7
 
 **After updating:** nothing to do.

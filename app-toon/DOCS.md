@@ -77,7 +77,13 @@ The **Connection history** table shows each time the Toon could not be reached:
 
 The Toon keeps its own history files: meters and burner minutes up to 10 years back per day and 5 years per hour, power per 5 minutes for 31 days, and thermostat values per minute for 30 days. It keeps no thermostat values longer than that; from the day you install this app, the app keeps them itself. History is read in small pieces with a pause in between, which takes up to an hour and continues where it was after an interruption, also for files added by a later version.
 
-History has the Toon's own timestamps, so a Toon with a wrong clock has its history off by that much. The one exception is the gap after an outage, which is read back with the offset at that moment taken out.
+History has the Toon's own timestamps, so a Toon with a wrong clock has its history off by that much. The exception is gaps, which are read back with the clock offset of that moment taken out.
+
+### Gaps
+
+The Toon keeps logging while it can't be reached, so the app fills what it missed. After every connect it looks for gaps in what it stored and fetches those stretches from the Toon. This covers outages, and also the app being stopped or restarted, for example by an update. The **Fetch missing history** button under **Settings → Connection history** does the same on request. It only reads from the Toon, and live values stay as they are.
+
+Filled: room temperature, setpoint, boiler setpoint, water pressure and the program state per minute, and power and gas per 5 minutes, as far back as the Toon keeps them (about 30 days). Supply and return temperature, modulation and the burner state can't be filled, because the Toon keeps no history of them.
 
 ## Sensors you may expect but won't find
 

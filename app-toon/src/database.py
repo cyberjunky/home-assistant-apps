@@ -101,6 +101,22 @@ class Database:
             self._db.executemany("INSERT OR REPLACE INTO samples VALUES (?, ?, ?)", pending)
             self._db.commit()
 
+    def sample_times(self, metric: str, start: int, end: int) -> list[int]:
+        """When a metric has samples, strictly between start and end."""
+        self.flush()
+        rows = self._db.execute(
+            "SELECT ts FROM samples WHERE metric = ? AND ts > ? AND ts < ? ORDER BY ts", (metric, start, end)
+        ).fetchall()
+        return [row[0] for row in rows]
+
+    def value_before(self, metric: str, ts: int) -> float | None:
+        """A metric's last sample at or before a moment."""
+        self.flush()
+        row = self._db.execute(
+            "SELECT value FROM samples WHERE metric = ? AND ts <= ? ORDER BY ts DESC LIMIT 1", (metric, ts)
+        ).fetchone()
+        return row[0] if row else None
+
     def add_samples(self, rows: list[tuple[str, int, float]]) -> None:
         """Samples from the Toon's history; what was recorded live stays as it is."""
         self._db.executemany("INSERT OR IGNORE INTO samples VALUES (?, ?, ?)", rows)

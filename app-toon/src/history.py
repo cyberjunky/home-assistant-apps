@@ -9,9 +9,11 @@ in small pieces with a pause in between, and an interrupted import continues whe
 """
 
 import asyncio
+import itertools
 import json
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -24,6 +26,9 @@ logger = logging.getLogger(__name__)
 
 DAY = 86400
 PAUSE_BETWEEN_REQUESTS = 2.0
+# A gap in the stored values. While connected every value is stored at least every 15 minutes
+# (the monitor's heartbeat), so a longer stretch without one means the app didn't record it.
+MIN_GAP = 18 * 60
 
 
 @dataclass(frozen=True)
@@ -79,6 +84,12 @@ ARCHIVES = _archives()
 BACKFILL = tuple(archive for archive in ARCHIVES if archive.bin_seconds <= 300)
 
 
+def find_gaps(times: list[int], start: int, end: int, min_gap: int = MIN_GAP) -> list[tuple[int, int]]:
+    """The stretches between start and end without a sample that are longer than min_gap."""
+    points = [start, *(t for t in times if start < t < end), end]
+    return [(a, b) for a, b in itertools.pairwise(points) if b - a > min_gap]
+
+
 def rrd_arguments(archive: Archive, start: int, end: int, zone: ZoneInfo) -> dict[str, str]:
     """The request for a time range. The Toon takes local time and answers with epoch timestamps.
 
@@ -130,7 +141,14 @@ class HistoryImporter:
         return len(rows)
 
     async def _fetch(
-        self, bus: BoxTalkClient, host: str, archive: Archive, start: int, end: int, shift: float = 0
+        self,
+        bus: BoxTalkClient,
+        host: str,
+        archive: Archive,
+        start: int,
+        end: int,
+        shift: float = 0,
+        keep: tuple[int, int] | None = None,
     ) -> int:
         answer = await bus.action(
             f"{host}:hcb_rrd", "specific1", "GetRraData", rrd_arguments(archive, start, end, self.zone), timeout=30
@@ -140,7 +158,10 @@ class HistoryImporter:
         except ValueError:
             logger.warning(f"History: unreadable answer for {archive.logger}/{archive.rra}")
             return 0
-        return self._store(archive, parse_rows(archive, data if isinstance(data, dict) else {}, shift))
+        rows = parse_rows(archive, data if isinstance(data, dict) else {}, shift)
+        if keep:
+            rows = [row for row in rows if keep[0] < row[1] < keep[1]]
+        return self._store(archive, rows)
 
     async def import_all(self, bus: BoxTalkClient, host: str) -> None:
         """Import everything not imported yet, continuing an interrupted import."""
@@ -183,3 +204,40 @@ class HistoryImporter:
             await asyncio.sleep(PAUSE_BETWEEN_REQUESTS)
         self.database.roll_up(int(start))
         logger.info(f"Filled the gap of the outage with {rows} values from the Toon's own history")
+
+    async def fill_missing(
+        self, bus: BoxTalkClient, host: str, clock_offset: Callable[[int], float], now: int | None = None
+    ) -> int:
+        """Fill every gap in the stored values that the Toon's finest files still cover (about 30 days).
+
+        Unlike fill_gap this doesn't rely on the outage record, which an app restart in the middle of
+        an outage cuts short. Live values stay as they are: only the gaps get the Toon's values.
+        """
+        now = int(now or time.time())
+        self.running = True
+        values = 0
+        earliest = None
+        try:
+            for archive in BACKFILL:
+                # Stay a bin inside the oldest end of the file
+                start = now - archive.span + archive.bin_seconds
+                for a, b in find_gaps(self.database.sample_times(archive.metric, start, now), start, now):
+                    at = a
+                    while at < b:
+                        to = min(at + archive.chunk, b)
+                        offset = clock_offset(at)
+                        added = await self._fetch(
+                            bus, host, archive, int(at + offset), int(to + offset), shift=-offset, keep=(a, b)
+                        )
+                        if added:
+                            values += added
+                            earliest = a if earliest is None else min(earliest, a)
+                        at = to
+                        await asyncio.sleep(PAUSE_BETWEEN_REQUESTS)
+            if earliest is not None:
+                self.database.roll_up(earliest)
+        finally:
+            self.running = False
+        if values:
+            logger.info(f"Filled gaps with {values} values from the Toon's own history")
+        return values
