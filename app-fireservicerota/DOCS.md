@@ -230,6 +230,15 @@ include them. The CSV files of abbreviations (`abbreviation,full_text`) and rule
 (`pattern,replacement,enabled`) fit the Meldkamer app; rules with an empty replacement are
 skipped at import.
 
+**Where the built-in rows come from.** They ship with the app as CSV files, one per table,
+in the same format as the Data tab's export: `src/defaults/abbreviations.csv`,
+`tts_replacements.csv`, `city_abbreviations.csv` and `talkgroup_codes.csv`
+([on GitHub](https://github.com/cyberjunky/home-assistant-apps/tree/main/app-fireservicerota/src/defaults)).
+They are only read to fill the tables at the first start of a version; after that the
+database is the only source, so edit the rows in the app. `previous.csv` lists values
+older versions shipped (such as PM's old meaning): a row still at such a value gets the
+new one, a row you changed is left alone. *Import list* reads `abbreviations.csv` again.
+
 **Sources of the built-in meanings**:
 
 - Talk groups: Brandweer Nederland / NIPV, [Nota van toelichting Standaard Presentatietekst

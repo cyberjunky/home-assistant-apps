@@ -1,0 +1,44 @@
+kind,code,name
+discipline,B,Brandweer
+discipline,A,Ambulancezorg
+discipline,P,Politie
+discipline,M,Koninklijke Marechaussee
+discipline,D,Defensiediensten
+discipline,S,Multidisciplinaire samenwerking
+region,LA,Bovenregionaal
+region,GR,Groningen
+region,FR,Friesland
+region,DR,Drenthe
+region,IJ,IJsselland
+region,TW,Twente
+region,GN,Noord- en Oost-Gelderland
+region,GM,Gelderland-Midden
+region,GZ,Gelderland-Zuid
+region,UT,Utrecht
+region,ZW,Zaanstreek-Waterland
+region,KE,Kennemerland
+region,AM,Amsterdam-Amstelland
+region,GV,Gooi en Vechtstreek
+region,HL,Haaglanden
+region,HM,Hollands Midden
+region,RR,Rotterdam-Rijnmond
+region,ZH,Zuid-Holland Zuid
+region,ZL,Zeeland
+region,BM,Midden- en West-Brabant
+region,BN,Brabant-Noord
+region,BZ,Brabant-Zuidoost
+region,LN,Limburg-Noord
+region,LZ,Limburg-Zuid
+region,FL,Flevoland
+region,LE,Landelijke eenheid
+region,AD,Amsterdam
+region,NN,Noord-Nederland
+region,ON,Oost-Nederland
+region,MD,Midden-Nederland
+region,NH,Noord-Holland
+region,PA,Politieacademie
+region,LB,Limburg
+region,OB,Oost-Brabant
+region,ZB,Zeeland-West-Brabant
+region,RT,Rotterdam
+region,DH,Den Haag

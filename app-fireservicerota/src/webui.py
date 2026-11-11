@@ -19,7 +19,7 @@ from .config import DATA_DIR
 from .database import CSV_TABLES, SPEECH_CSV, Database
 from .donate import DonatePrompt
 from .ha_client import HAClientError
-from .speech import is_default, spell
+from .speech import spell
 from .timeutil import now_ts
 from .tracker import Tracker
 
@@ -313,8 +313,9 @@ class WebUI:
             per_page=_int_param(request, "per_page", 50, maximum=500),
         )
         speech = self.tracker.speech
+        defaults = self.db.default_values(table)
         for item in result["items"]:
-            item["default"] = is_default(table, item)
+            item["default"] = self.db.is_default(table, item, defaults)
             if table == "abbreviations":
                 meaning = speech.meaning(item["abbreviation"])
                 # As the code is spoken in a text: a rule (e.g. AED -> A E D) comes before the meaning

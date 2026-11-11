@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.3
+
+**After updating:** nothing to do. Your abbreviations, rules, place codes and talk groups and your edits are kept, and a built-in row you deleted stays deleted.
+
+- The built-in lists are no longer part of the program: they ship as CSV files, one per table, in the Data tab's export format (`src/defaults/*.csv`). They are only read to fill the tables at the first start of a version; after that the database is the only source. *Import list* reads the same abbreviations file.
+- The *default* tag on the Data tab compares a row with the built-in value remembered when it was added, instead of a list in the program.
+- Texts are spoken exactly as before.
+
 ## 0.2.2
 
 **After updating:** nothing to do. The new speech rules are added to your list at the first start; rules and abbreviations you changed are kept.

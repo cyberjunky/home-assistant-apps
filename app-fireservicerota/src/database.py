@@ -17,6 +17,7 @@ import sqlite3
 import threading
 from typing import Any
 
+from . import default_data
 from .timeutil import parse_ts
 
 logger = logging.getLogger(__name__)
@@ -110,10 +111,11 @@ CREATE TABLE IF NOT EXISTS talkgroup_codes (
     UNIQUE (kind, code)
 );
 -- Which built-in rows were added once: a default you deleted or changed is not added
--- again at the next start or update
+-- again at the next start or update. value: the row's values as built in (JSON)
 CREATE TABLE IF NOT EXISTS speech_seeded (
     kind TEXT NOT NULL,
     key TEXT NOT NULL,
+    value TEXT,
     PRIMARY KEY (kind, key)
 );
 """
@@ -203,6 +205,10 @@ class Database:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.executescript(SCHEMA)
+        # 0.2.3: the built-in value of each seeded row
+        columns = {r["name"] for r in self.conn.execute("PRAGMA table_info(speech_seeded)")}
+        if "value" not in columns:
+            self.conn.execute("ALTER TABLE speech_seeded ADD COLUMN value TEXT")
         self._set_schema_version()
 
     def _set_schema_version(self) -> None:
@@ -449,50 +455,104 @@ class Database:
 
     # ------------------------------------- speech: abbreviations, rules, places, talk groups
 
-    def update_unchanged_defaults(self, marker: str, table: str, key: str, column: str, changes: dict) -> int:
-        """Give built-in rows a new default once (marker names the change): {key: (old, new)}.
-        Only rows still exactly at the old default change; a row you edited stays."""
+    def seed_speech(self) -> dict[str, int]:
+        """Fill the speech tables from the factory lists in src/defaults/ (see default_data.py).
+
+        Runs at the first start of a version only (the files' signature is remembered), so the
+        files are not read again after that. A row is offered once: one you changed keeps your
+        text, one you deleted stays deleted, also after updates. What each built-in row was
+        is remembered with it (speech_seeded.value), to mark unchanged rows as "default".
+        Returns the number added per table.
+        """
+        marker = default_data.signature()
         with self._lock:
             if self.conn.execute(
-                "SELECT 1 FROM speech_seeded WHERE kind = 'migration' AND key = ?", (marker,)
+                "SELECT 1 FROM speech_seeded WHERE kind = 'defaults' AND key = ?", (marker,)
             ).fetchone():
-                return 0
-            updated = 0
-            for value, (old, new) in changes.items():
-                updated += self.conn.execute(
-                    f"UPDATE {table} SET {column} = ? WHERE {key} = ? AND {column} = ?", (new, value, old)
-                ).rowcount
-            self.conn.execute("INSERT OR IGNORE INTO speech_seeded (kind, key) VALUES ('migration', ?)", (marker,))
-            self.conn.commit()
-        return updated
-
-    def seed_speech(self, defaults: dict[str, list[dict]]) -> dict[str, int]:
-        """Add the built-in rows ({table: [row dicts]}) that were never added before.
-
-        Each row is added once: one you changed keeps your text, one you deleted stays
-        deleted, also after updates. Returns the number added per table.
-        """
+                return {}
+        later: dict[str, set[str]] = {}
+        for row in default_data.read("added_later"):
+            later.setdefault(row["table"], set()).add(row["key"])
         added: dict[str, int] = {}
+        current: dict[str, dict[str, dict]] = {}
         with self._lock:
-            seeded = {(r["kind"], r["key"]) for r in self.conn.execute("SELECT kind, key FROM speech_seeded")}
-            for table, rows in defaults.items():
-                spec = SPEECH_TABLES[table]
+            for table, spec in SPEECH_TABLES.items():
+                seeded = {
+                    r["key"]: r["value"]
+                    for r in self.conn.execute("SELECT key, value FROM speech_seeded WHERE kind = ?", (table,))
+                }
+                untracked = not seeded and self.conn.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone() is not None
                 count = 0
-                for row in rows:
+                current[table] = {}
+                for row in default_data.read(table):
                     values = self._clean_values(table, row)
                     key = "\x1f".join(str(values[c]) for c in spec["key"])
-                    if (table, key) in seeded:
+                    current[table][key] = values
+                    value = json.dumps([values[c] for c in spec["cols"] if c not in spec["key"]], ensure_ascii=False)
+                    if key in seeded:
+                        if seeded[key] is None:
+                            self.conn.execute(
+                                "UPDATE speech_seeded SET value = ? WHERE kind = ? AND key = ?", (value, table, key)
+                            )
                         continue
-                    cols = [c for c in spec["cols"] if c in values]
-                    cur = self.conn.execute(
-                        f"INSERT OR IGNORE INTO {table} ({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)})",
-                        [values[c] for c in cols],
+                    if not untracked or key in later.get(table, set()):
+                        cols = [c for c in spec["cols"] if c in values]
+                        count += self.conn.execute(
+                            f"INSERT OR IGNORE INTO {table} ({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)})",
+                            [values[c] for c in cols],
+                        ).rowcount
+                    self.conn.execute(
+                        "INSERT OR IGNORE INTO speech_seeded (kind, key, value) VALUES (?, ?, ?)", (table, key, value)
                     )
-                    count += cur.rowcount
-                    self.conn.execute("INSERT OR IGNORE INTO speech_seeded (kind, key) VALUES (?, ?)", (table, key))
+                    seeded[key] = value
                 added[table] = count
+            self._apply_previous_defaults(current)
+            self.conn.execute("DELETE FROM speech_seeded WHERE kind = 'defaults'")
+            self.conn.execute("INSERT INTO speech_seeded (kind, key) VALUES ('defaults', ?)", (marker,))
             self.conn.commit()
         return added
+
+    def _apply_previous_defaults(self, current: dict[str, dict[str, dict]]) -> None:
+        """Rows still at a value an older version shipped (src/defaults/previous.csv) get the
+        current value, or are removed when that key isn't shipped any more. Once per entry;
+        an entry whose migration already ran under an older version is skipped."""
+        done = {r["key"] for r in self.conn.execute("SELECT key FROM speech_seeded WHERE kind = 'migration'")}
+        for row in default_data.read("previous"):
+            entry = "\x1f".join((row["table"], row["key"], row["column"], row["value"]))
+            if entry in done or row.get("migration") in done:
+                continue
+            table, column = row["table"], row["column"]
+            key_column = SPEECH_TABLES[table]["key"][0]
+            now = current.get(table, {}).get(row["key"])
+            if now is not None:
+                self.conn.execute(
+                    f"UPDATE {table} SET {column} = ? WHERE {key_column} = ? AND {column} = ?",
+                    (now[column], row["key"], row["value"]),
+                )
+            else:
+                self.conn.execute(
+                    f"DELETE FROM {table} WHERE {key_column} = ? AND {column} = ?", (row["key"], row["value"])
+                )
+            self.conn.execute("INSERT OR IGNORE INTO speech_seeded (kind, key) VALUES ('migration', ?)", (entry,))
+
+    def default_values(self, table: str) -> dict[str, tuple]:
+        """{row key: the built-in values of the row} as they were added, to mark unchanged rows."""
+        spec = SPEECH_TABLES[table]
+        out = {}
+        for r in self.conn.execute(
+            "SELECT key, value FROM speech_seeded WHERE kind = ? AND value IS NOT NULL", (table,)
+        ):
+            out[r["key"]] = tuple(json.loads(r["value"]))
+        return {k: v for k, v in out.items() if len(v) == len([c for c in spec["cols"] if c not in spec["key"]])}
+
+    def is_default(self, table: str, row: dict, defaults: dict[str, tuple] | None = None) -> bool:
+        """Whether a row is a built-in row as it was added (not changed by you)."""
+        spec = SPEECH_TABLES[table]
+        defaults = self.default_values(table) if defaults is None else defaults
+        key = "\x1f".join(str(row.get(c)) for c in spec["key"])
+        values = tuple(row.get(c) for c in spec["cols"] if c not in spec["key"])
+        stored = defaults.get(key)
+        return stored is not None and tuple(str(v) for v in stored) == tuple(str(v) for v in values)
 
     def speech_rows(self, table: str) -> list[dict]:
         """All rows of a speech table (rules: only the enabled ones, in the order they apply)."""

@@ -5,8 +5,9 @@ import sqlite3
 
 import pytest
 
+from src import default_data
 from src.database import Database
-from src.speech import DEFAULT_TTS_REPLACEMENTS, DEFAULTS, Speech
+from src.speech import Speech
 from tools.mock_ha import KINDS, STREETS
 
 
@@ -160,7 +161,7 @@ def test_mock_texts_have_no_motorway_turned_ambulance(speech):
 
 
 def test_no_default_rule_deletes_text():
-    for rule in DEFAULT_TTS_REPLACEMENTS:
+    for rule in default_data.read("tts_replacements"):
         assert rule["replacement"].strip(), rule
         re.compile(rule["pattern"])
 
@@ -207,15 +208,13 @@ def test_talkgroup_and_place_tables_are_used_without_restart(db, speech):
 
 
 def test_defaults_are_marked(db, speech):
-    from src.speech import is_default
-
     rows = db.list_speech("talkgroup_codes", search="Rotterdam")["items"]
-    assert rows and all(is_default("talkgroup_codes", r) for r in rows)
+    assert rows and all(db.is_default("talkgroup_codes", r) for r in rows)
     row = db.conn.execute("SELECT * FROM abbreviations WHERE abbreviation = 'TS'").fetchone()
-    assert is_default("abbreviations", dict(row))
+    assert db.is_default("abbreviations", dict(row))
     db.save_abbreviation("TS", "Tankautospuit van de post", row["id"])
     row = db.conn.execute("SELECT * FROM abbreviations WHERE abbreviation = 'TS'").fetchone()
-    assert not is_default("abbreviations", dict(row))
+    assert not db.is_default("abbreviations", dict(row))
 
 
 def test_explain_lists_the_changes(speech):
@@ -264,9 +263,9 @@ def test_an_older_database_keeps_its_data(tmp_path):
     assert db.counts()["duty"] == 1
     counts = db.speech_counts()
     assert counts["abbreviations"] > 300
-    assert counts["tts_replacements"] == len(DEFAULT_TTS_REPLACEMENTS)
+    assert counts["tts_replacements"] == len(default_data.read("tts_replacements"))
     assert counts["city_abbreviations"] > 2000
-    assert counts["talkgroup_codes"] == len(DEFAULTS["talkgroup_codes"])
+    assert counts["talkgroup_codes"] == len(default_data.read("talkgroup_codes"))
     assert (
         speech.speak(incident["body"], incident["prio"]) == "Prio 1 gespreksgroep Brandweer Rotterdam 0 1 Brand woning"
     )
@@ -276,7 +275,7 @@ def test_an_older_database_keeps_its_data(tmp_path):
 def test_seeded_once(db, speech):
     before = db.speech_counts()
     assert Speech(db) and db.speech_counts() == before
-    assert db.seed_speech(DEFAULTS) == dict.fromkeys(DEFAULTS, 0)
+    assert db.seed_speech() == {}
 
 
 def test_backup_and_restore_bring_back_your_edits(tmp_path, db, speech):
@@ -307,7 +306,7 @@ def test_restoring_a_backup_from_before_the_speech_tables_seeds_them(tmp_path, d
     db.replace_with(old)
     speech.seed()
     assert db.get_incident("42")["body"] == "P 1 BRT-01 Brand woning"
-    assert db.speech_counts()["talkgroup_codes"] == len(DEFAULTS["talkgroup_codes"])
+    assert db.speech_counts()["talkgroup_codes"] == len(default_data.read("talkgroup_codes"))
     assert speech.speak("P 1 BRT-01 t.h.v. UTRECH") == (
         "Prio 1 gespreksgroep Brandweer Rotterdam 0 1 ter hoogte van Utrecht"
     )

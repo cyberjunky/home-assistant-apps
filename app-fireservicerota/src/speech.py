@@ -11,9 +11,9 @@ because firefighters act on what they hear:
   numbers digit by digit, "00:00" -> "0 uur 0").
 
 Every list it uses is a database table, editable on the Data tab: replacement rules,
-abbreviations, place-name codes and talk group codes. The lists below are only the
-defaults the tables get once (Database.seed_speech): a row you change keeps your text and
-a default you delete stays deleted, also after updates.
+abbreviations, place-name codes and talk group codes. Their built-in rows ship as CSV
+files in src/defaults/, read once to fill the tables (Database.seed_speech): a row you
+change keeps your text and a default you delete stays deleted, also after updates.
 
 The steps, in order (explain() returns each change it made):
 1. replacement rules (regex, applied in order);
@@ -27,178 +27,9 @@ The same text goes to Home Assistant's tts.speak and to the dashboard's browser 
 import logging
 import re
 
-from .abbreviation_import import ABBREVIATIONS
-from .city_abbreviations import CITY_ABBREVIATIONS
 from .database import Database
 
 logger = logging.getLogger(__name__)
-
-# ----------------------------------------------------------------- defaults (seeded once)
-
-# Applied case-insensitively, top to bottom. A replacement may never be empty.
-# A hectometer marker ("hmp 45,2", or "hectometerpaal 45,2" after the hmp rule) and a road
-# number ("A12", "A 12"), for the Li/Re rules
-_HECTO = r"(?-i:\b((?:hmp\.?|hectometerpaal)\s*\d+(?:[.,]\d+)?)"
-_ROAD = r"(?-i:\b([AN]\s?\d{1,3})"
-_BEFORE_HECTO = r"(?=\s+(?:(?:hmp\.?|hectometerpaal)\s*)?\d+(?:[.,]\d+)?\b))"
-
-DEFAULT_TTS_REPLACEMENTS = [
-    # Priority and urgency at the start of the alarm text ("P 1 ...", "A1 ...", "B2 ...").
-    # Sources: nl.wikipedia.org/wiki/P2000_(netwerk), 112hier.nl/uitleg, persmonitor.nl
-    {"pattern": r"^\s*P\s?([1-5])\b", "replacement": r"Prio \1"},
-    {"pattern": r"^\s*A\s?1\b", "replacement": "Ambulance met spoed"},
-    {"pattern": r"^\s*A\s?2\b", "replacement": "Ambulance zonder spoed"},
-    {"pattern": r"^\s*B\s?1\b", "replacement": "Ambulance besteld vervoer, hoogcomplexe zorgvraag"},
-    {"pattern": r"^\s*B\s?2\b", "replacement": "Ambulance besteld vervoer, midden- of laagcomplexe zorgvraag"},
-    # Elsewhere in the text P1 or B2 is not a documented priority (P1 is also a car park):
-    # spoken as a letter and a number
-    {"pattern": r"\b([PB])([1-5])\b", "replacement": r"\1 \2"},
-    # Road numbers: "A2" or "N209" is spoken as a letter and a number (never "ambulance")
-    {"pattern": r"\b([AN])(\d{1,3})\b", "replacement": r"\1 \2"},
-    # Hectometer markers ("hmp 67.4"; the number step makes "67 komma 4")
-    {"pattern": r"\bhmp\b\.?", "replacement": "hectometerpaal"},
-    # Reference numbers: the word in full, the number digit by digit (number step)
-    {"pattern": r"\bbon\b:?(?=\s*\d)", "replacement": "bonnummer"},
-    {"pattern": r"\brit\b:?(?=\s*\d)", "replacement": "ritnummer"},
-    {"pattern": r"\bicnum\b:?(?=\s*\d)", "replacement": "incidentnummer"},
-    # Dutch shortenings
-    {"pattern": r"\bass\.(?=\s|$)", "replacement": "assistentie"},
-    {"pattern": r"\bivm\b\.?", "replacement": "in verband met"},
-    {"pattern": r"\btbv\b\.?", "replacement": "ten behoeve van"},
-    {"pattern": r"\bevt\.?(?=\s|$)", "replacement": "eventueel"},
-    # Spoken the way people say them
-    {"pattern": r"\bAED\b", "replacement": "A E D"},
-    {"pattern": r"\bSGRAVH\b", "replacement": "Den Haag"},
-    # Since 0.2.2. (?-i:...) makes these exact, as rules are applied case-insensitively.
-    # The carriageway right after a hectometer marker ("hmp 45,2 Li", "A12 Li 45,2"): Re is
-    # the side where the hectometers go up, Li where they go down (Rijksoverheid, "doel
-    # hectometerpaaltjes snelwegen"; Rijkswaterstaat, "voorwerp dier schade melden").
-    # Elsewhere Li/Re stay as written
-    {"pattern": _HECTO + r"\s+Li\b)", "replacement": r"\1 rijbaan links"},
-    {"pattern": _HECTO + r"\s+Re\b)", "replacement": r"\1 rijbaan rechts"},
-    {"pattern": _ROAD + r"\s+Li" + _BEFORE_HECTO, "replacement": r"\1 rijbaan links"},
-    {"pattern": _ROAD + r"\s+Re" + _BEFORE_HECTO, "replacement": r"\1 rijbaan rechts"},
-    # OM: Openbaar Ministerie or the word "om" - spelled out, not guessed
-    {"pattern": r"(?-i:\bOM\b)", "replacement": "O M"},
-]
-
-# Meanings for codes the public list gives two meanings ("AC": "Alarmcentrale (BRW) /
-# Actiecentrum"), as a brigade documents them for alarm texts:
-# brandweeruitgeest.nl/betekenis-p2000-meldingen
-SOURCED_MEANINGS = {
-    "AC": "Alarmcentrale",
-    "BOT": "Bedrijfs Opvang Team",
-    "CCK": "Calamiteiten Commando Kamer",
-    "MOB": "Medische Ondersteuning Brandweer",
-    "SPB": "Schuim- Poederbluswagen",
-    "GM": "Gereedschap materiaalwagen",
-}
-
-# Standard Dutch shortenings written with dots, not in the P2000 list
-DUTCH_ABBREVIATIONS = {
-    "t.h.v.": "ter hoogte van",
-    "i.v.m.": "in verband met",
-    "z.s.m.": "zo snel mogelijk",
-    "n.a.v.": "naar aanleiding van",
-    "o.a.": "onder andere",
-    "i.p.v.": "in plaats van",
-    "m.b.t.": "met betrekking tot",
-    "t.b.v.": "ten behoeve van",
-    "t.o.v.": "ten opzichte van",
-    "i.o.m.": "in overleg met",
-    "i.c.m.": "in combinatie met",
-    "m.u.v.": "met uitzondering van",
-    "o.l.v.": "onder leiding van",
-    "d.w.z.": "dat wil zeggen",
-    "n.v.t.": "niet van toepassing",
-    "e.d.": "en dergelijke",
-}
-
-# Short Dutch words, so a text in capitals ("BR WONING VAN DE ...") doesn't get them spelled.
-# Stored as abbreviations of themselves; a code in the P2000 list (OM) keeps its meaning.
-COMMON_WORDS = (
-    "AAN AF ALS BIJ DAN DAT DE DIE DIT EEN EN ER HET HIJ IN IS JA MET NA NAAR NEE NIET NOG OF "
-    "ONDER OP OVER PER TE TER TOT UIT VAN VIA VOOR WEG ZIJ"
-)
-
-# Talk groups in alarm texts ("BRT-01"): discipline letter + meldkamer/region code + the
-# talk group's quick-dial number. Source: Brandweer Nederland / NIPV, "Nota van toelichting
-# Standaard Presentatietekst Gespreksgroep in GMS pagertekst", versie 25 januari 2019,
-# nipv.nl/documenten/nota-van-toelichting-standaard-presentatietekst-gespreksgroep-in-gms-pagertekst
-TALKGROUP_DISCIPLINES = {
-    "B": "Brandweer",
-    "A": "Ambulancezorg",
-    "P": "Politie",
-    "M": "Koninklijke Marechaussee",
-    "D": "Defensiediensten",
-    "S": "Multidisciplinaire samenwerking",
-}
-TALKGROUP_REGIONS = {
-    "LA": "Bovenregionaal",
-    "GR": "Groningen",
-    "FR": "Friesland",
-    "DR": "Drenthe",
-    "IJ": "IJsselland",
-    "TW": "Twente",
-    "GN": "Noord- en Oost-Gelderland",
-    "GM": "Gelderland-Midden",
-    "GZ": "Gelderland-Zuid",
-    "UT": "Utrecht",
-    "ZW": "Zaanstreek-Waterland",
-    "KE": "Kennemerland",
-    "AM": "Amsterdam-Amstelland",
-    "GV": "Gooi en Vechtstreek",
-    "HL": "Haaglanden",
-    "HM": "Hollands Midden",
-    "RR": "Rotterdam-Rijnmond",
-    "ZH": "Zuid-Holland Zuid",
-    "ZL": "Zeeland",
-    "BM": "Midden- en West-Brabant",
-    "BN": "Brabant-Noord",
-    "BZ": "Brabant-Zuidoost",
-    "LN": "Limburg-Noord",
-    "LZ": "Limburg-Zuid",
-    "FL": "Flevoland",
-    "LE": "Landelijke eenheid",
-    "AD": "Amsterdam",
-    "NN": "Noord-Nederland",
-    "ON": "Oost-Nederland",
-    "MD": "Midden-Nederland",
-    # The note has NH twice: 10 Noord-Holland Noord (region) and 38 Noord-Holland (meldkamer);
-    # in alarm texts the meldkamer is meant
-    "NH": "Noord-Holland",
-    "PA": "Politieacademie",
-    "LB": "Limburg",
-    "OB": "Oost-Brabant",
-    "ZB": "Zeeland-West-Brabant",
-    "RT": "Rotterdam",
-    "DH": "Den Haag",
-}
-
-
-def _default_abbreviations() -> dict[str, str]:
-    words = {w: w.lower() for w in COMMON_WORDS.split() if w not in {k.upper() for k in ABBREVIATIONS}}
-    merged = {code.upper(): text for code, text in ABBREVIATIONS.items()}
-    merged.update(SOURCED_MEANINGS)
-    merged.update({code.upper(): text for code, text in DUTCH_ABBREVIATIONS.items()})
-    merged.update(words)
-    return merged
-
-
-DEFAULTS: dict[str, list[dict]] = {
-    "tts_replacements": DEFAULT_TTS_REPLACEMENTS,
-    "abbreviations": [{"abbreviation": k, "full_text": v} for k, v in _default_abbreviations().items()],
-    "city_abbreviations": [{"abbreviation": a, "city": c} for c, a in CITY_ABBREVIATIONS.items()],
-    "talkgroup_codes": [{"kind": "discipline", "code": k, "name": v} for k, v in TALKGROUP_DISCIPLINES.items()]
-    + [{"kind": "region", "code": k, "name": v} for k, v in TALKGROUP_REGIONS.items()],
-}
-# The value columns of each default row by its key, to mark rows on the Data tab as "default"
-_DEFAULT_INDEX = {
-    "tts_replacements": {r["pattern"]: (r["replacement"],) for r in DEFAULT_TTS_REPLACEMENTS},
-    "abbreviations": {r["abbreviation"]: (r["full_text"],) for r in DEFAULTS["abbreviations"]},
-    "city_abbreviations": {r["abbreviation"]: (r["city"],) for r in DEFAULTS["city_abbreviations"]},
-    "talkgroup_codes": {(r["kind"], r["code"]): (r["name"],) for r in DEFAULTS["talkgroup_codes"]},
-}
 
 # ------------------------------------------------------------------------ patterns
 
@@ -249,20 +80,6 @@ def _code_like(token: str) -> bool:
     return upper == len(letters) or upper >= 2
 
 
-def is_default(table: str, row: dict) -> bool:
-    """Whether a row is a built-in default as it was added (not changed by you)."""
-    index = _DEFAULT_INDEX.get(table, {})
-    if table == "tts_replacements":
-        return index.get(row.get("pattern")) == (row.get("replacement"),)
-    if table == "abbreviations":
-        return index.get(row.get("abbreviation")) == (row.get("full_text"),)
-    if table == "city_abbreviations":
-        return index.get(row.get("abbreviation")) == (row.get("city"),)
-    if table == "talkgroup_codes":
-        return index.get((row.get("kind"), row.get("code"))) == (row.get("name"),)
-    return False
-
-
 class Speech:
     """Turns incident texts into spoken text with the tables in the database."""
 
@@ -276,21 +93,10 @@ class Speech:
         self.seed()
 
     def seed(self) -> None:
-        """Add the defaults (only rows never added before) and load everything."""
-        added = self.db.seed_speech(DEFAULTS)
+        """Fill the tables from src/defaults/ when this version hasn't yet, and load everything."""
+        added = self.db.seed_speech()
         if any(added.values()):
             logger.info("Added speech defaults: " + ", ".join(f"{n} {t}" for t, n in added.items() if n))
-        # 0.2.2: PM has one sourced meaning (was "Personeel / Materieelwagen", spelled out)
-        self.db.update_unchanged_defaults(
-            "pm-meaning-0.2.2",
-            "abbreviations",
-            "abbreviation",
-            "full_text",
-            {
-                "PM": ("Personeel / Materieelwagen", ABBREVIATIONS["PM"]),
-                "PM-90": ("Personeels/Materieel wagen 90", ABBREVIATIONS["PM-90"]),
-            },
-        )
         self.reload()
 
     def reload(self) -> None:
