@@ -1,6 +1,6 @@
 """The factory lists: CSV files in src/defaults/, one per table, in the Data tab's CSV format.
 
-They are only read to fill the database (Database.seed_all_defaults): at the first start of
+They are only read to fill the database (see the Database class): at the first start of
 a version, and never again after that. At runtime the database tables are the only source.
 
 - <table>.csv: the built-in rows of a table (UTF-8, header row = the table's columns).
