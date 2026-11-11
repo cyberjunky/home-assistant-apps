@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.2
+
+**After updating:** nothing to do. The new speech rules are added to your list at the first start; rules and abbreviations you changed are kept.
+
+- Spoken text: "Li" or "Re" right after a hectometer marker ("hmp 45,2 Li", "A12 Re 45,2") is said as "rijbaan links" / "rijbaan rechts" (the carriageway). Elsewhere Li and Re stay as written.
+- PM is spoken as "Personeel- en materieelvoertuig" instead of spelled out; PM-VEB and the like keep their suffix ("Personeel- en materieelvoertuig V E B"). An unchanged old meaning ("Personeel / Materieelwagen") is updated; one you changed is kept.
+- OM is spelled out ("O M") instead of "Openbaar Ministerie": in an alarm text it can also be the word "om".
+
 ## 0.2.1
 
 **After updating:** nothing to do.
