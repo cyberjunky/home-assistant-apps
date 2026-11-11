@@ -1,0 +1,3062 @@
+{
+ "incident_types": {
+  "alarm": "Automatische melding",
+  "animal": "Dier in nood",
+  "assist": "Hulpverlening",
+  "fire": "Brand",
+  "gas": "Gas / stank",
+  "grip": "GRIP",
+  "lift": "Liftopsluiting",
+  "medical": "Medisch",
+  "storm": "Storm / wateroverlast",
+  "traffic": "Verkeersongeval",
+  "water": "Waterongeval"
+ },
+ "messages": [
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "BRT-01",
+     "full_text": "Gespreksgroep Brandweer Rotterdam 01"
+    }
+   ],
+   "address": "Coolsingel, 3011 Rotterdam, Netherlands",
+   "body": "P 1 BRT-01 Brand woning Coolsingel Rotterdam 123456",
+   "bon_number": "",
+   "capcodes": [
+    "000200001"
+   ],
+   "city": "Rotterdam",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Brand",
+    "incident_number": "",
+    "incident_type": "fire",
+    "ride_number": "",
+    "talk_group": "BRT-01",
+    "talk_group_name": "Brandweer Rotterdam 01"
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Brand",
+   "incident_number": "",
+   "incident_type": "fire",
+   "latitude": 51.92,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 4.478,
+   "mapurl": "https://www.openstreetmap.org/?mlat=51.92&mlon=4.478#map=17/51.92/4.478",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "3011",
+   "priority": 1,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000200001|ALN|P 1 BRT-01 Brand woning Coolsingel Rotterdam 123456",
+   "receivers": "",
+   "region": "Rotterdam-Rijnmond",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 1 gespreksgroep Brandweer Rotterdam 0 1 Brand woning Coolsingel Rotterdam",
+   "street": "Coolsingel",
+   "tags": [
+    {
+     "abbreviation": "BRT-01",
+     "full_text": "Gespreksgroep Brandweer Rotterdam 01"
+    }
+   ],
+   "talk_group": "BRT-01",
+   "talk_group_name": "Brandweer Rotterdam 01",
+   "units": [
+    "12-3456"
+   ],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "12-3456",
+    "vehicle_units": [
+     "12-3456"
+    ]
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "12-3456",
+   "vehicle_units": [
+    "12-3456"
+   ]
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "BRT-02",
+     "full_text": "Gespreksgroep Brandweer Rotterdam 02"
+    },
+    {
+     "abbreviation": "OMS",
+     "full_text": "Openbaar Meldsysteem"
+    }
+   ],
+   "address": "Coolsingel, 3011 Rotterdam, Netherlands",
+   "body": "P 2 BRT-02 OMS brandmelding Coolsingel Rotterdam (Directe inzet: ja) bon 170616",
+   "bon_number": "170616",
+   "capcodes": [
+    "000200001"
+   ],
+   "city": "Rotterdam",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "170616",
+    "direct_deployment": true,
+    "incident_label": "Automatische melding",
+    "incident_number": "",
+    "incident_type": "alarm",
+    "ride_number": "",
+    "talk_group": "BRT-02",
+    "talk_group_name": "Brandweer Rotterdam 02"
+   },
+   "direct_deployment": true,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Automatische melding",
+   "incident_number": "",
+   "incident_type": "alarm",
+   "latitude": 51.92,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 4.478,
+   "mapurl": "https://www.openstreetmap.org/?mlat=51.92&mlon=4.478#map=17/51.92/4.478",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "3011",
+   "priority": 2,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000200001|ALN|P 2 BRT-02 OMS brandmelding Coolsingel Rotterdam (Directe inzet: ja) bon 170616",
+   "receivers": "",
+   "region": "Rotterdam-Rijnmond",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 2 gespreksgroep Brandweer Rotterdam 0 2 automatische brandmelding Coolsingel Rotterdam Directe inzet",
+   "street": "Coolsingel",
+   "tags": [
+    {
+     "abbreviation": "BRT-02",
+     "full_text": "Gespreksgroep Brandweer Rotterdam 02"
+    },
+    {
+     "abbreviation": "OMS",
+     "full_text": "Openbaar Meldsysteem"
+    }
+   ],
+   "talk_group": "BRT-02",
+   "talk_group_name": "Brandweer Rotterdam 02",
+   "units": [
+    "17-0616"
+   ],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "17-0616",
+    "vehicle_units": [
+     "17-0616"
+    ]
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "17-0616",
+   "vehicle_units": [
+    "17-0616"
+   ]
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "BRT-03",
+     "full_text": "Gespreksgroep Brandweer Rotterdam 03"
+    },
+    {
+     "abbreviation": "VKO",
+     "full_text": "Verkeersongeval"
+    },
+    {
+     "abbreviation": "TS",
+     "full_text": "Tankautospuit"
+    },
+    {
+     "abbreviation": "HV",
+     "full_text": "Hulpverleningsvoertuig"
+    }
+   ],
+   "address": "Burgemeester van Walsumweg, 3011 Rotterdam, Netherlands",
+   "body": "P 1 BRT-03 VKO letsel Burgemeester van Walsumweg Rotterdam TS 17-1731 HV 17-1761",
+   "bon_number": "",
+   "capcodes": [
+    "000200001"
+   ],
+   "city": "Rotterdam",
+   "classify_text": "brandweer_tankautospuit",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Verkeersongeval",
+    "incident_number": "",
+    "incident_type": "traffic",
+    "ride_number": "",
+    "talk_group": "BRT-03",
+    "talk_group_name": "Brandweer Rotterdam 03"
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Verkeersongeval",
+   "incident_number": "",
+   "incident_type": "traffic",
+   "latitude": 51.921,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 4.49,
+   "mapurl": "https://www.openstreetmap.org/?mlat=51.921&mlon=4.49#map=17/51.921/4.49",
+   "message_type": "FLEX",
+   "named": [
+    [
+     "17-1731",
+     "brandweer_tankautospuit"
+    ],
+    [
+     "17-1761",
+     "brandweer_hulpverlening"
+    ]
+   ],
+   "postalcode": "1731HV",
+   "priority": 1,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000200001|ALN|P 1 BRT-03 VKO letsel Burgemeester van Walsumweg Rotterdam TS 17-1731 HV 17-1761",
+   "receivers": "",
+   "region": "Rotterdam-Rijnmond",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 1 gespreksgroep Brandweer Rotterdam 0 3 verkeersongeval letsel Burgemeester van Walsumweg Rotterdam tankautospuit 17-1731 hulpverlening 17-1761",
+   "street": "Burgemeester van Walsumweg",
+   "tags": [
+    {
+     "abbreviation": "BRT-03",
+     "full_text": "Gespreksgroep Brandweer Rotterdam 03"
+    },
+    {
+     "abbreviation": "VKO",
+     "full_text": "Verkeersongeval"
+    },
+    {
+     "abbreviation": "TS",
+     "full_text": "Tankautospuit"
+    },
+    {
+     "abbreviation": "HV",
+     "full_text": "Hulpverleningsvoertuig"
+    }
+   ],
+   "talk_group": "BRT-03",
+   "talk_group_name": "Brandweer Rotterdam 03",
+   "units": [
+    "17-1731",
+    "17-1761"
+   ],
+   "vehicle": {
+    "vehicle_category": "brandweer_tankautospuit",
+    "vehicle_description": "",
+    "vehicle_icon": "🚒",
+    "vehicle_number": "17-1731",
+    "vehicle_units": [
+     "17-1731",
+     "17-1761"
+    ]
+   },
+   "vehicle_category": "brandweer_tankautospuit",
+   "vehicle_description": "",
+   "vehicle_icon": "🚒",
+   "vehicle_number": "17-1731",
+   "vehicle_units": [
+    "17-1731",
+    "17-1761"
+   ]
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "BRT-01",
+     "full_text": "Gespreksgroep Brandweer Rotterdam 01"
+    }
+   ],
+   "address": "Coolsingel, 3011 Rotterdam, Netherlands",
+   "body": "P 2 BRT-01 Stank/hind. lucht Coolsingel ROTTDM 172131",
+   "bon_number": "",
+   "capcodes": [
+    "000200001"
+   ],
+   "city": "Rotterdam",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Gas / stank",
+    "incident_number": "",
+    "incident_type": "gas",
+    "ride_number": "",
+    "talk_group": "BRT-01",
+    "talk_group_name": "Brandweer Rotterdam 01"
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Gas / stank",
+   "incident_number": "",
+   "incident_type": "gas",
+   "latitude": 51.92,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 4.478,
+   "mapurl": "https://www.openstreetmap.org/?mlat=51.92&mlon=4.478#map=17/51.92/4.478",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "3011",
+   "priority": 2,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000200001|ALN|P 2 BRT-01 Stank/hind. lucht Coolsingel ROTTDM 172131",
+   "receivers": "",
+   "region": "Rotterdam-Rijnmond",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 2 gespreksgroep Brandweer Rotterdam 0 1 Stank/hinderlijke lucht Coolsingel Rotterdam",
+   "street": "Coolsingel",
+   "tags": [
+    {
+     "abbreviation": "BRT-01",
+     "full_text": "Gespreksgroep Brandweer Rotterdam 01"
+    },
+    {
+     "abbreviation": "ROTTDM",
+     "full_text": "Rotterdam"
+    }
+   ],
+   "talk_group": "BRT-01",
+   "talk_group_name": "Brandweer Rotterdam 01",
+   "units": [
+    "17-2131"
+   ],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "17-2131",
+    "vehicle_units": [
+     "17-2131"
+    ]
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "17-2131",
+   "vehicle_units": [
+    "17-2131"
+   ]
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "A1",
+     "full_text": "Ambulance met spoed"
+    }
+   ],
+   "address": "Steenvoordelaan, 2284 Rijswijk, Netherlands",
+   "body": "A1 Steenvoordelaan RIJSZH : 15115",
+   "bon_number": "",
+   "capcodes": [
+    "000100001"
+   ],
+   "city": "Rijswijk",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "",
+    "incident_number": "",
+    "incident_type": "",
+    "ride_number": "",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Ambulance",
+   "distance_km": null,
+   "fire": false,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "",
+   "incident_number": "",
+   "incident_type": "",
+   "latitude": 52.041,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 4.318,
+   "mapurl": "https://www.openstreetmap.org/?mlat=52.041&mlon=4.318#map=17/52.041/4.318",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "2284",
+   "priority": 1,
+   "province_found": "Zuid-Holland",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000100001|ALN|A1 Steenvoordelaan RIJSZH : 15115",
+   "receivers": "",
+   "region": "Haaglanden",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Ambulance met spoed Steenvoordelaan Rijswijk Zuid-Holland : 15115",
+   "street": "Steenvoordelaan",
+   "tags": [
+    {
+     "abbreviation": "A1",
+     "full_text": "Ambulance met spoed"
+    },
+    {
+     "abbreviation": "RIJSZH",
+     "full_text": "Rijswijk ZH"
+    }
+   ],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "A2",
+     "full_text": "Ambulance zonder spoed"
+    }
+   ],
+   "address": "Asterstraat, 2221 Katwijk, Netherlands",
+   "body": "A2 Asterstraat KATWZH Directe inzet 16180",
+   "bon_number": "",
+   "capcodes": [
+    "000100001"
+   ],
+   "city": "Katwijk",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "",
+    "incident_number": "",
+    "incident_type": "",
+    "ride_number": "",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Ambulance",
+   "distance_km": null,
+   "fire": false,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "",
+   "incident_number": "",
+   "incident_type": "",
+   "latitude": 52.196,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 4.41,
+   "mapurl": "https://www.openstreetmap.org/?mlat=52.196&mlon=4.41#map=17/52.196/4.41",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "2221",
+   "priority": 2,
+   "province_found": "Zuid-Holland",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000100001|ALN|A2 Asterstraat KATWZH Directe inzet 16180",
+   "receivers": "",
+   "region": "Haaglanden",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Ambulance zonder spoed Asterstraat Katwijk Zuid-Holland Directe inzet 16180",
+   "street": "Asterstraat",
+   "tags": [
+    {
+     "abbreviation": "A2",
+     "full_text": "Ambulance zonder spoed"
+    },
+    {
+     "abbreviation": "KATWZH",
+     "full_text": "Katwijk ZH"
+    }
+   ],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "A1",
+     "full_text": "Ambulance met spoed"
+    },
+    {
+     "abbreviation": "DIA",
+     "full_text": "Directe Inzet Ambulance"
+    },
+    {
+     "abbreviation": "AMBU",
+     "full_text": "Ambulance"
+    }
+   ],
+   "address": "Frankenslag, 2582 's-Gravenhage, Netherlands",
+   "body": "A1 (DIA: ja) AMBU 17106 Frankenslag 2582 SGRAVH bon 12345 Rit 54321",
+   "bon_number": "12345",
+   "capcodes": [
+    "000100001"
+   ],
+   "city": "'s-Gravenhage",
+   "classify_text": "ambulance",
+   "derived": {
+    "bon_number": "12345",
+    "direct_deployment": true,
+    "incident_label": "",
+    "incident_number": "",
+    "incident_type": "",
+    "ride_number": "54321",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": true,
+   "discipline": "Ambulance",
+   "distance_km": null,
+   "fire": false,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "",
+   "incident_number": "",
+   "incident_type": "",
+   "latitude": 52.089,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 4.282,
+   "mapurl": "https://www.openstreetmap.org/?mlat=52.089&mlon=4.282#map=17/52.089/4.282",
+   "message_type": "FLEX",
+   "named": [
+    [
+     "17-106",
+     "ambulance"
+    ]
+   ],
+   "postalcode": "2582",
+   "priority": 1,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000100001|ALN|A1 (DIA: ja) AMBU 17106 Frankenslag 2582 SGRAVH bon 12345 Rit 54321",
+   "receivers": "",
+   "region": "Haaglanden",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "54321",
+   "spoken": "Ambulance met spoed Directe inzet Ambulance 17106 Frankenslag 2582 's-Gravenhage",
+   "street": "Frankenslag",
+   "tags": [
+    {
+     "abbreviation": "A1",
+     "full_text": "Ambulance met spoed"
+    },
+    {
+     "abbreviation": "DIA",
+     "full_text": "Directe Inzet Ambulance"
+    },
+    {
+     "abbreviation": "AMBU",
+     "full_text": "Ambulance"
+    },
+    {
+     "abbreviation": "SGRAVH",
+     "full_text": "'s-Gravenhage"
+    }
+   ],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [
+    "17-106"
+   ],
+   "vehicle": {
+    "vehicle_category": "ambulance",
+    "vehicle_description": "",
+    "vehicle_icon": "🚑",
+    "vehicle_number": "17-106",
+    "vehicle_units": [
+     "17-106"
+    ]
+   },
+   "vehicle_category": "ambulance",
+   "vehicle_description": "",
+   "vehicle_icon": "🚑",
+   "vehicle_number": "17-106",
+   "vehicle_units": [
+    "17-106"
+   ]
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "A2",
+     "full_text": "Ambulance zonder spoed"
+    }
+   ],
+   "address": "Laan van Meerdervoort, 2517 's-Gravenhage, Netherlands",
+   "body": "A2 Laan van Meerdervoort SGRAVH 15124 rit: 112233",
+   "bon_number": "",
+   "capcodes": [
+    "000100001"
+   ],
+   "city": "'s-Gravenhage",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "",
+    "incident_number": "",
+    "incident_type": "",
+    "ride_number": "112233",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Ambulance",
+   "distance_km": null,
+   "fire": false,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "",
+   "incident_number": "",
+   "incident_type": "",
+   "latitude": 52.078,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 4.29,
+   "mapurl": "https://www.openstreetmap.org/?mlat=52.078&mlon=4.29#map=17/52.078/4.29",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "2517",
+   "priority": 2,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000100001|ALN|A2 Laan van Meerdervoort SGRAVH 15124 rit: 112233",
+   "receivers": "",
+   "region": "Haaglanden",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "112233",
+   "spoken": "Ambulance zonder spoed Laan van Meerdervoort 's-Gravenhage 15124",
+   "street": "Laan van Meerdervoort",
+   "tags": [
+    {
+     "abbreviation": "A2",
+     "full_text": "Ambulance zonder spoed"
+    },
+    {
+     "abbreviation": "SGRAVH",
+     "full_text": "'s-Gravenhage"
+    }
+   ],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "B1",
+     "full_text": "Ambulance besteld vervoer, hoogcomplexe zorgvraag"
+    }
+   ],
+   "address": "",
+   "body": "B1 17123 Rit 98765 ziekenhuis Haaglanden",
+   "bon_number": "",
+   "capcodes": [
+    "000100001"
+   ],
+   "city": "",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "",
+    "incident_number": "",
+    "incident_type": "",
+    "ride_number": "98765",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Ambulance",
+   "distance_km": null,
+   "fire": false,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "",
+   "incident_number": "",
+   "incident_type": "",
+   "latitude": null,
+   "location": "",
+   "location_accuracy": "",
+   "longitude": null,
+   "mapurl": "",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "",
+   "priority": 3,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000100001|ALN|B1 17123 Rit 98765 ziekenhuis Haaglanden",
+   "receivers": "",
+   "region": "Haaglanden",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "98765",
+   "spoken": "Ambulance besteld vervoer 17123 ziekenhuis Haaglanden",
+   "street": "",
+   "tags": [
+    {
+     "abbreviation": "B1",
+     "full_text": "Ambulance besteld vervoer, hoogcomplexe zorgvraag"
+    }
+   ],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "B2",
+     "full_text": "Ambulance besteld vervoer, midden- of laagcomplexe zorgvraag"
+    }
+   ],
+   "address": "Frankenslag, 2582 's-Gravenhage, Netherlands",
+   "body": "B2 Rit 12345 Frankenslag 's-Gravenhage",
+   "bon_number": "",
+   "capcodes": [
+    "000100001"
+   ],
+   "city": "'s-Gravenhage",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "",
+    "incident_number": "",
+    "incident_type": "",
+    "ride_number": "12345",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Ambulance",
+   "distance_km": null,
+   "fire": false,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "",
+   "incident_number": "",
+   "incident_type": "",
+   "latitude": 52.089,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 4.282,
+   "mapurl": "https://www.openstreetmap.org/?mlat=52.089&mlon=4.282#map=17/52.089/4.282",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "2582",
+   "priority": 3,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000100001|ALN|B2 Rit 12345 Frankenslag 's-Gravenhage",
+   "receivers": "",
+   "region": "Haaglanden",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "12345",
+   "spoken": "Ambulance besteld vervoer Frankenslag 's-Gravenhage",
+   "street": "Frankenslag",
+   "tags": [
+    {
+     "abbreviation": "B2",
+     "full_text": "Ambulance besteld vervoer, midden- of laagcomplexe zorgvraag"
+    }
+   ],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  },
+  {
+   "abbreviations": [],
+   "address": "Jansbinnensingel, 6811 Arnhem, Netherlands",
+   "body": "P 2 Assistentie ambulance Jansbinnensingel Arnhem 073211",
+   "bon_number": "",
+   "capcodes": [
+    "000300001"
+   ],
+   "city": "Arnhem",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Hulpverlening",
+    "incident_number": "",
+    "incident_type": "assist",
+    "ride_number": "",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Hulpverlening",
+   "incident_number": "",
+   "incident_type": "assist",
+   "latitude": 51.983,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 5.91,
+   "mapurl": "https://www.openstreetmap.org/?mlat=51.983&mlon=5.91#map=17/51.983/5.91",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "6811",
+   "priority": 2,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000300001|ALN|P 2 Assistentie ambulance Jansbinnensingel Arnhem 073211",
+   "receivers": "",
+   "region": "Gelderland Midden",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 2 Assistentie ambulance Jansbinnensingel Arnhem",
+   "street": "Jansbinnensingel",
+   "tags": [],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [
+    "07-3211"
+   ],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "07-3211",
+    "vehicle_units": [
+     "07-3211"
+    ]
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "07-3211",
+   "vehicle_units": [
+    "07-3211"
+   ]
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "BON-01",
+     "full_text": "Gespreksgroep Brandweer Oost-Nederland 01"
+    }
+   ],
+   "address": "Hoofdstraat, 6881 Velp, Netherlands",
+   "body": "P 1 BON-01 Woningbrand Hoofdstraat Velp 073131",
+   "bon_number": "",
+   "capcodes": [
+    "000300001"
+   ],
+   "city": "Velp",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Brand",
+    "incident_number": "",
+    "incident_type": "fire",
+    "ride_number": "",
+    "talk_group": "BON-01",
+    "talk_group_name": "Brandweer Oost-Nederland 01"
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Brand",
+   "incident_number": "",
+   "incident_type": "fire",
+   "latitude": 51.997,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 5.977,
+   "mapurl": "https://www.openstreetmap.org/?mlat=51.997&mlon=5.977#map=17/51.997/5.977",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "6881",
+   "priority": 1,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000300001|ALN|P 1 BON-01 Woningbrand Hoofdstraat Velp 073131",
+   "receivers": "",
+   "region": "Gelderland Midden",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 1 gespreksgroep Brandweer Oost-Nederland 0 1 Woningbrand Hoofdstraat Velp",
+   "street": "Hoofdstraat",
+   "tags": [
+    {
+     "abbreviation": "BON-01",
+     "full_text": "Gespreksgroep Brandweer Oost-Nederland 01"
+    }
+   ],
+   "talk_group": "BON-01",
+   "talk_group_name": "Brandweer Oost-Nederland 01",
+   "units": [
+    "07-3131"
+   ],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "07-3131",
+    "vehicle_units": [
+     "07-3131"
+    ]
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "07-3131",
+   "vehicle_units": [
+    "07-3131"
+   ]
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "A2",
+     "full_text": "Ambulance zonder spoed"
+    },
+    {
+     "abbreviation": "NB",
+     "full_text": "Nader bericht"
+    }
+   ],
+   "address": "Velp, Netherlands",
+   "body": "A2 Velp NB 184820",
+   "bon_number": "",
+   "capcodes": [
+    "000300001"
+   ],
+   "city": "Velp",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "",
+    "incident_number": "",
+    "incident_type": "",
+    "ride_number": "",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "",
+   "incident_number": "",
+   "incident_type": "",
+   "latitude": 51.748,
+   "location": "",
+   "location_accuracy": "city",
+   "longitude": 5.714,
+   "mapurl": "",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "",
+   "priority": 2,
+   "province_found": "Noord-Brabant",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000300001|ALN|A2 Velp NB 184820",
+   "receivers": "",
+   "region": "Gelderland Midden",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Ambulance zonder spoed Velp NB",
+   "street": "",
+   "tags": [
+    {
+     "abbreviation": "A2",
+     "full_text": "Ambulance zonder spoed"
+    },
+    {
+     "abbreviation": "NB",
+     "full_text": "Nader bericht"
+    }
+   ],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [
+    "18-4820"
+   ],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "18-4820",
+    "vehicle_units": [
+     "18-4820"
+    ]
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "18-4820",
+   "vehicle_units": [
+    "18-4820"
+   ]
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "A2",
+     "full_text": "Ambulance zonder spoed"
+    }
+   ],
+   "address": "Velp, Netherlands",
+   "body": "A2 Velp GE 184821",
+   "bon_number": "",
+   "capcodes": [
+    "000300001"
+   ],
+   "city": "Velp",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "",
+    "incident_number": "",
+    "incident_type": "",
+    "ride_number": "",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "",
+   "incident_number": "",
+   "incident_type": "",
+   "latitude": 51.995,
+   "location": "",
+   "location_accuracy": "city",
+   "longitude": 5.975,
+   "mapurl": "",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "",
+   "priority": 2,
+   "province_found": "Gelderland",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000300001|ALN|A2 Velp GE 184821",
+   "receivers": "",
+   "region": "Gelderland Midden",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Ambulance zonder spoed Velp GE",
+   "street": "",
+   "tags": [
+    {
+     "abbreviation": "A2",
+     "full_text": "Ambulance zonder spoed"
+    }
+   ],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [
+    "18-4821"
+   ],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "18-4821",
+    "vehicle_units": [
+     "18-4821"
+    ]
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "18-4821",
+   "vehicle_units": [
+    "18-4821"
+   ]
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "BR",
+     "full_text": "Brand"
+    }
+   ],
+   "address": "Velp, Netherlands",
+   "body": "P 2 BR container VELPNB 12345",
+   "bon_number": "",
+   "capcodes": [
+    "000300001"
+   ],
+   "city": "Velp",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Brand",
+    "incident_number": "",
+    "incident_type": "fire",
+    "ride_number": "",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Brand",
+   "incident_number": "",
+   "incident_type": "fire",
+   "latitude": 51.748,
+   "location": "",
+   "location_accuracy": "city",
+   "longitude": 5.714,
+   "mapurl": "",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "",
+   "priority": 2,
+   "province_found": "Noord-Brabant",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000300001|ALN|P 2 BR container VELPNB 12345",
+   "receivers": "",
+   "region": "Gelderland Midden",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 2 Brand container Velp Noord-Brabant 12345",
+   "street": "",
+   "tags": [
+    {
+     "abbreviation": "BR",
+     "full_text": "Brand"
+    },
+    {
+     "abbreviation": "VELPNB",
+     "full_text": "Velp NB"
+    }
+   ],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "A2",
+     "full_text": "Ambulance zonder spoed"
+    }
+   ],
+   "address": "Velp, Netherlands",
+   "body": "A2 Velp 184820",
+   "bon_number": "",
+   "capcodes": [
+    "000999999"
+   ],
+   "city": "Velp",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "",
+    "incident_number": "",
+    "incident_type": "",
+    "ride_number": "",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "",
+   "distance_km": null,
+   "fire": false,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "",
+   "incident_number": "",
+   "incident_type": "",
+   "latitude": 51.995,
+   "location": "",
+   "location_accuracy": "city",
+   "longitude": 5.975,
+   "mapurl": "",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "",
+   "priority": 2,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000999999|ALN|A2 Velp 184820",
+   "receivers": "",
+   "region": "",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Ambulance zonder spoed Velp",
+   "street": "",
+   "tags": [
+    {
+     "abbreviation": "A2",
+     "full_text": "Ambulance zonder spoed"
+    }
+   ],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "A1",
+     "full_text": "Ambulance met spoed"
+    },
+    {
+     "abbreviation": "AED",
+     "full_text": "Automatische Externe Defibrillator"
+    }
+   ],
+   "address": "Stratumseind, 5611 Eindhoven, Netherlands",
+   "body": "A1 Reanimatie AED Stratumseind Eindhoven 22111",
+   "bon_number": "",
+   "capcodes": [
+    "000400001"
+   ],
+   "city": "Eindhoven",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Medisch",
+    "incident_number": "",
+    "incident_type": "medical",
+    "ride_number": "",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Ambulance",
+   "distance_km": null,
+   "fire": false,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Medisch",
+   "incident_number": "",
+   "incident_type": "medical",
+   "latitude": 51.437,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 5.481,
+   "mapurl": "https://www.openstreetmap.org/?mlat=51.437&mlon=5.481#map=17/51.437/5.481",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "5611",
+   "priority": 1,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000400001|ALN|A1 Reanimatie AED Stratumseind Eindhoven 22111",
+   "receivers": "",
+   "region": "Brabant Zuid-Oost",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Ambulance met spoed Reanimatie A E D Stratumseind Eindhoven 22111",
+   "street": "Stratumseind",
+   "tags": [
+    {
+     "abbreviation": "A1",
+     "full_text": "Ambulance met spoed"
+    },
+    {
+     "abbreviation": "AED",
+     "full_text": "Automatische Externe Defibrillator"
+    }
+   ],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "BOB-02",
+     "full_text": "Gespreksgroep Brandweer Oost-Brabant 02"
+    }
+   ],
+   "address": "Stratumseind, 5611 Eindhoven, Netherlands",
+   "body": "P 1 BOB-02 Liftopsluiting Stratumseind EINDHV 201234",
+   "bon_number": "",
+   "capcodes": [
+    "000400001"
+   ],
+   "city": "Eindhoven",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Liftopsluiting",
+    "incident_number": "",
+    "incident_type": "lift",
+    "ride_number": "",
+    "talk_group": "BOB-02",
+    "talk_group_name": "Brandweer Oost-Brabant 02"
+   },
+   "direct_deployment": false,
+   "discipline": "Ambulance",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Liftopsluiting",
+   "incident_number": "",
+   "incident_type": "lift",
+   "latitude": 51.437,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 5.481,
+   "mapurl": "https://www.openstreetmap.org/?mlat=51.437&mlon=5.481#map=17/51.437/5.481",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "5611",
+   "priority": 1,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000400001|ALN|P 1 BOB-02 Liftopsluiting Stratumseind EINDHV 201234",
+   "receivers": "",
+   "region": "Brabant Zuid-Oost",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 1 gespreksgroep Brandweer Oost-Brabant 0 2 Liftopsluiting Stratumseind Eindhoven",
+   "street": "Stratumseind",
+   "tags": [
+    {
+     "abbreviation": "BOB-02",
+     "full_text": "Gespreksgroep Brandweer Oost-Brabant 02"
+    },
+    {
+     "abbreviation": "EINDHV",
+     "full_text": "Eindhoven"
+    }
+   ],
+   "talk_group": "BOB-02",
+   "talk_group_name": "Brandweer Oost-Brabant 02",
+   "units": [
+    "20-1234"
+   ],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "20-1234",
+    "vehicle_units": [
+     "20-1234"
+    ]
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "20-1234",
+   "vehicle_units": [
+    "20-1234"
+   ]
+  },
+  {
+   "abbreviations": [],
+   "address": "Damrak, 1012 Amsterdam, Netherlands",
+   "body": "Pol: aanrijding letsel Damrak Amsterdam",
+   "bon_number": "",
+   "capcodes": [
+    "000500001"
+   ],
+   "city": "Amsterdam",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Verkeersongeval",
+    "incident_number": "",
+    "incident_type": "traffic",
+    "ride_number": "",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Politie",
+   "distance_km": null,
+   "fire": false,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Verkeersongeval",
+   "incident_number": "",
+   "incident_type": "traffic",
+   "latitude": 52.375,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 4.896,
+   "mapurl": "https://www.openstreetmap.org/?mlat=52.375&mlon=4.896#map=17/52.375/4.896",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "1012",
+   "priority": 0,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000500001|ALN|Pol: aanrijding letsel Damrak Amsterdam",
+   "receivers": "",
+   "region": "Limburg Zuid",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Politie: aanrijding letsel Damrak Amsterdam",
+   "street": "Damrak",
+   "tags": [],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "BNN-01",
+     "full_text": "Gespreksgroep Brandweer Noord-Nederland 01"
+    }
+   ],
+   "address": "",
+   "body": "P 1 BNN-01 Ongeval wegvervoer Stationsstraat Scheemda 013693 012933",
+   "bon_number": "",
+   "capcodes": [
+    "000600001"
+   ],
+   "city": "",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Verkeersongeval",
+    "incident_number": "",
+    "incident_type": "traffic",
+    "ride_number": "",
+    "talk_group": "BNN-01",
+    "talk_group_name": "Brandweer Noord-Nederland 01"
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Verkeersongeval",
+   "incident_number": "",
+   "incident_type": "traffic",
+   "latitude": null,
+   "location": "",
+   "location_accuracy": "",
+   "longitude": null,
+   "mapurl": "",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "",
+   "priority": 1,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000600001|ALN|P 1 BNN-01 Ongeval wegvervoer Stationsstraat Scheemda 013693 012933",
+   "receivers": "",
+   "region": "Fryslân",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 1 gespreksgroep Brandweer Noord-Nederland 0 1 Ongeval wegvervoer Stationsstraat Scheemda",
+   "street": "",
+   "tags": [
+    {
+     "abbreviation": "BNN-01",
+     "full_text": "Gespreksgroep Brandweer Noord-Nederland 01"
+    }
+   ],
+   "talk_group": "BNN-01",
+   "talk_group_name": "Brandweer Noord-Nederland 01",
+   "units": [
+    "01-3693",
+    "01-2933"
+   ],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "01-3693",
+    "vehicle_units": [
+     "01-3693",
+     "01-2933"
+    ]
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "01-3693",
+   "vehicle_units": [
+    "01-3693",
+    "01-2933"
+   ]
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "BRT-01",
+     "full_text": "Gespreksgroep Brandweer Rotterdam 01"
+    },
+    {
+     "abbreviation": "GRIP",
+     "full_text": "Gecoördineerde Regionale Incidentenbestrijdingsprocedure"
+    }
+   ],
+   "address": "Coolsingel, 3011 Rotterdam, Netherlands",
+   "body": "P 1 BRT-01 (GRIP 1) Brand bedrijfspand Coolsingel Rotterdam",
+   "bon_number": "",
+   "capcodes": [
+    "000200001"
+   ],
+   "city": "Rotterdam",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "GRIP",
+    "incident_number": "",
+    "incident_type": "grip",
+    "ride_number": "",
+    "talk_group": "BRT-01",
+    "talk_group_name": "Brandweer Rotterdam 01"
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "GRIP",
+   "incident_number": "",
+   "incident_type": "grip",
+   "latitude": 51.92,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 4.478,
+   "mapurl": "https://www.openstreetmap.org/?mlat=51.92&mlon=4.478#map=17/51.92/4.478",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "3011",
+   "priority": 1,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000200001|ALN|P 1 BRT-01 (GRIP 1) Brand bedrijfspand Coolsingel Rotterdam",
+   "receivers": "",
+   "region": "Rotterdam-Rijnmond",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 1 gespreksgroep Brandweer Rotterdam 0 1 (GRIP 1) Brand bedrijfspand Coolsingel Rotterdam",
+   "street": "Coolsingel",
+   "tags": [
+    {
+     "abbreviation": "BRT-01",
+     "full_text": "Gespreksgroep Brandweer Rotterdam 01"
+    },
+    {
+     "abbreviation": "GRIP",
+     "full_text": "Gecoördineerde Regionale Incidentenbestrijdingsprocedure"
+    }
+   ],
+   "talk_group": "BRT-01",
+   "talk_group_name": "Brandweer Rotterdam 01",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  },
+  {
+   "abbreviations": [],
+   "address": "Biltstraat, 3572 Utrecht, Netherlands",
+   "body": "P 2 Dier in problemen kat in boom Biltstraat Utrecht",
+   "bon_number": "",
+   "capcodes": [
+    "000200001"
+   ],
+   "city": "Utrecht",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Dier in nood",
+    "incident_number": "",
+    "incident_type": "animal",
+    "ride_number": "",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Dier in nood",
+   "incident_number": "",
+   "incident_type": "animal",
+   "latitude": 52.093,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 5.134,
+   "mapurl": "https://www.openstreetmap.org/?mlat=52.093&mlon=5.134#map=17/52.093/5.134",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "3572",
+   "priority": 2,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000200001|ALN|P 2 Dier in problemen kat in boom Biltstraat Utrecht",
+   "receivers": "",
+   "region": "Rotterdam-Rijnmond",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 2 Dier in problemen kat in boom Biltstraat Utrecht",
+   "street": "Biltstraat",
+   "tags": [],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  },
+  {
+   "abbreviations": [],
+   "address": "Oudegracht, 3511 Utrecht, Netherlands",
+   "body": "P 2 Stormschade boom op weg Oudegracht UTRECH",
+   "bon_number": "",
+   "capcodes": [
+    "000200001"
+   ],
+   "city": "Utrecht",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Storm / wateroverlast",
+    "incident_number": "",
+    "incident_type": "storm",
+    "ride_number": "",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Storm / wateroverlast",
+   "incident_number": "",
+   "incident_type": "storm",
+   "latitude": 52.089,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 5.119,
+   "mapurl": "https://www.openstreetmap.org/?mlat=52.089&mlon=5.119#map=17/52.089/5.119",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "3511",
+   "priority": 2,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000200001|ALN|P 2 Stormschade boom op weg Oudegracht UTRECH",
+   "receivers": "",
+   "region": "Rotterdam-Rijnmond",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 2 Stormschade boom op weg Oudegracht Utrecht",
+   "street": "Oudegracht",
+   "tags": [
+    {
+     "abbreviation": "UTRECH",
+     "full_text": "Utrecht"
+    }
+   ],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  },
+  {
+   "abbreviations": [],
+   "address": "Kerkbuurt, 3361 Sliedrecht, Netherlands",
+   "body": "P 1 Waterongeval drenkeling Kerkbuurt Sliedrecht SLIEDR",
+   "bon_number": "",
+   "capcodes": [
+    "000200001"
+   ],
+   "city": "Sliedrecht",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Waterongeval",
+    "incident_number": "",
+    "incident_type": "water",
+    "ride_number": "",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Waterongeval",
+   "incident_number": "",
+   "incident_type": "water",
+   "latitude": 51.823,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 4.775,
+   "mapurl": "https://www.openstreetmap.org/?mlat=51.823&mlon=4.775#map=17/51.823/4.775",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "3361",
+   "priority": 1,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000200001|ALN|P 1 Waterongeval drenkeling Kerkbuurt Sliedrecht SLIEDR",
+   "receivers": "",
+   "region": "Rotterdam-Rijnmond",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 1 Waterongeval drenkeling Kerkbuurt Sliedrecht",
+   "street": "Kerkbuurt",
+   "tags": [
+    {
+     "abbreviation": "SLIEDR",
+     "full_text": "Sliedrecht"
+    }
+   ],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "OVD-B",
+     "full_text": "Officier van Dienst Brandweer"
+    }
+   ],
+   "address": "Oudegracht, 3511 Utrecht, Netherlands",
+   "body": "P 2 Gaslucht Oudegracht Utrecht OVD-B 09-1191",
+   "bon_number": "",
+   "capcodes": [
+    "000200001"
+   ],
+   "city": "Utrecht",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Gas / stank",
+    "incident_number": "",
+    "incident_type": "gas",
+    "ride_number": "",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Gas / stank",
+   "incident_number": "",
+   "incident_type": "gas",
+   "latitude": 52.089,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 5.119,
+   "mapurl": "https://www.openstreetmap.org/?mlat=52.089&mlon=5.119#map=17/52.089/5.119",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "3511",
+   "priority": 2,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000200001|ALN|P 2 Gaslucht Oudegracht Utrecht OVD-B 09-1191",
+   "receivers": "",
+   "region": "Rotterdam-Rijnmond",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 2 Gaslucht Oudegracht Utrecht Officier van Dienst Brandweer 09-1191",
+   "street": "Oudegracht",
+   "tags": [
+    {
+     "abbreviation": "OVD-B",
+     "full_text": "Officier van Dienst Brandweer"
+    }
+   ],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "BMD-01",
+     "full_text": "Gespreksgroep Brandweer Midden-Nederland 01"
+    },
+    {
+     "abbreviation": "BR",
+     "full_text": "Brand"
+    },
+    {
+     "abbreviation": "AL",
+     "full_text": "Autoladder"
+    },
+    {
+     "abbreviation": "TS",
+     "full_text": "Tankautospuit"
+    }
+   ],
+   "address": "Biltstraat, 3572 Utrecht, Netherlands",
+   "body": "P 1 BMD-01 BR woning Biltstraat Utrecht AL 09-1351 TS 09-1131",
+   "bon_number": "",
+   "capcodes": [
+    "000200001"
+   ],
+   "city": "Utrecht",
+   "classify_text": "brandweer_ladder",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Brand",
+    "incident_number": "",
+    "incident_type": "fire",
+    "ride_number": "",
+    "talk_group": "BMD-01",
+    "talk_group_name": "Brandweer Midden-Nederland 01"
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Brand",
+   "incident_number": "",
+   "incident_type": "fire",
+   "latitude": 52.093,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 5.134,
+   "mapurl": "https://www.openstreetmap.org/?mlat=52.093&mlon=5.134#map=17/52.093/5.134",
+   "message_type": "FLEX",
+   "named": [
+    [
+     "09-1351",
+     "brandweer_ladder"
+    ],
+    [
+     "09-1131",
+     "brandweer_tankautospuit"
+    ]
+   ],
+   "postalcode": "1351TS",
+   "priority": 1,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000200001|ALN|P 1 BMD-01 BR woning Biltstraat Utrecht AL 09-1351 TS 09-1131",
+   "receivers": "",
+   "region": "Rotterdam-Rijnmond",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 1 gespreksgroep Brandweer Midden-Nederland 0 1 Brand woning Biltstraat Utrecht AL 09-1351 tankautospuit 09-1131",
+   "street": "Biltstraat",
+   "tags": [
+    {
+     "abbreviation": "BMD-01",
+     "full_text": "Gespreksgroep Brandweer Midden-Nederland 01"
+    },
+    {
+     "abbreviation": "BR",
+     "full_text": "Brand"
+    },
+    {
+     "abbreviation": "AL",
+     "full_text": "Autoladder"
+    },
+    {
+     "abbreviation": "TS",
+     "full_text": "Tankautospuit"
+    }
+   ],
+   "talk_group": "BMD-01",
+   "talk_group_name": "Brandweer Midden-Nederland 01",
+   "units": [
+    "09-1351",
+    "09-1131"
+   ],
+   "vehicle": {
+    "vehicle_category": "brandweer_ladder",
+    "vehicle_description": "",
+    "vehicle_icon": "🚒",
+    "vehicle_number": "09-1351",
+    "vehicle_units": [
+     "09-1351",
+     "09-1131"
+    ]
+   },
+   "vehicle_category": "brandweer_ladder",
+   "vehicle_description": "",
+   "vehicle_icon": "🚒",
+   "vehicle_number": "09-1351",
+   "vehicle_units": [
+    "09-1351",
+    "09-1131"
+   ]
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "BAD-04",
+     "full_text": "Gespreksgroep Brandweer Amsterdam 04"
+    }
+   ],
+   "address": "Damrak, 1012 Amsterdam, Netherlands",
+   "body": "P 1 BAD-04 Brand Damrak Amsterdam 131234",
+   "bon_number": "",
+   "capcodes": [
+    "000200001"
+   ],
+   "city": "Amsterdam",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Brand",
+    "incident_number": "",
+    "incident_type": "fire",
+    "ride_number": "",
+    "talk_group": "BAD-04",
+    "talk_group_name": "Brandweer Amsterdam 04"
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Brand",
+   "incident_number": "",
+   "incident_type": "fire",
+   "latitude": 52.375,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 4.896,
+   "mapurl": "https://www.openstreetmap.org/?mlat=52.375&mlon=4.896#map=17/52.375/4.896",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "1012",
+   "priority": 1,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000200001|ALN|P 1 BAD-04 Brand Damrak Amsterdam 131234",
+   "receivers": "",
+   "region": "Rotterdam-Rijnmond",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 1 gespreksgroep Brandweer Amsterdam 0 4 Brand Damrak Amsterdam",
+   "street": "Damrak",
+   "tags": [
+    {
+     "abbreviation": "BAD-04",
+     "full_text": "Gespreksgroep Brandweer Amsterdam 04"
+    }
+   ],
+   "talk_group": "BAD-04",
+   "talk_group_name": "Brandweer Amsterdam 04",
+   "units": [
+    "13-1234"
+   ],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "13-1234",
+    "vehicle_units": [
+     "13-1234"
+    ]
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "13-1234",
+   "vehicle_units": [
+    "13-1234"
+   ]
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "BNH-914",
+     "full_text": "Gespreksgroep Brandweer Noord-Holland 914"
+    }
+   ],
+   "address": "Kerkstraat, 1621 Hoorn, Netherlands",
+   "body": "P 2 BNH-914 Nacontrole Kerkstraat Hoorn",
+   "bon_number": "",
+   "capcodes": [
+    "000200001"
+   ],
+   "city": "Hoorn",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "",
+    "incident_number": "",
+    "incident_type": "",
+    "ride_number": "",
+    "talk_group": "BNH-914",
+    "talk_group_name": "Brandweer Noord-Holland 914"
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "",
+   "incident_number": "",
+   "incident_type": "",
+   "latitude": 52.642,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 5.06,
+   "mapurl": "https://www.openstreetmap.org/?mlat=52.642&mlon=5.06#map=17/52.642/5.06",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "1621",
+   "priority": 2,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000200001|ALN|P 2 BNH-914 Nacontrole Kerkstraat Hoorn",
+   "receivers": "",
+   "region": "Rotterdam-Rijnmond",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 2 gespreksgroep Brandweer Noord-Holland 9 1 4 Nacontrole Kerkstraat Hoorn",
+   "street": "Kerkstraat",
+   "tags": [
+    {
+     "abbreviation": "BNH-914",
+     "full_text": "Gespreksgroep Brandweer Noord-Holland 914"
+    }
+   ],
+   "talk_group": "BNH-914",
+   "talk_group_name": "Brandweer Noord-Holland 914",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "MOB",
+     "full_text": "Medische Ondersteuning Brandweer / Mobilofoon"
+    }
+   ],
+   "address": "",
+   "body": "TESTOPROEP MOB",
+   "bon_number": "",
+   "capcodes": [
+    "000200001"
+   ],
+   "city": "",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "",
+    "incident_number": "",
+    "incident_type": "",
+    "ride_number": "",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "",
+   "incident_number": "",
+   "incident_type": "",
+   "latitude": null,
+   "location": "",
+   "location_accuracy": "",
+   "longitude": null,
+   "mapurl": "",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "",
+   "priority": 0,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000200001|ALN|TESTOPROEP MOB",
+   "receivers": "",
+   "region": "Rotterdam-Rijnmond",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "TESTOPROEP MOB",
+   "street": "",
+   "tags": [
+    {
+     "abbreviation": "MOB",
+     "full_text": "Medische Ondersteuning Brandweer / Mobilofoon"
+    }
+   ],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  },
+  {
+   "abbreviations": [],
+   "address": "Kerkstraat, 1621 Hoorn, Netherlands",
+   "body": "P 3 Dienstverlening wateroverlast Kerkstraat Hoorn NH",
+   "bon_number": "",
+   "capcodes": [
+    "000200001"
+   ],
+   "city": "Hoorn",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Storm / wateroverlast",
+    "incident_number": "",
+    "incident_type": "storm",
+    "ride_number": "",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Storm / wateroverlast",
+   "incident_number": "",
+   "incident_type": "storm",
+   "latitude": 52.642,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 5.06,
+   "mapurl": "https://www.openstreetmap.org/?mlat=52.642&mlon=5.06#map=17/52.642/5.06",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "1621",
+   "priority": 3,
+   "province_found": "Noord-Holland",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000200001|ALN|P 3 Dienstverlening wateroverlast Kerkstraat Hoorn NH",
+   "receivers": "",
+   "region": "Rotterdam-Rijnmond",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "P 3 Dienstverlening wateroverlast Kerkstraat Hoorn NH",
+   "street": "Kerkstraat",
+   "tags": [],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "A2",
+     "full_text": "Ambulance zonder spoed"
+    }
+   ],
+   "address": "Frankenslag, 2582 's-Gravenhage, Netherlands",
+   "body": "A2 Rit 4433 ambu 16-107 Frankenslag 's-Gravenhage",
+   "bon_number": "",
+   "capcodes": [
+    "000100001"
+   ],
+   "city": "'s-Gravenhage",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "",
+    "incident_number": "",
+    "incident_type": "",
+    "ride_number": "4433",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Ambulance",
+   "distance_km": null,
+   "fire": false,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "",
+   "incident_number": "",
+   "incident_type": "",
+   "latitude": 52.089,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 4.282,
+   "mapurl": "https://www.openstreetmap.org/?mlat=52.089&mlon=4.282#map=17/52.089/4.282",
+   "message_type": "FLEX",
+   "named": [
+    [
+     "16-107",
+     "ambulance"
+    ]
+   ],
+   "postalcode": "2582",
+   "priority": 2,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000100001|ALN|A2 Rit 4433 ambu 16-107 Frankenslag 's-Gravenhage",
+   "receivers": "",
+   "region": "Haaglanden",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "4433",
+   "spoken": "Ambulance zonder spoed 16-107 Frankenslag 's-Gravenhage",
+   "street": "Frankenslag",
+   "tags": [
+    {
+     "abbreviation": "A2",
+     "full_text": "Ambulance zonder spoed"
+    }
+   ],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [
+    "16-107"
+   ],
+   "vehicle": {
+    "vehicle_category": "ambulance",
+    "vehicle_description": "",
+    "vehicle_icon": "🚑",
+    "vehicle_number": "16-107",
+    "vehicle_units": [
+     "16-107"
+    ]
+   },
+   "vehicle_category": "ambulance",
+   "vehicle_description": "",
+   "vehicle_icon": "🚑",
+   "vehicle_number": "16-107",
+   "vehicle_units": [
+    "16-107"
+   ]
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "PRIO",
+     "full_text": "Prioriteit"
+    },
+    {
+     "abbreviation": "OVD",
+     "full_text": "Officier van Dienst"
+    }
+   ],
+   "address": "Coolsingel, 3011 Rotterdam, Netherlands",
+   "body": "PRIO 1 Binnenbrand Coolsingel Rotterdam OvD 17-1891",
+   "bon_number": "",
+   "capcodes": [
+    "000200001"
+   ],
+   "city": "Rotterdam",
+   "classify_text": "brandweer_officier",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Brand",
+    "incident_number": "",
+    "incident_type": "fire",
+    "ride_number": "",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Brand",
+   "incident_number": "",
+   "incident_type": "fire",
+   "latitude": 51.92,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 4.478,
+   "mapurl": "https://www.openstreetmap.org/?mlat=51.92&mlon=4.478#map=17/51.92/4.478",
+   "message_type": "FLEX",
+   "named": [
+    [
+     "17-1891",
+     "brandweer_officier"
+    ]
+   ],
+   "postalcode": "3011",
+   "priority": 1,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000200001|ALN|PRIO 1 Binnenbrand Coolsingel Rotterdam OvD 17-1891",
+   "receivers": "",
+   "region": "Rotterdam-Rijnmond",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "PRIO 1 Binnenbrand Coolsingel Rotterdam Officier van Dienst 17-1891",
+   "street": "Coolsingel",
+   "tags": [
+    {
+     "abbreviation": "PRIO",
+     "full_text": "Prioriteit"
+    },
+    {
+     "abbreviation": "OVD",
+     "full_text": "Officier van Dienst"
+    }
+   ],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [
+    "17-1891"
+   ],
+   "vehicle": {
+    "vehicle_category": "brandweer_officier",
+    "vehicle_description": "",
+    "vehicle_icon": "🚒",
+    "vehicle_number": "17-1891",
+    "vehicle_units": [
+     "17-1891"
+    ]
+   },
+   "vehicle_category": "brandweer_officier",
+   "vehicle_description": "",
+   "vehicle_icon": "🚒",
+   "vehicle_number": "17-1891",
+   "vehicle_units": [
+    "17-1891"
+   ]
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "A2",
+     "full_text": "Ambulance zonder spoed"
+    }
+   ],
+   "address": "Rijksweg, Utrecht, Netherlands",
+   "body": "P 1 Hulpverlening Rijksweg A2 hmp 67.4 Utrecht",
+   "bon_number": "",
+   "capcodes": [
+    "000200001"
+   ],
+   "city": "Utrecht",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Hulpverlening",
+    "incident_number": "",
+    "incident_type": "assist",
+    "ride_number": "",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Hulpverlening",
+   "incident_number": "",
+   "incident_type": "assist",
+   "latitude": 52.091,
+   "location": "",
+   "location_accuracy": "city",
+   "longitude": 5.121,
+   "mapurl": "",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "",
+   "priority": 1,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000200001|ALN|P 1 Hulpverlening Rijksweg A2 hmp 67.4 Utrecht",
+   "receivers": "",
+   "region": "Rotterdam-Rijnmond",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 1 Hulpverlening Rijksweg Ambulance zonder spoed hmp 67.4 Utrecht",
+   "street": "Rijksweg",
+   "tags": [
+    {
+     "abbreviation": "A2",
+     "full_text": "Ambulance zonder spoed"
+    }
+   ],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  },
+  {
+   "abbreviations": [],
+   "address": "Kerkstraat, 6881 Velp, Netherlands",
+   "body": "P 1 Brand t.h.v. Kerkstraat Velp i.v.m. rook",
+   "bon_number": "",
+   "capcodes": [
+    "000200001"
+   ],
+   "city": "Velp",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Brand",
+    "incident_number": "",
+    "incident_type": "fire",
+    "ride_number": "",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Brand",
+   "incident_number": "",
+   "incident_type": "fire",
+   "latitude": 51.994,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 5.973,
+   "mapurl": "https://www.openstreetmap.org/?mlat=51.994&mlon=5.973#map=17/51.994/5.973",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "6881",
+   "priority": 1,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000200001|ALN|P 1 Brand t.h.v. Kerkstraat Velp i.v.m. rook",
+   "receivers": "",
+   "region": "Rotterdam-Rijnmond",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 1 Brand t.h.v. Kerkstraat Velp i.v.m. rook",
+   "street": "Kerkstraat",
+   "tags": [],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  },
+  {
+   "abbreviations": [],
+   "address": "Coolsingel, 3011 Rotterdam, Netherlands",
+   "body": "P 2 Melding ambulance post Coolsingel Rotterdam",
+   "bon_number": "",
+   "capcodes": [
+    "000200001"
+   ],
+   "city": "Rotterdam",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "",
+    "incident_number": "",
+    "incident_type": "",
+    "ride_number": "",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "",
+   "incident_number": "",
+   "incident_type": "",
+   "latitude": 51.92,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 4.478,
+   "mapurl": "https://www.openstreetmap.org/?mlat=51.92&mlon=4.478#map=17/51.92/4.478",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "3011",
+   "priority": 2,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000200001|ALN|P 2 Melding ambulance post Coolsingel Rotterdam",
+   "receivers": "",
+   "region": "Rotterdam-Rijnmond",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 2 Melding ambulance post Coolsingel Rotterdam",
+   "street": "Coolsingel",
+   "tags": [],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "BR",
+     "full_text": "Brand"
+    }
+   ],
+   "address": "Dorpsstraat, Hoorn, Netherlands",
+   "body": "P 1 BR woning Dorpsstraat Hoorn",
+   "bon_number": "",
+   "capcodes": [
+    "000200001"
+   ],
+   "city": "Hoorn",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Brand",
+    "incident_number": "",
+    "incident_type": "fire",
+    "ride_number": "",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Brand",
+   "incident_number": "",
+   "incident_type": "fire",
+   "latitude": 52.643,
+   "location": "",
+   "location_accuracy": "city",
+   "longitude": 5.059,
+   "mapurl": "",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "",
+   "priority": 1,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000200001|ALN|P 1 BR woning Dorpsstraat Hoorn",
+   "receivers": "",
+   "region": "Rotterdam-Rijnmond",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 1 Brand woning Dorpsstraat Hoorn",
+   "street": "Dorpsstraat",
+   "tags": [
+    {
+     "abbreviation": "BR",
+     "full_text": "Brand"
+    }
+   ],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  },
+  {
+   "abbreviations": [
+    {
+     "abbreviation": "BR",
+     "full_text": "Brand"
+    }
+   ],
+   "address": "Kerkstraat, 6881 Velp, Netherlands",
+   "body": "P 1 BR woning Kerkstraat Velp",
+   "bon_number": "",
+   "capcodes": [
+    "000200001"
+   ],
+   "city": "Velp",
+   "classify_text": "",
+   "derived": {
+    "bon_number": "",
+    "direct_deployment": false,
+    "incident_label": "Brand",
+    "incident_number": "",
+    "incident_type": "fire",
+    "ride_number": "",
+    "talk_group": "",
+    "talk_group_name": ""
+   },
+   "direct_deployment": false,
+   "discipline": "Brandweer",
+   "distance_km": null,
+   "fire": true,
+   "group_id": "10",
+   "id": null,
+   "incident_id": "",
+   "incident_label": "Brand",
+   "incident_number": "",
+   "incident_type": "fire",
+   "latitude": 51.994,
+   "location": "",
+   "location_accuracy": "street",
+   "longitude": 5.973,
+   "mapurl": "https://www.openstreetmap.org/?mlat=51.994&mlon=5.973#map=17/51.994/5.973",
+   "message_type": "FLEX",
+   "named": [],
+   "postalcode": "6881",
+   "priority": 1,
+   "province_found": "",
+   "raw_message": "FLEX|2026-11-11 10:00:00|1600/2/K/A|10|000200001|ALN|P 1 BR woning Kerkstraat Velp",
+   "receivers": "",
+   "region": "Rotterdam-Rijnmond",
+   "remarks": "",
+   "repeats": 0,
+   "ride_number": "",
+   "spoken": "Prio 1 Brand woning Kerkstraat Velp",
+   "street": "Kerkstraat",
+   "tags": [
+    {
+     "abbreviation": "BR",
+     "full_text": "Brand"
+    }
+   ],
+   "talk_group": "",
+   "talk_group_name": "",
+   "units": [],
+   "vehicle": {
+    "vehicle_category": "",
+    "vehicle_description": "",
+    "vehicle_icon": "📻",
+    "vehicle_number": "",
+    "vehicle_units": []
+   },
+   "vehicle_category": "",
+   "vehicle_description": "",
+   "vehicle_icon": "📻",
+   "vehicle_number": "",
+   "vehicle_units": []
+  }
+ ],
+ "regions": {
+  "Brabant Zuid-Oost": "Noord-Brabant",
+  "Friesland": "Friesland",
+  "Fryslân": "Friesland",
+  "Gelderland Midden": "Gelderland",
+  "Hollands-Midden": "Zuid-Holland",
+  "Limburg Zuid": "Limburg",
+  "Noord- en Oost-Gelderland": "Gelderland",
+  "Onbekend": "",
+  "Veiligheidsregio Haaglanden": "Zuid-Holland",
+  "Zuid-Limburg": "Limburg"
+ },
+ "vehicle_icons": {
+  "ambulance": "🚑",
+  "politie": "🚓",
+  "x": "📻"
+ },
+ "vehicles": {
+  "06": "Noord- en Oost-Gelderland",
+  "09-1131": "Utrecht",
+  "17-135": "Rotterdam-Rijnmond",
+  "25-201": "Flevoland",
+  "99-100": ""
+ },
+ "words": {
+  "2e": [
+   true,
+   false,
+   false
+  ],
+  "Ambulance": [
+   false,
+   false,
+   false
+  ],
+  "BR": [
+   false,
+   false,
+   true
+  ],
+  "Burgemeester": [
+   true,
+   false,
+   false
+  ],
+  "J.P.": [
+   true,
+   false,
+   false
+  ],
+  "Kerkstraat": [
+   true,
+   true,
+   false
+  ],
+  "Melding": [
+   false,
+   false,
+   false
+  ],
+  "Prio": [
+   false,
+   false,
+   false
+  ],
+  "Woningbrand": [
+   false,
+   false,
+   true
+  ],
+  "van": [
+   true,
+   false,
+   false
+  ]
+ }
+}
