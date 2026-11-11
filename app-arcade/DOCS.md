@@ -46,9 +46,48 @@ Info tab lists the drivers; the library shows every game a ROM file in your fold
 | Sega: segas16a, segas16b, system1 | Shinobi, Golden Axe, Altered Beast, Wonder Boy III, Wonder Boy, Flicky, Choplifter, Pitfall II |
 | Konami: tmnt, simpsons, timeplt, gyruss, pooyan | TMNT, Sunset Riders, The Simpsons, Time Pilot, Gyruss, Pooyan |
 | Others: gottlieb, mrdo, docastle, btime, bombjack, tecmo, m62, popeye, mario, punchout | Q\*bert, Mr. Do!, Mr. Do's Castle, BurgerTime, Bomb Jack, Rygar, Kung-Fu Master, Lode Runner, Popeye, Mario Bros., Punch-Out!! |
+| Video pinball: pbaction, videopin | Pinball Action, Atari Video Pinball, Solar War |
+| Slot machines and video poker: goldnpkr, goldstar, aristmk5 | Golden Poker, Witch Card and the free Video Klein sets (Falcons Wild, Witch Game, Wild Witch ...), Cherry Master, Golden Star, Aristocrat MK5 slot machines (Prize Fight, Bumble Bugs, Queen of the Nile ...). The Aristocrat games need the BIOS set `aristmk5.zip`; only 110 of their 252 versions work in MAME |
+| Sega: segaxbd, segaorun, segaybd, zaxxon, pengo | After Burner, Thunder Blade, Racing Hero, Out Run, Super Hang-On, Turbo Out Run, Galaxy Force II, G-LOC, Power Drift, Zaxxon, Congo Bongo, Pengo |
+| Taito: rbisland, tnzs, rastan, taito_f3 | Rainbow Islands, The NewZealand Story, Arkanoid - Revenge of DOH, Rastan, Bubble Symphony, Puzzle Bobble 2 and 3, Elevator Action Returns |
+| Atari: atetris, gauntlet, atarisy2 | Tetris, Gauntlet, Gauntlet II, Paperboy, 720 Degrees, Super Sprint |
+| Midway/Williams: midtunit, midyunit, midwunit, mcr3 | Mortal Kombat 1 to 3, Ultimate Mortal Kombat 3, NBA Jam, NBA Hangtime, Judge Dredd, Smash T.V., Narc, Trog, Total Carnage, Rampage, Sarge |
+| IGS: pgm, pgm2 | Knights of Valour 1 to 3, Oriental Legend 1 and 2, DoDonPachi Dai-Ou-Jou, Ketsui, Martial Masters, The King of Fighters '98 Ultimate Match HERO. PGM games need the BIOS set `pgm.zip` |
+| More: snowbros, mitchell, ddragon, ddragon3, m72, m52, dec0, contra, nemesis, trackfld, hyperspt, ladybug, toaplan1, toki | Snow Bros., Pang, Double Dragon 1 to 3, WWF WrestleFest, R-Type, Ninja Spirit, Image Fight, Moon Patrol, RoboCop, Bad Dudes, Heavy Barrel, Contra, Gradius, Salamander, TwinBee, Track & Field, Hyper Sports, Lady Bug, Truxton, Zero Wing, Toki |
 
-The drivers in the second half run all the free ROMs on mamedev.org (except the Video Klein
-gambling machines). More drivers can be added; see [Development](#development).
+The drivers in the second part of the table run all the free ROMs on mamedev.org,
+including the eight Video Klein gambling machines. More drivers can be added; see
+[Development](#development).
+
+- **Pinball**: the video pinball games above run as any other game. Real pinball machines
+  (Williams, Bally, Stern, Gottlieb) are mechanical: MAME runs their electronics but can't
+  emulate the ball and the playfield, so they are not included.
+- **Slot machines and video poker** use more buttons than a joystick game (bet, deal, hold,
+  take, door, service). Press <kbd>Tab</kbd> and choose *Input (this machine)* to see the
+  keys and change them. Many need their DIP switches or a reset of their memory first (in
+  the game's service mode, <kbd>F2</kbd>). The on-screen touch controls don't have these
+  buttons.
+- **Not working**: a game that MAME marks as not working (many Aristocrat versions, some
+  bootlegs) shows a red *not working* chip on its card. It may start and stop, or show
+  only an error; that is MAME's state of the emulation, not the app.
+- **Speed**: the heavier systems (Sega X and Y Board with several 68000s, the Midway
+  T-unit and Wolf unit with a TMS34010, the IGS PGM2 with an ARM9 at 100 MHz) need a fast
+  computer; on a tablet or an older PC they can run slower than the original. Press
+  <kbd>F11</kbd> while playing to see MAME's speed in percent.
+
+### When a file is not recognised
+
+A file the app doesn't recognise shows up under **Problems** (and the upload says so),
+with the reason: what it holds, which game it comes closest to and which files that game
+still misses, or that it is named like a game whose files don't match (a set for another
+MAME version, or a damaged file). For a file named after a MAME machine that this app has
+no driver for, the app looks the name up in an index of every machine in MAME and says
+which driver it needs, for example *Tekken 3 (World, TET2/VER.E1) (Namco, 1997): needs MAME
+driver namcos12, which this app doesn't include (yet)*, and whether it works in MAME at
+all. An *artwork* file (a zip of pictures and `.lay` layouts for a bezel or cabinet
+frame, often named like the game itself) says so: it isn't the game, download the ROM set.
+Artwork files are not stored. The Info tab lists these files grouped by driver, so you can ask for the drivers you
+want in one go ([open an issue](https://github.com/cyberjunky/home-assistant-apps/issues)).
 
 ### ROM files
 
@@ -70,7 +109,8 @@ Sets made for a much older MAME can have files with other names or contents.
 
 Some systems run their games on a BIOS, a program of the machine itself rather than of the
 game. MAME keeps it in a set of its own: every **Neo Geo** game needs `neogeo.zip` (or
-`neogeo.7z`) in the ROM folder next to the game's own file. Without it the game says
+`neogeo.7z`) in the ROM folder next to the game's own file, an **IGS PGM** game `pgm.zip`
+and an **Aristocrat MK5** slot machine `aristmk5.zip`. Without it the game says
 *needs the Neo Geo BIOS (neogeo.zip)* and can't be started; the line above the games shows
 whether the BIOS is there and complete.
 
@@ -83,6 +123,9 @@ whether the BIOS is there and complete.
   mahjong games), the app starts the game with a version that is there.
 - A game set that already holds the BIOS files (a *non-merged* set) needs no separate
   `neogeo.zip`.
+- The PGM BIOS has two versions (`v1`, `v2`); one is enough, as for the Neo Geo. The
+  Aristocrat MK5 set holds the GAL chips every game uses and the US *set chips*, which
+  only the US games need.
 
 The legal rule is the same as for games: only add a BIOS you have the right to use, such
 as one dumped from your own Neo Geo MVS board. The BIOS is SNK's copyrighted software, and
@@ -231,7 +274,10 @@ compiles the MAME release named in `Dockerfile` (`ARG MAME_WASM`) with the drive
 `mame/drivers.txt`, and `.github/workflows/build-arcade-mame.yaml` publishes it as
 `ghcr.io/cyberjunky/arcade/dependency/mame-wasm:<tag>`. To add a driver, add its `.cpp`
 path to `mame/drivers.txt`, raise the build number in `ARG MAME_WASM`, push, and release
-the app once the workflow has finished.
+the app once the workflow has finished. The build also writes `games.json` (the games of
+these drivers with their ROM files, `mame/gamelist.py`) and `machines.json.gz` (every
+machine in that MAME release with its driver, for the "needs driver ..." messages,
+`mame/machines.py`).
 
 To run the server locally with a MAME build in a folder:
 

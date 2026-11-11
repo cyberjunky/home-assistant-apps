@@ -101,3 +101,94 @@ src/mame/sega/system1.cpp
 # Konami: TMNT, Sunset Riders, The Simpsons
 src/mame/konami/tmnt.cpp
 src/mame/konami/simpsons.cpp
+
+# Video pinball (real pinball machines are mechanical: MAME can't emulate their playfield)
+# Pinball Action
+src/mame/tecmo/pbaction.cpp
+# Atari Video Pinball, Solar War
+src/mame/atari/videopin.cpp
+
+# Slot machines, video poker and other gambling games
+# Golden Poker, Witch Card and the free Video Klein sets on mamedev.org
+src/mame/misc/goldnpkr.cpp
+# Cherry Master, Golden Star
+src/mame/igs/goldstar.cpp
+# Aristocrat MK5 slot machines; every game needs the BIOS set aristmk5.zip
+src/mame/acorn/aristmk5.cpp
+
+# Sega
+# Sega X Board: After Burner, Thunder Blade, Racing Hero
+src/mame/sega/segaxbd.cpp
+# Out Run, Super Hang-On, Turbo Out Run
+src/mame/sega/segaorun.cpp
+# Sega Y Board: Galaxy Force II, G-LOC, Power Drift
+src/mame/sega/segaybd.cpp
+# Zaxxon, Super Zaxxon, Congo Bongo
+src/mame/sega/zaxxon.cpp
+# Pengo
+src/mame/pacman/pengo.cpp
+
+# Taito
+# Rainbow Islands
+src/mame/taito/rbisland.cpp
+# The NewZealand Story, Arkanoid - Revenge of DOH
+src/mame/taito/tnzs.cpp
+# Rastan
+src/mame/taito/rastan.cpp
+# Taito F3: Bubble Symphony, Puzzle Bobble 2 and 3, Elevator Action Returns
+src/mame/taito/taito_f3.cpp
+
+# Atari
+# Tetris
+src/mame/atari/atetris.cpp
+# Gauntlet, Gauntlet II
+src/mame/atari/gauntlet.cpp
+# Atari System 2: Paperboy, 720 Degrees, Super Sprint
+src/mame/atari/atarisy2.cpp
+
+# Midway and Williams
+# T-unit: Mortal Kombat, Mortal Kombat II, NBA Jam, Judge Dredd
+src/mame/williams/midtunit.cpp
+# Y-unit: Smash T.V., Narc, Trog, Total Carnage
+src/mame/williams/midyunit.cpp
+# Wolf unit: Mortal Kombat 3, Ultimate Mortal Kombat 3, NBA Hangtime
+src/mame/williams/midwunit.cpp
+# Rampage, Sarge
+src/mame/bally/mcr3.cpp
+
+# IGS
+# PGM: Knights of Valour, Oriental Legend, DoDonPachi, Ketsui, Martial Masters;
+# every game needs the BIOS set pgm.zip
+src/mame/igs/pgm.cpp
+# PGM2: Knights of Valour 3, The King of Fighters '98 Ultimate Match HERO, Oriental Legend 2
+src/mame/igs/pgm2.cpp
+
+# More 80s and 90s favourites
+# Snow Bros.
+src/mame/kaneko/snowbros.cpp
+# Pang, Buster Bros., Super Pang
+src/mame/capcom/mitchell.cpp
+# Double Dragon, Double Dragon II
+src/mame/technos/ddragon.cpp
+# Double Dragon 3, WWF WrestleFest
+src/mame/technos/ddragon3.cpp
+# R-Type, Ninja Spirit, Image Fight
+src/mame/irem/m72.cpp
+# Moon Patrol
+src/mame/irem/m52.cpp
+# RoboCop, Bad Dudes, Heavy Barrel
+src/mame/dataeast/dec0.cpp
+# Contra
+src/mame/konami/contra.cpp
+# Gradius, Salamander, TwinBee
+src/mame/konami/nemesis.cpp
+# Track & Field
+src/mame/konami/trackfld.cpp
+# Hyper Sports
+src/mame/konami/hyperspt.cpp
+# Lady Bug
+src/mame/universal/ladybug.cpp
+# Truxton, Zero Wing
+src/mame/toaplan/toaplan1.cpp
+# Toki
+src/mame/seibu/toki.cpp

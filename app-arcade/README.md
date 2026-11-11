@@ -26,6 +26,8 @@ laptop to the tablet.
 - 🖼️ **Thumbnails**: each game's card shows a picture taken from the game itself while you play it
 - 📊 **Stats**: play time per game and per day, most played games, longest session, streak and favourite time of day
 - 🕹️ **Neo Geo**: the MVS games run too, with the Neo Geo BIOS set (`neogeo.zip`) you add next to them
+- 🎰 **Pinball, slot machines and more**: video pinball, video poker and slot machines (Aristocrat MK5, Cherry Master), Out Run, After Burner, Mortal Kombat, Gauntlet, Tetris, Rainbow Islands, R-Type and the IGS PGM games: 4182 games and versions
+- 🔎 **Which driver is missing**: a file the app can't run says which MAME driver it needs, from an index of every machine in MAME
 - 📚 **Library**: drop ROM files (`.zip` or `.7z`) on the page; each one is recognised by its contents and stored under the game's own name, with what is still missing if a set is incomplete
 - 🏆 **High scores kept**: MAME's hiscore plugin saves them as soon as they change, also for games that forgot them at power-off
 - 📋 **High score tables**: rank, initials and score of most games, read with the [hi2txt](https://github.com/GreatStoneEx/hi2txt-xml) definitions by GreatStone
