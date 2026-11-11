@@ -32,6 +32,8 @@ PARKED_INTERVAL = 60
 # With the stream delivering positions, the API only has to add temperatures and the like
 POLL_DRIVING_STREAMED = 10
 DISCOVERY_INTERVAL = 6 * 3600
+# The odometer may step back this far (rounding, late readings) and is then kept where it was
+ODOMETER_SLACK_KM = 2.0
 # What the stream reports about the car; a poll that is older than the last streamed values doesn't undo them
 STREAM_KEYS = ("lat", "lon", "heading", "speed_kmh", "power_kw", "odometer_km", "soc", "range_km", "est_range_km")
 
@@ -556,11 +558,17 @@ class CarMonitor:
         return max(known, default=None)
 
     def _odometer(self, value: float | None) -> float | None:
-        """The odometer to store and show: never below the last one (Home Assistant counts it as a meter)."""
+        """The odometer to store and show: never below the last one (Home Assistant counts it as a meter).
+
+        The stream's tenth of a mile and readings that arrive out of order take it back by a few hundred
+        metres at most. A larger step back means the value it is compared with was wrong (a database from
+        elsewhere): the car's own reading wins then, or every drive from then on would measure 0 km."""
         if value is None:
-            return self._odometer_km
+            return None
         if self._odometer_km is not None and value < self._odometer_km:
-            return self._odometer_km
+            if self._odometer_km - value <= ODOMETER_SLACK_KM:
+                return self._odometer_km
+            logger.warning(f"{self.label}: odometer {value:.1f} km is below the {self._odometer_km:.1f} km seen before")
         self._odometer_km = value
         return value
 

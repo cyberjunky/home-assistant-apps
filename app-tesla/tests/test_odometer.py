@@ -46,3 +46,16 @@ def test_odometer_still_goes_up(monitor):
     _stream(monitor, 1001, 10000.2)
     feed(monitor, 1005, shift="D", odometer_km=10000.6)
     assert monitor.snapshot["odometer_km"] == 10000.6
+
+
+def test_a_wrong_higher_value_does_not_freeze_the_odometer(database):
+    # A database that came from elsewhere says 51 700 km; the car itself says 48 211 km
+    first = make_monitor(database)
+    feed(first, 1000, shift=None, odometer_km=51700.0)
+    monitor = make_monitor(database)
+    feed(monitor, 2000, shift="D", odometer_km=48211.0)
+    feed(monitor, 2300, shift="D", odometer_km=48216.0)
+    feed(monitor, 2310, shift="P", odometer_km=48216.0)
+    assert monitor.snapshot["odometer_km"] == 48216.0
+    drive = database.query_one("SELECT distance_km FROM drives")
+    assert drive["distance_km"] == 5.0
