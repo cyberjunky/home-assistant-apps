@@ -5,6 +5,7 @@
 **After updating:** nothing to do.
 
 - The game's top bar shows the controls: <kbd>5</kbd> coin, <kbd>1</kbd> start, the arrow keys, <kbd>Ctrl</kbd> fire, <kbd>Alt</kbd> second button, <kbd>P</kbd> pause, <kbd>F6</kbd>/<kbd>F8</kbd> save and load, <kbd>Esc</kbd> back. On narrower screens it shows the main ones, on phones none (the touch controls are there instead).
+- The Info tab has a Support section (documentation, open an issue, version and changelog) and a Donate section, like the other apps.
 
 ## 0.1.0
 

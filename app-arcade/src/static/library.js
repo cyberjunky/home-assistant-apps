@@ -87,7 +87,7 @@ function renderStatusbar() {
 
 function renderInfo() {
     const m = appStatus.mame || {};
-    document.getElementById('info-version').textContent = appStatus.version;
+    document.getElementById('info-version').textContent = 'v' + appStatus.version;
     if (m.tag) document.getElementById('mame-source').href = `https://github.com/mamedev/mame/tree/${encodeURIComponent(m.tag)}`;
     const drivers = (m.drivers || []).map(d => `<span class="chip mono">${escapeHtml(d)}</span>`).join(' ');
     document.getElementById('info-mame').innerHTML = `
