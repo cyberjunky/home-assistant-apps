@@ -64,7 +64,7 @@ Tesla account ──▶ owner API ──▶ vehicle monitor ──▶ SQLite ─
 
   | When | How often it reads the car |
   |------|-----------|
-  | Driving | every **3 s** (and Tesla's live stream adds ~1 position per second) |
+  | Driving | every **3 s** (and Tesla's live stream adds ~1 position per second; the stream never makes it read more often than this) |
   | Charging | every **10 s** |
   | Online & idle | every **15 s** |
   | Asleep / offline | a lightweight online-or-asleep check every **30 s** (this one doesn't wake the car) |
@@ -91,11 +91,15 @@ Tesla account ──▶ owner API ──▶ vehicle monitor ──▶ SQLite ─
 - **Trips and charges.** A trip starts when the car is put in gear and ends when it is
   parked; a charging session starts when power flows and ends when it stops. Trips shorter
   than 50 m and sessions that added nothing are dropped. A trip survives a tunnel or an
-  app restart of up to five minutes.
+  app restart of up to five minutes. Charging that stops and starts again within six hours
+  while the car stays plugged in at the same place (a paused charge, a full home battery)
+  continues the same session; after a longer pause it is a session of its own, counting
+  only what was added after the pause.
 - **Energy.** The car doesn't report the energy a trip used, only its rated range.
   This app converts range to kWh with the car's rated consumption (Wh per km of range),
   which it learns from your charging sessions (energy added ÷ range gained, median of the
-  last 25). Until the first decent session a typical value for the model is used; all trips
+  last 25; both counted from the moment the car's energy counter starts, which lags behind
+  the range). Until the first decent session a typical value for the model is used; all trips
   are recalculated when the learned value changes. `efficiency_wh_km` fixes it instead.
 - **Charging cost and efficiency.** The energy drawn from the charger is measured from
   voltage, current and phases (AC) or the reported power (DC), so it includes charging
@@ -284,7 +288,8 @@ Sign in on the dashboard; the simulated sign-in page ends in the same kind of ap
 Tesla's. The sign-in browser needs Chromium and Xvfb on your machine; without a virtual
 display, `TESLA_BROWSER_HEADLESS=1` runs it headless (fine for the simulator, refused
 by the real Tesla). `./lint.sh` checks formatting and lint; `./lint.sh fix` fixes what it
-can.
+can. `python3 -m pytest tests` runs the tests (`pip install pytest`); they need no car and
+no network.
 
 ## Credits
 

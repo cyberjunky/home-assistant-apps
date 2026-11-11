@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.1
+
+**After updating:** nothing to do. The first start corrects charging sessions recorded earlier that continued a paused charge (see below); the log says how many.
+
+- **Fewer requests to Tesla while driving.** When the live stream sent frames without a gear, every frame (about one a second) made the app read the car's data. It now reads at most once per driving interval. After Tesla answers "too many requests", the app waits as long as Tesla asks, whatever comes in from the stream meanwhile.
+- **The odometer no longer steps back.** The stream rounds the odometer to a tenth of a mile, and a reading that arrived late could be older than the stream's last one; Home Assistant then saw the meter go down. The odometer now only goes up, and a late reading no longer undoes newer stream values (position, speed, battery).
+- **A paused charge is counted once.** Charging that stopped and started again while the car stayed plugged in became two sessions, and the second one booked the energy of the first part again (the car's counter keeps counting until it is unplugged). Within six hours, at the same place, it now continues the same session; after a longer pause the new session only counts what was added after it. Sessions recorded like that before are corrected once, at the first start.
+- **Learned consumption** no longer comes out too low: the car's energy counter starts a little later than its range rises, so both are now counted over the same part of the session. Trip energy follows the corrected value.
+- An unknown charger power is shown as unknown instead of 0 kW.
+- A Model 3 with trim badge "50" from model year 2022 on is shown as **RWD**, as Tesla sells it, instead of "Standard Range".
+- The live stream ignores garbled frames (an unknown gear, a position off the globe) and reconnects after ten of them in a row. A stream that goes quiet during a drive is reopened after one minute instead of five.
+
 ## 0.7.0
 
 **After updating:** this is a new app, not an update, because the name and slug changed.

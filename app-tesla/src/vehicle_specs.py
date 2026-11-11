@@ -57,6 +57,9 @@ TRIMS = {
     },
 }
 
+# From this model year on the Model 3 with trim badge "50" is sold as "RWD"
+RWD_FROM_YEAR = 2022
+
 # exterior_color -> (readable name, hex, configurator paint code). Hex is approximate.
 COLORS = {
     "PearlWhite": ("Pearl White Multi-Coat", "#edeef0", "PPSW"),
@@ -216,7 +219,11 @@ def trim_name(car_type: str | None, trim_badging: str | None, vin: str | None = 
     if not trim_badging:
         return ""
     key = str(car_type or "").lower() or (car_type_from_vin(vin) or "")
-    return TRIMS.get(key, {}).get(str(trim_badging).lower()) or str(trim_badging).upper()
+    badge = str(trim_badging).lower()
+    if key == "model3" and badge == "50" and (_model_year(vin) or 0) >= RWD_FROM_YEAR:
+        # Tesla renamed the entry Model 3 from Standard Range (Plus) to RWD; the badge stayed "50"
+        return "RWD"
+    return TRIMS.get(key, {}).get(badge) or str(trim_badging).upper()
 
 
 def color_name(exterior_color: str | None) -> str:

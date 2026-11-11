@@ -32,6 +32,8 @@ PARKED_INTERVAL = 60
 # With the stream delivering positions, the API only has to add temperatures and the like
 POLL_DRIVING_STREAMED = 10
 DISCOVERY_INTERVAL = 6 * 3600
+# What the stream reports about the car; a poll that is older than the last streamed values doesn't undo them
+STREAM_KEYS = ("lat", "lon", "heading", "speed_kmh", "power_kw", "odometer_km", "soc", "range_km", "est_range_km")
 
 MODEL_NAMES = {
     "model3": "Model 3",
@@ -59,17 +61,20 @@ def _seconds(millis, default: float) -> int:
         return int(default)
 
 
-def charge_power_kw(charge: dict) -> float:
-    """Power drawn from the charger in kW.
+def charge_power_kw(charge: dict) -> float | None:
+    """Power drawn from the charger in kW, or None when the car doesn't report it.
 
     The API reports whole kilowatts. On AC, volts x amps x phases is more
     precise; some cars report a three-phase connection as 2 phases, so the
     phase count is picked that matches the reported power best.
     """
-    reported = float(charge.get("charger_power") or 0)
+    reported = charge.get("charger_power")
+    reported = None if reported is None else float(reported)
     volts, amps, phases = (charge.get(k) for k in ("charger_voltage", "charger_actual_current", "charger_phases"))
     if charge.get("fast_charger_present") or not (volts and amps and phases):
         return reported
+    if reported is None:
+        return volts * amps * phases / 1000.0
     candidates = {phases, 3} if phases == 2 else {phases}
     return min((volts * amps * n / 1000.0 for n in candidates), key=lambda kw: abs(kw - reported))
 
@@ -157,7 +162,7 @@ def normalize(data: dict, now: float) -> dict:
         "preconditioning_enabled": charge.get("preconditioning_enabled"),
         "off_peak_enabled": charge.get("off_peak_charging_enabled"),
         "off_peak_end_minutes": charge.get("off_peak_hours_end_time"),
-        "charger_power_kw": round(charge_power_kw(charge), 2),
+        "charger_power_kw": None if (power := charge_power_kw(charge)) is None else round(power, 2),
         "charger_voltage": charge.get("charger_voltage"),
         "charger_current": charge.get("charger_actual_current"),
         "charger_phases": charge.get("charger_phases"),
@@ -335,12 +340,21 @@ class CarMonitor:
         self._last_sample_at = 0.0
         self._last_parked_position = 0.0
         self._failures = 0
+        # No request to Tesla before this moment (after a 429), whatever wakes the loop
+        self._not_before = 0.0
+        self._last_poll_at = 0.0
+        # The odometer only goes up: a rounded streamed value or an older poll can't take it back
+        self._odometer_km: float | None = self._known_odometer()
+        # Seen unplugged since the last charge ended: charging again is a new session, not a resumed one
+        self._unplugged_since_charge = False
         self._wake = asyncio.Event()
         self._tasks: set[asyncio.Task] = set()
 
         self.stream: VehicleStream | None = None
         if config.streaming and car.get("vehicle_id"):
-            self.stream = VehicleStream(auth, car["vehicle_id"], self._on_stream_sample)
+            self.stream = VehicleStream(
+                auth, car["vehicle_id"], self._on_stream_sample, driving=lambda: self.drive_id is not None
+            )
 
     # ------------------------------------------------------------------
     # What the dashboard and MQTT see
@@ -399,6 +413,10 @@ class CarMonitor:
     def poke(self) -> None:
         """Read the car's data now instead of at the next scheduled moment."""
         self._car_details = self._read_car_details()
+        self._request_read()
+
+    def _request_read(self) -> None:
+        """Have the loop read the car's data soon (as soon as _hold_off allows)."""
         self._activity = True
         self._wake.set()
 
@@ -420,10 +438,21 @@ class CarMonitor:
                 delay = await self._step()
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(self._wake.wait(), timeout=delay)
+                hold = self._hold_off(time.time())
+                if hold > 0:
+                    await asyncio.sleep(hold)
                 self._wake.clear()
         finally:
             if stream_task:
                 stream_task.cancel()
+
+    def _hold_off(self, now: float) -> float:
+        """How long to wait before asking Tesla again, whatever woke the loop. After a 429 Tesla's wait is
+        kept; during a drive the stream can ask for a read with every frame, at most one per driving interval."""
+        earliest = self._not_before
+        if self.drive_id is not None:
+            earliest = max(earliest, self._last_poll_at + self.config.poll_driving)
+        return max(0.0, earliest - now)
 
     async def _step(self) -> float:
         """One round of the loop. Returns the seconds to wait before the next."""
@@ -443,6 +472,7 @@ class CarMonitor:
                 self.stream.wanted.clear()
             return 300
         except RateLimited as e:
+            self._not_before = time.time() + e.retry_after
             self._fail(str(e))
             logger.warning(f"{self.label}: {e}")
             return e.retry_after
@@ -472,6 +502,7 @@ class CarMonitor:
 
     async def _poll(self) -> float:
         now = time.time()
+        self._last_poll_at = now
         if self._mode != "awake":
             # The summary is free: it doesn't wake the car or keep it awake
             summary = await self.api.vehicle(self.tesla_id)
@@ -515,8 +546,38 @@ class CarMonitor:
             self._changed()
         return self.config.poll_asleep
 
+    def _known_odometer(self) -> float | None:
+        """The highest odometer reading known: the saved snapshot's or the last stored position's."""
+        row = self.database.query_one(
+            "SELECT odometer_km FROM positions WHERE car_id = ? AND odometer_km IS NOT NULL ORDER BY ts DESC LIMIT 1",
+            (self.car_id,),
+        )
+        known = [v for v in (self.snapshot.get("odometer_km"), row and row["odometer_km"]) if v is not None]
+        return max(known, default=None)
+
+    def _odometer(self, value: float | None) -> float | None:
+        """The odometer to store and show: never below the last one (Home Assistant counts it as a meter)."""
+        if value is None:
+            return self._odometer_km
+        if self._odometer_km is not None and value < self._odometer_km:
+            return self._odometer_km
+        self._odometer_km = value
+        return value
+
+    def _keep_newer_stream_values(self, snapshot: dict) -> None:
+        """A poll can be older than the frames the stream sent meanwhile: keep what those said."""
+        previous = self.snapshot
+        if snapshot["ts"] < (previous.get("ts") or 0):
+            for key in STREAM_KEYS:
+                if previous.get(key) is not None:
+                    snapshot[key] = previous[key]
+            snapshot["ts"] = previous["ts"]
+
     def _process(self, snapshot: dict, now: float) -> float:
         """Handle fresh data of an awake car. Returns the seconds until the next read."""
+        if self.drive_id is not None and snapshot["shift"] in DRIVING_SHIFTS:
+            self._keep_newer_stream_values(snapshot)
+        snapshot["odometer_km"] = self._odometer(snapshot["odometer_km"])
         sample = position_of(snapshot)
         driving = snapshot["shift"] in DRIVING_SHIFTS
         charging = not driving and (
@@ -563,6 +624,8 @@ class CarMonitor:
             self._last_sample_at = now
         elif self.charge_id:
             self._end_charge()
+        if not snapshot["plugged_in"]:
+            self._unplugged_since_charge = True
 
         if snapshot["update_status"] == "installing":
             state = "updating"
@@ -605,11 +668,13 @@ class CarMonitor:
         driving = sample.pop("shift", None) in DRIVING_SHIFTS
         if self.drive_id:
             if not driving:
-                # Parked: read the full data to close the drive
-                self.poke()
+                # Parked (or a frame without a gear): read the full data to close the drive. The stream
+                # can send such frames every second; the loop reads at most once per driving interval.
+                self._request_read()
                 return
             if sample.get("lat") is None:
                 return
+            sample["odometer_km"] = self._odometer(sample.get("odometer_km"))
             self.database.add_position(self.car_id, sample, self.drive_id)
             self._last_sample_at = time.time()
             self.last_seen = self._last_sample_at
@@ -617,7 +682,7 @@ class CarMonitor:
             self._changed()
         elif driving or (self._mode == "resting" and sample.get("power_kw")):
             # Driving off, or drawing power while we weren't looking (charging, climate)
-            self.poke()
+            self._request_read()
 
     # ------------------------------------------------------------------
     # Drives, charges, states
@@ -647,12 +712,21 @@ class CarMonitor:
         self._background(self.places.fill_missing())
 
     def _start_charge(self, snapshot: dict, sample: dict) -> None:
+        if not self._unplugged_since_charge:
+            # Charging again after a pause, still plugged in: the same session, the car's counter runs on
+            resumed = self.database.resumable_charge(self.car_id, sample, snapshot["charge_energy_added_kwh"])
+            if resumed:
+                self.database.reopen_charge(resumed)
+                self.charge_id = resumed
+                logger.info(f"{self.label}: charge {resumed} resumed at {snapshot['soc']}%")
+                return
         kind = "DC" if snapshot["fast_charger"] else "AC"
         self.charge_id = self.database.open_charge(self.car_id, sample, kind, snapshot["charger_brand"])
         logger.info(f"{self.label}: {kind} charge {self.charge_id} started at {snapshot['soc']}%")
 
     def _end_charge(self) -> None:
         charge_id, self.charge_id = self.charge_id, None
+        self._unplugged_since_charge = False
         charge = self.database.close_charge(charge_id, self.config.cost_per_kwh)
         if not charge:
             logger.debug(f"{self.label}: charge {charge_id} added nothing, dropped")

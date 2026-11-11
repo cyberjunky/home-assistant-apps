@@ -40,8 +40,14 @@ COLUMNS = (
     "heading",
 )
 
-# Without any message for this long the connection is assumed dead and reopened
+# Without any message for this long the connection is assumed dead and reopened. A parked car can
+# stay quiet for minutes (it only sends what changes), a driving one sends about every second.
 SILENCE_TIMEOUT = 300
+SILENCE_TIMEOUT_DRIVING = 60
+# Gears a frame can report; anything else is a garbled frame
+SHIFT_STATES = ("P", "D", "N", "R", "")
+# This many unreadable frames in a row: the connection is reopened
+MAX_BAD_FRAMES = 10
 RETRY_DELAY = 15
 RETRY_DELAY_MAX = 300
 # A car that dropped off the stream is asked again after this long, doubling up to the maximum
@@ -68,7 +74,12 @@ def parse_update(value: str) -> dict | None:
     raw = dict(zip(COLUMNS, parts[1:], strict=True))
     millis = _number(parts[0])
     lat, lon = _number(raw["est_lat"]), _number(raw["est_lng"])
-    if millis is None:
+    if millis is None or raw["shift_state"] not in SHIFT_STATES:
+        return None
+    # A garbled position, or "null island" (0, 0) which the car sends before it has a fix
+    if (lat is None) != (lon is None):
+        return None
+    if lat is not None and (not -90 <= lat <= 90 or not -180 <= lon <= 180 or (lat == 0 and lon == 0)):
         return None
     soc = _number(raw["soc"])
     heading = _number(raw["est_heading"]) if raw["est_heading"] else _number(raw["heading"])
@@ -93,10 +104,19 @@ def parse_update(value: str) -> dict | None:
 class VehicleStream:
     """Keeps a streaming subscription for one vehicle while it is wanted."""
 
-    def __init__(self, auth: TeslaAuth, vehicle_id: int, on_sample: Callable[[dict], None]):
+    def __init__(
+        self,
+        auth: TeslaAuth,
+        vehicle_id: int,
+        on_sample: Callable[[dict], None],
+        driving: Callable[[], bool] | None = None,
+    ):
         self.auth = auth
         self.vehicle_id = vehicle_id
         self.on_sample = on_sample
+        # Whether a drive is going on: a silent stream is reopened sooner then
+        self.driving = driving or (lambda: False)
+        self._bad_frames = 0
         # Set by the monitor while the car is awake; cleared while it sleeps
         self.wanted = asyncio.Event()
         self.last_sample_at = 0.0
@@ -146,7 +166,7 @@ class VehicleStream:
             logger.debug(f"Stream {self.vehicle_id}: connected")
             while self.wanted.is_set():
                 try:
-                    message = await ws.receive(timeout=SILENCE_TIMEOUT)
+                    message = await ws.receive(timeout=self.silence_timeout)
                 except TimeoutError:
                     logger.debug(f"Stream {self.vehicle_id}: silent, reconnecting")
                     return
@@ -155,6 +175,10 @@ class VehicleStream:
                         return
                 elif message.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
                     return
+
+    @property
+    def silence_timeout(self) -> int:
+        return SILENCE_TIMEOUT_DRIVING if self.driving() else SILENCE_TIMEOUT
 
     async def _subscribe(self, ws: aiohttp.ClientWebSocketResponse, token: str) -> None:
         await ws.send_json(
@@ -175,7 +199,14 @@ class VehicleStream:
         kind = message.get("msg_type")
         if kind == "data:update":
             sample = parse_update(str(message.get("value", "")))
-            if sample:
+            if not sample:
+                self._bad_frames += 1
+                if self._bad_frames >= MAX_BAD_FRAMES:
+                    logger.debug(f"Stream {self.vehicle_id}: {self._bad_frames} unreadable frames, reconnecting")
+                    self._bad_frames = 0
+                    return False
+            else:
+                self._bad_frames = 0
                 self.last_sample_at = time.monotonic()
                 self._resubscribe_delay = RESUBSCRIBE_DELAY
                 try:

@@ -8,6 +8,7 @@ event loop, statistics run in a worker thread.
 import itertools
 import json
 import logging
+import math
 import sqlite3
 import statistics
 import threading
@@ -32,6 +33,12 @@ ELEVATION_NOISE_M = 3.0
 # Rated consumption is learned from sessions that added at least this much
 MIN_LEARN_KWH = 3.0
 MIN_LEARN_KM = 15.0
+# The car's energy counter dropping by more than this means it started again from zero (a new plug-in)
+COUNTER_RESET_KWH = 0.5
+# A charge that starts again within this long after the previous one ended, at the same place and
+# with the car's counter running on (still plugged in), continues that session instead of opening one
+RESUME_GAP = 6 * 3600
+SAME_PLACE_KM = 0.15
 
 # Added in layout 4: what Tesla reports and other loggers keep, beyond the essentials. In SCHEMA for a
 # new database, added by the migration for an existing one. Nothing else depends on these being filled.
@@ -249,7 +256,7 @@ INSERT INTO location_tags (place_key, tag) VALUES ('home', 'Home');
 # Stored in the database file. A database of an older layout is brought up to date at
 # start by the steps below; one of a newer layout (or one so old there is no step for it)
 # is refused with a message instead of failing on a missing column later.
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 
 def _statements(sql: str) -> list[str]:
@@ -268,6 +275,8 @@ MIGRATIONS = {
     ],
     # 4 -> 5 (0.6.1): cars removed by hand
     4: [REMOVED_CARS_SQL],
+    # 5 -> 6 (0.7.1): no new layout; sessions that resumed a paused charge counted its first part twice
+    5: [lambda db: db.repair_resumed_charges()],
 }
 
 POSITION_COLUMNS = (
@@ -309,6 +318,42 @@ def place_key(place: str | None, lat: float | None, lon: float | None) -> str | 
     if lat is not None and lon is not None:
         return f"@{round(lat, 3)},{round(lon, 3)}"
     return None
+
+
+def counter_energy(readings: list, fragment: bool = False) -> float:
+    """The kWh a session added according to the car's charge_energy_added counter.
+
+    The counter runs on as long as the car stays plugged in, also over a pause, and starts again from
+    zero with a new plug-in. So a session is the counter's rise over its readings, where every restart
+    (a clear drop) begins a new stretch that counts from zero. First readings that don't rise before
+    such a drop still show the previous plug-in's total and are left out. `fragment`: the readings are a later part
+    of a plug-in whose earlier part was booked already, so the first stretch only counts its rise.
+    """
+    values = [float(value) for value in readings if value is not None]
+    if not values:
+        return 0.0
+    stretches = [[values[0]]]
+    for previous, current in itertools.pairwise(values):
+        if current < previous - COUNTER_RESET_KWH:
+            stretches.append([current])
+        else:
+            stretches[-1].append(current)
+    while len(stretches) > 1 and max(stretches[0]) - min(stretches[0]) < MIN_CHARGE_KWH:
+        stretches.pop(0)
+    first, *rest = stretches
+    # Small dips (rounding) before the counter really starts: count from the lowest reading on
+    lowest = first.index(min(first))
+    added = max(first[lowest:]) - (first[lowest] if fragment else 0.0)
+    return max(0.0, added) + sum(max(stretch) for stretch in rest)
+
+
+def _km_apart(lat1, lon1, lat2, lon2) -> float | None:
+    """Roughly how far apart two coordinates are (good enough for "the same place")."""
+    if None in (lat1, lon1, lat2, lon2):
+        return None
+    dlat = (lat2 - lat1) * 111.32
+    dlon = (lon2 - lon1) * 111.32 * math.cos(math.radians((lat1 + lat2) / 2))
+    return math.hypot(dlat, dlon)
 
 
 def _stride(rows: list, max_points: int) -> list:
@@ -372,12 +417,14 @@ class Database:
                 f" {SCHEMA_VERSION}). Remove that file (or uninstall and reinstall the add-on) to start with a new one"
             )
         while version < SCHEMA_VERSION:
-            with self._lock:
-                self._conn.execute("BEGIN")
-                for statement in MIGRATIONS[version]:
-                    self._conn.execute(statement)
+            with self.transaction():
+                for step in MIGRATIONS[version]:
+                    # A step is SQL, or a function correcting data the way that version records it
+                    if callable(step):
+                        step(self)
+                    else:
+                        self._conn.execute(step)
                 self._conn.execute(f"PRAGMA user_version={version + 1}")
-                self._conn.execute("COMMIT")
             logger.info(f"Database layout {version} brought up to {version + 1}")
             version += 1
 
@@ -849,35 +896,85 @@ class Database:
         )
         return _stride(rows, max_points)
 
+    def _charge_totals(self, samples: list[dict], fragment: bool) -> tuple[float, float]:
+        """kWh added (the car's counter) and drawn from the charger (power over time) over a session's samples."""
+        added = counter_energy([s["energy_added_kwh"] for s in samples], fragment)
+        # Energy drawn from the charger: power over time, skipping gaps in the samples
+        used = 0.0
+        for previous, current in itertools.pairwise(samples):
+            gap = current["ts"] - previous["ts"]
+            if 0 < gap <= MAX_SAMPLE_GAP and previous["power_kw"]:
+                used += previous["power_kw"] * gap / 3600.0
+        # The car can't have stored more than it drew; whole-kW power readings undercount
+        return added, max(used, added)
+
+    def _counter_at(self, charge_id: int, last: bool) -> float | None:
+        """The first (or last) reading of the car's energy counter during a charge."""
+        order = "DESC" if last else "ASC"
+        row = self.query_one(
+            "SELECT energy_added_kwh AS kwh FROM charge_samples WHERE charge_id = ? AND energy_added_kwh IS NOT NULL"
+            f" ORDER BY ts {order}, id {order} LIMIT 1",
+            (charge_id,),
+        )
+        return row["kwh"] if row else None
+
+    def previous_plugged_charge(self, car_id: int, before_ts: int, lat, lon, counter: float | None) -> dict | None:
+        """The finished charge just before before_ts that a session starting then continues: the car didn't
+        drive in between, is at the same place, and its energy counter ran on from that charge's last reading
+        (Tesla's counter starts from zero only with a new plug-in)."""
+        if counter is None:
+            return None
+        previous = self.query_one(
+            "SELECT * FROM charges WHERE car_id = ? AND end_ts IS NOT NULL AND end_ts <= ?"
+            " ORDER BY end_ts DESC LIMIT 1",
+            (car_id, before_ts),
+        )
+        if not previous:
+            return None
+        drove = self.query_one(
+            "SELECT 1 FROM drives WHERE car_id = ? AND start_ts >= ? AND start_ts <= ? LIMIT 1",
+            (car_id, previous["end_ts"], before_ts),
+        )
+        apart = _km_apart(previous["lat"], previous["lon"], lat, lon)
+        if drove or apart is None or apart > SAME_PLACE_KM:
+            return None
+        last = self._counter_at(previous["id"], last=True)
+        if last is None or last < COUNTER_RESET_KWH or counter < last - MIN_CHARGE_KWH:
+            return None
+        return previous
+
+    def resumable_charge(self, car_id: int, sample: dict, counter: float | None) -> int | None:
+        """The charge a session starting now picks up again after a pause (charging stopped and resumed
+        while plugged in), or None to open a new one."""
+        previous = self.previous_plugged_charge(car_id, sample["ts"], sample.get("lat"), sample.get("lon"), counter)
+        if previous and sample["ts"] - previous["end_ts"] <= RESUME_GAP and previous["billed_amount"] is None:
+            return previous["id"]
+        return None
+
+    def reopen_charge(self, charge_id: int) -> None:
+        self.execute("UPDATE charges SET end_ts = NULL WHERE id = ?", (charge_id,))
+
     def close_charge(self, charge_id: int, cost_per_kwh: float, fragment: bool = False) -> dict | None:
         """Finish a charging session. Returns the charge, or None when nothing was charged.
 
         `fragment`: the samples may be a later part of a session that was logged in pieces (an import of
-        sessions the source never finished). The car's counter runs on over those, so only its rise counts."""
+        sessions the source never finished). The car's counter runs on over those, so only its rise counts.
+        A session that continues the plug-in of the charge before it is such a part too."""
         with self._lock:
             charge = self.query_one("SELECT * FROM charges WHERE id = ?", (charge_id,))
             if not charge:
                 return None
             samples = self.charge_samples(charge_id)
-            energies = [s["energy_added_kwh"] or 0.0 for s in samples]
-            # The car's counter restarts with each session; a first reading can still
-            # show the previous session's total, so only count from the lowest reading on
-            lowest = energies.index(min(energies)) if energies else 0
-            added = max(energies[lowest:], default=0.0)
-            if fragment and energies:
-                added -= energies[lowest]
+            if not fragment and samples:
+                first_counter = self._counter_at(charge_id, last=False)
+                previous = self.previous_plugged_charge(
+                    charge["car_id"], charge["start_ts"], charge["lat"], charge["lon"], first_counter
+                )
+                fragment = previous is not None
+            added, used = self._charge_totals(samples, fragment)
             if not samples or added < MIN_CHARGE_KWH:
                 self.execute("DELETE FROM charges WHERE id = ?", (charge_id,))
                 return None
-
-            # Energy drawn from the charger: power over time, skipping gaps in the samples
-            used = 0.0
-            for previous, current in itertools.pairwise(samples):
-                gap = current["ts"] - previous["ts"]
-                if 0 < gap <= MAX_SAMPLE_GAP and previous["power_kw"]:
-                    used += previous["power_kw"] * gap / 3600.0
-            # The car can't have stored more than it drew; whole-kW power readings undercount
-            used = max(used, added)
 
             first, last = samples[0], samples[-1]
             temps = [s["outside_temp"] for s in samples if s["outside_temp"] is not None]
@@ -914,6 +1011,35 @@ class Database:
                     (ideal[0], ideal[-1], charge_id),
                 )
             return self.query_one("SELECT * FROM charges WHERE id = ?", (charge_id,))
+
+    def repair_resumed_charges(self) -> int:
+        """Correct sessions recorded before 0.7.1 that continued a paused charge: they booked the car's
+        counter from zero, so the kWh charged before the pause counted twice. Only their kWh (and an
+        estimated cost, in proportion) change; a session that would end up with nothing is left as it is.
+        Returns how many were corrected. Running it again changes nothing."""
+        fixed = 0
+        with self._lock:
+            for charge in self.query("SELECT * FROM charges WHERE end_ts IS NOT NULL ORDER BY car_id, start_ts"):
+                first_counter = self._counter_at(charge["id"], last=False)
+                if not self.previous_plugged_charge(
+                    charge["car_id"], charge["start_ts"], charge["lat"], charge["lon"], first_counter
+                ):
+                    continue
+                added, used = self._charge_totals(self.charge_samples(charge["id"]), fragment=True)
+                if added < MIN_CHARGE_KWH or (charge["energy_added_kwh"] or 0.0) - added < MIN_CHARGE_KWH:
+                    continue
+                cost = charge["cost"]
+                if cost is not None and not charge["cost_manual"] and charge["billed_amount"] is None:
+                    old_used = charge["energy_used_kwh"] or 0.0
+                    cost = round(cost * used / old_used, 2) if old_used > 0 else cost
+                self.execute(
+                    "UPDATE charges SET energy_added_kwh = ?, energy_used_kwh = ?, cost = ? WHERE id = ?",
+                    (added, used, cost, charge["id"]),
+                )
+                fixed += 1
+        if fixed:
+            logger.info(f"Corrected {fixed} charging session(s) that counted the energy before a pause twice")
+        return fixed
 
     def note_charge_hardware(self, charge_id: int, cable: str | None, charger_type: str | None) -> None:
         """Remember the cable and charger of a session; the car can report them only after a few readings."""
@@ -1064,15 +1190,29 @@ class Database:
         """Rated consumption (Wh per km of rated range), from what recent charges added.
 
         Each session tells how many kWh the car booked for the range it gained;
-        the median of the last sessions ignores the odd one out.
+        the median of the last sessions ignores the odd one out. The car's energy counter
+        lags behind its range when charging starts (range already rising, counter still at
+        zero), so both are taken over the same samples: from the first one that counts energy.
         """
-        rows = self.query(
-            "SELECT energy_added_kwh AS kwh, end_range_km - start_range_km AS km FROM charges"
-            " WHERE car_id = ? AND end_ts IS NOT NULL AND energy_added_kwh >= ?"
+        ratios = []
+        for charge in self.query(
+            "SELECT id FROM charges WHERE car_id = ? AND end_ts IS NOT NULL AND energy_added_kwh >= ?"
             " AND end_range_km - start_range_km >= ? ORDER BY start_ts DESC LIMIT 25",
             (car_id, MIN_LEARN_KWH, MIN_LEARN_KM),
-        )
-        ratios = [row["kwh"] / row["km"] * 1000.0 for row in rows]
+        ):
+            samples = [
+                s
+                for s in self.charge_samples(charge["id"])
+                if s["range_km"] is not None and s["energy_added_kwh"] is not None
+            ]
+            start = next((i for i, s in enumerate(samples) if s["energy_added_kwh"] > 0), None)
+            if start is None:
+                continue
+            samples = samples[start:]
+            kwh = counter_energy([s["energy_added_kwh"] for s in samples], fragment=True)
+            km = samples[-1]["range_km"] - samples[0]["range_km"]
+            if kwh >= MIN_LEARN_KWH and km >= MIN_LEARN_KM:
+                ratios.append(kwh / km * 1000.0)
         # Outside this band it's a measurement glitch, not a car
         ratios = [r for r in ratios if 90.0 <= r <= 350.0]
         return round(statistics.median(ratios), 1) if ratios else None

@@ -7,7 +7,7 @@
 set -e
 
 MODE="${1:-check}"
-SRC_DIR="src tools"
+SRC_DIR="src tools tests"
 
 # Colors
 RED='\033[0;31m'
