@@ -18,7 +18,8 @@ import re
 import sys
 from pathlib import Path
 
-GAME_RE = re.compile(r"^\s*(GAMEL?|GAME_CUSTOM|CONS)\s*\((.*)\)\s*(//.*|/\*.*\*/\s*)?$")
+# Some drivers number their games in a comment first: /* 739 */ GAMEL( 1978, invaders, ...
+GAME_RE = re.compile(r"^\s*(?:/\*.*?\*/\s*)?(GAMEL?|GAME_CUSTOM|CONS)\s*\((.*)\)\s*(//.*|/\*.*\*/\s*)?$")
 ROM_START_RE = re.compile(r"ROM_START\s*\(\s*(\w+)\s*\)(.*?)ROM_END", re.S)
 DEFINE_RE = re.compile(r"^[ \t]*#[ \t]*define[ \t]+(\w+)(\([^)]*\))?(.*)$", re.S)
 CALL_RE = re.compile(r"\b([A-Za-z_]\w*)\s*\(")

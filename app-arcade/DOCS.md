@@ -37,6 +37,15 @@ Info tab lists the drivers; the library shows every game a ROM file in your fold
 | circus, exidy, starfire, carpolo, victory, exidy440 | Circus, Targ, Spectar, Side Trak, Rip Cord, Fire One, Crash, Star Fire, Car Polo, Victory, Hard Hat, Teeter Torture, FAX, Top Gunner |
 | astrocde, gridlee, supertnk, looping | Robby Roto, Gridlee, Super Tank, Looping |
 | neogeo | Neo Geo MVS: Pleasure Goal, Metal Slug 1 to 5 and X, The King of Fighters '94 to 2003, Samurai Shodown, Garou, Blazing Star, Puzzle Bobble and more (282 games and versions). Needs the BIOS set `neogeo.zip`, see [BIOS files](#bios-files) |
+| Namco: galaga, rallyx, mappy, pacland | Galaga, Dig Dug, Xevious, Bosconian, Rally-X, Mappy, Dig Dug II, Super Pac-Man, Pac-Land |
+| Atari: centiped, asteroid, missile, bzone, tempest | Centipede, Millipede, Asteroids, Lunar Lander, Missile Command, Battlezone, Tempest |
+| Midway/Bally: mw8080bw, 8080bw, mcr | Space Invaders, Gun Fight, Sea Wolf, Tron, Tapper, Kick, Satan's Hollow |
+| Taito: taitosj, bublbobl, arkanoid | Elevator Action, Jungle King, Bubble Bobble, Tokio, Arkanoid |
+| Capcom: 1942, 1943, commando, gng | 1942, 1943, Commando, Ghosts'n Goblins |
+| Capcom CPS-1 and CPS-2: cps1, cps2 | Street Fighter II, Final Fight, Strider, Ghouls'n Ghosts, Street Fighter Alpha, Marvel vs. Capcom, 1944 |
+| Sega: segas16a, segas16b, system1 | Shinobi, Golden Axe, Altered Beast, Wonder Boy III, Wonder Boy, Flicky, Choplifter, Pitfall II |
+| Konami: tmnt, simpsons, timeplt, gyruss, pooyan | TMNT, Sunset Riders, The Simpsons, Time Pilot, Gyruss, Pooyan |
+| Others: gottlieb, mrdo, docastle, btime, bombjack, tecmo, m62, popeye, mario, punchout | Q\*bert, Mr. Do!, Mr. Do's Castle, BurgerTime, Bomb Jack, Rygar, Kung-Fu Master, Lode Runner, Popeye, Mario Bros., Punch-Out!! |
 
 The drivers in the second half run all the free ROMs on mamedev.org (except the Video Klein
 gambling machines). More drivers can be added; see [Development](#development).

@@ -29,3 +29,75 @@ src/mame/videogames/looping.cpp
 # Neo Geo MVS: Metal Slug, The King of Fighters, Pleasure Goal and the other games on it.
 # Every game needs the Neo Geo BIOS set (neogeo.zip) next to it.
 src/mame/snk/neogeo.cpp
+
+# Classics
+# Galaga, Dig Dug, Xevious, Bosconian
+src/mame/namco/galaga.cpp
+# Rally-X, New Rally-X, Jungler
+src/mame/namco/rallyx.cpp
+# Mappy, Dig Dug II, Super Pac-Man, Pac & Pal
+src/mame/namco/mappy.cpp
+# Pac-Land
+src/mame/namco/pacland.cpp
+# Centipede, Millipede, Warlords
+src/mame/atari/centiped.cpp
+# Asteroids, Asteroids Deluxe, Lunar Lander
+src/mame/atari/asteroid.cpp
+# Missile Command
+src/mame/atari/missile.cpp
+# Battlezone, Red Baron
+src/mame/atari/bzone.cpp
+# Tempest
+src/mame/atari/tempest.cpp
+# Tron, Tapper, Kick, Satan's Hollow
+src/mame/bally/mcr.cpp
+# Space Invaders (Midway), Gun Fight, Sea Wolf
+src/mame/midw8080/mw8080bw.cpp
+# Space Invaders (Taito) and many 8080 games
+src/mame/midw8080/8080bw.cpp
+# Elevator Action, Jungle King
+src/mame/taito/taitosj.cpp
+# Bubble Bobble, Tokio
+src/mame/taito/bublbobl.cpp
+# Arkanoid
+src/mame/taito/arkanoid.cpp
+# Q*bert, Reactor, Mad Planets
+src/mame/gottlieb/gottlieb.cpp
+# Mr. Do!
+src/mame/universal/mrdo.cpp
+# Mr. Do's Castle, Do! Run Run
+src/mame/universal/docastle.cpp
+# BurgerTime, Bump 'n' Jump, Lock 'n' Chase
+src/mame/dataeast/btime.cpp
+# 1942, 1943, Commando, Ghosts'n Goblins
+src/mame/capcom/1942.cpp
+src/mame/capcom/1943.cpp
+src/mame/capcom/commando.cpp
+src/mame/capcom/gng.cpp
+# Bomb Jack, Rygar, Silkworm
+src/mame/tecmo/bombjack.cpp
+src/mame/tecmo/tecmo.cpp
+# Kung-Fu Master, Lode Runner
+src/mame/irem/m62.cpp
+# Popeye, Mario Bros., Punch-Out!!
+src/mame/nintendo/popeye.cpp
+src/mame/nintendo/mario.cpp
+src/mame/nintendo/punchout.cpp
+# Time Pilot, Gyruss, Pooyan
+src/mame/konami/timeplt.cpp
+src/mame/konami/gyruss.cpp
+src/mame/konami/pooyan.cpp
+
+# 16-bit
+# Capcom CPS-1: Street Fighter II, Final Fight, Strider, Ghouls'n Ghosts
+src/mame/capcom/cps1.cpp
+# Capcom CPS-2: Street Fighter Alpha, Marvel vs. Capcom, 1944
+src/mame/capcom/cps2.cpp
+# Sega System 16A/16B: Shinobi, Golden Axe, Altered Beast, Wonder Boy III
+src/mame/sega/segas16a.cpp
+src/mame/sega/segas16b.cpp
+# Sega System 1: Wonder Boy, Flicky, Choplifter, Pitfall II
+src/mame/sega/system1.cpp
+# Konami: TMNT, Sunset Riders, The Simpsons
+src/mame/konami/tmnt.cpp
+src/mame/konami/simpsons.cpp

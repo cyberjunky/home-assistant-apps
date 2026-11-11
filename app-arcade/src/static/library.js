@@ -126,7 +126,7 @@ function renderGames() {
         .sort((a, b) => (b.playable - a.playable) || a.description.localeCompare(b.description));
     if (!library.games.length) {
         el.innerHTML = `<div class="empty"><b>No games yet.</b><br>Add ROM files (.zip or .7z) above. This MAME build runs
-            ${appStatus ? appStatus.known_games : ''} machines, see the Info tab.</div>`;
+            ${appStatus ? appStatus.known_games : ''} game machines, see the Info tab.</div>`;
         return;
     }
     el.innerHTML = list.length ? list.map(gameCard).join('') : '<div class="empty">No game matches the search.</div>';
@@ -337,7 +337,7 @@ function renderInfo() {
     const drivers = (m.drivers || []).map(d => `<span class="chip mono">${escapeHtml(d)}</span>`).join(' ');
     document.getElementById('info-mame').innerHTML = `
         <div><span>MAME</span><b>${escapeHtml(m.version || 'unknown')}</b></div>
-        <div><span>Machines</span><b>${appStatus.known_games}</b></div>
+        <div><span>Game machines supported</span><b>${appStatus.known_games}</b></div>
         <div><span>Drivers</span><span>${drivers || '—'}</span></div>
         <div><span>ROM folder</span><span class="mono">${escapeHtml(appStatus.rom_folder)}</span></div>
         ${appStatus.mame_present ? '' : '<div class="bad">The MAME build is missing from this app image.</div>'}`;
