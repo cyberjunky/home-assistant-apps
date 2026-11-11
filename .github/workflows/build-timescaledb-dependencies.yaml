@@ -3,7 +3,9 @@ name: Build TimescaleDB dependencies
 
 # Builds the prebuilt extension images referenced by the FROM lines in
 # app-timescaledb/Dockerfile and pushes them to
-# ghcr.io/<repository owner>/timescaledb/dependency/<component>:<version>.
+# ghcr.io/<repository owner>/timescaledb/dependency/<component>:<version>-alpine<ALPINE_VERSION>.
+# The extensions are built on plain Alpine against its PostgreSQL packages, the same
+# Alpine release as the app's base image, hence the Alpine suffix on the tags.
 # Run it whenever a component version in that Dockerfile changes, before
 # releasing the app.
 #
@@ -36,7 +38,7 @@ jobs:
     outputs:
       build: ${{ steps.set.outputs.build }}
       merge: ${{ steps.set.outputs.merge }}
-      timescaledb_version: ${{ steps.set.outputs.timescaledb_version }}
+      alpine_version: ${{ steps.set.outputs.alpine_version }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v7.0.1
@@ -49,7 +51,8 @@ jobs:
         run: |
           # Component versions are defined once, as ARG lines at the top of the app Dockerfile
           ver() { sed -n "s/^ARG $1=//p" "${APP_DIR}/Dockerfile"; }
-          echo "timescaledb_version=$(ver TIMESCALEDB_VERSION)" >> "${GITHUB_OUTPUT}"
+          alpine="$(ver ALPINE_VERSION)"
+          echo "alpine_version=${alpine}" >> "${GITHUB_OUTPUT}"
 
           components=$(jq -nc \
             --arg pgagent "$(ver PGAGENT_VERSION)" \
@@ -58,14 +61,18 @@ jobs:
             --arg sysstat "$(ver SYSTEM_STATS_VERSION)" \
             --arg pgvector "$(ver PGVECTOR_VERSION)" \
             --arg pgcron "$(ver PG_CRON_VERSION)" \
-            '[{component: "timescaledb-tools", version: "latest"}]
+            --arg vchord "$(ver VECTORCHORD_VERSION)" \
+            --arg alpine "${alpine}" \
+            '[{component: "timescaledb-tools", version: "latest", tag: "latest"}]
              + [ ("pg17", "pg18") as $pg |
                  {component: "pgagent-\($pg)",                          version: $pgagent},
                  {component: "timescaledb-toolkit-\($pg)",              version: $toolkit},
                  {component: "postgis-\($pg)",                          version: $postgis},
                  {component: "postgresql-extension-system-stat-\($pg)", version: $sysstat},
                  {component: "pgvector-\($pg)",                         version: $pgvector},
-                 {component: "pg-cron-\($pg)",                          version: $pgcron} ]')
+                 {component: "pg-cron-\($pg)",                          version: $pgcron},
+                 {component: "vectorchord-\($pg)",                      version: $vchord} ]
+             | map(.tag //= "\(.version)-alpine\($alpine)")')
           runners='{"amd64": "ubuntu-latest", "arm64": "ubuntu-24.04-arm"}'
 
           merge=$(echo "${components}" | jq -c --arg c "${COMPONENT}" \
@@ -112,7 +119,7 @@ jobs:
           platforms: linux/${{ matrix.platform }}
           build-args: |
             VERSION=${{ matrix.version }}
-            TIMESCALEDB_VERSION=${{ needs.matrix.outputs.timescaledb_version }}
+            ALPINE_VERSION=${{ needs.matrix.outputs.alpine_version }}
           cache-from: type=gha,scope=${{ matrix.component }}-${{ matrix.platform }}
           cache-to: type=gha,scope=${{ matrix.component }}-${{ matrix.platform }},mode=max
           outputs: type=image,name=${{ env.REGISTRY }}/${{ matrix.component }},push-by-digest=true,name-canonical=true,push=true
@@ -132,7 +139,7 @@ jobs:
           retention-days: 1
 
   merge:
-    name: Publish ${{ matrix.component }}:${{ matrix.version }}
+    name: Publish ${{ matrix.component }}:${{ matrix.tag }}
     needs:
       - matrix
       - build
@@ -167,6 +174,6 @@ jobs:
         working-directory: /tmp/digests
         run: |
           docker buildx imagetools create \
-            --tag "${REGISTRY}/${{ matrix.component }}:${{ matrix.version }}" \
+            --tag "${REGISTRY}/${{ matrix.component }}:${{ matrix.tag }}" \
             $(printf "${REGISTRY}/${{ matrix.component }}@sha256:%s " *)
-          docker buildx imagetools inspect "${REGISTRY}/${{ matrix.component }}:${{ matrix.version }}"
+          docker buildx imagetools inspect "${REGISTRY}/${{ matrix.component }}:${{ matrix.tag }}"
