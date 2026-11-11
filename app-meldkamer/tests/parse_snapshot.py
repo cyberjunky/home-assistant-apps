@@ -186,11 +186,7 @@ def snapshot(path: str) -> dict:
         out["regions"][r] = message_fields.province_of_region(r)
     for v in VEHICLES:
         out["vehicles"][v] = message_fields.region_of_vehicle(v)
-    out["incident_types"] = (
-        message_fields.INCIDENT_TYPES
-        if isinstance(message_fields.INCIDENT_TYPES, dict)
-        else dict(message_fields.INCIDENT_TYPES)
-    )
+    out["incident_types"] = message_fields.incident_types()
     out["vehicle_icons"] = {c: vehicle_types.icon_for(c) for c in ("ambulance", "politie", "x")}
     db.close()
     return out

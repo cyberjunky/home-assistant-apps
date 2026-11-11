@@ -4,57 +4,26 @@ import logging
 import re
 from datetime import UTC, datetime
 
-from . import message_fields, vehicle_types
+from . import lookups, message_fields, vehicle_types
 from .database import Database
 from .message import P2000Message
 from .postcode import full_postcode
 
 logger = logging.getLogger(__name__)
 
-# Common endings of Dutch street names
-STREET_SUFFIXES = (
-    "straat",
-    "weg",
-    "laan",
-    "plein",
-    "singel",
-    "kade",
-    "gracht",
-    "steeg",
-    "pad",
-    "dreef",
-    "hof",
-    "dijk",
-    "park",
-)
+# The word lists of the address search (street endings, words that are no street or town)
+# are the parser_words table, read through lookups; the defaults are in lookups.py
 
 
-STREET_NAME_CONNECTORS = {"van", "de", "den", "der", "het", "ter", "ten", "op", "aan", "in", "t", "'t", "s", "'s"}
+def _words(kind: str) -> list[str]:
+    return lookups.get("parser_words").get(kind, [])
+
+
 # A name word: a capital followed by a lowercase letter ("Burgemeester", "Jan", "Kortenaer-Noord"),
 # an ordinal ("2e") or dotted initials ("J.P.", "H.J.E.")
 _STREET_NAME_WORD_RE = re.compile(
     r"^(?:[A-Z][a-z\u00e0-\u00ff][\w'.]*(?:-[A-Za-z][\w'.]*)*|\d{1,2}e|(?:[A-Z]\.){1,4})$"
 )
-# Capitalised words that P2000 texts put before an address but that are no part of it
-_NOT_STREET_NAME_WORDS = {
-    "ambulance",
-    "ambulancepost",
-    "ambu",
-    "brandweer",
-    "brandweerkazerne",
-    "kazerne",
-    "politie",
-    "melding",
-    "ongeval",
-    "nacontrole",
-    "buitensluiting",
-    "binnensluiting",
-    "afhijsen",
-    "reanimatie",
-    "prio",
-    "test",
-    "oefening",
-}
 
 
 def is_street_name_word(word: str) -> bool:
@@ -63,9 +32,9 @@ def is_street_name_word(word: str) -> bool:
     Message codes are not: priorities ("A1", "P", "2"), talk groups ("BAD-01"), capitals ("CO-melder", "BR"),
     and neither are incident words such as "Woningbrand" or "Assistentie".
     """
-    if word.lower() in STREET_NAME_CONNECTORS:
+    if word.lower() in _words("street_connector"):
         return True
-    if not _STREET_NAME_WORD_RE.match(word) or word.lower() in _NOT_STREET_NAME_WORDS:
+    if not _STREET_NAME_WORD_RE.match(word) or word.lower() in _words("not_street_word"):
         return False
     return not message_fields.is_incident_word(word)
 
@@ -80,7 +49,7 @@ def looks_like_street(name: str) -> bool:
     if " " in name:
         return True
     lower = name.lower()
-    return any(lower.endswith(suffix) and len(lower) > len(suffix) + 2 for suffix in STREET_SUFFIXES)
+    return any(lower.endswith(suffix) and len(lower) > len(suffix) + 2 for suffix in _words("street_suffix"))
 
 
 def city_shortname_tags(body: str, database: Database) -> list[dict[str, str]]:
@@ -97,15 +66,6 @@ def city_shortname_tags(body: str, database: Database) -> list[dict[str, str]]:
         if city and word.lower() != city.lower() and all(t["abbreviation"] != word for t in tags):
             tags.append({"abbreviation": word, "full_text": city})
     return tags
-
-
-# Priority detection patterns
-PRIO_PATTERNS = [
-    (1, r"^A\s?1|\bA\s?1|PRIO\s?1|^P\s?1"),
-    (2, r"^A\s?2|\bA\s?2|PRIO\s?2|^P\s?2"),
-    (3, r"^B\s?[123]|PRIO\s?3|^P\s?3"),
-    (4, r"PRIO\s?4|^P\s?4"),
-]
 
 
 class Parser:
@@ -184,7 +144,8 @@ class Parser:
 
     def _extract_priority(self, text: str) -> int:
         """Extract priority level from message text."""
-        for priority, pattern in PRIO_PATTERNS:
+        # The priority_rules table (read through lookups), first matching level wins
+        for priority, pattern in lookups.get("priority_rules"):
             if re.search(pattern, text, re.IGNORECASE):
                 return priority
         return 0
@@ -219,23 +180,8 @@ class Parser:
 
         # STEP 1: Search for city from END of message first (typical P2000 format)
         # Messages usually end with: "...Street City 123456" or "...Street City CAPCODE"
-        # Skip common P2000 words that aren't cities
-        skip_city_words = {
-            "bon",
-            "rit",
-            "ambu",
-            "prio",
-            "icnum",
-            "regio",
-            "alert",
-            "melding",
-            "dienst",
-            "post",
-            "dhn",
-            "dmt",
-            "nhn",
-            "hgl",
-        }
+        # Skip common P2000 words that aren't cities (parser_words, kind not_city_word)
+        skip_city_words = set(_words("not_city_word"))
         words = text.split()
         for i in range(len(words) - 1, max(0, len(words) - 8), -1):
             word = words[i]
@@ -365,22 +311,7 @@ class Parser:
         if found_city:
             # Try to extract street from remaining words (heuristic approach)
             words = search_text.replace("'", "").split()
-            skip_words = {
-                "AMBU",
-                "BRAND",
-                "PRIO",
-                "A1",
-                "A2",
-                "B1",
-                "B2",
-                "P1",
-                "P2",
-                "bon",
-                "Rit",
-                "Regio",
-                "Ambu",
-                "Brandweer",
-            }
+            skip_words = set(_words("street_skip_word"))
 
             # Look for words ending with street suffixes
             for i, word in enumerate(words):
@@ -390,7 +321,7 @@ class Parser:
                     continue
 
                 # Check if word ends with street suffix
-                for suffix in STREET_SUFFIXES:
+                for suffix in _words("street_suffix"):
                     if word.lower().endswith(suffix) and len(word) > len(suffix) + 2:
                         # Found potential street: add the name words right before it ("Burgemeester",
                         # "van", "2e"), stopping at the first word that isn't one, so codes such as

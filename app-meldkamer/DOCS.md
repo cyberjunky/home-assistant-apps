@@ -33,7 +33,7 @@ Re-run *Import All Places* and *Import BAG* after updates that add data to them 
    - **Street**: the remaining text is matched against the Streets table (longest names first, whole words only), then against address patterns with a postcode, then against common street-name endings (`-straat`, `-weg`, `-laan`, …).
    - **Capcodes** are looked up in the Capcodes table for the discipline, region, location and the names of the alerted units.
    - **Abbreviations** are explained from the Abbreviations table, and **vehicles** recognised from the Vehicles table or from the text ("TS 07-1782").
-   - **Incident type** from the text: fire, automatic alarm (OMS), traffic accident, medical (reanimatie/AED), water, gas/smell, lift, storm, animal, assistance, GRIP. Also the **reference numbers** (rit, bon, icnum), the meldkamer **talk group** ("BAD-02", see [Talk groups and place codes](#talk-groups-and-place-codes)) and "Directe inzet: ja". A vehicle named with its type ("ambu 16-107") gives the region when the capcodes don't.
+   - **Incident type** from the text (the Incident types table): fire, automatic alarm (OMS), traffic accident, medical (reanimatie/AED), water, gas/smell, lift, storm, animal, assistance, GRIP. Also the **reference numbers** (rit, bon, icnum), the meldkamer **talk group** ("BAD-02", see [Talk groups and place codes](#talk-groups-and-place-codes)) and "Directe inzet: ja". A vehicle named with its type ("ambu 16-107") gives the region when the capcodes don't.
 4. **Location** — The first source that knows the address wins:
    1. the position of a full postcode in the message ("3068HA" covers a few houses), looked up once at the PDOK Locatieserver, free, and kept in the geocode cache;
    2. the street's position in the **Streets** table (street + town, from the BAG import or entered by you);
@@ -88,6 +88,13 @@ Each table gets its own card with row counts and Manage/Import actions:
 | 📻 Talk groups | Discipline and meldkamer/region letters of talk group codes (BRT-01) | Built-in, CSV |
 | 🏷️ Place codes | Place-name codes in messages (UTRECH → Utrecht) | Built-in, CSV |
 | 🗺️ Province codes | The province after a town name ("Velp NB", VELPNB → Noord-Brabant) | Built-in, CSV |
+| 🏷️ Incident types | Patterns that give a message its incident type (fire, traffic, …) | Built-in, CSV |
+| ❗ Priority rules | Patterns that give a message its priority (A1, P 1, PRIO 1 → 1) | Built-in, CSV |
+| 🔤 Address words | Street endings and words that are no street or town, for the address search | Built-in, CSV |
+| 🚑 Discipline meanings | Codes that mean something else per discipline (B1 for the ambulance) | Built-in, CSV |
+| 🚒 Vehicle type codes | Type codes in messages (TS, AL-42, AMBU) and their vehicle category | Built-in, CSV |
+| 🔢 Vehicle regions | Safety region of a vehicle number's prefix (17 → Rotterdam-Rijnmond) | Built-in, CSV |
+| 🗾 Region provinces | Province of each safety region | Built-in, CSV |
 | 🙈 Ignore text | Wildcard patterns to drop matching messages | CSV |
 | 🚫 Ignore capcodes | Capcodes to drop | CSV |
 | 📷 Vehicle photos | Photos you've uploaded per vehicle number or category | — (upload via message detail or +Add) |
@@ -472,6 +479,19 @@ automation:
 | Option | Description |
 | ------ | ----------- |
 | `log_level` | Logging verbosity: `debug`, `info`, `warning`, `error` |
+
+
+### Lists in the database
+
+Everything the app looks up while reading a message is a table on the Data tab, not a list in the program: abbreviations, TTS rules, ignore texts, talk groups, place codes, province codes, incident types, priority rules, address words, discipline meanings, vehicle type codes, vehicle regions and region provinces. Each one can be searched, added to, edited, deleted, exported and imported as CSV, and is in backups. The built-in rows are added once, at the first start of the version that brings them: a row you change keeps your text and a row you delete stays deleted, also after updates. A change is used right away, without a restart.
+
+Spoken text defaults added in 1.4.15 (TTS rules and abbreviations, with their sources):
+
+- `Li` / `Re` right after a hectometer marker (`hmp 45,2 Li`, `A12 Li 45,2`) is spoken "rijbaan links" / "rijbaan rechts": the carriageway, Re where the hectometers go up and Li where they go down (Rijksoverheid, "doel hectometerpaaltjes snelwegen"; Rijkswaterstaat, "voorwerp dier schade melden"). Elsewhere Li and Re stay as written.
+- `OM` is spelled out ("O M"): it can be Openbaar Ministerie or the word "om".
+- `PM` means "Personeel- en materieelvoertuig" (the number after it is the number of seats; PM-VEB and the like are specialisations), from [112meldingen.nl](https://112meldingen.nl/afkortingen), [112hub.nl](https://112hub.nl/informatie/afkortingen-en-termen) and [tss2000.nl](https://tss2000.nl/afkorting-termen-p2000-112-meldingen). An unchanged old meaning ("Personeel / Materieelwagen") is updated once.
+
+Some things stay in the program because they are rules of the format rather than lists: the shapes of codes and numbers (talk group `XYY-NNNN`, vehicle numbers, postal codes, times), the letters Dutch postal codes never use (SA, SD, SS), and the icons and stock photos of the vehicle categories.
 
 ## Ports
 

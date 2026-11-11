@@ -808,6 +808,13 @@ class WebUI:
             "city_abbreviations": lambda: self.database.export_lookup_csv("city_abbreviations"),
             "talkgroup_codes": lambda: self.database.export_lookup_csv("talkgroup_codes"),
             "province_codes": lambda: self.database.export_lookup_csv("province_codes"),
+            "incident_rules": lambda: self.database.export_lookup_csv("incident_rules"),
+            "priority_rules": lambda: self.database.export_lookup_csv("priority_rules"),
+            "parser_words": lambda: self.database.export_lookup_csv("parser_words"),
+            "discipline_abbreviations": lambda: self.database.export_lookup_csv("discipline_abbreviations"),
+            "vehicle_type_codes": lambda: self.database.export_lookup_csv("vehicle_type_codes"),
+            "vehicle_regions": lambda: self.database.export_lookup_csv("vehicle_regions"),
+            "region_provinces": lambda: self.database.export_lookup_csv("region_provinces"),
         }
         exporter = exporters.get(table)
         if exporter is None:
@@ -837,6 +844,27 @@ class WebUI:
             "city_abbreviations": self.database.import_city_abbreviations_csv,
             "talkgroup_codes": self.database.import_talkgroup_codes_csv,
             "province_codes": self.database.import_province_codes_csv,
+            "incident_rules": lambda csv_content, replace, table="incident_rules": self.database.import_lookup_csv(
+                table, csv_content, replace
+            ),
+            "priority_rules": lambda csv_content, replace, table="priority_rules": self.database.import_lookup_csv(
+                table, csv_content, replace
+            ),
+            "parser_words": lambda csv_content, replace, table="parser_words": self.database.import_lookup_csv(
+                table, csv_content, replace
+            ),
+            "discipline_abbreviations": lambda csv_content, replace, table="discipline_abbreviations": (
+                self.database.import_lookup_csv(table, csv_content, replace)
+            ),
+            "vehicle_type_codes": lambda csv_content, replace, table="vehicle_type_codes": (
+                self.database.import_lookup_csv(table, csv_content, replace)
+            ),
+            "vehicle_regions": lambda csv_content, replace, table="vehicle_regions": self.database.import_lookup_csv(
+                table, csv_content, replace
+            ),
+            "region_provinces": lambda csv_content, replace, table="region_provinces": self.database.import_lookup_csv(
+                table, csv_content, replace
+            ),
         }
         if table == "messages":
             return web.json_response(
@@ -1115,6 +1143,13 @@ class WebUI:
                 "city_abbreviations",
                 "talkgroup_codes",
                 "province_codes",
+                "incident_rules",
+                "priority_rules",
+                "parser_words",
+                "discipline_abbreviations",
+                "vehicle_type_codes",
+                "vehicle_regions",
+                "region_provinces",
                 "speech_seeded",
             ]
             for table in tables:
@@ -2591,6 +2626,90 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                                 <div class="db-card-count"><span id="db-count-province_codes">0</span> rows</div>
                                 <div class="db-card-actions">
                                     <button class="btn" onclick="dbOpenTable('province_codes')">Manage</button>
+                                </div>
+                            </div>
+
+                            <div class="db-card">
+                                <div class="db-card-head">
+                                    <span class="db-card-title">Incident types</span>
+                                    <span class="db-card-status ready" id="db-status-incident_rules">-</span>
+                                </div>
+                                <div class="db-card-desc">What a message is about (fire, traffic, medical, …) for the type badge and sensor filters: the first rule by position whose pattern (regular expression, not case-sensitive) matches gives the type. Built in once; your edits are kept.</div>
+                                <div class="db-card-count"><span id="db-count-incident_rules">0</span> rows</div>
+                                <div class="db-card-actions">
+                                    <button class="btn" onclick="dbOpenTable('incident_rules')">Manage</button>
+                                </div>
+                            </div>
+
+                            <div class="db-card">
+                                <div class="db-card-head">
+                                    <span class="db-card-title">Priority rules</span>
+                                    <span class="db-card-status ready" id="db-status-priority_rules">-</span>
+                                </div>
+                                <div class="db-card-desc">The priority of a message (1 to 4): the first level whose pattern (regular expression, not case-sensitive) matches, e.g. A1, P 1 or PRIO 1. Built in once; your edits are kept.</div>
+                                <div class="db-card-count"><span id="db-count-priority_rules">0</span> rows</div>
+                                <div class="db-card-actions">
+                                    <button class="btn" onclick="dbOpenTable('priority_rules')">Manage</button>
+                                </div>
+                            </div>
+
+                            <div class="db-card">
+                                <div class="db-card-head">
+                                    <span class="db-card-title">Address words</span>
+                                    <span class="db-card-status ready" id="db-status-parser_words">-</span>
+                                </div>
+                                <div class="db-card-desc">Word lists of the address search: street endings (street_suffix), small words in street names (street_connector), and words that are no street (not_street_word, street_skip_word) or town (not_city_word). Built in once; your edits are kept.</div>
+                                <div class="db-card-count"><span id="db-count-parser_words">0</span> rows</div>
+                                <div class="db-card-actions">
+                                    <button class="btn" onclick="dbOpenTable('parser_words')">Manage</button>
+                                </div>
+                            </div>
+
+                            <div class="db-card">
+                                <div class="db-card-head">
+                                    <span class="db-card-title">Discipline meanings</span>
+                                    <span class="db-card-status ready" id="db-status-discipline_abbreviations">-</span>
+                                </div>
+                                <div class="db-card-desc">A code that means something else for one discipline, e.g. B1 for the ambulance (besteld vervoer). Overrides the abbreviation's meaning when the message's discipline contains it. Built in once; your edits are kept.</div>
+                                <div class="db-card-count"><span id="db-count-discipline_abbreviations">0</span> rows</div>
+                                <div class="db-card-actions">
+                                    <button class="btn" onclick="dbOpenTable('discipline_abbreviations')">Manage</button>
+                                </div>
+                            </div>
+
+                            <div class="db-card">
+                                <div class="db-card-head">
+                                    <span class="db-card-title">Vehicle type codes</span>
+                                    <span class="db-card-status ready" id="db-status-vehicle_type_codes">-</span>
+                                </div>
+                                <div class="db-card-desc">Type codes in messages (TS, AL-42, AMBU) and the vehicle category they are, for the icon and stock photo. A code is case-sensitive. Built in once; your edits are kept.</div>
+                                <div class="db-card-count"><span id="db-count-vehicle_type_codes">0</span> rows</div>
+                                <div class="db-card-actions">
+                                    <button class="btn" onclick="dbOpenTable('vehicle_type_codes')">Manage</button>
+                                </div>
+                            </div>
+
+                            <div class="db-card">
+                                <div class="db-card-head">
+                                    <span class="db-card-title">Vehicle regions</span>
+                                    <span class="db-card-status ready" id="db-status-vehicle_regions">-</span>
+                                </div>
+                                <div class="db-card-desc">The safety region of a vehicle number's prefix (17-1731 → Rotterdam-Rijnmond), from the national numbering plan. Built in once; your edits are kept.</div>
+                                <div class="db-card-count"><span id="db-count-vehicle_regions">0</span> rows</div>
+                                <div class="db-card-actions">
+                                    <button class="btn" onclick="dbOpenTable('vehicle_regions')">Manage</button>
+                                </div>
+                            </div>
+
+                            <div class="db-card">
+                                <div class="db-card-head">
+                                    <span class="db-card-title">Region provinces</span>
+                                    <span class="db-card-status ready" id="db-status-region_provinces">-</span>
+                                </div>
+                                <div class="db-card-desc">The province of each safety region, to pick the right one of two same-named towns. Names are compared without spaces, hyphens and case. Built in once; your edits are kept.</div>
+                                <div class="db-card-count"><span id="db-count-region_provinces">0</span> rows</div>
+                                <div class="db-card-actions">
+                                    <button class="btn" onclick="dbOpenTable('region_provinces')">Manage</button>
                                 </div>
                             </div>
 
@@ -4558,7 +4677,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             vehicles: ['number', 'category', 'description', 'source'],
             talkgroup_codes: ['kind', 'code', 'name'],
             city_abbreviations: ['abbreviation', 'city'],
-            province_codes: ['code', 'province', 'abbreviation_only']
+            province_codes: ['code', 'province', 'abbreviation_only'],
+            incident_rules: ['position', 'kind', 'label', 'pattern'],
+            priority_rules: ['level', 'pattern'],
+            parser_words: ['kind', 'word'],
+            discipline_abbreviations: ['code', 'discipline', 'full_text'],
+            vehicle_type_codes: ['code', 'category'],
+            vehicle_regions: ['prefix', 'region'],
+            region_provinces: ['region', 'province']
         };
 
         const dbTitles = {
@@ -4575,7 +4701,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             vehicles: 'Vehicles',
             talkgroup_codes: 'Talk groups',
             city_abbreviations: 'Place codes',
-            province_codes: 'Province codes'
+            province_codes: 'Province codes',
+            incident_rules: 'Incident types',
+            priority_rules: 'Priority rules',
+            parser_words: 'Address words',
+            discipline_abbreviations: 'Discipline meanings',
+            vehicle_type_codes: 'Vehicle type codes',
+            vehicle_regions: 'Vehicle regions',
+            region_provinces: 'Region provinces'
         };
 
         const dbTableButtons = {
@@ -4639,6 +4772,48 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 {label: 'Import CSV', cls: '', fn: 'dbImportDialog'},
                 {label: 'Clear table', cls: 'btn-danger', fn: 'dbClearTable'}
             ],
+            incident_rules: [
+                {label: '+ Add', cls: 'btn-primary', fn: 'dbAdd'},
+                {label: 'Export', cls: 'btn-primary', fn: 'dbExport'},
+                {label: 'Import CSV', cls: '', fn: 'dbImportDialog'},
+                {label: 'Clear table', cls: 'btn-danger', fn: 'dbClearTable'}
+            ],
+            priority_rules: [
+                {label: '+ Add', cls: 'btn-primary', fn: 'dbAdd'},
+                {label: 'Export', cls: 'btn-primary', fn: 'dbExport'},
+                {label: 'Import CSV', cls: '', fn: 'dbImportDialog'},
+                {label: 'Clear table', cls: 'btn-danger', fn: 'dbClearTable'}
+            ],
+            parser_words: [
+                {label: '+ Add', cls: 'btn-primary', fn: 'dbAdd'},
+                {label: 'Export', cls: 'btn-primary', fn: 'dbExport'},
+                {label: 'Import CSV', cls: '', fn: 'dbImportDialog'},
+                {label: 'Clear table', cls: 'btn-danger', fn: 'dbClearTable'}
+            ],
+            discipline_abbreviations: [
+                {label: '+ Add', cls: 'btn-primary', fn: 'dbAdd'},
+                {label: 'Export', cls: 'btn-primary', fn: 'dbExport'},
+                {label: 'Import CSV', cls: '', fn: 'dbImportDialog'},
+                {label: 'Clear table', cls: 'btn-danger', fn: 'dbClearTable'}
+            ],
+            vehicle_type_codes: [
+                {label: '+ Add', cls: 'btn-primary', fn: 'dbAdd'},
+                {label: 'Export', cls: 'btn-primary', fn: 'dbExport'},
+                {label: 'Import CSV', cls: '', fn: 'dbImportDialog'},
+                {label: 'Clear table', cls: 'btn-danger', fn: 'dbClearTable'}
+            ],
+            vehicle_regions: [
+                {label: '+ Add', cls: 'btn-primary', fn: 'dbAdd'},
+                {label: 'Export', cls: 'btn-primary', fn: 'dbExport'},
+                {label: 'Import CSV', cls: '', fn: 'dbImportDialog'},
+                {label: 'Clear table', cls: 'btn-danger', fn: 'dbClearTable'}
+            ],
+            region_provinces: [
+                {label: '+ Add', cls: 'btn-primary', fn: 'dbAdd'},
+                {label: 'Export', cls: 'btn-primary', fn: 'dbExport'},
+                {label: 'Import CSV', cls: '', fn: 'dbImportDialog'},
+                {label: 'Clear table', cls: 'btn-danger', fn: 'dbClearTable'}
+            ],
             province_codes: [
                 {label: '+ Add', cls: 'btn-primary', fn: 'dbAdd'},
                 {label: 'Export', cls: 'btn-primary', fn: 'dbExport'},
@@ -4671,7 +4846,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             vehicles: ['number', 'category', 'description'],
             talkgroup_codes: ['kind', 'code', 'name'],
             city_abbreviations: ['abbreviation', 'city'],
-            province_codes: ['code', 'province', 'abbreviation_only']
+            province_codes: ['code', 'province', 'abbreviation_only'],
+            incident_rules: ['position', 'kind', 'label', 'pattern'],
+            priority_rules: ['level', 'pattern'],
+            parser_words: ['kind', 'word'],
+            discipline_abbreviations: ['code', 'discipline', 'full_text'],
+            vehicle_type_codes: ['code', 'category'],
+            vehicle_regions: ['prefix', 'region'],
+            region_provinces: ['region', 'province']
         };
 
         function getApiTable(table) {
@@ -4695,6 +4877,13 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 ['vehicles', 'vehicles'],
                 ['talkgroup_codes', 'talkgroup_codes'],
                 ['province_codes', 'province_codes'],
+                ['incident_rules', 'incident_rules'],
+                ['priority_rules', 'priority_rules'],
+                ['parser_words', 'parser_words'],
+                ['discipline_abbreviations', 'discipline_abbreviations'],
+                ['vehicle_type_codes', 'vehicle_type_codes'],
+                ['vehicle_regions', 'vehicle_regions'],
+                ['region_provinces', 'region_provinces'],
                 ['city_abbreviations', 'city_abbreviations']
             ];
             tables.forEach(([api, card]) => {
@@ -4775,7 +4964,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             const thead = document.getElementById('db-thead');
             const tbody = document.getElementById('db-tbody');
             dbCurrentItems = data.items || [];
-            const editable = ['capcodes', 'places', 'streets', 'tts', 'ignore_text', 'ignore_capcodes', 'vehicles', 'talkgroup_codes', 'city_abbreviations', 'province_codes'].includes(dbCurrentTable);
+            const editable = ['capcodes', 'places', 'streets', 'tts', 'ignore_text', 'ignore_capcodes', 'vehicles', 'talkgroup_codes', 'city_abbreviations', 'province_codes', 'incident_rules', 'priority_rules', 'parser_words', 'discipline_abbreviations', 'vehicle_type_codes', 'vehicle_regions', 'region_provinces'].includes(dbCurrentTable);
 
             thead.innerHTML = '<tr>' + cols.map(c => `<th>${c}</th>`).join('') + `<th style="width: ${editable ? 76 : 40}px;"></th></tr>`;
 

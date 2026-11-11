@@ -37,7 +37,7 @@ def sanitize_mqtt_id(value: str) -> str:
 def parse_priority(entry: str) -> int | None:
     """Parse a priority filter entry to the int the parser stores in msg.priority.
 
-    Mirrors parser.PRIO_PATTERNS: P1/A1/PRIO 1 -> 1, P2/A2 -> 2, B1-B3/P3 -> 3, P4 -> 4.
+    Mirrors the default priority_rules (lookups.DEFAULT_PRIORITY_RULES): P1/A1/PRIO 1 -> 1, P2/A2 -> 2, B1-B3/P3 -> 3, P4 -> 4.
     Returns None when the entry can't be parsed.
     """
     match = _PRIORITY_ENTRY_RE.match(entry.strip())
@@ -63,7 +63,7 @@ class SensorFilter:
     region: str | None = None
     zone: str | None = None  # Home Assistant zone entity id, e.g. "zone.home"
     text_contains: str | None = None
-    incident_types: list[str] | None = None  # see message_fields.INCIDENT_TYPES
+    incident_types: list[str] | None = None  # see message_fields.incident_types() (the incident_rules table)
 
 
 @dataclass

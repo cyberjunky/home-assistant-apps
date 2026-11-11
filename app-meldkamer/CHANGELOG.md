@@ -2,11 +2,14 @@
 
 ## 1.4.15
 
-**After updating:** nothing to do. The database gets a Province codes table at the first start; everything already in it is kept.
+**After updating:** nothing to do. The database gets eight new tables at the first start, filled with the lists that were built into the app; everything already in it is kept. An abbreviation or ignore text you deleted earlier comes back one last time at this update; delete it again and it stays deleted.
 
 - A town with its province in the message ("Velp NB", or an abbreviation such as VELPNB, RIJSZH, KATWZH) gets the place in that province. Before, an abbreviation with a province code gave the town as "Rijswijk ZH", which is no stored place: the message got no position on the map, even with its street found, and a sensor on "Rijswijk" didn't match it. "Velp NB" from a capcode without a region went to Velp in Gelderland, 27 km away. The province in the text goes before the region of the capcode.
 - New **Province codes** table on the Data tab: the codes after a town name (NB, GLD, ZH, …) and their province can be added to, edited, deleted, exported and imported as CSV. They are added once, and a change of yours is kept at updates. Backups include the table. "L" (Limburg) only counts in the place codes ("Beek L").
 - The spoken text keeps the province of a place code: VELPNB is said as "Velp Noord-Brabant".
+- Every list the app uses to read a message is now a table on the Data tab instead of being built into the app: **Incident types**, **Priority rules**, **Address words** (street endings, words that are no street or town), **Discipline meanings** (B1 for the ambulance), **Vehicle type codes**, **Vehicle regions** and **Region provinces**. Each can be searched, added to, edited, deleted, exported and imported as CSV, is counted and in backups, and a change is used right away. With the built-in rows, messages are read exactly as before.
+- Fixed: the built-in abbreviations and the default ignore texts (*TESTOPROEP*, *MOB*) were added again at every start, so one you deleted came back. They are added once now, like the other built-in lists.
+- Spoken text: "Li" or "Re" right after a hectometer marker ("hmp 45,2 Li", "A12 Re 45,2") is said as "rijbaan links" / "rijbaan rechts"; elsewhere they stay as written. "OM" is spelled out (Openbaar Ministerie or the word "om"). PM means "Personeel- en materieelvoertuig" (was "Personeel / Materieelwagen"; an unchanged old meaning is updated).
 
 ## 1.4.14
 
