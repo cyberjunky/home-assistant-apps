@@ -93,11 +93,9 @@ button, select, input { font-family: inherit; }
     white-space: nowrap;
 }
 .topbar > * { flex-shrink: 0; }
-@media (max-width: 1600px) { .brand-sub { display: none; } }
 .brand { display: flex; align-items: center; gap: 8px; }
 .brand svg { width: 20px; height: 20px; color: var(--primary-color); }
 .brand-name { font-weight: 600; letter-spacing: 0.04em; }
-.brand-sub { font-family: var(--mono); font-size: 12px; color: var(--secondary-text-color); }
 
 .tabs { display: flex; gap: 2px; padding: 2px; border-radius: 6px; background: var(--ha-background); border: var(--card-border); }
 .tab {
@@ -435,6 +433,28 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; line-height:
     display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
 }
 .danger-zone .db-card-title { color: var(--danger-color); }
+/* Spoken text */
+.speech-test { display: flex; gap: 8px; flex-wrap: wrap; }
+.speech-test .input { flex: 1 1 320px; min-width: 0; font-family: var(--mono); }
+.speech-result { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.speech-result[hidden], .speech-manager[hidden] { display: none; }
+.speech-line { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 10px; align-items: baseline; }
+.speech-line .raw-label { padding-top: 2px; }
+.speech-text { font-family: var(--mono); font-size: 12.5px; line-height: 1.5; word-break: break-word; }
+.speech-text.spoken { color: var(--primary-text-color); font-weight: 500; }
+.speech-steps { display: flex; gap: 6px; flex-wrap: wrap; }
+.speech-step { padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-family: var(--mono); background: var(--tag-bg); color: var(--tag-text); }
+.speech-step.uncertain, .speech-step.spelled { background: transparent; color: var(--prio-2); border: 1px solid currentColor; }
+.speech-manager { margin-top: 12px; border: var(--card-border); border-radius: 4px; padding: 12px 0 0; }
+.speech-manager .db-toolbar { padding: 0 14px; }
+.speech-manager .db-toolbar .input { height: 30px; width: 220px; }
+.db-table td.mono, .db-table td .mono { font-family: var(--mono); font-size: 12.5px; word-break: break-word; }
+.db-table td.actions { white-space: nowrap; text-align: right; width: 1%; }
+.db-table tr.off td { opacity: 0.5; }
+.note-uncertain { color: var(--prio-2); font-size: 11.5px; }
+.detail-spoken { display: flex; gap: 8px; align-items: baseline; font-size: 12.5px; }
+.detail-spoken .speech-text { flex: 1; color: var(--secondary-text-color); }
+.detail-spoken .btn { height: 24px; padding: 0 8px; font-size: 12px; }
 .db-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
 .db-toolbar-left { display: flex; align-items: center; gap: 10px; }
 .db-toolbar-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

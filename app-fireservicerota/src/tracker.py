@@ -17,6 +17,7 @@ from typing import Any
 from .config import Config
 from .database import Database, response_outcome
 from .ha_client import HAClient, HAClientError, HAWebSocket
+from .speech import Speech
 from .timeutil import norm_ts, now_ts, parse_ts, utc_now
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,8 @@ class Tracker:
         self.config = config
         self.db = database
         self.ha = ha
+        # The spoken text of incidents, for the announcements and the dashboard's browser speech
+        self.speech = Speech(database)
         self.ws = HAWebSocket(ha, self._on_connected)
         # entity ids per kind; from the options or the entity registry
         self.entities: dict[str, str] = {}
@@ -389,6 +392,9 @@ class Tracker:
                 )
             }
             data["update"] = not new
+            data["spoken"] = (
+                self.speech.speak(incident.get("body"), incident.get("prio")) if incident.get("body") else ""
+            )
             data["distance_km"] = distance_km(self.home, incident.get("latitude"), incident.get("longitude"))
             if self.dashboard_path:
                 data["dashboard_url"] = f"{self.dashboard_path}#incident={incident_id}"
@@ -397,9 +403,7 @@ class Tracker:
             if self.config.quiet_now():
                 logger.debug(f"Quiet hours ({self.config.announce_quiet_hours}): not announcing incident {incident_id}")
                 return
-            text = ". ".join(
-                p for p in (incident.get("prio") and f"Prio {incident['prio']}", incident.get("body")) if p
-            )
+            text = self.speech.speak(incident.get("body"), incident.get("prio"))
             try:
                 self._announcements.put_nowait(text)
             except asyncio.QueueFull:
@@ -424,6 +428,10 @@ class Tracker:
 
     def enrich(self, incident: dict) -> dict:
         incident["distance_km"] = distance_km(self.home, incident.get("latitude"), incident.get("longitude"))
+        # What the announcement and the browser speech say (the text itself stays in body)
+        incident["spoken"] = (
+            self.speech.speak(incident.get("body"), incident.get("prio")) if incident.get("body") else ""
+        )
         return incident
 
     def current_incident(self) -> dict | None:

@@ -88,7 +88,8 @@ The tabs in the top bar:
   rejected or didn't answer, the median time to answer, and your hours on duty with the
   duty periods.
 - **Data**: export each table as CSV, import the history again, download or restore a
-  backup of the database, and reset it.
+  backup of the database, and reset it. Also the abbreviations and rules for the spoken
+  text, and a test field for it (see [Spoken text](#spoken-text)).
 - **Info**: the connection to Home Assistant, the entities the app follows and their
   state, the history import, events and announcements, and the database.
 
@@ -125,7 +126,8 @@ With `ha_events: true` the app fires **`fireservicerota_app_incident`** for ever
 incident and every update of one, with the incident's fields: `id`, `body`, `prio`, `type`,
 `trigger`, `state`, `responder_mode`, `created_at`, `can_respond_until`, `latitude`,
 `longitude`, `address_type`, `formatted_address`, `message_to_speech_url`, `task_ids`, plus
-`update` (true for an update), `distance_km` from your home and `dashboard_url`, a Home
+`update` (true for an update), `spoken` (the text as the announcement says it, see
+[Spoken text](#spoken-text)), `distance_km` from your home and `dashboard_url`, a Home
 Assistant path (`/hassio/ingress/<app>#incident=<id>`) that opens the dashboard on that
 incident. Incidents older than an hour (for example after a restart) don't fire one.
 
@@ -158,10 +160,62 @@ announce:
   quiet_hours: "23:00-07:00"
 ```
 
-The priority and the incident text are spoken. `quiet_hours` (optional, local time, may
-cross midnight) silences the speakers between those times. The dashboard follows it too:
-no sound, browser speech or browser notifications during quiet hours (the buttons dim
-and say so).
+The incident text is spoken, made readable for the voice as described below (with the
+priority in front when the text doesn't start with one). `quiet_hours` (optional, local
+time, may cross midnight) silences the speakers between those times. The dashboard follows
+it too: no sound, browser speech or browser notifications during quiet hours (the buttons
+dim and say so).
+
+### Spoken text
+
+Alarm texts are full of codes a voice reads badly ("P 1 BRT-01 ... hmp 67.4"). The app
+turns each text into a spoken text, used by the announcements, the browser speech (🗣️)
+and the `spoken` field of the event. The incident detail shows it as **Spoken as** under
+the alarm text itself, so you can always compare the two.
+
+Because you act on what you hear, three rules hold:
+
+- **Nothing is left out.** Every word, code and number of the alarm text is spoken, as
+  itself or as its meaning. A replacement rule can't be empty.
+- **Nothing is guessed.** A code is only spoken as words when its meaning is certain;
+  otherwise it is spelled out letter by letter: `BRT-01` → "B R T 0 1". The same for codes
+  that aren't in any list.
+- **Numbers are exact.** `hmp 67.4` → "hectometerpaal 67 komma 4"; reference numbers and
+  numbers starting with 0 digit by digit (`bon 123456` → "bonnummer 1 2 3 4 5 6");
+  postal codes as digits and letters (`3511 AX` → "3 5 1 1 A X").
+
+How a text is made, in this order:
+
+1. **Replacement rules** (Data tab, applied top to bottom, not case-sensitive): the
+   priority at the start (`P 1` → "Prio 1", `A1` → "Ambulance met spoed"), road numbers
+   (`A2` → "A 2", `N209` → "N 209"), `hmp`, `bon`/`rit`/`icnum` numbers, and Dutch
+   shortenings (`ivm`, `tbv`, `evt.`, `ass.`). A pattern is a Python regular expression;
+   `\1` in the replacement is its first group.
+2. **Postal codes and decimal numbers.**
+3. **Each word**: a code in the **abbreviation list** is spoken as its meaning (`TS` →
+   "Tankautospuit", `OMS` → "Openbaar Meldsysteem", `OVD-B` → "Officier van Dienst
+   Brandweer"; text in brackets in a meaning is not spoken). A place-name code is spoken as
+   the place (`UTRECH` → "Utrecht"). A code with a number is the code and the number
+   (`DP4` → "Dienstpost 4"). Unknown codes are spelled out, long numbers digit by digit,
+   and a word in capitals is read as a word.
+
+**Codes that are spelled out until you say what they mean**: the regional talk groups
+(`BRT`, `BDH`, `BAD`, `BMD`, `BNH`, `BNN`, `BOB`, `BON`, `BLB`, `BZB`, also with a number
+like `BRT-01`), `HV` (vehicle or incident class), priority codes in the middle of a text
+(`A1`, `A2`, `B1`, `B2`, `P1`-`P3`) and codes the list gives two meanings (such as `AC`).
+Change such a code's meaning on the Data tab, or add the full code (`BRT-01`), and it is
+spoken your way.
+
+**On the Data tab** you can test a text (*Say it* shows the spoken text with each change
+and plays it with your browser's voice), and view, search, add, change and delete
+abbreviations and rules. *Import list* adds the public P2000 abbreviation list (the same
+as the Meldkamer app); it sets the listed meaning again for codes in that list. Both
+tables export and import as CSV in the Meldkamer app's format (`abbreviation,full_text`
+and `pattern,replacement,enabled`); rules with an empty replacement are skipped at import.
+
+The list and the rules are added to the database at the first start. Your changes are
+kept at updates, and a default you delete stays deleted. *Reset database* doesn't touch
+them.
 
 ## Works alongside your own automations
 
@@ -180,7 +234,8 @@ sensors.
 
 ## Your data
 
-All incidents, responses and duty changes live in one SQLite database in the app's
+All incidents, responses and duty changes (and the abbreviations and rules for the spoken
+text) live in one SQLite database in the app's
 data folder, so they are kept across updates and included in Home Assistant backups.
 The app reaches only Home Assistant (through the Supervisor) and, for the dashboard map,
 OpenStreetMap tiles through Home Assistant's map tile proxy. No telemetry.

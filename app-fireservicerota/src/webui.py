@@ -7,17 +7,19 @@ import io
 import json
 import logging
 import os
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 
 import aiohttp
 from aiohttp import web
 
-from . import stats
+from . import abbreviation_import, stats
 from .config import DATA_DIR
-from .database import CSV_TABLES, Database
+from .database import CSV_TABLES, SPEECH_CSV, Database
 from .donate import DonatePrompt
 from .ha_client import HAClientError
+from .speech import spell
 from .timeutil import now_ts
 from .tracker import Tracker
 
@@ -87,6 +89,12 @@ class WebUI:
         r.add_post("/api/db/restore", self._handle_restore)
         r.add_post("/api/db/reimport", self._handle_reimport)
         r.add_delete("/api/db/reset", self._handle_reset)
+        r.add_post("/api/speech/test", self._handle_speech_test)
+        r.add_post("/api/speech/abbreviations/import-list", self._handle_speech_import_list)
+        r.add_get("/api/speech/{table}", self._handle_speech_list)
+        r.add_post("/api/speech/{table}", self._handle_speech_save)
+        r.add_post("/api/speech/{table}/import", self._handle_speech_import_csv)
+        r.add_delete("/api/speech/{table}/{id:[0-9]+}", self._handle_speech_delete)
         r.add_get("/api/map-tiles/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.png", self._handle_map_tile)
 
     async def start(self) -> None:
@@ -189,13 +197,16 @@ class WebUI:
     # ------------------------------------------------------------------- data
 
     async def _handle_db_info(self, request: web.Request) -> web.Response:
-        return web.json_response({**self.db.counts(), "backfill": self.tracker.backfill})
+        return web.json_response({**self.db.counts(), **self.db.speech_counts(), "backfill": self.tracker.backfill})
 
     async def _handle_export(self, request: web.Request) -> web.Response:
         table = request.match_info["table"].removesuffix(".csv")
-        if table not in CSV_TABLES:
+        if table in SPEECH_CSV:
+            columns, rows = self.db.speech_csv(table)
+        elif table in CSV_TABLES:
+            columns, rows = self.db.table_rows(table)
+        else:
             return web.json_response({"error": "Unknown table"}, status=404)
-        columns, rows = self.db.table_rows(table)
         out = io.StringIO()
         writer = csv.writer(out)
         writer.writerow(columns)
@@ -248,6 +259,8 @@ class WebUI:
             if problem := self.db.check_backup(path):
                 return web.json_response({"error": problem}, status=400)
             await asyncio.to_thread(self.db.replace_with, path)
+            # A backup from before 0.2.0 has no speech tables yet: they get the built-in list
+            self.tracker.speech.seed()
             counts = self.db.counts()
             logger.info(f"Database restored from an uploaded backup ({size} bytes, {counts['incidents']} incidents)")
             self.tracker.changed()
@@ -273,6 +286,106 @@ class WebUI:
         logger.info("Database reset from the dashboard")
         self.tracker.changed()
         return web.json_response({"success": True})
+
+    # ----------------------------------------------------------------- speech
+
+    async def _speech_changed(self) -> None:
+        self.tracker.speech.reload()
+        # The spoken text of the incidents on the dashboards follows the change
+        self.tracker.changed()
+
+    async def _handle_speech_test(self, request: web.Request) -> web.Response:
+        try:
+            data = await request.json()
+        except ValueError:
+            data = {}
+        text = str(data.get("text") or "")[:2000]
+        return web.json_response(self.tracker.speech.explain(text, str(data.get("prio") or "") or None))
+
+    async def _handle_speech_list(self, request: web.Request) -> web.Response:
+        table = request.match_info["table"]
+        if table not in SPEECH_CSV:
+            return web.json_response({"error": "Unknown table"}, status=404)
+        result = self.db.list_speech(
+            table,
+            search=(request.query.get("search") or "").strip(),
+            page=_int_param(request, "page", 1, maximum=100000),
+            per_page=_int_param(request, "per_page", 50, maximum=500),
+        )
+        speech = self.tracker.speech
+        for item in result["items"]:
+            if table == "abbreviations":
+                meaning = speech.meaning(item["abbreviation"])
+                # As the code is spoken in a text: a rule (e.g. AED -> A E D) comes before the meaning
+                item["spoken"] = speech.speak(item["abbreviation"]) if meaning else spell(item["abbreviation"])
+                item["certain"] = meaning is not None
+            else:
+                item["enabled"] = bool(item["enabled"])
+                item["usable"] = bool((item["replacement"] or "").strip())
+        return web.json_response(result)
+
+    async def _handle_speech_save(self, request: web.Request) -> web.Response:
+        table = request.match_info["table"]
+        if table not in SPEECH_CSV:
+            return web.json_response({"error": "Unknown table"}, status=404)
+        try:
+            data = await request.json()
+        except ValueError:
+            return web.json_response({"error": "Invalid request"}, status=400)
+        row_id = data.get("id")
+        try:
+            row_id = int(row_id) if row_id not in (None, "") else None
+            if table == "abbreviations":
+                row_id = self.db.save_abbreviation(
+                    str(data.get("abbreviation") or ""), str(data.get("full_text") or ""), row_id
+                )
+            else:
+                row_id = self.db.save_rule(
+                    str(data.get("pattern") or ""),
+                    str(data.get("replacement") or ""),
+                    bool(data.get("enabled", True)),
+                    row_id,
+                )
+        except (ValueError, TypeError) as e:
+            return web.json_response({"error": str(e)}, status=400)
+        except sqlite3.Error as e:
+            return web.json_response({"error": f"Database error: {e}"}, status=500)
+        await self._speech_changed()
+        return web.json_response({"success": True, "id": row_id})
+
+    async def _handle_speech_delete(self, request: web.Request) -> web.Response:
+        table = request.match_info["table"]
+        if table not in SPEECH_CSV:
+            return web.json_response({"error": "Unknown table"}, status=404)
+        if not self.db.delete_speech(table, int(request.match_info["id"])):
+            return web.json_response({"error": "Not found"}, status=404)
+        await self._speech_changed()
+        return web.json_response({"success": True})
+
+    async def _handle_speech_import_list(self, request: web.Request) -> web.Response:
+        """The public abbreviation list (the same one and the same import as the Meldkamer app).
+        Codes already in your list get the list's meaning again; your own codes stay."""
+        count = abbreviation_import.import_abbreviations(self.db, replace=True)
+        await self._speech_changed()
+        return web.json_response({"success": True, "count": count})
+
+    async def _handle_speech_import_csv(self, request: web.Request) -> web.Response:
+        table = request.match_info["table"]
+        if table not in SPEECH_CSV:
+            return web.json_response({"error": "Unknown table"}, status=404)
+        try:
+            data = await request.json()
+        except ValueError:
+            return web.json_response({"error": "Invalid request"}, status=400)
+        try:
+            result = self.db.import_speech_csv(table, data.get("csv"), replace=bool(data.get("replace")))
+        except ValueError as e:
+            return web.json_response({"error": str(e)}, status=400)
+        except sqlite3.Error as e:
+            return web.json_response({"error": f"Database error: {e}"}, status=500)
+        await self._speech_changed()
+        logger.info(f"Imported {result['imported']} row(s) into {table} from CSV, skipped {len(result['skipped'])}")
+        return web.json_response({"success": True, **result})
 
     async def _handle_map_tile(self, request: web.Request) -> web.Response:
         """Serve an OpenStreetMap raster tile via Home Assistant's map tile proxy."""

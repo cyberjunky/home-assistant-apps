@@ -17,7 +17,6 @@
         <div class="brand">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 17V9h10v8"/><path d="M12 11h4.5l3.5 3.5V17h-8"/><path d="M4 9V6h6l2 3"/><circle cx="6.5" cy="17.5" r="1.8"/><circle cx="16.5" cy="17.5" r="1.8"/><path d="M5 6l4-3"/></svg>
             <span class="brand-name">FIRESERVICEROTA</span>
-            <span class="brand-sub" id="brand-sub">via Home Assistant</span>
         </div>
         <nav class="tabs" aria-label="Views">
             <button type="button" class="tab" data-tab="console" onclick="switchTab('console')"><span class="tab-label">Console</span></button>
@@ -252,6 +251,56 @@
                             <div class="db-card-desc">Every change of the duty sensor, with the shift's start and end and your function.</div>
                             <div class="db-card-count"><span id="db-count-duty">0</span> rows</div>
                             <div class="db-card-actions"><button class="btn" onclick="dbExport('duty')">Export CSV</button></div>
+                        </div>
+                    </div>
+
+                    <div class="panel-sub" style="margin: 18px 0 10px;">Spoken text</div>
+                    <div class="db-card speech-card">
+                        <div class="db-card-head"><span class="db-card-title">Test how a text is spoken</span></div>
+                        <div class="db-card-desc">Announcements and the browser speech (🗣️) say the alarm text in words a voice reads correctly. Nothing is left out: every code and number is spoken, as itself or as its meaning. A code is only spoken as words when its meaning is certain; otherwise it is spelled out (BRT-01 → B R T 0 1). Give such a code a meaning below to have it spoken that way.</div>
+                        <form class="speech-test" onsubmit="speechTest(); return false;">
+                            <input type="text" id="speech-test-input" class="input" placeholder="An alarm text, e.g. P 1 BRT-01 Brand woning Biltstraat 45 Utrecht" aria-label="Text to test">
+                            <button type="submit" class="btn btn-primary">Say it</button>
+                        </form>
+                        <div id="speech-test-result" class="speech-result" hidden></div>
+                    </div>
+                    <div class="db-cards" style="margin-top: 12px;">
+                        <div class="db-card">
+                            <div class="db-card-head"><span class="db-card-title">Abbreviations</span></div>
+                            <div class="db-card-desc">Codes and their meaning, from the public P2000 abbreviation list (the same as in the Meldkamer app) plus your own. Your changes are kept at updates.</div>
+                            <div class="db-card-count"><span id="db-count-abbreviations">0</span> rows</div>
+                            <div class="db-card-actions">
+                                <button class="btn btn-primary" onclick="speechOpen('abbreviations')">Manage</button>
+                                <button class="btn" onclick="speechImportList()">Import list</button>
+                                <button class="btn" onclick="dbExport('abbreviations')">Export CSV</button>
+                                <button class="btn" onclick="speechImportCsv('abbreviations')">Import CSV</button>
+                            </div>
+                        </div>
+                        <div class="db-card">
+                            <div class="db-card-head"><span class="db-card-title">Replacement rules</span></div>
+                            <div class="db-card-desc">Patterns (regular expressions, case-insensitive) applied first, top to bottom: priorities, road numbers, hmp, bon numbers. A rule always replaces with something: it can't delete text.</div>
+                            <div class="db-card-count"><span id="db-count-tts_replacements">0</span> rows</div>
+                            <div class="db-card-actions">
+                                <button class="btn btn-primary" onclick="speechOpen('tts_replacements')">Manage</button>
+                                <button class="btn" onclick="dbExport('tts_replacements')">Export CSV</button>
+                                <button class="btn" onclick="speechImportCsv('tts_replacements')">Import CSV</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="speech-manager" class="speech-manager" hidden>
+                        <div class="db-toolbar">
+                            <div class="db-toolbar-left"><span class="db-table-title" id="speech-title">Abbreviations</span><span class="panel-sub" id="speech-total"></span></div>
+                            <div class="db-toolbar-right">
+                                <input type="search" id="speech-search" class="input" placeholder="Search…" aria-label="Search" oninput="speechSearch(this.value)">
+                                <button class="btn btn-primary" onclick="speechEdit(null)">Add</button>
+                                <button class="btn" onclick="speechClose()">Close</button>
+                            </div>
+                        </div>
+                        <div class="db-table-wrap"><table class="db-table"><thead id="speech-head"></thead><tbody id="speech-rows"></tbody></table></div>
+                        <div class="db-pagination">
+                            <button class="btn" id="speech-prev" onclick="speechPage(-1)">‹ Previous</button>
+                            <span id="speech-pos"></span>
+                            <button class="btn" id="speech-next" onclick="speechPage(1)">Next ›</button>
                         </div>
                     </div>
 
