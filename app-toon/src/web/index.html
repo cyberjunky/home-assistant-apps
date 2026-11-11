@@ -22,7 +22,7 @@
             <button type="button" class="tab" data-tab="electricity" onclick="switchTab('electricity')">Electricity</button>
             <button type="button" class="tab" data-tab="gas" onclick="switchTab('gas')">Gas &amp; heating</button>
             <span class="tab-sep" aria-hidden="true"></span>
-            <button type="button" class="tab" data-tab="settings" onclick="switchTab('settings')" title="Configuration, the Toon's health, connection history"><span class="tab-label">Settings</span><span class="tab-icon" aria-hidden="true">⚙</span></button>
+            <button type="button" class="tab" data-tab="info" onclick="switchTab('info')" title="Info"><span class="tab-label">Info</span><span class="tab-icon" aria-hidden="true">ⓘ</span></button>
         </nav>
         <span class="spacer"></span>
         <div class="tabs" role="group" aria-label="Theme">
@@ -149,8 +149,8 @@
                     </div>
                 </div>
 
-                <!-- Settings: the app and the Toon itself -->
-                <div id="tab-settings" class="tab-content">
+                <!-- Info: the app and the Toon itself -->
+                <div id="tab-info" class="tab-content">
                     <div class="page-section"><span>The Toon's health</span><small id="health-note"></small></div>
                     <div id="health-tiles" class="tiles"></div>
                     <div class="filters"><div class="tabs" role="group" aria-label="Period" id="health-range"></div></div>
@@ -167,7 +167,7 @@
                     </div></div>
 
                     <div class="page-section"><span>Configuration</span><small>change these in the app's configuration in Home Assistant</small></div>
-                    <div class="settings-grid">
+                    <div class="info-grid">
                         <div class="panel"><div class="panel-body"><div class="section-title">Connection</div><div id="set-connection"></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="section-title">MQTT</div><div id="set-mqtt"></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="section-title">Data</div><div id="set-data"></div>
@@ -205,7 +205,7 @@
     <script src="static/schematic.js?v=__VERSION__"></script>
     <script src="static/dashboard.js?v=__VERSION__"></script>
     <script src="static/stats.js?v=__VERSION__"></script>
-    <script src="static/settings.js?v=__VERSION__"></script>
+    <script src="static/info.js?v=__VERSION__"></script>
     <script src="static/main.js?v=__VERSION__"></script>
     <script src="static/donate.js?v=__VERSION__" data-app="Toon" data-api="api/donate"></script>
 </body>

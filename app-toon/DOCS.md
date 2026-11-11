@@ -72,7 +72,7 @@ Both are shown exactly as the Toon gives them. 255 also appears while nothing is
 
 Burner starts, burner time and the temperatures while heating are worked out from what the app records, so they start at the first day it runs this version. A day with little data shows little. Use is worked out from meter readings: a meter reading that drops (a replaced or reset meter) and a gap of more than 3 days give no value for that interval, rather than one big jump. "Last top-up seen" is an estimate from the day's lowest pressure over several days.
 
-**Settings** shows the Toon's own health with its charts, the connection history, and the app's configuration without passwords. Change the configuration in the app's page in Home Assistant.
+**Info** shows the Toon's own health with its charts, the connection history, and the app's configuration without passwords. Change the configuration in the app's page in Home Assistant.
 
 The **Connection history** table shows each time the Toon could not be reached:
 
@@ -92,7 +92,7 @@ History has the Toon's own timestamps, so a Toon with a wrong clock has its hist
 
 ### Gaps
 
-The Toon keeps logging while it can't be reached, so the app fills what it missed. After every connect it looks for gaps in what it stored and fetches those stretches from the Toon. This covers outages, and also the app being stopped or restarted, for example by an update. The **Fetch missing history** button under **Settings → Connection history** does the same on request. It only reads from the Toon, and live values stay as they are.
+The Toon keeps logging while it can't be reached, so the app fills what it missed. After every connect it looks for gaps in what it stored and fetches those stretches from the Toon. This covers outages, and also the app being stopped or restarted, for example by an update. The **Fetch missing history** button under **Info → Connection history** does the same on request. It only reads from the Toon, and live values stay as they are.
 
 Filled: room temperature, setpoint, boiler setpoint, water pressure and the program state per minute, and power and gas per 5 minutes, as far back as the Toon keeps them (about 30 days). Gas per hour and gas flow on the day timeline are worked out from the gas meter's readings for those hours. Supply and return temperature, modulation and the burner state can't be filled, because the Toon keeps no history of them.
 
@@ -146,7 +146,7 @@ Use prices including VAT and energy tax, as on your contract. Fixed costs count 
 
 ## Backup
 
-**Settings → Database backup** downloads a copy of all recorded values while the app keeps running. Your options and passwords aren't in it.
+**Info → Database backup** downloads a copy of all recorded values while the app keeps running. Your options and passwords aren't in it.
 
 The **Danger zone** under it deletes everything recorded (values, hourly history, outages and the history of your external sensors) after you type DELETE. Your options are not touched. The app then fetches the Toon's own history again and records from now.
 

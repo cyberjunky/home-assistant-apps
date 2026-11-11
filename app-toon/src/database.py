@@ -48,7 +48,7 @@ def backup_copy(source: Path, target: Path) -> None:
 
 
 def database_report(source: Path) -> dict:
-    """What's in the database, for the Settings page. Runs on its own connection."""
+    """What's in the database, for the Info page. Runs on its own connection."""
     db = sqlite3.connect(f"file:{source}?mode=ro", uri=True, timeout=30)
     try:
         metrics: dict[str, dict] = {}
@@ -171,7 +171,7 @@ class Database:
         return result
 
     def wipe(self) -> dict[str, int]:
-        """Empty every table: the Settings danger zone. Returns what was there. The file stays and the space
+        """Empty every table: the Info danger zone. Returns what was there. The file stays and the space
         goes back to the disk. Samples not written out yet go too; the import positions are cleared, so the
         Toon's own history can be fetched again."""
         self._pending = []

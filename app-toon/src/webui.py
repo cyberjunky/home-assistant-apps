@@ -231,9 +231,7 @@ class WebUI:
             return web.json_response({"error": "Type DELETE to confirm"}, status=400)
         if self.monitor.importer.running:
             return web.json_response(
-                {
-                    "error": "The history import is running. Try again when it has finished: Settings shows its progress."
-                },
+                {"error": "The history import is running. Try again when it has finished: Info shows its progress."},
                 status=409,
             )
         self.database.flush()
