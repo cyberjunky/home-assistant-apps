@@ -261,8 +261,15 @@ fi
 if bashio::var.true "${NEW_INSTALL}"; then
 	touch /data/firstrun
 	echo "${BUILD_TIMESTAMP}" > ${VERSION_FILE}
-	initializeDataDirectory
-	
+	# New installations use scram-sha-256 (PostgreSQL 18 deprecates MD5 passwords). A restore
+	# keeps md5: the restored roles may still have MD5 password hashes, which scram-sha-256
+	# rejects, while md5 accepts both (as upstream, expaso/hassos-addon-timescaledb#92).
+	if bashio::var.true "${RESTORE_MODE}"; then
+		initializeDataDirectory "" "md5"
+	else
+		initializeDataDirectory
+	fi
+
 	# Restore from backup if available
 	if bashio::var.true "${RESTORE_MODE}"; then
 	    bashio::log.notice "Restore mode enabled. Loading restore script..."
