@@ -150,6 +150,13 @@ kbd { font-family: var(--mono); font-size: 11.5px; padding: 1px 5px; border-radi
 /* Player */
 body.player .topbar { gap: 10px; }
 .game-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
+/* The controls in the player's top bar; less of it on narrower screens, none on phones */
+.keybar { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--secondary-text-color); white-space: nowrap; }
+.keybar span { display: inline-flex; align-items: center; gap: 3px; }
+.keybar kbd { font-size: 11px; padding: 0 4px; line-height: 17px; }
+@media (max-width: 1400px) { .keybar .kb-more { display: none; } }
+@media (max-width: 1200px) { .keybar .kb-extra { display: none; } .game-title #game-meta { display: none; } }
+@media (max-width: 950px) { .keybar { display: none; } }
 .stage { position: relative; flex: 1; min-height: 0; background: #000; display: flex; align-items: center; justify-content: center; }
 .stage:fullscreen { background: #000; }
 /* MAME draws at its own resolution; scale it to fit, sharp pixels */

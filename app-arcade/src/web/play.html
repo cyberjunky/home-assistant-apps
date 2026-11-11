@@ -13,6 +13,16 @@
         <button type="button" class="btn" onclick="leave()" title="Back to the library (Esc)">← Library</button>
         <div class="game-title"><b id="game-name"></b> <span id="game-meta" class="panel-sub"></span></div>
         <span class="spacer"></span>
+        <div class="keybar" aria-label="Controls">
+            <span><kbd>5</kbd> Coin</span>
+            <span><kbd>1</kbd> Start</span>
+            <span><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> Move</span>
+            <span><kbd>Ctrl</kbd> Fire</span>
+            <span class="kb-extra"><kbd>Alt</kbd> Fire 2</span>
+            <span class="kb-extra"><kbd>P</kbd> Pause</span>
+            <span class="kb-more"><kbd>F6</kbd>/<kbd>F8</kbd> Save/Load</span>
+            <span><kbd>Esc</kbd> Back</span>
+        </div>
         <div class="tabs" role="group" aria-label="Game">
             <button type="button" class="tab" onclick="saveState()" title="Save the game as it is now (F6)" data-running disabled>💾 Save</button>
             <button type="button" class="tab" onclick="loadState()" title="Back to the saved moment (F8)" data-running disabled id="load-btn">⏮ Load</button>
