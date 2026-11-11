@@ -34,9 +34,9 @@ def seed_builtin_lists(database: Database) -> None:
     )
     if imported:
         logger.info(f"Seeded {imported} default abbreviation(s) into database")
-    # 1.4.15: PM has one sourced meaning now (was "Personeel / Materieelwagen")
+    # 1.4.16: PM has one sourced meaning now (was "Personeel / Materieelwagen")
     database.update_unchanged_defaults(
-        "pm-meaning-1.4.15",
+        "pm-meaning-1.4.16",
         "abbreviations",
         "abbreviation",
         "full_text",

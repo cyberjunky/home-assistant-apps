@@ -1,7 +1,7 @@
 """Parse a fixed set of realistic messages and return everything derived from them.
 
 tests/test_parse_snapshot.py compares this with tests/data/parse_snapshot.json, made with
-1.4.14's hard-coded lists before they moved into database tables (1.4.15): with the default
+1.4.15's hard-coded lists before they moved into database tables (1.4.16): with the default
 data the output must stay identical. Run `python -m tests.parse_snapshot > tests/data/parse_snapshot.json`
 only to record a deliberate change.
 """

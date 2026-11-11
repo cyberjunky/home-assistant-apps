@@ -485,7 +485,7 @@ automation:
 
 Everything the app looks up while reading a message is a table on the Data tab, not a list in the program: abbreviations, TTS rules, ignore texts, talk groups, place codes, province codes, incident types, priority rules, address words, discipline meanings, vehicle type codes, vehicle regions and region provinces. Each one can be searched, added to, edited, deleted, exported and imported as CSV, and is in backups. The built-in rows are added once, at the first start of the version that brings them: a row you change keeps your text and a row you delete stays deleted, also after updates. A change is used right away, without a restart.
 
-Spoken text defaults added in 1.4.15 (TTS rules and abbreviations, with their sources):
+Spoken text defaults added in 1.4.16 (TTS rules and abbreviations, with their sources):
 
 - `Li` / `Re` right after a hectometer marker (`hmp 45,2 Li`, `A12 Li 45,2`) is spoken "rijbaan links" / "rijbaan rechts": the carriageway, Re where the hectometers go up and Li where they go down (Rijksoverheid, "doel hectometerpaaltjes snelwegen"; Rijkswaterstaat, "voorwerp dier schade melden"). Elsewhere Li and Re stay as written.
 - `OM` is spelled out ("O M"): it can be Openbaar Ministerie or the word "om".

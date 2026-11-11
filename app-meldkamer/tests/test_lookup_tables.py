@@ -1,4 +1,4 @@
-"""1.4.15: the parser's lookup lists are database tables; built-in lists are seeded once."""
+"""1.4.16: the parser's lookup lists are database tables; built-in lists are seeded once."""
 
 import sqlite3
 from datetime import UTC, datetime
@@ -68,7 +68,7 @@ def test_abbreviations_and_ignore_text_deletions_stay_deleted(tmp_path):
 def test_pm_gets_its_sourced_meaning_unless_edited(tmp_path):
     path = str(tmp_path / "meldkamer.sqlite3")
     db = Database(path)
-    # An install from before 1.4.15: the old meanings, PM-90 edited by the user
+    # An install from before 1.4.16: the old meanings, PM-90 edited by the user
     db.import_abbreviations(
         [
             {"abbreviation": "PM", "full_text": "Personeel / Materieelwagen"},

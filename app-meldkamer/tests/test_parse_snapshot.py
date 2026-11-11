@@ -1,4 +1,4 @@
-"""With the default data, parsing gives exactly what it gave with 1.4.14's hard-coded lists."""
+"""With the default data, parsing gives exactly what it gave with 1.4.15's hard-coded lists."""
 
 import json
 from pathlib import Path

@@ -76,7 +76,7 @@ DEFAULT_TTS_REPLACEMENTS = [
     # so both are left alone; bon/rit/icnum numbers are already stripped
     # above regardless of length
     {"pattern": r"\s*\b\d{6,}\b", "replacement": ""},
-    # Since 1.4.15. Rules are applied case-insensitively; (?-i:...) makes these exact.
+    # Since 1.4.16. Rules are applied case-insensitively; (?-i:...) makes these exact.
     # The carriageway right after a hectometer marker ("hmp 45,2 Li", "A12 Li 45,2"): Re is
     # the side where the hectometers go up, Li where they go down (Rijksoverheid, "doel
     # hectometerpaaltjes snelwegen"; Rijkswaterstaat). Elsewhere Li/Re stay as written
