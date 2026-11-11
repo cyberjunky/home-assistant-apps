@@ -1495,6 +1495,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <!-- The top bar is as high as Home Assistant's own header (its --header-height, 56px by default) -->
+    <script>try{const h=getComputedStyle(window.parent.document.documentElement).getPropertyValue('--header-height').trim();if(h)document.documentElement.style.setProperty('--ha-header-height',h);}catch(e){}</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meldkamer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1592,7 +1594,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
         /* ---------- Top bar ---------- */
         .topbar {
-            flex-shrink: 0; min-height: 44px; display: flex; align-items: center; gap: 14px;
+            flex-shrink: 0; min-height: var(--ha-header-height, 56px); display: flex; align-items: center; gap: 14px;
             padding: 6px 14px; background: var(--ha-card-background); border-bottom: var(--card-border);
             white-space: nowrap;
         }

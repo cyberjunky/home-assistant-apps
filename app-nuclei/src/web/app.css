@@ -17,7 +17,7 @@
 body { margin: 0; background: var(--bg); color: var(--text);
   font-family: 'IBM Plex Sans', Roboto, -apple-system, 'Segoe UI', sans-serif; font-size: 14px; }
 a { color: var(--primary); }
-.topbar { display: flex; align-items: center; gap: 14px; padding: 8px 14px; background: var(--card);
+.topbar { display: flex; align-items: center; gap: 14px; padding: 8px 14px; min-height: var(--ha-header-height, 56px); box-sizing: border-box; background: var(--card);
   border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 600; letter-spacing: 0.04em; }
 .brand svg { width: 20px; height: 20px; color: var(--primary); }

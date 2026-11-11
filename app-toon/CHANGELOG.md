@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1
+
+**After updating:** nothing to do.
+
+- The top bar is as high as Home Assistant's own header next to it (the sidebar's "Home Assistant" bar), so the two line up. It follows Home Assistant's header height, 56 px by default.
+
 ## 0.5.0
 
 **After updating:** nothing to do. For costs, add your prices under the new option `prices`: see Prices in the documentation.
