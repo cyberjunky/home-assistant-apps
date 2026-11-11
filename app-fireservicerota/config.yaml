@@ -12,6 +12,9 @@ arch:
 # Prebuilt by the repository Builder workflow; bump `version` to publish a new image
 image: "ghcr.io/cyberjunky/app-fireservicerota"
 ingress: true
+# Pass uploads (backups, imports, ROMs) straight to the app: without this the Supervisor reads
+# the whole request first and refuses anything over 16 MB (413 Content Too Large)
+ingress_stream: true
 panel_icon: mdi:fire-truck
 panel_title: FireServiceRota
 # Everything is read from (and sent through) Home Assistant's FireServiceRota integration

@@ -4,6 +4,7 @@
 
 **After updating:** nothing to do.
 
+- Restoring database backups over 16 MB works: Home Assistant refused larger uploads with "413 Content Too Large" (it read every upload into memory, up to 16 MB, unless an app asks for it to be passed through); the app now asks for that.
 - The Data tab uses the same names as the Meldkamer app for the same tables: Place codes (was Place names), Abbreviations, Replacement rules, Talk groups.
 
 ## 0.2.0

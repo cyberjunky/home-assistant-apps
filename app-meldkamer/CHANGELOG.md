@@ -4,6 +4,7 @@
 
 **After updating:** nothing to do.
 
+- Restoring database backups and CSV imports over 16 MB works: Home Assistant refused larger uploads with "413 Content Too Large" (it read every upload into memory, up to 16 MB, unless an app asks for it to be passed through); the app now asks for that.
 - The Data tab uses the same names as the FireServiceRota app for the same tables: Abbreviations (was Texts), Replacement rules (was TTS Replacements), Talk groups, Place codes; and all card titles are written the same way (Ignore text, Ignore capcodes, Vehicle photos).
 
 ## 1.4.13
