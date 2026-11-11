@@ -14,6 +14,11 @@ from .talkgroups import TALKGROUP
 logger = logging.getLogger(__name__)
 
 # Seeded into the database on startup (only new patterns, user edits are kept)
+# A hectometer marker ("hmp 45,2") and a road number ("A12", "A 12"), for the Li/Re rules
+_HECTO = r"(?-i:\b((?:hmp\.?|hectometerpaal)\s*\d+(?:[.,]\d+)?)"
+_ROAD = r"(?-i:\b([AN]\s?\d{1,3})"
+_BEFORE_HECTO = r"(?=\s+(?:(?:hmp\.?|hectometerpaal)\s*)?\d+(?:[.,]\d+)?\b))"
+
 DEFAULT_TTS_REPLACEMENTS = [
     # Priority codes - real messages use e.g. "A1"/"P1" with no space, but
     # allow an optional one since the parser itself sees both forms
@@ -71,6 +76,16 @@ DEFAULT_TTS_REPLACEMENTS = [
     # so both are left alone; bon/rit/icnum numbers are already stripped
     # above regardless of length
     {"pattern": r"\s*\b\d{6,}\b", "replacement": ""},
+    # Since 1.4.16. Rules are applied case-insensitively; (?-i:...) makes these exact.
+    # The carriageway right after a hectometer marker ("hmp 45,2 Li", "A12 Li 45,2"): Re is
+    # the side where the hectometers go up, Li where they go down (Rijksoverheid, "doel
+    # hectometerpaaltjes snelwegen"; Rijkswaterstaat). Elsewhere Li/Re stay as written
+    {"pattern": _HECTO + r"\s+Li\b)", "replacement": r"\1 rijbaan links"},
+    {"pattern": _HECTO + r"\s+Re\b)", "replacement": r"\1 rijbaan rechts"},
+    {"pattern": _ROAD + r"\s+Li" + _BEFORE_HECTO, "replacement": r"\1 rijbaan links"},
+    {"pattern": _ROAD + r"\s+Re" + _BEFORE_HECTO, "replacement": r"\1 rijbaan rechts"},
+    # OM: Openbaar Ministerie or the word "om" - spelled out, not guessed
+    {"pattern": r"(?-i:\bOM\b)", "replacement": "O M"},
 ]
 
 # Until 1.4.12 talk groups were these rules: they dropped the talk group's number, and BAD is

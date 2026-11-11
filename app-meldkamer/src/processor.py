@@ -26,6 +26,30 @@ logger = logging.getLogger(__name__)
 DEFAULT_IGNORE_TEXT = ["*TESTOPROEP*", "*MOB*"]
 
 
+def seed_builtin_lists(database: Database) -> None:
+    """Add the built-in abbreviation dictionary and ignore filters once: a user's edit is kept
+    and a deleted entry stays deleted, also after updates (tracked in speech_seeded)."""
+    imported = database.seed_defaults(
+        "abbreviations", [{"abbreviation": k, "full_text": v} for k, v in abbreviation_import.ABBREVIATIONS.items()]
+    )
+    if imported:
+        logger.info(f"Seeded {imported} default abbreviation(s) into database")
+    # 1.4.16: PM has one sourced meaning now (was "Personeel / Materieelwagen")
+    database.update_unchanged_defaults(
+        "pm-meaning-1.4.16",
+        "abbreviations",
+        "abbreviation",
+        "full_text",
+        {
+            "PM": ("Personeel / Materieelwagen", abbreviation_import.ABBREVIATIONS["PM"]),
+            "PM-90": ("Personeels/Materieel wagen 90", abbreviation_import.ABBREVIATIONS["PM-90"]),
+        },
+    )
+    imported = database.seed_defaults("ignore_text", [{"pattern": p} for p in DEFAULT_IGNORE_TEXT])
+    if imported:
+        logger.info(f"Seeded {imported} default ignore-text pattern(s) into database")
+
+
 class MessageProcessor:
     """Parse, filter, enrich, store and publish messages."""
 
@@ -62,16 +86,7 @@ class MessageProcessor:
         self.on_message: Callable[[P2000Message], None] | None = None
         self.on_repeat: Callable[[P2000Message], None] | None = None
 
-        # Seed the built-in P2000 abbreviation dictionary (only new codes, a
-        # user's own edits to an existing abbreviation are kept)
-        imported = abbreviation_import.import_abbreviations(database, replace=False)
-        if imported:
-            logger.info(f"Seeded {imported} default abbreviation(s) into database")
-
-        # Seed default global ignore filters into database (only new ones, won't overwrite)
-        imported = database.import_ignore_text(DEFAULT_IGNORE_TEXT)
-        if imported:
-            logger.info(f"Seeded {imported} default ignore-text pattern(s) into database")
+        seed_builtin_lists(database)
         self.reload_ignore_filters()
 
     def set_zone(self, zone: Zone) -> None:

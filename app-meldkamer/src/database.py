@@ -16,7 +16,7 @@ import unicodedata
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from . import message_fields, vehicle_types
+from . import lookups, message_fields, vehicle_types
 from .abbreviation_import import DISCIPLINE_ABBREVIATION_OVERRIDES
 
 logger = logging.getLogger(__name__)
@@ -266,6 +266,61 @@ class Database:
         abbreviation_only INTEGER NOT NULL DEFAULT 0
     );
 
+    -- What a code means per discipline when it differs (B1 for ambulance)
+    CREATE TABLE IF NOT EXISTS discipline_abbreviations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT NOT NULL,
+        discipline TEXT NOT NULL,
+        full_text TEXT NOT NULL,
+        UNIQUE (code, discipline)
+    );
+
+    -- Incident types: the first rule (by position) whose pattern matches gives the type
+    CREATE TABLE IF NOT EXISTS incident_rules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        position INTEGER NOT NULL DEFAULT 0,
+        kind TEXT UNIQUE NOT NULL,
+        label TEXT NOT NULL,
+        pattern TEXT NOT NULL
+    );
+
+    -- Priority of a message: the first level whose pattern matches
+    CREATE TABLE IF NOT EXISTS priority_rules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        level INTEGER UNIQUE NOT NULL,
+        pattern TEXT NOT NULL
+    );
+
+    -- Word lists of the address search, by kind (street_suffix, street_connector,
+    -- not_street_word, not_city_word, street_skip_word)
+    CREATE TABLE IF NOT EXISTS parser_words (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        kind TEXT NOT NULL,
+        word TEXT NOT NULL,
+        UNIQUE (kind, word)
+    );
+
+    -- Safety region of a vehicle number prefix ("17" -> Rotterdam-Rijnmond)
+    CREATE TABLE IF NOT EXISTS vehicle_regions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        prefix TEXT UNIQUE NOT NULL,
+        region TEXT NOT NULL
+    );
+
+    -- Province of a safety region (names compared without spaces, hyphens and case)
+    CREATE TABLE IF NOT EXISTS region_provinces (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        region TEXT UNIQUE NOT NULL,
+        province TEXT NOT NULL
+    );
+
+    -- Vehicle type codes in messages and their category (icon and stock photo)
+    CREATE TABLE IF NOT EXISTS vehicle_type_codes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT UNIQUE NOT NULL,
+        category TEXT NOT NULL
+    );
+
     -- Which built-in rows were added once: a default you changed or deleted is not added
     -- again at the next start or update
     CREATE TABLE IF NOT EXISTS speech_seeded (
@@ -276,7 +331,9 @@ class Database:
     """
 
     # Lookup tables with defaults (seeded once): columns, the columns that identify a row,
-    # and the ones stored in capitals. The same tables and columns as the FireServiceRota app.
+    # the ones stored in capitals, whole numbers and regular expressions, and the list order.
+    # city_abbreviations and talkgroup_codes are the same tables and columns as the
+    # FireServiceRota app.
     LOOKUP_TABLES = {
         "city_abbreviations": {"cols": ("abbreviation", "city"), "key": ("abbreviation",), "upper": ("abbreviation",)},
         "talkgroup_codes": {"cols": ("kind", "code", "name"), "key": ("kind", "code"), "upper": ("code",)},
@@ -285,6 +342,31 @@ class Database:
             "key": ("code",),
             "upper": ("code",),
         },
+        "discipline_abbreviations": {
+            "cols": ("code", "discipline", "full_text"),
+            "key": ("code", "discipline"),
+            "upper": ("code",),
+        },
+        "incident_rules": {
+            "cols": ("position", "kind", "label", "pattern"),
+            "key": ("kind",),
+            "upper": (),
+            "int": ("position",),
+            "regex": ("pattern",),
+            "order": "position, id",
+        },
+        "priority_rules": {
+            "cols": ("level", "pattern"),
+            "key": ("level",),
+            "upper": (),
+            "int": ("level",),
+            "regex": ("pattern",),
+            "order": "level",
+        },
+        "parser_words": {"cols": ("kind", "word"), "key": ("kind", "word"), "upper": (), "order": "kind, id"},
+        "vehicle_regions": {"cols": ("prefix", "region"), "key": ("prefix",), "upper": ()},
+        "region_provinces": {"cols": ("region", "province"), "key": ("region",), "upper": ()},
+        "vehicle_type_codes": {"cols": ("code", "category"), "key": ("code",), "upper": ()},
     }
 
     def __init__(self, db_path: str = "/data/meldkamer.sqlite3"):
@@ -544,8 +626,72 @@ class Database:
         )
         added += self.seed_defaults("talkgroup_codes", DEFAULT_TALKGROUP_CODES)
         added += self.seed_defaults("province_codes", message_fields.DEFAULT_PROVINCE_CODES)
+        added += self.seed_defaults(
+            "discipline_abbreviations",
+            [{"code": c, "discipline": d, "full_text": t} for (c, d), t in DISCIPLINE_ABBREVIATION_OVERRIDES.items()],
+        )
+        added += self.seed_defaults(
+            "incident_rules",
+            [
+                {"position": (n + 1) * 10, "kind": k, "label": label, "pattern": p}
+                for n, (k, label, p) in enumerate(lookups.DEFAULT_INCIDENT_RULES)
+            ],
+        )
+        added += self.seed_defaults(
+            "priority_rules", [{"level": level, "pattern": p} for level, p in lookups.DEFAULT_PRIORITY_RULES]
+        )
+        added += self.seed_defaults(
+            "parser_words",
+            [{"kind": k, "word": w} for k, words in lookups.DEFAULT_PARSER_WORDS.items() for w in words],
+        )
+        added += self.seed_defaults(
+            "vehicle_regions", [{"prefix": k, "region": v} for k, v in lookups.DEFAULT_VEHICLE_REGIONS.items()]
+        )
+        added += self.seed_defaults(
+            "region_provinces", [{"region": k, "province": v} for k, v in lookups.DEFAULT_REGION_PROVINCES.items()]
+        )
+        added += self.seed_defaults(
+            "vehicle_type_codes", [{"code": k, "category": v} for k, v in lookups.DEFAULT_VEHICLE_TYPE_CODES.items()]
+        )
         if added:
-            logger.info(f"Added {added} default place-name, talk group and province code(s)")
+            logger.info(f"Added {added} default lookup row(s) (place, talk group, province, parser and vehicle codes)")
+        self.load_lookups()
+
+    def load_lookups(self) -> None:
+        """Hand the current contents of the parser's lookup tables to the parsing modules."""
+        incident_rules = []
+        for row in self.cursor.execute(
+            "SELECT kind, label, pattern FROM incident_rules ORDER BY position, id"
+        ).fetchall():
+            try:
+                incident_rules.append((row[0], row[1], re.compile(row[2], re.I)))
+            except re.error as e:
+                logger.warning(f"Incident rule {row[0]!r} has an invalid pattern ({e}): not used")
+        words: dict[str, list[str]] = {}
+        for row in self.cursor.execute("SELECT kind, word FROM parser_words ORDER BY id").fetchall():
+            words.setdefault(row[0], []).append(row[1])
+        lookups.load(
+            {
+                "incident_rules": incident_rules,
+                "priority_rules": [
+                    (row[0], row[1])
+                    for row in self.cursor.execute(
+                        "SELECT level, pattern FROM priority_rules ORDER BY level"
+                    ).fetchall()
+                ],
+                "parser_words": words,
+                "vehicle_regions": dict(self.cursor.execute("SELECT prefix, region FROM vehicle_regions").fetchall()),
+                "region_provinces": {
+                    lookups.region_key(row[0]): row[1]
+                    for row in self.cursor.execute(
+                        "SELECT region, province FROM region_provinces ORDER BY id"
+                    ).fetchall()
+                },
+                "vehicle_type_codes": dict(
+                    self.cursor.execute("SELECT code, category FROM vehicle_type_codes ORDER BY id").fetchall()
+                ),
+            }
+        )
 
     def _table_sql(self, table: str) -> str:
         """Return the CREATE TABLE statement for a table from SCHEMA."""
@@ -2102,7 +2248,7 @@ class Database:
 
         `discipline` (e.g. "Ambulance", or a combined "Ambulance, Brandweer")
         is used to override codes that mean different things per discipline
-        - see DISCIPLINE_ABBREVIATION_OVERRIDES.
+        - see the discipline_abbreviations table.
         """
         found = []
         # A code matches a token in capitals ("OVD", "BON-01") or with at least two
@@ -2110,11 +2256,21 @@ class Database:
         # spell a code ("bon 170616", "rit:", "Me", "ab") is a word
         words = text.split()
         discipline_lower = (discipline or "").lower()
+        overrides = self._get_text_cache(
+            "discipline_abbreviations",
+            "discipline_abbreviations",
+            lambda: [
+                ((row[0], row[1]), row[2])
+                for row in self.cursor.execute(
+                    "SELECT code, discipline, full_text FROM discipline_abbreviations ORDER BY id"
+                ).fetchall()
+            ],
+        )
 
         def _resolve_text(code: str, default_text: str) -> str:
             if not discipline_lower:
                 return default_text
-            for (override_code, disc_key), override_text in DISCIPLINE_ABBREVIATION_OVERRIDES.items():
+            for (override_code, disc_key), override_text in overrides:
                 if override_code == code and disc_key in discipline_lower:
                     return override_text
             return default_text
@@ -2347,6 +2503,21 @@ class Database:
             logger.error(f"Failed to import TTS replacements: {e}")
         return count
 
+    def update_unchanged_defaults(self, marker: str, table: str, key: str, column: str, changes: dict) -> int:
+        """Give built-in rows a new default once (marker names the change): {key: (old, new)}.
+        Only rows still exactly at the old default change; a row you edited stays."""
+        with self._transaction() as conn:
+            if conn.execute("SELECT 1 FROM speech_seeded WHERE kind = 'migration' AND key = ?", (marker,)).fetchone():
+                return 0
+            updated = 0
+            for value, (old, new) in changes.items():
+                updated += conn.execute(
+                    f"UPDATE {table} SET {column} = ? WHERE {key} = ? AND {column} = ?", (new, value, old)
+                ).rowcount
+            conn.execute("INSERT OR IGNORE INTO speech_seeded (kind, key) VALUES ('migration', ?)", (marker,))
+        self.invalidate_text_caches()
+        return updated
+
     def remove_unchanged_defaults(self, marker: str, rules: list[dict]) -> int:
         """Remove old default TTS rules once (marker names the change), only rows still exactly
         as they were added: a rule you changed stays. Returns the number removed."""
@@ -2369,6 +2540,8 @@ class Database:
     _SEED_SPECS = {
         **LOOKUP_TABLES,
         "tts_replacements": {"cols": ("pattern", "replacement"), "key": ("pattern",), "upper": ()},
+        "abbreviations": {"cols": ("abbreviation", "full_text"), "key": ("abbreviation",), "upper": ("abbreviation",)},
+        "ignore_text": {"cols": ("pattern",), "key": ("pattern",), "upper": ()},
     }
 
     def seed_defaults(self, table: str, rows: list[dict]) -> int:
@@ -2463,7 +2636,33 @@ class Database:
                 raise ValueError(f"A {values['kind']} code is {KINDS[values['kind']]} letter(s)")
         if table == "province_codes" and not values["code"].isalpha():
             raise ValueError("A province code is letters only")
+        for c in spec.get("int", ()):
+            try:
+                values[c] = str(int(values[c]))
+            except ValueError as e:
+                raise ValueError(f"{c} must be a whole number") from e
+        for c in spec.get("regex", ()):
+            try:
+                re.compile(values[c])
+            except re.error as e:
+                raise ValueError(f"Invalid pattern {values[c]!r}: {e}") from e
+        if table == "discipline_abbreviations":
+            values["discipline"] = values["discipline"].lower()
+        if table == "parser_words":
+            values["kind"] = values["kind"].lower()
+            if values["kind"] not in lookups.DEFAULT_PARSER_WORDS:
+                raise ValueError("kind must be one of " + ", ".join(lookups.DEFAULT_PARSER_WORDS))
+            if values["kind"] != "street_skip_word":
+                values["word"] = values["word"].lower()
+        if table == "vehicle_regions" and not values["prefix"].isdigit():
+            raise ValueError("A prefix is the digits before the dash of a vehicle number")
+        if table == "vehicle_type_codes" and values["category"] not in vehicle_types.CATEGORY_ICONS:
+            raise ValueError("category must be one of " + ", ".join(vehicle_types.CATEGORY_ICONS))
         return values
+
+    def _lookups_changed(self) -> None:
+        self.invalidate_text_caches()
+        self.load_lookups()
 
     def _build_province_cache(self) -> dict[str, tuple[str, bool]]:
         return {
@@ -2493,7 +2692,7 @@ class Database:
             params = [f"%{search}%"] * len(spec["cols"])
         total = self.cursor.execute(f"SELECT COUNT(*) FROM {table} {where}", params).fetchone()[0]
         rows = self.cursor.execute(
-            f"SELECT * FROM {table} {where} ORDER BY {', '.join(spec['key'])} LIMIT ? OFFSET ?",
+            f"SELECT * FROM {table} {where} ORDER BY {spec.get('order') or ', '.join(spec['key'])} LIMIT ? OFFSET ?",
             [*params, per_page, (page - 1) * per_page],
         ).fetchall()
         return {"items": [dict(r) for r in rows], "total": total, "page": page, "per_page": per_page}
@@ -2521,14 +2720,14 @@ class Database:
                 [*(values[c] for c in cols), row_id],
             ).rowcount:
                 raise ValueError("Row not found")
-        self.invalidate_text_caches()
+        self._lookups_changed()
         return row_id
 
     def delete_lookup(self, table: str, row_id: int) -> bool:
         self.LOOKUP_TABLES[table]
         with self._transaction() as conn:
             deleted = conn.execute(f"DELETE FROM {table} WHERE id = ?", (row_id,)).rowcount
-        self.invalidate_text_caches()
+        self._lookups_changed()
         return deleted > 0
 
     def export_lookup_csv(self, table: str) -> str:
@@ -2537,7 +2736,7 @@ class Database:
         writer = csv.writer(output)
         writer.writerow(spec["cols"])
         for row in self.cursor.execute(
-            f"SELECT {', '.join(spec['cols'])} FROM {table} ORDER BY {', '.join(spec['key'])}"
+            f"SELECT {', '.join(spec['cols'])} FROM {table} ORDER BY {spec.get('order') or ', '.join(spec['key'])}"
         ).fetchall():
             writer.writerow(list(row))
         return output.getvalue()
@@ -2557,14 +2756,14 @@ class Database:
         updates = ", ".join(f"{c} = excluded.{c}" for c in cols if c not in spec["key"])
         sql = (
             f"INSERT INTO {table} ({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)}) "
-            f"ON CONFLICT({', '.join(spec['key'])}) DO UPDATE SET {updates}"
+            f"ON CONFLICT({', '.join(spec['key'])}) DO " + (f"UPDATE SET {updates}" if updates else "NOTHING")
         )
         with self._transaction() as conn:
             if replace:
                 conn.execute(f"DELETE FROM {table}")
             for values in items:
                 conn.execute(sql, [values[c] for c in cols])
-        self.invalidate_text_caches()
+        self._lookups_changed()
         return {"imported": len(items), "skipped": skipped}
 
     def import_city_abbreviations_csv(self, csv_content: str, replace: bool = False) -> dict[str, int]:
@@ -3029,7 +3228,7 @@ class Database:
             self.cursor.execute(f"DELETE FROM {table}")
             self._commit()
             if table in ("abbreviations", *self.LOOKUP_TABLES):
-                self.invalidate_text_caches()
+                self._lookups_changed()
             if table == "vehicles":
                 self._vehicle_cache = None
             logger.info(f"Cleared table {table}: {count} rows deleted")

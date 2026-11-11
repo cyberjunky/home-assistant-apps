@@ -11,56 +11,17 @@ database.py's vehicle_photos table).
 import os
 import re
 
-# Abbreviation -> broad vehicle category. Only codes that identify a
-# *vehicle/unit type* belong here (not e.g. priority codes or region codes).
-VEHICLE_CATEGORIES: dict[str, str] = {
-    # Ambulance
-    "AMBU": "ambulance",
-    "MUG": "ambulance",
-    # Helicopters (air ambulance / trauma team)
-    "MUH": "helikopter",
-    "MAA": "helikopter",
-    "HTT": "helikopter",
-    # Fire - pumping/engine appliances
-    "TS": "brandweer_tankautospuit",
-    "TAS": "brandweer_tankautospuit",
-    "TS-HV": "brandweer_tankautospuit",
-    # Fire - aerial appliances
-    "AL": "brandweer_ladder",
-    "AL-42": "brandweer_ladder",
-    "AL-36": "brandweer_ladder",
-    "AL-32": "brandweer_ladder",
-    "HW": "brandweer_hoogwerker",
-    "HW-36": "brandweer_hoogwerker",
-    "HW-24": "brandweer_hoogwerker",
-    # Fire - specialized appliances
-    "SL": "brandweer_slangenwagen",
-    "SL-4": "brandweer_slangenwagen",
-    "SL-6": "brandweer_slangenwagen",
-    "WO": "brandweer_waterongevallen",
-    "PB": "brandweer_poederblus",
-    "SB": "brandweer_schuimblus",
-    "MS": "brandweer_motorspuit",
-    "DPA": "brandweer_dompelpomp",
-    "DPU": "brandweer_dompelpomp",
-    "RIV": "brandweer_riv",
-    "HVH": "brandweer_haakarmbak",
-    "GSH": "brandweer_haakarmbak",
-    "VZH": "brandweer_haakarmbak",
-    "LHH": "brandweer_haakarmbak",
-    "CHH": "brandweer_haakarmbak",
-    "HV": "brandweer_hulpverlening",
-    "OvD": "brandweer_officier",
-    "HOvD": "brandweer_officier",
-    "CvD": "brandweer_officier",
-    # Police
-    "POL": "politie",
-    "AE": "politie",
-    "AT": "politie",
-    "ME": "politie",
-    # Water rescue
-    "RB": "reddingboot",
-}
+from . import lookups
+
+# Which type codes ("TS", "AL-42", "AMBU") are which broad category is the vehicle_type_codes
+# table, read through lookups (defaults in lookups.py). The categories themselves are fixed:
+# they are the icons and stock photos below.
+
+
+def vehicle_categories() -> dict[str, str]:
+    """{type code: category} from the vehicle_type_codes table."""
+    return lookups.get("vehicle_type_codes")
+
 
 # Category -> fallback emoji shown when no user-uploaded photo exists for
 # either the exact vehicle number or the category itself.
@@ -94,16 +55,31 @@ DEFAULT_ICON = "📻"
 # Longer codes (AL-42, ...) are tried first so e.g. "AL-42" isn't matched as
 # bare "AL", and the dashed number form is tried before the bare-digits one.
 # Ambulance ritmeldingen write the type in lower case or capitalised ("ambu 16-107", "Ambu")
-_VEHICLE_WORDS = dict(VEHICLE_CATEGORIES)
-for _key, _category in VEHICLE_CATEGORIES.items():
-    if _category == "ambulance":
-        _VEHICLE_WORDS[_key.lower()] = _category
-        _VEHICLE_WORDS[_key.capitalize()] = _category
-_VEHICLE_NUMBER_RE = re.compile(
-    r"\b("
-    + "|".join(re.escape(k) for k in sorted(_VEHICLE_WORDS, key=len, reverse=True))
-    + r")\s+(?:-\s+)?(\d{2,4}-\d{3,4}|\d{3,6})\b"
-)
+_patterns: dict = {"version": None}
+
+
+def _vehicle_patterns() -> dict:
+    """The patterns built from the type codes, rebuilt when the table changed."""
+    if _patterns["version"] != lookups.version:
+        categories = vehicle_categories()
+        words = dict(categories)
+        for key, category in categories.items():
+            if category == "ambulance":
+                words[key.lower()] = category
+                words[key.capitalize()] = category
+
+        def alternatives(keys) -> str:
+            # Never matches without codes
+            return "|".join(re.escape(k) for k in sorted(keys, key=len, reverse=True)) or "(?!)"
+
+        _patterns.update(
+            version=lookups.version,
+            words=words,
+            number=re.compile(r"\b(" + alternatives(words) + r")\s+(?:-\s+)?(\d{2,4}-\d{3,4}|\d{3,6})\b"),
+            token=re.compile(r"\b(" + alternatives(categories) + r")\b"),
+        )
+    return _patterns
+
 
 # Fallback for ambulance "ritmelding" messages that carry the vehicle number
 # without any AMBU/MUG-style prefix right next to it, as a bare 5-digit
@@ -124,17 +100,11 @@ _AMBULANCE_UNIT_RE = re.compile(r"\b(\d{2})(\d{3})\s*-\s*[A-Za-zÀ-ÿ'\-]+(?:\s+
 _TRAILING_UNITS_RE = re.compile(r"((?:\s+\d{6})+)\s*$")
 _FIRE_PRIORITY_RE = re.compile(r"^\s*(?:P\s?[123]|PRIO\s?[123])\b", re.IGNORECASE)
 
-# Vehicle-type tokens written as words in the message text, for messages
-# whose found abbreviations aren't at hand (history read back from the database)
-_VEHICLE_TOKEN_RE = re.compile(
-    r"\b(" + "|".join(re.escape(k) for k in sorted(VEHICLE_CATEGORIES, key=len, reverse=True)) + r")\b"
-)
-
 
 def classify(abbreviations: list[dict[str, str]]) -> str:
     """Pick the first recognized vehicle category from a message's found abbreviations."""
     for item in abbreviations:
-        category = VEHICLE_CATEGORIES.get(item.get("abbreviation", ""))
+        category = vehicle_categories().get(item.get("abbreviation", ""))
         if category:
             return category
     return ""
@@ -142,8 +112,8 @@ def classify(abbreviations: list[dict[str, str]]) -> str:
 
 def classify_text(text: str) -> str:
     """Pick the first vehicle-type token in the message text."""
-    match = _VEHICLE_TOKEN_RE.search(text or "")
-    return VEHICLE_CATEGORIES[match.group(1)] if match else ""
+    match = _vehicle_patterns()["token"].search(text or "")
+    return vehicle_categories()[match.group(1)] if match else ""
 
 
 def is_fire_message(text: str, discipline: str = "") -> bool:
@@ -201,8 +171,9 @@ def _normalize_number(number: str) -> str:
 
 def named_vehicles(text: str) -> list[tuple[str, str]]:
     """(number, category) for each vehicle the text names with its type, e.g. "TS 07-1782"."""
+    patterns = _vehicle_patterns()
     return [
-        (_normalize_number(m.group(2)), _VEHICLE_WORDS[m.group(1)]) for m in _VEHICLE_NUMBER_RE.finditer(text or "")
+        (_normalize_number(m.group(2)), patterns["words"][m.group(1)]) for m in patterns["number"].finditer(text or "")
     ]
 
 

@@ -238,7 +238,9 @@ ABBREVIATIONS = {
     "PLD": "Politie Luchtvaartdienst (KLPD)",
     "PMC": "Provinciaal Militair Commando",
     "PMK": "Politie Meldkamer",
-    "PM": "Personeel / Materieelwagen",
+    # PM: 112meldingen.nl/afkortingen, 112hub.nl/informatie/afkortingen-en-termen, tss2000.nl
+    # (the number after it is the number of seats; PM-VEB and the like are specialisations)
+    "PM": "Personeel- en materieelvoertuig",
     "POL": "Politie",
     "PORTO": "Portofoon",
     "PRS": "Provinciale rampenstaf",
@@ -347,7 +349,7 @@ ABBREVIATIONS = {
     "AL-32": "Autoladder 32 meter",
     "HW-36": "Hoogwerker 36 meter",
     "HW-24": "Hoogwerker 24 meter",
-    "PM-90": "Personeels/Materieel wagen 90",
+    "PM-90": "Personeel- en materieelvoertuig 90",
     "WTS": "Watertransportsysteem",
     "SL-4": "Slangenwagen 4",
     "SL-6": "Slangenwagen 6",
