@@ -3,7 +3,7 @@
 PostgreSQL with the TimescaleDB time-series extension, so you can keep your Home Assistant
 recorder data and your long-term measurements in one SQL database and query them with
 tools such as Grafana. Included extensions: TimescaleDB Toolkit, PostGIS, pgvector,
-pg_cron, pgAgent and system_stats.
+VectorChord, pg_cron, pgAgent and system_stats.
 
 ## Installation
 
@@ -36,6 +36,7 @@ timescaledb:
   maxmemory: 512MB
   maxcpus: 4
 max_connections: 50
+vectorchord: false
 system_packages: []
 init_commands: []
 retry_upgrade: false
@@ -61,9 +62,16 @@ Databases that get the TimescaleDB extension enabled. Default: `homeassistant`.
 
 Maximum number of client connections, at least 20. Default: `50`.
 
+### Option: `vectorchord`
+
+Loads [VectorChord](https://github.com/tensorchord/VectorChord) (`vchord`), the vector
+search extension [Immich](https://immich.app/) needs, at start-up. Off by default. Turning
+it off again stops loading it after the next restart; databases that use it (like Immich's)
+then fail on their vector indexes until you turn it back on. See [Immich](#immich-vectorchord).
+
 ### Option: `postgres_password`
 
-Sets the password of the `postgres` user at start-up.
+Sets the password of the `postgres` user on every start, so it can be changed later. Without it, a new installation gets the default password `homeassistant` (with a warning in the log) and an existing one keeps its password.
 
 ### Option: `system_packages`
 
@@ -122,6 +130,23 @@ pg_hba_config:
 
 A wrong `pg_hba.conf` can lock you out. Keep at least one working rule before adding
 restrictions.
+
+## Immich (VectorChord)
+
+The app includes VectorChord and pgvector, the extensions Immich needs. Turn the
+`vectorchord` option on, restart the app, and prepare a database once (for example in
+pgAdmin, or with `psql` in the app's console):
+
+```sql
+CREATE DATABASE immich;
+\c immich
+CREATE EXTENSION vchord CASCADE;
+CREATE EXTENSION earthdistance CASCADE;
+```
+
+Then point Immich at it with
+`DB_URL=postgresql://postgres:<password>@<home assistant host>:5432/immich` (map the port
+in the Network section). `vchord CASCADE` also installs pgvector, which VectorChord builds on.
 
 ## Moving from the Expaso add-on
 

@@ -106,13 +106,9 @@ upgradeTimeScaleExtension () {
 		extensionInstalled "${datname}" timescaledb \
 		&& (
 			bashio::log.info "Try updating Timescale Extension for database: '${datname}'.."; \
-			# Drop the old functions and views, these could be incompatible with the new version.
-			# See: https://github.com/timescale/timescaledb-extras/issues/34
+			# Drop timescaledb-extras helpers that block the update, see the script for details.
 			# Please note that we do not drop the extension itself, because that would drop the hypertables as well.
-			# The views and functions could be recreated from: https://github.com/timescale/timescaledb-extras
-			psql -X -U "postgres" -d "${datname}" -c "drop function if exists public.get_dimension_details(regclass)"; \
-			psql -X -U "postgres" -d "${datname}" -c "drop view if exists public.chunks_tstz"; \
-			psql -X -U "postgres" -d "${datname}" -c "drop view if exists public.chunks_ts"; \
+			(psql -X -U "postgres" -d "${datname}" -f /usr/share/timescaledb/drop_timescaledb_extras.sql || true); \
 			(psql -X -U postgres -d "${datname}" -c "ALTER EXTENSION timescaledb UPDATE;" || true)
 		)
 
@@ -337,6 +333,35 @@ if bashio::var.false "${NEW_INSTALL}"; then
 	fi
 	applyPgCronSettings
 fi
+
+# Load VectorChord (vchord, needed by Immich) at startup when the vectorchord option is on,
+# and stop loading it when it is off. The other libraries are left as they are.
+# From hassos-addon-timescaledb (https://github.com/expaso/hassos-addon-timescaledb/pull/94).
+configureVectorChord() {
+	local conf="${POSTGRES_DATA}/postgresql.conf"
+	local current
+	local wanted=""
+	local lib
+	local -a libs
+
+	current="$(sed -n -E "s/^shared_preload_libraries\s*=\s*'([^']*)'.*/\1/p" "${conf}" | tail -n 1)"
+	IFS=',' read -r -a libs <<< "${current}"
+	for lib in "${libs[@]}"; do
+		lib="${lib// /}"
+		if [[ -n "${lib}" ]] && [[ "${lib}" != "vchord" ]] && [[ "${lib}" != "vchord.so" ]]; then
+			wanted="${wanted:+${wanted},}${lib}"
+		fi
+	done
+	if bashio::config.true 'vectorchord'; then
+		wanted="${wanted:+${wanted},}vchord"
+	fi
+
+	if [[ "${wanted}" != "${current}" ]]; then
+		bashio::log.info "Setting shared_preload_libraries to '${wanted}'.."
+		sed -i -E "s/^(shared_preload_libraries\s*=\s*)'[^']*'/\1'${wanted}'/" "${conf}"
+	fi
+}
+configureVectorChord
 
 # Patch telemetry level
 if bashio::config.has_value 'timescaledb.telemetry'; then

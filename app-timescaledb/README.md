@@ -30,8 +30,8 @@ with tools such as Grafana.
 
 - **PostgreSQL with TimescaleDB**: hypertables, compression, continuous aggregates and
   retention policies on plain SQL
-- **Extensions included**: TimescaleDB Toolkit, PostGIS, pgvector, pg_cron, pgAgent and
-  system_stats
+- **Extensions included**: TimescaleDB Toolkit, PostGIS, pgvector, VectorChord (for
+  Immich, behind the `vectorchord` option), pg_cron, pgAgent and system_stats
 - **Declarative configuration**: PostgreSQL parameters and `pg_hba.conf` rules from the
   app options, no shell commands needed
 - **Safe backups**: Home Assistant backups contain a consistent SQL dump that is restored
@@ -81,6 +81,7 @@ timescaledb:
   maxmemory: 512MB
   maxcpus: 4
 max_connections: 50
+vectorchord: false
 system_packages: []
 init_commands: []
 retry_upgrade: false
@@ -96,7 +97,8 @@ pg_hba_config: []
 | `timescaledb.maxmemory` | `512MB` | Memory budget used by TimescaleDB's tuning. |
 | `timescaledb.maxcpus` | `4` | CPU budget used by TimescaleDB's tuning. |
 | `max_connections` | `50` | Maximum number of client connections (at least 20). |
-| `postgres_password` | unset | Sets the password of the `postgres` user at start-up. |
+| `vectorchord` | `false` | Load VectorChord (`vchord`) for Immich, see DOCS.md. |
+| `postgres_password` | unset | Sets the password of the `postgres` user on every start. |
 | `system_packages` | `[]` | Extra Alpine packages to install at start-up. |
 | `init_commands` | `[]` | Shell commands to run at start-up. |
 | `retry_upgrade` | `false` | Retry a failed PostgreSQL major-version upgrade on the next start. |
