@@ -2509,7 +2509,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                         <div class="db-cards">
                             <div class="db-card">
                                 <div class="db-card-head">
-                                    <span class="db-card-title">Texts</span>
+                                    <span class="db-card-title">Abbreviations</span>
                                     <span class="db-card-status ready" id="db-status-texts">-</span>
                                 </div>
                                 <div class="db-card-desc">300+ P2000 abbreviations with their full meanings, shown as tags in message details. Seeded automatically on startup - your own edits are never overwritten by that.</div>
@@ -2545,7 +2545,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
                             <div class="db-card">
                                 <div class="db-card-head">
-                                    <span class="db-card-title">TTS Replacements</span>
+                                    <span class="db-card-title">Replacement rules</span>
                                     <span class="db-card-status ready" id="db-status-tts">-</span>
                                 </div>
                                 <div class="db-card-desc">Regex rules that make messages speakable, used by browser speech and Home Assistant sensors.</div>
@@ -2557,7 +2557,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
                             <div class="db-card">
                                 <div class="db-card-head">
-                                    <span class="db-card-title">Talk Groups</span>
+                                    <span class="db-card-title">Talk groups</span>
                                     <span class="db-card-status ready" id="db-status-talkgroup_codes">-</span>
                                 </div>
                                 <div class="db-card-desc">The letters of talk group codes like BRT-01: discipline (B Brandweer) and meldkamer or region (RT Rotterdam), from the NIPV coding. Spoken as "gespreksgroep Brandweer Rotterdam 0 1" and shown as a tag. Built in once; your edits are kept.</div>
@@ -2569,7 +2569,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
                             <div class="db-card">
                                 <div class="db-card-head">
-                                    <span class="db-card-title">Place Codes</span>
+                                    <span class="db-card-title">Place codes</span>
                                     <span class="db-card-status ready" id="db-status-city_abbreviations">-</span>
                                 </div>
                                 <div class="db-card-desc">Place-name codes in messages (UTRECH → Utrecht), used to find the town, as tags and in the spoken text. Built in once; your edits are kept.</div>
@@ -2581,7 +2581,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
                             <div class="db-card">
                                 <div class="db-card-head">
-                                    <span class="db-card-title">Ignore Text</span>
+                                    <span class="db-card-title">Ignore text</span>
                                     <span class="db-card-status ready" id="db-status-ignore_text">-</span>
                                 </div>
                                 <div class="db-card-desc">Wildcard patterns (e.g. *TESTOPROEP*) - messages matching any of these are dropped entirely.</div>
@@ -2593,7 +2593,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
                             <div class="db-card">
                                 <div class="db-card-head">
-                                    <span class="db-card-title">Ignore Capcodes</span>
+                                    <span class="db-card-title">Ignore capcodes</span>
                                     <span class="db-card-status ready" id="db-status-ignore_capcodes">-</span>
                                 </div>
                                 <div class="db-card-desc">Capcodes to drop. A message is only dropped when every one of its capcodes is on this list.</div>
@@ -2605,7 +2605,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
                             <div class="db-card">
                                 <div class="db-card-head">
-                                    <span class="db-card-title">Vehicle Photos</span>
+                                    <span class="db-card-title">Vehicle photos</span>
                                     <span class="db-card-status empty" id="db-status-vehicle_photos">-</span>
                                 </div>
                                 <div class="db-card-desc">Photos you've uploaded per vehicle number (e.g. "07-1782", "18-187") or vehicle category (e.g. "ambulance", "politie"), shown on matching messages.</div>
@@ -3881,7 +3881,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             .then(data => { vehicleCategories = (data.categories || []).map(c => c.category); })
             .catch(() => {});
 
-        // Standalone upload from the Settings tab's Vehicle Photos table (no selected message).
+        // Standalone upload from the Settings tab's Vehicle photos table (no selected message).
         function dbOpenVehiclePhotoUpload() {
             fetch(`${basePath}api/vehicle-categories`)
                 .then(r => r.json())
@@ -4550,15 +4550,15 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             places: 'Places',
             streets: 'Streets',
             messages: 'Messages',
-            texts: 'Texts',
+            texts: 'Abbreviations',
             geocodes: 'Geocodes',
-            tts: 'TTS Replacements',
-            ignore_text: 'Ignore Text',
-            ignore_capcodes: 'Ignore Capcodes',
-            vehicle_photos: 'Vehicle Photos',
+            tts: 'Replacement rules',
+            ignore_text: 'Ignore text',
+            ignore_capcodes: 'Ignore capcodes',
+            vehicle_photos: 'Vehicle photos',
             vehicles: 'Vehicles',
-            talkgroup_codes: 'Talk Groups',
-            city_abbreviations: 'Place Codes'
+            talkgroup_codes: 'Talk groups',
+            city_abbreviations: 'Place codes'
         };
 
         const dbTableButtons = {

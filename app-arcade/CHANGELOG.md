@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.2
+
+**After updating:** nothing to do.
+
+- ROM files over 16 MB can be uploaded. Home Assistant refused them with "413 Content Too Large" (it read every upload into memory, up to 16 MB, unless an app asks for it to be passed through); the app now asks for that. Your ROM folder over Samba was never affected.
+
 ## 0.5.1
 
 **After updating:** nothing to do. If a file isn't recognised, upload it again to see why.

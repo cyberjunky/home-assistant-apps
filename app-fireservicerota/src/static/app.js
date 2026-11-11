@@ -1498,7 +1498,7 @@ const SPEECH_TABLES = {
         ],
     },
     city_abbreviations: {
-        title: 'Place names', item: 'place-name code', key: 'abbreviation', csv: 'abbreviation, city',
+        title: 'Place codes', item: 'place-name code', key: 'abbreviation', csv: 'abbreviation, city',
         head: '<tr><th>Code</th><th>Place</th><th></th></tr>',
         row: (it) => `<td class="mono">${escapeHtml(it.abbreviation)}${DEFAULT_TAG(it)}</td><td>${escapeHtml(it.city)}</td>`,
         fields: [

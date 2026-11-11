@@ -240,7 +240,7 @@ skipped at import.
   and for codes it gives two meanings (AC, BOT, CCK, MOB, SPB, GM) the brigade list of
   [Brandweer Uitgeest](https://brandweeruitgeest.nl/betekenis-p2000-meldingen/). PM, MCU,
   VCK have no source for one meaning yet and are spelled out.
-- Place names: the same list as the Meldkamer app.
+- Place codes: the same list as the Meldkamer app.
 
 ## Works alongside your own automations
 

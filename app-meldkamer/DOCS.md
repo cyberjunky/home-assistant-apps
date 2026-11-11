@@ -26,13 +26,13 @@ Re-run *Import All Places* and *Import BAG* after updates that add data to them 
 ## How it works
 
 1. **Decoding** — `rtl_fm` (RTL-SDR) or `rx_fm` (HackRF, SoapySDR, `rtl_tcp`) tunes to 169.65 MHz and pipes the audio into `multimon-ng`, which decodes the FLEX pager protocol into one line per message: time, capcodes and text.
-2. **Filtering** — Messages matching an *Ignore Text* pattern, or whose capcodes are all on the *Ignore Capcodes* list, are dropped. An identical text received again within `repeat_window_seconds` counts as a repeat of the first message instead of a new one.
+2. **Filtering** — Messages matching an *Ignore text* pattern, or whose capcodes are all on the *Ignore capcodes* list, are dropped. An identical text received again within `repeat_window_seconds` counts as a repeat of the first message instead of a new one.
 3. **Parsing** — From the text:
    - **Priority** from codes such as `A1`, `A2`, `B1`, `P 1`, `PRIO 2`.
-   - **Town**: the last words of the message are looked up in the Places table (including multi-word names such as "Koog aan de Zaan") and in the Place Codes table of P2000 town abbreviations (e.g. `OEGSTG` → Oegstgeest). If that finds nothing, the whole text is searched.
+   - **Town**: the last words of the message are looked up in the Places table (including multi-word names such as "Koog aan de Zaan") and in the Place codes table of P2000 town abbreviations (e.g. `OEGSTG` → Oegstgeest). If that finds nothing, the whole text is searched.
    - **Street**: the remaining text is matched against the Streets table (longest names first, whole words only), then against address patterns with a postcode, then against common street-name endings (`-straat`, `-weg`, `-laan`, …).
    - **Capcodes** are looked up in the Capcodes table for the discipline, region, location and the names of the alerted units.
-   - **Abbreviations** are explained from the Texts table, and **vehicles** recognised from the Vehicles table or from the text ("TS 07-1782").
+   - **Abbreviations** are explained from the Abbreviations table, and **vehicles** recognised from the Vehicles table or from the text ("TS 07-1782").
    - **Incident type** from the text: fire, automatic alarm (OMS), traffic accident, medical (reanimatie/AED), water, gas/smell, lift, storm, animal, assistance, GRIP. Also the **reference numbers** (rit, bon, icnum), the meldkamer **talk group** ("BAD-02", see [Talk groups and place codes](#talk-groups-and-place-codes)) and "Directe inzet: ja". A vehicle named with its type ("ambu 16-107") gives the region when the capcodes don't.
 4. **Location** — The first source that knows the address wins:
    1. the position of a full postcode in the message ("3068HA" covers a few houses), looked up once at the PDOK Locatieserver, free, and kept in the geocode cache;
@@ -81,15 +81,15 @@ Each table gets its own card with row counts and Manage/Import actions:
 | 📟 Capcodes | Emergency service identifiers | CSV, Bommel |
 | 🏙️ Places | Town recognition and town-centre positions | CSV, BAG, all-places |
 | 🛤️ Streets | Street recognition and street positions | CSV, BAG |
-| 📖 Texts | P2000 abbreviation dictionary | Built-in, CSV |
+| 📖 Abbreviations | P2000 abbreviation dictionary | Built-in, CSV |
 | 📨 Messages | Received P2000 messages | — (filled automatically) |
 | 📍 Geocodes | OpenCage address lookup cache | — (filled automatically) |
-| 🗣️ TTS Replacements | Regex rules for speakable text-to-speech | CSV |
-| 📻 Talk Groups | Discipline and meldkamer/region letters of talk group codes (BRT-01) | Built-in, CSV |
-| 🏷️ Place Codes | Place-name codes in messages (UTRECH → Utrecht) | Built-in, CSV |
-| 🙈 Ignore Text | Wildcard patterns to drop matching messages | CSV |
-| 🚫 Ignore Capcodes | Capcodes to drop | CSV |
-| 📷 Vehicle Photos | Photos you've uploaded per vehicle number or category | — (upload via message detail or +Add) |
+| 🗣️ Replacement rules | Regex rules for speakable text-to-speech | CSV |
+| 📻 Talk groups | Discipline and meldkamer/region letters of talk group codes (BRT-01) | Built-in, CSV |
+| 🏷️ Place codes | Place-name codes in messages (UTRECH → Utrecht) | Built-in, CSV |
+| 🙈 Ignore text | Wildcard patterns to drop matching messages | CSV |
+| 🚫 Ignore capcodes | Capcodes to drop | CSV |
+| 📷 Vehicle photos | Photos you've uploaded per vehicle number or category | — (upload via message detail or +Add) |
 | 🚒 Vehicles | What each vehicle number is (type, description) | Capcode list, messages naming a vehicle ("TS 07-1782"), +Add, CSV import |
 
 Click "Manage" on any card to view/edit/delete that table's rows.
@@ -189,10 +189,10 @@ The Info tab shows FLEX frames per minute for the last hour, messages per hour, 
 
 Global message filters are managed live from the dashboard's **Data** tab (no restart needed) rather than the add-on config:
 
-- **Ignore Text** — wildcard patterns (e.g. `*TESTOPROEP*`); a message is dropped if its body matches any enabled pattern. Seeded by default with `*TESTOPROEP*` and `*MOB*` (system test calls and mobilofoon checks).
-- **Ignore Capcodes** — exact capcodes to drop; a message is only dropped when **every** capcode on it is on this list (so a single ignored capcode can't kill a multi-capcode group call).
+- **Ignore text** — wildcard patterns (e.g. `*TESTOPROEP*`); a message is dropped if its body matches any enabled pattern. Seeded by default with `*TESTOPROEP*` and `*MOB*` (system test calls and mobilofoon checks).
+- **Ignore capcodes** — exact capcodes to drop; a message is only dropped when **every** capcode on it is on this list (so a single ignored capcode can't kill a multi-capcode group call).
 
-Both support add/edit/delete/enable-toggle/export from their own "Manage" page, the same way TTS Replacements does.
+Both support add/edit/delete/enable-toggle/export from their own "Manage" page, the same way Replacement rules does.
 
 ### Messages
 
