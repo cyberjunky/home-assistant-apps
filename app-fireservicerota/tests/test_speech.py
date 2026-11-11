@@ -63,11 +63,12 @@ EXAMPLES = [
         "p2",
         "Prio 2. assistentie ambulance in verband met reanimatie eventueel A E D",
     ),
-    # Two-meaning codes with a sourced default (AC, MOB), ones without (PM, MCU, VCK), an unknown code
+    # Two-meaning codes with a sourced default (AC, MOB, and PM since 0.2.2), ones without (MCU, VCK), an unknown code
     (
         "P 2 HV AC MOB PM MCU VCK XQZ Stationsplein 1",
         None,
-        "Prio 2 Hulpverleningsvoertuig Alarmcentrale Medische Ondersteuning Brandweer P M M C U V C K X Q Z "
+        "Prio 2 Hulpverleningsvoertuig Alarmcentrale Medische Ondersteuning Brandweer Personeel- en materieelvoertuig "
+        "M C U V C K X Q Z "
         "Stationsplein 1",
     ),
     # Urgency codes at the start; mid-text P1/B2 is a letter and a number (a car park, an entrance)

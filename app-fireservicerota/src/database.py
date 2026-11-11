@@ -449,6 +449,23 @@ class Database:
 
     # ------------------------------------- speech: abbreviations, rules, places, talk groups
 
+    def update_unchanged_defaults(self, marker: str, table: str, key: str, column: str, changes: dict) -> int:
+        """Give built-in rows a new default once (marker names the change): {key: (old, new)}.
+        Only rows still exactly at the old default change; a row you edited stays."""
+        with self._lock:
+            if self.conn.execute(
+                "SELECT 1 FROM speech_seeded WHERE kind = 'migration' AND key = ?", (marker,)
+            ).fetchone():
+                return 0
+            updated = 0
+            for value, (old, new) in changes.items():
+                updated += self.conn.execute(
+                    f"UPDATE {table} SET {column} = ? WHERE {key} = ? AND {column} = ?", (new, value, old)
+                ).rowcount
+            self.conn.execute("INSERT OR IGNORE INTO speech_seeded (kind, key) VALUES ('migration', ?)", (marker,))
+            self.conn.commit()
+        return updated
+
     def seed_speech(self, defaults: dict[str, list[dict]]) -> dict[str, int]:
         """Add the built-in rows ({table: [row dicts]}) that were never added before.
 

@@ -192,8 +192,11 @@ How a text is made, in this order:
    "Ambulance besteld vervoer, hoogcomplexe zorgvraag"); elsewhere in the text `P1` or `B2`
    is spoken as a letter and a number (it can be a car park), and `A2` or `N209` is a road
    ("A 2", "N 209"). Also `hmp`, `bon`/`rit`/`icnum` numbers and Dutch shortenings (`ivm`,
-   `tbv`, `evt.`, `ass.`). A pattern is a Python regular expression; `\1` in the
-   replacement is its first group.
+   `tbv`, `evt.`, `ass.`). `Li` or `Re` right after a hectometer marker (`hmp 45,2 Li`,
+   `A12 Re 45,2`) is the carriageway: "rijbaan links" / "rijbaan rechts"; elsewhere they
+   stay as written. `OM` is spelled out ("O M": Openbaar Ministerie or the word "om"). A
+   pattern is a Python regular expression; `\1` in the replacement is its first group, and
+   `(?-i:...)` makes a part case-sensitive.
 2. **Shortenings with dots, times, postal codes and decimal numbers.** A shortening with
    dots is looked up in the abbreviations with its dots (`t.h.v.` → "ter hoogte van", also
    `i.v.m.`, `z.s.m.`, `n.a.v.`, `o.a.`, `i.p.v.`, `m.b.t.` and more). One in capitals
@@ -238,8 +241,16 @@ skipped at import.
   [112hier.nl](https://112hier.nl/uitleg), [persmonitor.nl](https://persmonitor.nl/blog/p2000-afkortingen-en-codes).
 - Abbreviations: the public P2000 list ([p2000.bommel.net](https://p2000.bommel.net/afkortingen.php)),
   and for codes it gives two meanings (AC, BOT, CCK, MOB, SPB, GM) the brigade list of
-  [Brandweer Uitgeest](https://brandweeruitgeest.nl/betekenis-p2000-meldingen/). PM, MCU,
-  VCK have no source for one meaning yet and are spelled out.
+  [Brandweer Uitgeest](https://brandweeruitgeest.nl/betekenis-p2000-meldingen/). PM is
+  "Personeel- en materieelvoertuig" (the number after it is the number of seats;
+  `PM-VEB` and the like are specialisations, so the suffix is spoken as well):
+  [112meldingen.nl](https://112meldingen.nl/afkortingen),
+  [112hub.nl](https://112hub.nl/informatie/afkortingen-en-termen),
+  [tss2000.nl](https://tss2000.nl/afkorting-termen-p2000-112-meldingen). MCU and VCK
+  have no source for one meaning yet and are spelled out.
+- Li / Re: the carriageway at a hectometer marker, Re where the hectometers go up and Li
+  where they go down (Rijksoverheid, "doel hectometerpaaltjes snelwegen"; Rijkswaterstaat,
+  "voorwerp dier schade melden").
 - Place codes: the same list as the Meldkamer app.
 
 ## Works alongside your own automations
