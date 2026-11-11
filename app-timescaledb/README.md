@@ -14,10 +14,12 @@
 
 > **A port of [Expaso's TimescaleDB add-on](https://github.com/expaso/hassos-addon-timescaledb)**
 > by Hans van Essen. When this port was made, that project had seen no release for a year
-> (v5.4.2, October 2025), so it was brought over here and kept up to date. It has since
-> become active again (v6.x, November 2026). The changes here are open to be merged back
-> into the original. Moving over from the Expaso add-on is described in
-> [DOCS.md](DOCS.md#moving-from-the-expaso-add-on); see also [NOTICE](NOTICE).
+> (v5.4.2, October 2025), so it was brought over here and kept up to date. It is active
+> again since November 2026, and its v6.1.0 took over part of this port's work (compressed
+> backups, `scram-sha-256` for new installations and the `postgres_password` option,
+> [credited](https://github.com/expaso/hassos-addon-timescaledb/issues/93)). More of the
+> changes here are open to be merged back. Moving over from the Expaso add-on is described
+> in [DOCS.md](DOCS.md#moving-from-the-expaso-add-on); see also [NOTICE](NOTICE).
 
 A Home Assistant app that runs [PostgreSQL](https://www.postgresql.org/) with the
 [TimescaleDB](https://www.timescale.com/) time-series extension, so you can keep your Home
