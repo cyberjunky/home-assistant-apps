@@ -1,0 +1,3 @@
+table,key,column,value,migration
+abbreviations,PM,full_text,Personeel / Materieelwagen,pm-meaning-0.2.2
+abbreviations,PM-90,full_text,Personeels/Materieel wagen 90,pm-meaning-0.2.2

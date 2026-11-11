@@ -2,8 +2,15 @@
 
 import pytest
 
+from src import default_data
 from src.database import Database
-from src.speech import DEFAULTS, Speech
+from src.speech import Speech
+
+
+def _new_version(db):
+    """As if a new version starts: its files haven't been seeded yet."""
+    db.conn.execute("DELETE FROM speech_seeded WHERE kind = 'defaults'")
+    db.conn.commit()
 
 
 @pytest.fixture
@@ -49,16 +56,19 @@ def test_pm_updated_on_an_older_install_unless_edited(tmp_path):
     path = str(tmp_path / "old.db")
     db = Database(path)
     # As 0.2.1 left it: everything seeded, PM with the old text, PM-90 edited by the user
-    db.seed_speech(DEFAULTS)
+    db.seed_speech()
     db.conn.execute("UPDATE abbreviations SET full_text = 'Personeel / Materieelwagen' WHERE abbreviation = 'PM'")
     db.conn.execute("UPDATE abbreviations SET full_text = 'eigen tekst' WHERE abbreviation = 'PM-90'")
+    db.conn.execute("DELETE FROM speech_seeded WHERE kind = 'migration'")
     db.conn.commit()
+    _new_version(db)
     speech = Speech(db)
     meanings = db.abbreviation_map()
     assert meanings["PM"] == "Personeel- en materieelvoertuig"
     assert meanings["PM-90"] == "eigen tekst"
     # Once: an edit after the update is kept at the next start
     db.save_abbreviation("PM", "Personeel / Materieelwagen", db.list_speech("abbreviations", "PM")["items"][0]["id"])
+    _new_version(db)
     db.close()
     db = Database(path)
     Speech(db)
@@ -70,10 +80,18 @@ def test_pm_updated_on_an_older_install_unless_edited(tmp_path):
 def test_new_rules_reach_an_existing_install(tmp_path):
     path = str(tmp_path / "old.db")
     db = Database(path)
-    old_rules = [
-        r for r in DEFAULTS["tts_replacements"] if "rijbaan" not in r["replacement"] and r["replacement"] != "O M"
+    db.seed_speech()
+    # As 0.2.1 left it: the rules of 0.2.2 not there and never offered
+    new = [
+        r["pattern"]
+        for r in default_data.read("tts_replacements")
+        if "rijbaan" in r["replacement"] or r["replacement"] == "O M"
     ]
-    db.seed_speech({**DEFAULTS, "tts_replacements": old_rules})
+    for pattern in new:
+        db.conn.execute("DELETE FROM tts_replacements WHERE pattern = ?", (pattern,))
+        db.conn.execute("DELETE FROM speech_seeded WHERE kind = 'tts_replacements' AND key = ?", (pattern,))
+    db.conn.commit()
+    _new_version(db)
     speech = Speech(db)
     assert speech.speak("A12 Li 45,2") == "A 12 rijbaan links 45 komma 2"
     assert speech.speak("OM") == "O M"

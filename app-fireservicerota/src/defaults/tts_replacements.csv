@@ -1,0 +1,23 @@
+pattern,replacement,enabled
+^\s*P\s?([1-5])\b,Prio \1,1
+^\s*A\s?1\b,Ambulance met spoed,1
+^\s*A\s?2\b,Ambulance zonder spoed,1
+^\s*B\s?1\b,"Ambulance besteld vervoer, hoogcomplexe zorgvraag",1
+^\s*B\s?2\b,"Ambulance besteld vervoer, midden- of laagcomplexe zorgvraag",1
+\b([PB])([1-5])\b,\1 \2,1
+"\b([AN])(\d{1,3})\b",\1 \2,1
+\bhmp\b\.?,hectometerpaal,1
+\bbon\b:?(?=\s*\d),bonnummer,1
+\brit\b:?(?=\s*\d),ritnummer,1
+\bicnum\b:?(?=\s*\d),incidentnummer,1
+\bass\.(?=\s|$),assistentie,1
+\bivm\b\.?,in verband met,1
+\btbv\b\.?,ten behoeve van,1
+\bevt\.?(?=\s|$),eventueel,1
+\bAED\b,A E D,1
+\bSGRAVH\b,Den Haag,1
+"(?-i:\b((?:hmp\.?|hectometerpaal)\s*\d+(?:[.,]\d+)?)\s+Li\b)",\1 rijbaan links,1
+"(?-i:\b((?:hmp\.?|hectometerpaal)\s*\d+(?:[.,]\d+)?)\s+Re\b)",\1 rijbaan rechts,1
+"(?-i:\b([AN]\s?\d{1,3})\s+Li(?=\s+(?:(?:hmp\.?|hectometerpaal)\s*)?\d+(?:[.,]\d+)?\b))",\1 rijbaan links,1
+"(?-i:\b([AN]\s?\d{1,3})\s+Re(?=\s+(?:(?:hmp\.?|hectometerpaal)\s*)?\d+(?:[.,]\d+)?\b))",\1 rijbaan rechts,1
+(?-i:\bOM\b),O M,1
