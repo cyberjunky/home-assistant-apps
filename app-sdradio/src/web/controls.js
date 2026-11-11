@@ -19,7 +19,7 @@ class Knob {
     // opts: label, size, min, max, step | values (a list to step through), value, defaultValue,
     // format(value) → readout text, onInput(value) while turning, onChange(value) when let go
     constructor(container, opts) {
-        this.opts = Object.assign({size: 64, min: 0, max: 100, step: 1}, opts);
+        this.opts = Object.assign({size: 56, min: 0, max: 100, step: 1}, opts);
         this.value = opts.value ?? this.opts.min;
         this.el = document.createElement('button');
         this.el.type = 'button';

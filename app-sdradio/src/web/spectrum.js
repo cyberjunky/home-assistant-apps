@@ -78,7 +78,7 @@ onSocket('spectrum', (frame) => {
     spec.frame = frame;
     if (activeTab !== 'radio') return;
     const wf = document.getElementById('waterfall');
-    const {w} = sizeCanvas(wf, wf.clientHeight || 280);
+    const {w} = sizeCanvas(wf, wf.clientHeight || 240);
     const view = viewWindow(frame);
     const levels = columns(frame, view, w);
     updateRange(levels);
@@ -120,7 +120,7 @@ function axisLabel(hz, step) {
 
 function drawSpectrum(levels, view) {
     const canvas = document.getElementById('spectrum');
-    const {w, h, dpr} = sizeCanvas(canvas, 150);
+    const {w, h, dpr} = sizeCanvas(canvas, 130);
     const ctx = canvas.getContext('2d');
     const s = app.state || {};
     const colours = {grid: cssVar('--grid-color'), text: cssVar('--muted-text-color'), line: cssVar('--series-1'),
@@ -227,7 +227,7 @@ function redrawSpectrum() {
     if (spec.frame && activeTab === 'radio') {
         const view = viewWindow(spec.frame);
         const canvas = document.getElementById('spectrum');
-        const {w} = sizeCanvas(canvas, 150);
+        const {w} = sizeCanvas(canvas, 130);
         drawSpectrum(columns(spec.frame, view, w), view);
     }
     drawScale();
@@ -324,7 +324,7 @@ function scaleRange() {
 function drawScale() {
     const canvas = document.getElementById('scale');
     if (!canvas || !canvas.clientWidth) return;
-    const {w, h, dpr} = sizeCanvas(canvas, 58);
+    const {w, h, dpr} = sizeCanvas(canvas, 44);
     const ctx = canvas.getContext('2d');
     const s = app.state || {};
     const {start, stop, name} = scaleRange();
@@ -340,13 +340,13 @@ function drawScale() {
         const x = Math.round(xOf(f)) + 0.5;
         const big = Math.abs(f / step - Math.round(f / step)) < 1e-6;
         ctx.strokeStyle = big ? major : minor;
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, (big ? 22 : 12) * dpr); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, (big ? 16 : 9) * dpr); ctx.stroke();
         if (big) {
             ctx.fillStyle = text;
             ctx.font = `${11 * dpr}px IBM Plex Mono, monospace`;
             const label = axisLabel(f, step);
             const lw = ctx.measureText(label).width;
-            ctx.fillText(label, Math.max(2 * dpr, Math.min(w - lw - 2 * dpr, x - lw / 2)), 36 * dpr);
+            ctx.fillText(label, Math.max(2 * dpr, Math.min(w - lw - 2 * dpr, x - lw / 2)), 29 * dpr);
         }
     }
     // Stored channels as small marks along the bottom
@@ -354,12 +354,12 @@ function drawScale() {
     app.channels.forEach(c => {
         if (c.frequency < start || c.frequency > stop) return;
         const x = xOf(c.frequency);
-        ctx.fillRect(x - 1 * dpr, h - 9 * dpr, 2 * dpr, 6 * dpr);
+        ctx.fillRect(x - 1 * dpr, h - 7 * dpr, 2 * dpr, 5 * dpr);
     });
     if (name) {
         ctx.fillStyle = major;
         ctx.font = `${10.5 * dpr}px IBM Plex Sans, sans-serif`;
-        ctx.fillText(name, pad, h - 4 * dpr);
+        ctx.fillText(name, pad, h - 3 * dpr);
     }
     // The pointer
     if (s.frequency >= start && s.frequency <= stop) {

@@ -82,7 +82,7 @@ function initRadio() {
     k.speed = new Knob(row, {label: 'Scan speed', min: 1, max: 20, step: 1, value: 10, defaultValue: 10,
         format: v => `${v} ch/s`, onChange: v => saveSetting('scan_speed', v, true)});
 
-    radio.dial = new TuneDial(document.getElementById('tune-dial'), {size: 210,
+    radio.dial = new TuneDial(document.getElementById('tune-dial'), {size: 160,
         onSteps: n => radioCommand('step_tune', {steps: n})});
 
     buildKeypad();
@@ -128,22 +128,26 @@ const KEYS = [
     ['4'], ['5'], ['6'], ['BAND', '', 'fn', () => radioCommand('band', {direction: 1})],
     ['7'], ['8'], ['9'], ['STEP', '', 'fn', () => radioCommand('cycle', {what: 'step'})],
     ['.'], ['0'], ['CLR', '', 'fn', () => cancelEntry()], ['MHz', '', 'go', () => commitEntry()],
+];
+// Under the keypad; storing and stepping through the stored channels is under their list
+const SCAN_KEYS = [
     ['SCAN', '', 'fn', () => toggleScan(), 'scan'], ['HOLD', '', 'fn', () => radioCommand('scan', {action: 'hold'}), 'hold'],
     ['PRI', '', 'fn', () => radioCommand('priority'), 'pri'], ['L/O', '', 'fn', () => radioCommand('lockout'), 'lo'],
-    ['MR', 'recall', 'fn', () => { const s = document.getElementById('chlist-search'); s.focus(); s.select(); }],
-    ['M+', 'store', 'fn', () => openStore()],
-    ['◀', 'channel', 'fn', () => radioCommand('memory', {direction: -1})], ['▶', 'channel', 'fn', () => radioCommand('memory', {direction: 1})],
 ];
 const KEY_TITLES = {
     MODE: 'Next mode', BAND: 'Next band', STEP: 'Next tuning step', CLR: 'Clear the entry', MHz: 'Tune to the frequency typed',
     SCAN: 'Start or stop scanning', HOLD: 'Stay on this channel while scanning', PRI: 'Priority: check the priority channels every few seconds',
-    'L/O': 'Lock this channel out of scans (or ignore this frequency)', MR: 'Recall: search the stored channels', 'M+': 'Store the current frequency',
+    'L/O': 'Lock this channel out of scans (or ignore this frequency)',
 };
 
 function buildKeypad() {
-    const pad = document.getElementById('keypad');
+    buildKeys(document.getElementById('keypad'), KEYS);
+    buildKeys(document.getElementById('scan-keys'), SCAN_KEYS);
+}
+
+function buildKeys(pad, keys) {
     pad.innerHTML = '';
-    KEYS.forEach(([label, small, cls, action, id]) => {
+    keys.forEach(([label, small, cls, action, id]) => {
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'key' + (cls ? ' ' + cls : '');
@@ -280,7 +284,7 @@ function renderControls() {
     k.filter.set(s.bandwidth, true);
     if (app.settings && app.settings.scan_speed) k.speed.set(app.settings.scan_speed, true);
     radio.dial.setReadout(`step ${fmtHz(s.step)}`);
-    document.querySelectorAll('#keypad [data-key]').forEach(b => {
+    document.querySelectorAll('.front [data-key]').forEach(b => {
         const key = b.dataset.key;
         const on = key === 'scan' ? s.scan : key === 'hold' ? s.scan && s.scan.hold : key === 'pri' ? s.priority
             : key === 'lo' ? (s.channel && !s.channel.scan) || s.ignored : false;
@@ -289,13 +293,14 @@ function renderControls() {
     const badge = document.getElementById('scan-badge');
     badge.hidden = !s.scan;
     if (s.scan) badge.textContent = `${s.scan.hold ? 'HOLD' : 'SCANNING'} · ${s.scan.label || (s.scan.kind === 'channels' ? 'all channels' : s.scan.kind)}`;
-    document.getElementById('store-btn').textContent = s.channel ? `Update M${chNum(s.channel.number)}` : 'Store current';
+    document.getElementById('store-btn').textContent = s.channel ? `M+ Update M${chNum(s.channel.number)}` : 'M+ Store current';
 }
 
 onSocket('state', (s) => {
     const deviceKey = JSON.stringify([s.device && s.device.ok, s.device && s.device.error]);
     if (deviceKey !== radio.lastDevice) { radio.lastDevice = deviceKey; renderChrome(); }
     if (activeTab !== 'radio') return;
+    fitWaterfall();
     renderLcd();
     renderControls();
     renderChannelList(false);
@@ -466,7 +471,23 @@ function openRangeModal() {
     ]);
 }
 
+// The waterfall fills the screen below it, so the whole radio fits without scrolling
+function fitWaterfall() {
+    const wf = document.getElementById('waterfall');
+    const pages = document.getElementById('pages');
+    if (!wf.offsetParent) return;
+    // below the waterfall: the panel's padding and the page's bottom padding
+    const left = pages.getBoundingClientRect().bottom - (wf.getBoundingClientRect().top + pages.scrollTop) - 48;
+    const height = Math.round(Math.max(110, Math.min(640, left)));
+    if (wf.style.height !== `${height}px`) {
+        wf.style.height = `${height}px`;
+        if (typeof clearWaterfall === 'function') clearWaterfall();
+    }
+}
+window.addEventListener('resize', fitWaterfall);
+
 onTab('radio', async () => {
+    requestAnimationFrame(fitWaterfall);
     renderLcd();
     renderControls();
     renderChannelList(true);

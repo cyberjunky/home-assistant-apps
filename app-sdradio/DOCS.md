@@ -57,8 +57,7 @@ frequency as a new favourite); **− ★** takes it off again.
 **Stored channels**: the list in the bottom right, for this band, all bands or the favourites,
 with search. Click one to tune to it. **Store current** saves the frequency with its mode,
 filter, step and squelch (or updates the stored channel you are on); **Edit…** opens it on the
-Channels page. On the keypad, **M+** stores, **MR** jumps to the search, and **◀ ▶** step through
-the stored channels.
+Channels page. Under the list, **M+** stores and **◀ ▶** step through the stored channels.
 
 ## Scanning
 

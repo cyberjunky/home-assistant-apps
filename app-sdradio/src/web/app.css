@@ -353,18 +353,28 @@ table.data .ent small { display: block; font-family: var(--mono); font-size: 11p
 .spacer { flex: 1; }
 .btn-small { height: 24px; padding: 0 8px; font-size: 12px; }
 
-/* Front panel: display + scale + knobs | tune dial | keypad */
+/* Front panel: display and scale, knobs below | tune dial | keypad top right, scan keys below */
 .front {
-    display: flex; flex-wrap: wrap; gap: 20px; align-items: center; padding: 18px 20px; margin-bottom: 14px;
+    display: grid; grid-template-columns: minmax(0, 1fr) 180px 260px; grid-template-areas: "lcd dial keys" "knobs dial scan";
+    gap: 10px 20px; align-items: center; padding: 14px 18px; margin-bottom: 12px;
     background: linear-gradient(var(--ha-card-background), var(--panel-bottom)); border: var(--card-border); border-radius: 10px;
     box-shadow: var(--shadow-sm);
 }
-.front-main { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
-.front-dial { flex: 1 1 230px; display: flex; flex-direction: column; align-items: center; }
-.keypad-wrap { flex: 1 1 250px; display: flex; flex-direction: column; gap: 10px; min-width: 240px; }
-
+.front-lcd { grid-area: lcd; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.front .knob-row { grid-area: knobs; }
+.front-dial { grid-area: dial; display: flex; flex-direction: column; align-items: center; }
+.front > .keypad { grid-area: keys; align-self: start; }
+.scan-keys { grid-area: scan; align-self: end; display: flex; flex-direction: column; gap: 6px; }
+.scan-keys .tabs { display: flex; }
+.scan-keys .tab { flex: 1; }
+@media (max-width: 1100px) {
+    .front { grid-template-columns: minmax(0, 1fr) 260px; grid-template-areas: "lcd lcd" "knobs knobs" "dial keys" "dial scan"; }
+}
+@media (max-width: 700px) {
+    .front { grid-template-columns: minmax(0, 1fr); grid-template-areas: "lcd" "knobs" "dial" "keys" "scan"; }
+}
 .lcd {
-    padding: 14px 18px 12px; border-radius: 6px; background: var(--lcd-bg); color: var(--lcd-fg);
+    padding: 10px 16px 8px; border-radius: 6px; background: var(--lcd-bg); color: var(--lcd-fg);
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12), inset 0 2px 8px rgba(0, 0, 0, 0.22);
     font-family: var(--mono); user-select: none;
 }
@@ -376,8 +386,8 @@ button.ind { cursor: pointer; }
 button.ind:hover { opacity: 0.7; }
 button.ind.on:hover { opacity: 1; }
 .lcd-info { font-size: 12px; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lcd-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; margin-top: 6px; }
-.lcd-freq { font-size: 66px; font-weight: 600; line-height: 1; letter-spacing: 0.01em; outline: none; cursor: ns-resize; white-space: nowrap; }
+.lcd-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-top: 4px; }
+.lcd-freq { font-size: 46px; font-weight: 600; line-height: 1; letter-spacing: 0.01em; outline: none; cursor: ns-resize; white-space: nowrap; }
 .lcd-freq .d { display: inline-block; border-radius: 3px; }
 .lcd-freq .d:hover { background: rgba(127, 127, 127, 0.18); }
 .lcd-freq .dim { opacity: 0.5; }
@@ -385,20 +395,20 @@ button.ind.on:hover { opacity: 1; }
 .lcd-freq.entry { cursor: text; }
 .lcd-freq.entry::after { content: '_'; animation: blink 1s steps(1) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
-.lcd-unit { font-size: 18px; opacity: 0.7; }
-.lcd-mode { font: 600 26px var(--mono); padding: 1px 9px; border: 2px solid currentColor; border-radius: 4px; background: none; color: inherit; cursor: pointer; }
+.lcd-unit { font-size: 15px; opacity: 0.7; }
+.lcd-mode { font: 600 19px var(--mono); padding: 0 7px; border: 2px solid currentColor; border-radius: 4px; background: none; color: inherit; cursor: pointer; }
 .lcd-bw { font-size: 12px; opacity: 0.75; }
-.lcd-bottom { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--lcd-line); }
-.lcd-name { flex: 1 1 200px; min-width: 0; font: 600 17px 'IBM Plex Sans', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lcd-bottom { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--lcd-line); }
+.lcd-name { flex: 1 1 180px; min-width: 0; font: 600 14px 'IBM Plex Sans', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lcd-name small { font: 400 12px var(--mono); opacity: 0.75; margin-left: 8px; }
-.smeter { flex: 0 1 280px; min-width: 140px; display: flex; gap: 3px; align-items: flex-end; height: 18px; }
+.smeter { flex: 0 1 220px; min-width: 120px; display: flex; gap: 2px; align-items: flex-end; height: 14px; }
 .smeter i { flex: 1; border-radius: 1px; background: currentColor; opacity: 0.15; }
 .smeter i.lit { opacity: 1; }
 .smeter i.hot { background: var(--danger-color); }
-.lcd-level { font-size: 13px; white-space: nowrap; min-width: 150px; text-align: right; }
+.lcd-level { font-size: 12px; white-space: nowrap; min-width: 150px; text-align: right; }
 
-.scale { display: block; width: 100%; height: 58px; border-radius: 6px; border: var(--card-border); background: var(--ha-background); cursor: pointer; touch-action: none; }
-.knob-row { display: flex; flex-wrap: wrap; justify-content: space-around; gap: 10px; }
+.scale { display: block; width: 100%; height: 44px; border-radius: 6px; border: var(--card-border); background: var(--ha-background); cursor: pointer; touch-action: none; }
+.knob-row { display: flex; flex-wrap: wrap; justify-content: space-around; gap: 8px; }
 
 /* Knobs */
 .knob { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; border: 0; background: none; color: var(--primary-text-color);
@@ -417,10 +427,10 @@ button.ind.on:hover { opacity: 1; }
 .knob.dial:active { cursor: grabbing; }
 
 /* Keypad */
-.keypad { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+.keypad { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .key {
-    height: 44px; padding: 0 6px; border: 1px solid var(--key-edge); border-radius: 6px; background: linear-gradient(var(--key-top), var(--key-bottom));
-    color: var(--primary-text-color); font: 600 15px var(--mono); cursor: pointer; box-shadow: 0 2px 0 var(--key-edge);
+    height: 36px; padding: 0 6px; border: 1px solid var(--key-edge); border-radius: 6px; background: linear-gradient(var(--key-top), var(--key-bottom));
+    color: var(--primary-text-color); font: 600 14px var(--mono); cursor: pointer; box-shadow: 0 2px 0 var(--key-edge);
     display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1;
 }
 .key:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--key-edge); }
@@ -428,16 +438,13 @@ button.ind.on:hover { opacity: 1; }
 .key.fn { font-size: 12px; color: var(--tag-text); }
 .key.on { border-color: var(--primary-color); background: var(--selected-bg); color: var(--tag-text); }
 .key.go { background: var(--primary-color); border-color: var(--primary-color); color: #fff; }
-.scan-source { display: flex; align-items: center; gap: 8px; }
-.scan-source .tabs { flex: 1; }
-.scan-source .tab { flex: 1; }
 .filter-label { font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--secondary-text-color); }
 
 /* Favourites */
-.favbar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 14px; background: var(--ha-card-background); border: var(--card-border); border-radius: 6px; }
+.favbar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 12px; background: var(--ha-card-background); border: var(--card-border); border-radius: 6px; }
 .favbar .section-title { margin: 0; flex-shrink: 0; }
 .fav-list { flex: 1; min-width: 0; display: flex; gap: 8px; overflow-x: auto; }
-.fav { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-start; min-width: 128px; padding: 6px 12px; border: var(--card-border);
+.fav { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-start; min-width: 120px; padding: 4px 10px; border: var(--card-border);
     border-radius: 6px; background: var(--ha-background); color: var(--primary-text-color); font: inherit; text-align: left; cursor: pointer; }
 .fav:hover { border-color: var(--primary-color); }
 .fav b { font: 600 14px var(--mono); }
@@ -458,13 +465,13 @@ button.ind.on:hover { opacity: 1; }
 .freq-axis span { position: absolute; top: 2px; transform: translateX(-50%); white-space: nowrap; }
 .freq-axis span.tuned { color: var(--accent-color); font-weight: 600; }
 
-.chlist { flex: 1 1 300px; max-width: 100%; display: flex; flex-direction: column; overflow: hidden; min-height: 300px; max-height: 520px; }
+.chlist { flex: 1 1 300px; max-width: 100%; display: flex; flex-direction: column; overflow: hidden; min-height: 260px; }
 .chlist-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 6px; }
 .chlist-head .section-title { margin: 0; }
 .range-text { font-family: var(--mono); font-size: 12px; color: var(--secondary-text-color); }
 .chlist-filters { display: flex; gap: 6px; padding: 0 12px 8px; }
 .chlist-filters .input { flex: 1; min-width: 0; }
-.chlist-items { flex: 1; overflow-y: auto; border-top: var(--card-border); }
+.chlist-items { flex: 1 1 0; min-height: 0; overflow-y: auto; border-top: var(--card-border); }
 .ch-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 12px; border: 0; border-bottom: 1px solid var(--grid-color);
     background: transparent; color: var(--primary-text-color); text-align: left; font: inherit; cursor: pointer; }
 .ch-item:hover { background: var(--hover-bg); }
@@ -520,8 +527,8 @@ pre.yaml { margin: 0; padding: 12px 14px; border: var(--card-border); border-rad
 pre.yaml .c { color: var(--muted-text-color); }
 
 @media (max-width: 700px) {
-    .lcd-freq { font-size: 44px; }
-    .lcd-mode { font-size: 20px; }
+    .lcd-freq { font-size: 36px; }
+    .lcd-mode { font-size: 16px; }
     .front { padding: 12px; }
     .settings-grid { grid-template-columns: 1fr; }
     .listen-btn span { display: none; }

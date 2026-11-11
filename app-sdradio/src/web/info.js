@@ -35,7 +35,7 @@ async function showInfo() {
         ['SCAN', 'scans what is picked under the keypad: stored channels, the band, or a range'],
         ['HOLD · L/O', 'stay on this channel · leave it out of scans'],
         ['PRI', 'look at the priority channels every few seconds'],
-        ['MR · M+ · ◀ ▶', 'search, store, previous and next stored channel'],
+        ['◀ ▶ · M+', 'under the stored channels: previous and next stored channel, store this one'],
     ];
     document.getElementById('info-keys').innerHTML = keys.map(([k, v]) => infoRow(escapeHtml(k), escapeHtml(v))).join('');
 }
