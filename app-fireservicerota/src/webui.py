@@ -19,7 +19,7 @@ from .config import DATA_DIR
 from .database import CSV_TABLES, SPEECH_CSV, Database
 from .donate import DonatePrompt
 from .ha_client import HAClientError
-from .speech import spell
+from .speech import is_default, spell
 from .timeutil import now_ts
 from .tracker import Tracker
 
@@ -314,12 +314,13 @@ class WebUI:
         )
         speech = self.tracker.speech
         for item in result["items"]:
+            item["default"] = is_default(table, item)
             if table == "abbreviations":
                 meaning = speech.meaning(item["abbreviation"])
                 # As the code is spoken in a text: a rule (e.g. AED -> A E D) comes before the meaning
                 item["spoken"] = speech.speak(item["abbreviation"]) if meaning else spell(item["abbreviation"])
                 item["certain"] = meaning is not None
-            else:
+            elif table == "tts_replacements":
                 item["enabled"] = bool(item["enabled"])
                 item["usable"] = bool((item["replacement"] or "").strip())
         return web.json_response(result)
@@ -332,20 +333,12 @@ class WebUI:
             data = await request.json()
         except ValueError:
             return web.json_response({"error": "Invalid request"}, status=400)
-        row_id = data.get("id")
+        if not isinstance(data, dict):
+            return web.json_response({"error": "Invalid request"}, status=400)
         try:
+            row_id = data.get("id")
             row_id = int(row_id) if row_id not in (None, "") else None
-            if table == "abbreviations":
-                row_id = self.db.save_abbreviation(
-                    str(data.get("abbreviation") or ""), str(data.get("full_text") or ""), row_id
-                )
-            else:
-                row_id = self.db.save_rule(
-                    str(data.get("pattern") or ""),
-                    str(data.get("replacement") or ""),
-                    bool(data.get("enabled", True)),
-                    row_id,
-                )
+            row_id = self.db.save_speech(table, data, row_id)
         except (ValueError, TypeError) as e:
             return web.json_response({"error": str(e)}, status=400)
         except sqlite3.Error as e:

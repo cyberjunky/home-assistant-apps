@@ -95,8 +95,22 @@ CREATE TABLE IF NOT EXISTS tts_replacements (
     replacement TEXT NOT NULL DEFAULT '',
     enabled INTEGER NOT NULL DEFAULT 1
 );
--- Which built-in abbreviations and rules were added once: a default you deleted or
--- changed is not added again at the next start
+-- Place-name codes in alarm texts (UTRECH -> Utrecht)
+CREATE TABLE IF NOT EXISTS city_abbreviations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    abbreviation TEXT UNIQUE NOT NULL,
+    city TEXT NOT NULL
+);
+-- Talk group codes (BRT-01): kind 'discipline' (B -> Brandweer) or 'region' (RT -> Rotterdam)
+CREATE TABLE IF NOT EXISTS talkgroup_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL,
+    code TEXT NOT NULL,
+    name TEXT NOT NULL,
+    UNIQUE (kind, code)
+);
+-- Which built-in rows were added once: a default you deleted or changed is not added
+-- again at the next start or update
 CREATE TABLE IF NOT EXISTS speech_seeded (
     kind TEXT NOT NULL,
     key TEXT NOT NULL,
@@ -107,11 +121,36 @@ CREATE TABLE IF NOT EXISTS speech_seeded (
 # Reset deletes these; the speech tables (your abbreviations and rules) are kept
 TABLES = ("incidents", "incident_updates", "responses", "duty", "meta")
 CSV_TABLES = ("incidents", "incident_updates", "responses", "duty")
-# Speech tables, exported and imported as CSV in the Meldkamer app's format
-SPEECH_CSV = {
-    "abbreviations": ("abbreviation", "full_text"),
-    "tts_replacements": ("pattern", "replacement", "enabled"),
+# The speech tables: their columns (also the CSV columns, in the Meldkamer app's format),
+# the columns that identify a row, the ones stored in capitals, and the list order
+SPEECH_TABLES = {
+    "abbreviations": {
+        "cols": ("abbreviation", "full_text"),
+        "key": ("abbreviation",),
+        "upper": ("abbreviation",),
+        "order": "abbreviation",
+    },
+    "tts_replacements": {
+        "cols": ("pattern", "replacement", "enabled"),
+        "key": ("pattern",),
+        "upper": (),
+        "order": "id",
+    },
+    "city_abbreviations": {
+        "cols": ("abbreviation", "city"),
+        "key": ("abbreviation",),
+        "upper": ("abbreviation",),
+        "order": "abbreviation",
+    },
+    "talkgroup_codes": {
+        "cols": ("kind", "code", "name"),
+        "key": ("kind", "code"),
+        "upper": ("code",),
+        "order": "kind, code",
+    },
 }
+SPEECH_CSV = {table: spec["cols"] for table, spec in SPEECH_TABLES.items()}
+TALKGROUP_KINDS = {"discipline": 1, "region": 2}
 
 
 def _json(value: Any) -> str | None:
@@ -408,138 +447,144 @@ class Database:
         cur = self.conn.execute(f"SELECT * FROM {table} ORDER BY {order}")
         return [d[0] for d in cur.description], [tuple(r) for r in cur.fetchall()]
 
-    # ---------------------------------------------- abbreviations and rules (speech)
+    # ------------------------------------- speech: abbreviations, rules, places, talk groups
 
-    def seed_speech(self, abbreviations: dict[str, str], rules: list[dict]) -> tuple[int, int]:
-        """Add the built-in abbreviations and rules that were never added before.
+    def seed_speech(self, defaults: dict[str, list[dict]]) -> dict[str, int]:
+        """Add the built-in rows ({table: [row dicts]}) that were never added before.
 
-        Each one is added once: one you changed keeps your text, one you deleted stays deleted.
-        Returns (abbreviations added, rules added).
+        Each row is added once: one you changed keeps your text, one you deleted stays
+        deleted, also after updates. Returns the number added per table.
         """
-        added_abbr = added_rules = 0
+        added: dict[str, int] = {}
         with self._lock:
             seeded = {(r["kind"], r["key"]) for r in self.conn.execute("SELECT kind, key FROM speech_seeded")}
-            for code, text in abbreviations.items():
-                code = code.upper()
-                if ("abbreviation", code) in seeded:
-                    continue
-                cur = self.conn.execute(
-                    "INSERT OR IGNORE INTO abbreviations (abbreviation, full_text) VALUES (?, ?)", (code, text)
-                )
-                added_abbr += cur.rowcount
-                self.conn.execute("INSERT OR IGNORE INTO speech_seeded (kind, key) VALUES ('abbreviation', ?)", (code,))
-            for rule in rules:
-                if ("rule", rule["pattern"]) in seeded:
-                    continue
-                cur = self.conn.execute(
-                    "INSERT OR IGNORE INTO tts_replacements (pattern, replacement) VALUES (?, ?)",
-                    (rule["pattern"], rule["replacement"]),
-                )
-                added_rules += cur.rowcount
-                self.conn.execute(
-                    "INSERT OR IGNORE INTO speech_seeded (kind, key) VALUES ('rule', ?)", (rule["pattern"],)
-                )
+            for table, rows in defaults.items():
+                spec = SPEECH_TABLES[table]
+                count = 0
+                for row in rows:
+                    values = self._clean_values(table, row)
+                    key = "\x1f".join(str(values[c]) for c in spec["key"])
+                    if (table, key) in seeded:
+                        continue
+                    cols = [c for c in spec["cols"] if c in values]
+                    cur = self.conn.execute(
+                        f"INSERT OR IGNORE INTO {table} ({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)})",
+                        [values[c] for c in cols],
+                    )
+                    count += cur.rowcount
+                    self.conn.execute("INSERT OR IGNORE INTO speech_seeded (kind, key) VALUES (?, ?)", (table, key))
+                added[table] = count
             self.conn.commit()
-        return added_abbr, added_rules
+        return added
+
+    def speech_rows(self, table: str) -> list[dict]:
+        """All rows of a speech table (rules: only the enabled ones, in the order they apply)."""
+        spec = SPEECH_TABLES[table]
+        where = " WHERE enabled = 1" if table == "tts_replacements" else ""
+        return [dict(r) for r in self.conn.execute(f"SELECT * FROM {table}{where} ORDER BY {spec['order']}")]
 
     def abbreviation_map(self) -> dict[str, str]:
-        return {
-            r["abbreviation"]: r["full_text"]
-            for r in self.conn.execute("SELECT abbreviation, full_text FROM abbreviations")
-        }
-
-    def enabled_rules(self) -> list[dict]:
-        return [
-            dict(r)
-            for r in self.conn.execute(
-                "SELECT id, pattern, replacement FROM tts_replacements WHERE enabled = 1 ORDER BY id"
-            )
-        ]
+        return {r["abbreviation"]: r["full_text"] for r in self.speech_rows("abbreviations")}
 
     def list_speech(self, table: str, search: str = "", page: int = 1, per_page: int = 50) -> dict:
-        """One page of abbreviations (by code) or rules (in the order they are applied)."""
-        if table == "abbreviations":
-            cols, order = ("abbreviation", "full_text"), "abbreviation"
-        elif table == "tts_replacements":
-            cols, order = ("pattern", "replacement"), "id"
-        else:
+        """One page of a speech table, searched in all its text columns."""
+        if table not in SPEECH_TABLES:
             raise ValueError(table)
+        spec = SPEECH_TABLES[table]
+        cols = [c for c in spec["cols"] if c != "enabled"]
         where, args = "", []
         if search:
-            where = f" WHERE {cols[0]} LIKE ? OR {cols[1]} LIKE ?"
-            args = [f"%{search}%"] * 2
+            where = " WHERE " + " OR ".join(f"{c} LIKE ?" for c in cols)
+            args = [f"%{search}%"] * len(cols)
         total = self.conn.execute(f"SELECT COUNT(*) FROM {table}{where}", args).fetchone()[0]
         rows = self.conn.execute(
-            f"SELECT * FROM {table}{where} ORDER BY {order} LIMIT ? OFFSET ?", (*args, per_page, (page - 1) * per_page)
+            f"SELECT * FROM {table}{where} ORDER BY {spec['order']} LIMIT ? OFFSET ?",
+            (*args, per_page, (page - 1) * per_page),
         ).fetchall()
         return {"items": [dict(r) for r in rows], "total": total, "page": page, "per_page": per_page}
 
-    def save_abbreviation(self, code: str, text: str, row_id: int | None = None) -> int:
-        """Add an abbreviation, or change the one with row_id. Returns its id.
+    @staticmethod
+    def _clean_values(table: str, row: dict) -> dict:
+        """A row's values, checked. Raises ValueError for anything that can't be stored."""
+        spec = SPEECH_TABLES[table]
+        values = {}
+        for col in spec["cols"]:
+            if col == "enabled":
+                raw = row.get("enabled", True)
+                if isinstance(raw, str):
+                    raw = raw.strip().lower() not in ("0", "false", "no", "nee", "off")
+                values[col] = int(bool(raw))
+                continue
+            text = str(row.get(col) or "").strip()
+            if col in spec["upper"]:
+                text = text.upper()
+            if not text:
+                if table == "tts_replacements" and col == "replacement":
+                    raise ValueError("The replacement is empty: a rule may not delete text from the spoken message")
+                raise ValueError(f"{col} is empty")
+            values[col] = text
+        if table == "tts_replacements":
+            # The pattern keeps its own spaces and case
+            values["pattern"] = str(row.get("pattern") or "")
+            try:
+                re.compile(values["pattern"])
+            except re.error as e:
+                raise ValueError(f"Invalid pattern {values['pattern']!r}: {e}") from e
+        if table == "talkgroup_codes":
+            kind = values["kind"].lower()
+            if kind not in TALKGROUP_KINDS:
+                raise ValueError("kind must be discipline or region")
+            if len(values["code"]) != TALKGROUP_KINDS[kind] or not values["code"].isalpha():
+                raise ValueError(f"A {kind} code is {TALKGROUP_KINDS[kind]} letter(s)")
+            values["kind"] = kind
+        return values
 
-        Raises ValueError for an empty code or text, or a code that another row already has.
+    def save_speech(self, table: str, row: dict, row_id: int | None = None) -> int:
+        """Add a row, or change the one with row_id. Returns its id.
+
+        Adding a row whose key (code, pattern) is already there changes that row. Raises
+        ValueError for invalid input or when a change would give a row another row's key.
         """
-        code, text = code.strip().upper(), text.strip()
-        if not code or not text:
-            raise ValueError("Both the abbreviation and its meaning are needed")
+        if table not in SPEECH_TABLES:
+            raise ValueError("Unknown table")
+        spec = SPEECH_TABLES[table]
+        values = self._clean_values(table, row)
+        cols = list(spec["cols"])
         with self._lock:
-            other = self.conn.execute("SELECT id FROM abbreviations WHERE abbreviation = ?", (code,)).fetchone()
+            match = " AND ".join(f"{c} = ?" for c in spec["key"])
+            other = self.conn.execute(
+                f"SELECT id FROM {table} WHERE {match}", [values[c] for c in spec["key"]]
+            ).fetchone()
             if other and other["id"] != row_id:
                 if row_id is not None:
-                    raise ValueError(f"{code} is already in the list")
+                    raise ValueError("Another row already has this " + " and ".join(spec["key"]))
                 row_id = other["id"]
             if row_id is None:
                 cur = self.conn.execute(
-                    "INSERT INTO abbreviations (abbreviation, full_text) VALUES (?, ?)", (code, text)
+                    f"INSERT INTO {table} ({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)})",
+                    [values[c] for c in cols],
                 )
                 row_id = cur.lastrowid
             else:
                 cur = self.conn.execute(
-                    "UPDATE abbreviations SET abbreviation = ?, full_text = ? WHERE id = ?", (code, text, row_id)
+                    f"UPDATE {table} SET {', '.join(f'{c} = ?' for c in cols)} WHERE id = ?",
+                    [*(values[c] for c in cols), row_id],
                 )
                 if not cur.rowcount:
-                    raise ValueError("Abbreviation not found")
+                    raise ValueError("Row not found")
             self.conn.commit()
         return row_id
+
+    def save_abbreviation(self, code: str, text: str, row_id: int | None = None) -> int:
+        return self.save_speech("abbreviations", {"abbreviation": code, "full_text": text}, row_id)
 
     def save_rule(self, pattern: str, replacement: str, enabled: bool = True, row_id: int | None = None) -> int:
-        """Add a replacement rule, or change the one with row_id. Returns its id.
-
-        Raises ValueError for an invalid pattern, an empty replacement (it would delete
-        text from the spoken message) or a pattern that another rule already has.
-        """
-        if not pattern:
-            raise ValueError("The pattern is empty")
-        try:
-            re.compile(pattern)
-        except re.error as e:
-            raise ValueError(f"Invalid pattern: {e}") from e
-        if not replacement.strip():
-            raise ValueError("The replacement is empty: a rule may not delete text from the spoken message")
-        with self._lock:
-            other = self.conn.execute("SELECT id FROM tts_replacements WHERE pattern = ?", (pattern,)).fetchone()
-            if other and other["id"] != row_id:
-                if row_id is not None:
-                    raise ValueError("Another rule has this pattern")
-                row_id = other["id"]
-            if row_id is None:
-                cur = self.conn.execute(
-                    "INSERT INTO tts_replacements (pattern, replacement, enabled) VALUES (?, ?, ?)",
-                    (pattern, replacement, int(enabled)),
-                )
-                row_id = cur.lastrowid
-            else:
-                cur = self.conn.execute(
-                    "UPDATE tts_replacements SET pattern = ?, replacement = ?, enabled = ? WHERE id = ?",
-                    (pattern, replacement, int(enabled), row_id),
-                )
-                if not cur.rowcount:
-                    raise ValueError("Rule not found")
-            self.conn.commit()
-        return row_id
+        return self.save_speech(
+            "tts_replacements", {"pattern": pattern, "replacement": replacement, "enabled": enabled}, row_id
+        )
 
     def delete_speech(self, table: str, row_id: int) -> bool:
-        if table not in SPEECH_CSV:
+        if table not in SPEECH_TABLES:
             raise ValueError(table)
         with self._lock:
             cur = self.conn.execute(f"DELETE FROM {table} WHERE id = ?", (row_id,))
@@ -562,63 +607,46 @@ class Database:
         return count
 
     def speech_csv(self, table: str) -> tuple[list[str], list[tuple]]:
-        if table not in SPEECH_CSV:
+        if table not in SPEECH_TABLES:
             raise ValueError(table)
-        cols = SPEECH_CSV[table]
-        order = "abbreviation" if table == "abbreviations" else "id"
-        cur = self.conn.execute(f"SELECT {', '.join(cols)} FROM {table} ORDER BY {order}")
-        return list(cols), [tuple(r) for r in cur.fetchall()]
+        spec = SPEECH_TABLES[table]
+        cur = self.conn.execute(f"SELECT {', '.join(spec['cols'])} FROM {table} ORDER BY {spec['order']}")
+        return list(spec["cols"]), [tuple(r) for r in cur.fetchall()]
 
     def import_speech_csv(self, table: str, content: str, replace: bool = False) -> dict:
         """Import a CSV export (this app's or the Meldkamer app's). Checked completely first:
-        on any problem nothing changes and ValueError says what is wrong.
+        on an invalid file or pattern nothing changes and ValueError says what is wrong.
 
-        Rules with an empty replacement (Meldkamer has some, to leave text out) are skipped:
-        here nothing may be left out of the spoken text. replace=True first empties the table.
+        Rows that can't be used are skipped and listed, e.g. rules with an empty replacement
+        (Meldkamer has some, to leave text out; here nothing may be left out of the spoken
+        text). replace=True first empties the table. Rows with a key already there are updated.
         """
-        if table not in SPEECH_CSV:
+        if table not in SPEECH_TABLES:
             raise ValueError("Unknown table")
-        required = SPEECH_CSV[table][:2]
+        spec = SPEECH_TABLES[table]
+        required = tuple(c for c in spec["cols"] if c != "enabled")
         rows = _read_csv(content, required)
         items, skipped = [], []
         for n, row in enumerate(rows, start=2):
-            first, second = (row.get(c, "") for c in required)
-            if table == "abbreviations":
-                if not first or not second:
-                    skipped.append(f"line {n}: empty abbreviation or meaning")
-                    continue
-                items.append((first.upper(), second, None))
-            else:
-                if not first:
-                    skipped.append(f"line {n}: empty pattern")
-                    continue
-                try:
-                    re.compile(first)
-                except re.error as e:
-                    raise ValueError(f"Line {n}: invalid pattern {first!r}: {e}") from e
-                if not second.strip():
-                    skipped.append(f"line {n}: {first!r} has an empty replacement (would delete text)")
-                    continue
-                enabled = (row.get("enabled") or "1").strip().lower() not in ("0", "false", "no", "nee")
-                items.append((first, second, int(enabled)))
+            try:
+                items.append(self._clean_values(table, row))
+            except ValueError as e:
+                if table == "tts_replacements" and "Invalid pattern" in str(e):
+                    raise ValueError(f"Line {n}: {e}") from e
+                skipped.append(f"line {n}: {e}")
+        cols = list(spec["cols"])
+        keys = ", ".join(spec["key"])
+        updates = ", ".join(f"{c} = excluded.{c}" for c in cols if c not in spec["key"])
+        sql = (
+            f"INSERT INTO {table} ({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)}) "
+            f"ON CONFLICT({keys}) DO UPDATE SET {updates}"
+        )
         with self._lock:
             try:
                 if replace:
                     self.conn.execute(f"DELETE FROM {table}")
-                for first, second, enabled in items:
-                    if table == "abbreviations":
-                        self.conn.execute(
-                            "INSERT INTO abbreviations (abbreviation, full_text) VALUES (?, ?) "
-                            "ON CONFLICT(abbreviation) DO UPDATE SET full_text = excluded.full_text",
-                            (first, second),
-                        )
-                    else:
-                        self.conn.execute(
-                            "INSERT INTO tts_replacements (pattern, replacement, enabled) VALUES (?, ?, ?) "
-                            "ON CONFLICT(pattern) DO UPDATE SET replacement = excluded.replacement, "
-                            "enabled = excluded.enabled",
-                            (first, second, enabled),
-                        )
+                for values in items:
+                    self.conn.execute(sql, [values[c] for c in cols])
                 self.conn.commit()
             except sqlite3.Error:
                 self.conn.rollback()
@@ -626,10 +654,7 @@ class Database:
         return {"imported": len(items), "skipped": skipped}
 
     def speech_counts(self) -> dict:
-        return {
-            "abbreviations": self.conn.execute("SELECT COUNT(*) FROM abbreviations").fetchone()[0],
-            "tts_replacements": self.conn.execute("SELECT COUNT(*) FROM tts_replacements").fetchone()[0],
-        }
+        return {t: self.conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in SPEECH_TABLES}
 
     # -------------------------------------------------------- backup and reset
 

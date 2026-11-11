@@ -177,9 +177,9 @@ Because you act on what you hear, three rules hold:
 
 - **Nothing is left out.** Every word, code and number of the alarm text is spoken, as
   itself or as its meaning. A replacement rule can't be empty.
-- **Nothing is guessed.** A code is only spoken as words when its meaning is certain;
-  otherwise it is spelled out letter by letter: `BRT-01` → "B R T 0 1". The same for codes
-  that aren't in any list.
+- **Nothing is guessed.** A code is only spoken as words when its meaning is known;
+  otherwise it is spelled out letter by letter (`XQZ` → "X Q Z"). The built-in meanings
+  come from published sources (listed below).
 - **Numbers are exact.** `hmp 67.4` → "hectometerpaal 67 komma 4"; reference numbers and
   numbers starting with 0 digit by digit (`bon 123456` → "bonnummer 1 2 3 4 5 6");
   postal codes as digits and letters (`3511 AX` → "3 5 1 1 A X"); times as a Dutch time
@@ -187,41 +187,60 @@ Because you act on what you hear, three rules hold:
 
 How a text is made, in this order:
 
-1. **Replacement rules** (Data tab, applied top to bottom, not case-sensitive): the
-   priority at the start (`P 1` → "Prio 1", `A1` → "Ambulance met spoed"), road numbers
-   (`A2` → "A 2", `N209` → "N 209"), `hmp`, `bon`/`rit`/`icnum` numbers, and Dutch
-   shortenings (`ivm`, `tbv`, `evt.`, `ass.`). A pattern is a Python regular expression;
-   `\1` in the replacement is its first group.
+1. **Replacement rules**, applied top to bottom, not case-sensitive: the priority or
+   urgency at the start (`P 1` → "Prio 1", `A1` → "Ambulance met spoed", `B1` →
+   "Ambulance besteld vervoer, hoogcomplexe zorgvraag"); elsewhere in the text `P1` or `B2`
+   is spoken as a letter and a number (it can be a car park), and `A2` or `N209` is a road
+   ("A 2", "N 209"). Also `hmp`, `bon`/`rit`/`icnum` numbers and Dutch shortenings (`ivm`,
+   `tbv`, `evt.`, `ass.`). A pattern is a Python regular expression; `\1` in the
+   replacement is its first group.
 2. **Shortenings with dots, times, postal codes and decimal numbers.** A shortening with
-   dots is looked up in the abbreviation list with its dots (`t.h.v.` → "ter hoogte van",
-   also `i.v.m.`, `z.s.m.`, `n.a.v.`, `o.a.`, `i.p.v.`, `m.b.t.` and more, which the app
-   adds to the list). One in capitals (`O.V.D.`) is also looked up without dots; a
-   lowercase one is not, because `t.h.v.` is not the code `THV` (Technische
-   Hulpverlening). Unknown ones are spelled out.
-3. **Each word**: a code in the **abbreviation list** is spoken as its meaning (`TS` →
-   "Tankautospuit", `OMS` → "Openbaar Meldsysteem", `OVD-B` → "Officier van Dienst
-   Brandweer"; text in brackets in a meaning is not spoken). A place-name code is spoken as
-   the place (`UTRECH` → "Utrecht"). A code with a number is the code and the number
-   (`DP4` → "Dienstpost 4"). Unknown codes are spelled out, long numbers digit by digit,
-   and a word in capitals is read as a word.
+   dots is looked up in the abbreviations with its dots (`t.h.v.` → "ter hoogte van", also
+   `i.v.m.`, `z.s.m.`, `n.a.v.`, `o.a.`, `i.p.v.`, `m.b.t.` and more). One in capitals
+   (`O.V.D.`) is also looked up without dots; a lowercase one is not, because `t.h.v.` is
+   not the code `THV` (Technische Hulpverlening).
+3. **Each word**:
+   - a code in the **abbreviations** is spoken as its meaning (`TS` → "Tankautospuit",
+     `OMS` → "Openbaar Meldsysteem", `OVD-B` → "Officier van Dienst Brandweer"). Text in
+     brackets in a meaning is not spoken. A meaning with `/` is two meanings and is
+     spelled out until you choose one;
+   - a **talk group** (`BRT-01`) is spoken from its letters and number: "gespreksgroep
+     Brandweer Rotterdam 0 1". The first letter is the discipline, the next two the
+     meldkamer or region, and the number the talk group's quick-dial number. A code with
+     letters that aren't in the list is spelled out;
+   - a **place-name code** is spoken as the place (`UTRECH` → "Utrecht");
+   - a code with a number is the code and the number (`DP4` → "Dienstpost 4");
+   - unknown codes are spelled out, long numbers digit by digit, and a word in capitals
+     is read as a word. Short Dutch words in capitals (`VAN`, `DE`) are in the
+     abbreviations as themselves, so a text in capitals doesn't get them spelled out.
 
-**Codes that are spelled out until you say what they mean**: the regional talk groups
-(`BRT`, `BDH`, `BAD`, `BMD`, `BNH`, `BNN`, `BOB`, `BON`, `BLB`, `BZB`, also with a number
-like `BRT-01`), `HV` (vehicle or incident class), priority codes in the middle of a text
-(`A1`, `A2`, `B1`, `B2`, `P1`-`P3`) and codes the list gives two meanings (such as `AC`).
-Change such a code's meaning on the Data tab, or add the full code (`BRT-01`), and it is
-spoken your way.
+**All of it is yours to change.** The abbreviations, rules, talk group letters and place
+names are tables in the app's database, on the Data tab: view, search, add, change and
+delete rows, and export or import each table as CSV. The built-in rows are added once,
+at the first start, and are marked *default*. A row you change keeps your text and a
+default you delete stays deleted, also after updates. Changes apply right away. *Say it*
+tests a text: it shows the spoken text with each change and plays it with your
+browser's voice. *Import list* adds the public P2000 abbreviation list (the same as the
+Meldkamer app) again; it sets the listed meaning again for codes in that list.
+*Reset database* doesn't touch these tables; *Download backup* and *Restore from backup*
+include them. The CSV files of abbreviations (`abbreviation,full_text`) and rules
+(`pattern,replacement,enabled`) fit the Meldkamer app; rules with an empty replacement are
+skipped at import.
 
-**On the Data tab** you can test a text (*Say it* shows the spoken text with each change
-and plays it with your browser's voice), and view, search, add, change and delete
-abbreviations and rules. *Import list* adds the public P2000 abbreviation list (the same
-as the Meldkamer app); it sets the listed meaning again for codes in that list. Both
-tables export and import as CSV in the Meldkamer app's format (`abbreviation,full_text`
-and `pattern,replacement,enabled`); rules with an empty replacement are skipped at import.
+**Sources of the built-in meanings**:
 
-The list and the rules are added to the database at the first start. Your changes are
-kept at updates, and a default you delete stays deleted. *Reset database* doesn't touch
-them.
+- Talk groups: Brandweer Nederland / NIPV, [Nota van toelichting Standaard Presentatietekst
+  Gespreksgroep in GMS pagertekst](https://nipv.nl/documenten/nota-van-toelichting-standaard-presentatietekst-gespreksgroep-in-gms-pagertekst)
+  (25 January 2019): disciplines B Brandweer, A Ambulancezorg, P Politie, M Koninklijke
+  Marechaussee, D Defensiediensten, S Multidisciplinaire samenwerking, and the region and
+  meldkamer codes (RT Rotterdam, DH Den Haag, AD Amsterdam, MD Midden-Nederland, ...).
+- Priority and urgency: [P2000 (netwerk) on Wikipedia](https://nl.wikipedia.org/wiki/P2000_(netwerk)),
+  [112hier.nl](https://112hier.nl/uitleg), [persmonitor.nl](https://persmonitor.nl/blog/p2000-afkortingen-en-codes).
+- Abbreviations: the public P2000 list ([p2000.bommel.net](https://p2000.bommel.net/afkortingen.php)),
+  and for codes it gives two meanings (AC, BOT, CCK, MOB, SPB, GM) the brigade list of
+  [Brandweer Uitgeest](https://brandweeruitgeest.nl/betekenis-p2000-meldingen/). PM, MCU,
+  VCK have no source for one meaning yet and are spelled out.
+- Place names: the same list as the Meldkamer app.
 
 ## Works alongside your own automations
 

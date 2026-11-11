@@ -6,7 +6,7 @@ import sqlite3
 import pytest
 
 from src.database import Database
-from src.speech import DEFAULT_TTS_REPLACEMENTS, Speech
+from src.speech import DEFAULT_TTS_REPLACEMENTS, DEFAULTS, Speech
 from tools.mock_ha import KINDS, STREETS
 
 
@@ -24,11 +24,15 @@ def speech(db):
 
 # (alarm text, incident prio, spoken text)
 EXAMPLES = [
-    ("P 1 BRT-01 Brand woning Biltstraat 45 Utrecht", "p1", "Prio 1 B R T 0 1 Brand woning Biltstraat 45 Utrecht"),
+    (
+        "P 1 BRT-01 Brand woning Biltstraat 45 Utrecht",
+        "p1",
+        "Prio 1 gespreksgroep Brandweer Rotterdam 0 1 Brand woning Biltstraat 45 Utrecht",
+    ),
     (
         "P 2 BRT-02 Automatische brandmelding Kanaalweg 12 Utrecht",
         "p2",
-        "Prio 2 B R T 0 2 Automatische brandmelding Kanaalweg 12 Utrecht",
+        "Prio 2 gespreksgroep Brandweer Rotterdam 0 2 Automatische brandmelding Kanaalweg 12 Utrecht",
     ),
     (
         "P 1 Hulpverlening ongeval wegvervoer Rijksweg A2 hmp 67.4 Utrecht",
@@ -44,7 +48,7 @@ EXAMPLES = [
     (
         "P 1 BDH-03 BR woning Laan van Meerdervoort 12 SGRAVH 159331",
         None,
-        "Prio 1 B D H 0 3 Brand woning Laan van Meerdervoort 12 Den Haag 1 5 9 3 3 1",
+        "Prio 1 gespreksgroep Brandweer Den Haag 0 3 Brand woning Laan van Meerdervoort 12 Den Haag 1 5 9 3 3 1",
     ),
     (
         "P 2 TS VKO N209 OVD-B 3511 AX Utrecht DP4 (DIA: ja) rit: 12345",
@@ -59,8 +63,29 @@ EXAMPLES = [
         "p2",
         "Prio 2. assistentie ambulance in verband met reanimatie eventueel A E D",
     ),
-    # A code in the list with two meanings ("AC"), HV (vehicle or incident class) and an unknown code
-    ("P 2 HV AC XQZ Stationsplein 1", None, "Prio 2 H V A C X Q Z Stationsplein 1"),
+    # Two-meaning codes with a sourced default (AC, MOB), ones without (PM, MCU, VCK), an unknown code
+    (
+        "P 2 HV AC MOB PM MCU VCK XQZ Stationsplein 1",
+        None,
+        "Prio 2 Hulpverleningsvoertuig Alarmcentrale Medische Ondersteuning Brandweer P M M C U V C K X Q Z "
+        "Stationsplein 1",
+    ),
+    # Urgency codes at the start; mid-text P1/B2 is a letter and a number (a car park, an entrance)
+    (
+        "B1 Rit 12345 Ziekenhuis",
+        None,
+        "Ambulance besteld vervoer, hoogcomplexe zorgvraag ritnummer 1 2 3 4 5 Ziekenhuis",
+    ),
+    ("B2 Thuis", None, "Ambulance besteld vervoer, midden- of laagcomplexe zorgvraag Thuis"),
+    ("Parkeerterrein P1 en B2 ingang", None, "Parkeerterrein P 1 en B 2 ingang"),
+    # Talk groups (NIPV note): discipline + region + quick-dial number; unknown region spelled
+    ("BRT-01", None, "gespreksgroep Brandweer Rotterdam 0 1"),
+    ("BAD-04", None, "gespreksgroep Brandweer Amsterdam 0 4"),
+    ("BUT-13", None, "gespreksgroep Brandweer Utrecht 1 3"),
+    ("SNH-1525", None, "gespreksgroep Multidisciplinaire samenwerking Noord-Holland 1 5 2 5"),
+    ("BGV-417", None, "gespreksgroep Brandweer Gooi en Vechtstreek 4 1 7"),
+    ("BNH-914", None, "gespreksgroep Brandweer Noord-Holland 9 1 4"),
+    ("BXX-01", None, "B X X 0 1"),
     # Times: never digits with a stray colon
     (
         "Test proefalarm 00:00 GRIP 1",
@@ -72,7 +97,11 @@ EXAMPLES = [
         None,
         "Melding om 7 uur 45 en 23 uur 59 en 30 seconden, aanvang 14 uur 5",
     ),
-    ("P 1 BDH-03 Brand St.Jansstraat 3 om 08:05", None, "Prio 1 B D H 0 3 Brand St.Jansstraat 3 om 8 uur 5"),
+    (
+        "P 1 BDH-03 Brand St.Jansstraat 3 om 08:05",
+        None,
+        "Prio 1 gespreksgroep Brandweer Den Haag 0 3 Brand St.Jansstraat 3 om 8 uur 5",
+    ),
     # Shortenings with dots
     (
         "P 1 Brand t.h.v. Rijksweg A2 hmp 45,2 i.v.m. rook z.s.m. ter plaatse",
@@ -146,21 +175,52 @@ def test_an_empty_rule_is_not_used(db, speech):
 
 
 def test_a_meaning_you_give_is_spoken(db, speech):
-    assert speech.speak("P 1 BRT-01 Brand") == "Prio 1 B R T 0 1 Brand"
+    assert speech.speak("P 1 BRT-01 Brand") == "Prio 1 gespreksgroep Brandweer Rotterdam 0 1 Brand"
+    # A whole code of your own comes before the talk group decoding
     db.save_abbreviation("BRT-01", "Brandweer Rotterdam-Rijnmond kanaal 1")
     speech.reload()
     assert speech.speak("P 1 BRT-01 Brand") == "Prio 1 Brandweer Rotterdam-Rijnmond kanaal 1 Brand"
-    # Changing the listed meaning of an uncertain code makes it certain
-    row = db.conn.execute("SELECT id FROM abbreviations WHERE abbreviation = 'HV'").fetchone()
-    db.save_abbreviation("HV", "hulpverlening", row["id"])
+    # A code with two meanings is spelled until it has one
+    assert speech.speak("MCU") == "M C U"
+    row = db.conn.execute("SELECT id FROM abbreviations WHERE abbreviation = 'MCU'").fetchone()
+    db.save_abbreviation("MCU", "Mobiele Commando Unit", row["id"])
     speech.reload()
-    assert speech.speak("P 2 HV Kat in boom") == "Prio 2 hulpverlening Kat in boom"
+    assert speech.speak("MCU") == "Mobiele Commando Unit"
+
+
+def test_talkgroup_and_place_tables_are_used_without_restart(db, speech):
+    row = db.conn.execute("SELECT id FROM talkgroup_codes WHERE kind = 'region' AND code = 'RT'").fetchone()
+    db.save_speech("talkgroup_codes", {"kind": "region", "code": "RT", "name": "Rotterdam-Rijnmond"}, row["id"])
+    db.save_speech("talkgroup_codes", {"kind": "region", "code": "XX", "name": "Testregio"})
+    db.save_speech("city_abbreviations", {"abbreviation": "ztest", "city": "Zandtest"})
+    row = db.conn.execute("SELECT id FROM city_abbreviations WHERE abbreviation = 'UTRECH'").fetchone()
+    db.delete_speech("city_abbreviations", row["id"])
+    speech.reload()
+    assert speech.speak("BRT-01 BXX-2 ZTEST UTRECH") == (
+        "gespreksgroep Brandweer Rotterdam-Rijnmond 0 1 gespreksgroep Brandweer Testregio 2 Zandtest utrech"
+    )
+    with pytest.raises(ValueError):
+        db.save_speech("talkgroup_codes", {"kind": "region", "code": "ABC", "name": "x"})
+    with pytest.raises(ValueError):
+        db.save_speech("talkgroup_codes", {"kind": "team", "code": "A", "name": "x"})
+
+
+def test_defaults_are_marked(db, speech):
+    from src.speech import is_default
+
+    rows = db.list_speech("talkgroup_codes", search="Rotterdam")["items"]
+    assert rows and all(is_default("talkgroup_codes", r) for r in rows)
+    row = db.conn.execute("SELECT * FROM abbreviations WHERE abbreviation = 'TS'").fetchone()
+    assert is_default("abbreviations", dict(row))
+    db.save_abbreviation("TS", "Tankautospuit van de post", row["id"])
+    row = db.conn.execute("SELECT * FROM abbreviations WHERE abbreviation = 'TS'").fetchone()
+    assert not is_default("abbreviations", dict(row))
 
 
 def test_explain_lists_the_changes(speech):
-    steps = speech.explain("P 1 BRT-01 hmp 67.4", None)["steps"]
+    steps = speech.explain("P 1 BRT-01 hmp 67.4 BXX-01", None)["steps"]
     kinds = {s["kind"] for s in steps}
-    assert {"rule", "code", "number"} <= kinds
+    assert {"rule", "talkgroup", "code", "number"} <= kinds
 
 
 # ------------------------------------------------------------------ database
@@ -204,8 +264,52 @@ def test_an_older_database_keeps_its_data(tmp_path):
     counts = db.speech_counts()
     assert counts["abbreviations"] > 300
     assert counts["tts_replacements"] == len(DEFAULT_TTS_REPLACEMENTS)
-    assert speech.speak(incident["body"], incident["prio"]) == "Prio 1 B R T 0 1 Brand woning"
+    assert counts["city_abbreviations"] > 2000
+    assert counts["talkgroup_codes"] == len(DEFAULTS["talkgroup_codes"])
+    assert (
+        speech.speak(incident["body"], incident["prio"]) == "Prio 1 gespreksgroep Brandweer Rotterdam 0 1 Brand woning"
+    )
     db.close()
+
+
+def test_seeded_once(db, speech):
+    before = db.speech_counts()
+    assert Speech(db) and db.speech_counts() == before
+    assert db.seed_speech(DEFAULTS) == dict.fromkeys(DEFAULTS, 0)
+
+
+def test_backup_and_restore_bring_back_your_edits(tmp_path, db, speech):
+    row = db.conn.execute("SELECT id FROM talkgroup_codes WHERE kind = 'region' AND code = 'RT'").fetchone()["id"]
+    db.save_speech("talkgroup_codes", {"kind": "region", "code": "RT", "name": "Rotterdam-Rijnmond"}, row)
+    db.save_speech("city_abbreviations", {"abbreviation": "ZTEST", "city": "Zandtest"})
+    db.save_abbreviation("XQZ", "eigen code")
+    backup = str(tmp_path / "backup.db")
+    db.backup_to(backup)
+
+    db.save_speech("talkgroup_codes", {"kind": "region", "code": "RT", "name": "iets anders"}, row)
+    db.delete_speech(
+        "abbreviations", db.conn.execute("SELECT id FROM abbreviations WHERE abbreviation = 'XQZ'").fetchone()[0]
+    )
+    assert Database.check_backup(backup) is None
+    db.replace_with(backup)
+    speech.seed()
+    assert speech.speak("BRT-01 ZTEST XQZ") == "gespreksgroep Brandweer Rotterdam-Rijnmond 0 1 Zandtest eigen code"
+
+
+def test_restoring_a_backup_from_before_the_speech_tables_seeds_them(tmp_path, db, speech):
+    old = str(tmp_path / "old.db")
+    conn = sqlite3.connect(old)
+    conn.executescript(OLD_SCHEMA)
+    conn.commit()
+    conn.close()
+    assert Database.check_backup(old) is None
+    db.replace_with(old)
+    speech.seed()
+    assert db.get_incident("42")["body"] == "P 1 BRT-01 Brand woning"
+    assert db.speech_counts()["talkgroup_codes"] == len(DEFAULTS["talkgroup_codes"])
+    assert speech.speak("P 1 BRT-01 t.h.v. UTRECH") == (
+        "Prio 1 gespreksgroep Brandweer Rotterdam 0 1 ter hoogte van Utrecht"
+    )
 
 
 def test_your_changes_survive_a_restart(tmp_path):
@@ -256,6 +360,21 @@ def test_csv_roundtrip_and_meldkamer_format(db, speech):
         db.import_speech_csv("abbreviations", "code,text\nA,B\n")
     with pytest.raises(ValueError):
         db.import_speech_csv("tts_replacements", "pattern,replacement\n([,x\n")
+
+
+@pytest.mark.parametrize("table", ["abbreviations", "tts_replacements", "city_abbreviations", "talkgroup_codes"])
+def test_every_speech_table_exports_and_imports(tmp_path, db, speech, table):
+    import csv
+    import io
+
+    cols, rows = db.speech_csv(table)
+    out = io.StringIO()
+    csv.writer(out).writerows([cols, *rows])
+    other = Database(str(tmp_path / "other.db"))
+    result = other.import_speech_csv(table, out.getvalue(), replace=True)
+    assert result["skipped"] == []
+    assert other.speech_csv(table) == (cols, rows)
+    other.close()
 
 
 def test_import_list_restores_a_meaning(db, speech):

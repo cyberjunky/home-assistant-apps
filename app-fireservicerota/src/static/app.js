@@ -1365,7 +1365,8 @@ function renderStats(s) {
 // =====================================================================
 function dbLoadInfo() {
     fetch(basePath + 'api/db/info').then(r => r.json()).then(info => {
-        ['incidents', 'incident_updates', 'responses', 'duty', 'abbreviations', 'tts_replacements'].forEach(t => setText('db-count-' + t, info[t]));
+        ['incidents', 'incident_updates', 'responses', 'duty', 'abbreviations', 'tts_replacements', 'talkgroup_codes', 'city_abbreviations']
+            .forEach(t => setText('db-count-' + t, info[t]));
     }).catch(() => {});
 }
 function dbExport(table) { window.location.href = `${basePath}api/db/export/${table}.csv`; }
@@ -1437,7 +1438,8 @@ function dbResetDatabase() {
 // =====================================================================
 const SPEECH_KIND = {
     rule: 'rule', priority: 'priority', postcode: 'postal code', number: 'number', abbreviation: 'abbreviation',
-    place: 'place', word: 'word', code: 'code', spelled: 'unknown, spelled', uncertain: 'meaning not certain, spelled',
+    place: 'place', word: 'word', code: 'code', spelled: 'unknown, spelled', uncertain: 'two meanings, spelled',
+    talkgroup: 'talk group', time: 'time',
 };
 function postJSON(url, body) {
     return fetch(basePath + url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)})
@@ -1459,6 +1461,53 @@ function speechTest() {
     }).catch(e => toast(e.message, 'error'));
 }
 
+// The speech tables on the Data tab: their columns, form fields and how a row is shown
+const DEFAULT_TAG = (it) => it.default ? ' <span class="tag-default" title="Built-in default; change it and your text is kept at updates">default</span>' : '';
+const SPEECH_TABLES = {
+    abbreviations: {
+        title: 'Abbreviations', item: 'abbreviation', key: 'abbreviation', csv: 'abbreviation, full_text',
+        head: '<tr><th>Code</th><th>Meaning</th><th>Spoken as</th><th></th></tr>',
+        row: (it) => `<td class="mono">${escapeHtml(it.abbreviation)}${DEFAULT_TAG(it)}</td><td>${escapeHtml(it.full_text)}</td>
+            <td>${escapeHtml(it.spoken)}${it.certain ? '' : '<br><span class="note-uncertain">spelled: two meanings (/), give it one</span>'}</td>`,
+        fields: [
+            ['Code', 'abbreviation', 'As in the alarm text, e.g. TS, OVD-B or t.h.v. (stored in capitals).'],
+            ['Meaning', 'full_text', 'Spoken instead of the code. Text in brackets is not spoken; a meaning with / (two meanings) is spelled out.'],
+        ],
+    },
+    tts_replacements: {
+        title: 'Replacement rules', item: 'replacement rule', key: 'pattern', csv: 'pattern, replacement, enabled',
+        head: '<tr><th>#</th><th>Pattern</th><th>Replacement</th><th>On</th><th></th></tr>',
+        rowClass: (it) => it.enabled && it.usable ? '' : 'off',
+        row: (it) => `<td class="mono">${it.id}${DEFAULT_TAG(it)}</td><td class="mono">${escapeHtml(it.pattern)}</td>
+            <td class="mono">${it.usable ? escapeHtml(it.replacement) : '<span class="note-uncertain">empty: not used (would delete text)</span>'}</td>
+            <td>${it.enabled ? 'on' : 'off'}</td>`,
+        fields: [
+            ['Pattern', 'pattern', 'A regular expression, case-insensitive, e.g. <code>\\bhmp\\b</code>.'],
+            ['Replacement', 'replacement', 'Not empty. <code>\\1</code> is the first group of the pattern.'],
+        ],
+        check: 'enabled',
+    },
+    talkgroup_codes: {
+        title: 'Talk groups', item: 'talk group code', key: 'code', csv: 'kind, code, name',
+        head: '<tr><th>Kind</th><th>Code</th><th>Name</th><th></th></tr>',
+        row: (it) => `<td>${escapeHtml(it.kind)}</td><td class="mono">${escapeHtml(it.code)}${DEFAULT_TAG(it)}</td><td>${escapeHtml(it.name)}</td>`,
+        fields: [
+            ['Kind', 'kind', '<code>discipline</code> (1 letter, the first of the code) or <code>region</code> (2 letters, the second and third).'],
+            ['Code', 'code', 'E.g. B, or RT as in BRT-01.'],
+            ['Name', 'name', 'Spoken in "gespreksgroep Brandweer Rotterdam 0 1".'],
+        ],
+    },
+    city_abbreviations: {
+        title: 'Place names', item: 'place-name code', key: 'abbreviation', csv: 'abbreviation, city',
+        head: '<tr><th>Code</th><th>Place</th><th></th></tr>',
+        row: (it) => `<td class="mono">${escapeHtml(it.abbreviation)}${DEFAULT_TAG(it)}</td><td>${escapeHtml(it.city)}</td>`,
+        fields: [
+            ['Code', 'abbreviation', 'As in the alarm text, e.g. UTRECH (stored in capitals).'],
+            ['Place', 'city', 'Spoken instead of the code.'],
+        ],
+    },
+};
+
 const speechState = {table: null, page: 1, search: '', items: [], total: 0, perPage: 50};
 let speechSearchTimer = null;
 function speechOpen(table) {
@@ -1466,10 +1515,8 @@ function speechOpen(table) {
     speechState.page = 1;
     speechState.search = '';
     document.getElementById('speech-search').value = '';
-    document.getElementById('speech-title').textContent = table === 'abbreviations' ? 'Abbreviations' : 'Replacement rules';
-    document.getElementById('speech-head').innerHTML = table === 'abbreviations'
-        ? '<tr><th>Code</th><th>Meaning</th><th>Spoken as</th><th></th></tr>'
-        : '<tr><th>#</th><th>Pattern</th><th>Replacement</th><th>On</th><th></th></tr>';
+    document.getElementById('speech-title').textContent = SPEECH_TABLES[table].title;
+    document.getElementById('speech-head').innerHTML = SPEECH_TABLES[table].head;
     document.getElementById('speech-manager').hidden = false;
     speechLoad();
     document.getElementById('speech-manager').scrollIntoView({behavior: 'smooth', block: 'nearest'});
@@ -1487,6 +1534,7 @@ function speechPage(step) {
 function speechLoad() {
     const s = speechState;
     if (!s.table) return;
+    const spec = SPEECH_TABLES[s.table];
     const q = new URLSearchParams({page: s.page, per_page: s.perPage, search: s.search});
     fetch(`${basePath}api/speech/${s.table}?${q}`).then(r => r.json()).then(result => {
         s.items = result.items || [];
@@ -1497,39 +1545,31 @@ function speechLoad() {
         document.getElementById('speech-prev').disabled = s.page <= 1;
         document.getElementById('speech-next').disabled = s.page >= pages;
         const actions = (idx) => `<td class="actions"><button class="row-del" onclick="speechEdit(${idx})" title="Edit">✎</button><button class="row-del" onclick="speechDelete(${idx})" title="Delete">✕</button></td>`;
-        document.getElementById('speech-rows').innerHTML = s.items.length ? s.items.map((it, idx) => s.table === 'abbreviations'
-            ? `<tr><td class="mono">${escapeHtml(it.abbreviation)}</td><td>${escapeHtml(it.full_text)}</td>
-                <td>${escapeHtml(it.spoken)}${it.certain ? '' : '<br><span class="note-uncertain">spelled: meaning not certain here</span>'}</td>${actions(idx)}</tr>`
-            : `<tr class="${it.enabled && it.usable ? '' : 'off'}"><td class="mono">${it.id}</td><td class="mono">${escapeHtml(it.pattern)}</td>
-                <td class="mono">${it.usable ? escapeHtml(it.replacement) : '<span class="note-uncertain">empty: not used (would delete text)</span>'}</td>
-                <td>${it.enabled ? 'on' : 'off'}</td>${actions(idx)}</tr>`).join('')
+        document.getElementById('speech-rows').innerHTML = s.items.length
+            ? s.items.map((it, idx) => `<tr class="${spec.rowClass ? spec.rowClass(it) : ''}">${spec.row(it)}${actions(idx)}</tr>`).join('')
             : `<tr><td colspan="5" class="panel-sub">${s.search ? 'Nothing found.' : 'Empty.'}</td></tr>`;
     }).catch(() => toast('Loading failed', 'error'));
 }
 
 function speechEdit(idx) {
     const table = speechState.table;
+    const spec = SPEECH_TABLES[table];
     const it = idx === null ? null : speechState.items[idx];
-    const abbr = table === 'abbreviations';
-    const field = (label, name, value, hint) => `
+    const field = ([label, name, hint]) => `
         <div class="form-field"><label>${escapeHtml(label)}</label>
-            <input type="text" class="input" data-field="${name}" value="${escapeHtml(value || '')}" style="font-family: var(--mono);">
+            <input type="text" class="input" data-field="${name}" value="${escapeHtml((it && it[name]) || '')}" style="font-family: var(--mono);">
             ${hint ? `<div class="panel-sub" style="margin-top: 4px;">${hint}</div>` : ''}</div>`;
     const overlay = openModal({
-        title: (it ? 'Edit ' : 'Add ') + (abbr ? 'abbreviation' : 'replacement rule'),
-        bodyHTML: abbr
-            ? field('Code', 'abbreviation', it && it.abbreviation, 'As in the alarm text, e.g. TS or OVD-B (stored in capitals).')
-              + field('Meaning', 'full_text', it && it.full_text, 'Spoken instead of the code. Text in brackets is not spoken.')
-            : field('Pattern', 'pattern', it && it.pattern, 'A regular expression, case-insensitive, e.g. <code>\\bhmp\\b</code>.')
-              + field('Replacement', 'replacement', it && it.replacement, 'Not empty. <code>\\1</code> is the first group of the pattern.')
-              + `<label class="form-check"><input type="checkbox" data-field="enabled" ${!it || it.enabled ? 'checked' : ''}> On</label>`,
+        title: (it ? 'Edit ' : 'Add ') + spec.item,
+        bodyHTML: spec.fields.map(field).join('')
+            + (spec.check ? `<label class="form-check"><input type="checkbox" data-field="${spec.check}" ${!it || it[spec.check] ? 'checked' : ''}> On</label>` : '')
+            + (it && it.default ? '<div class="panel-sub">A built-in default. Your change is kept at restarts and updates.</div>' : ''),
         footHTML: '<button class="btn" data-close>Cancel</button><button class="btn btn-primary" data-save>Save</button>'
     });
-    const value = (name) => overlay.querySelector(`[data-field="${name}"]`);
     overlay.querySelector('[data-save]').addEventListener('click', () => {
-        const body = abbr
-            ? {abbreviation: value('abbreviation').value, full_text: value('full_text').value}
-            : {pattern: value('pattern').value, replacement: value('replacement').value, enabled: value('enabled').checked};
+        const body = {};
+        spec.fields.forEach(([, name]) => { body[name] = overlay.querySelector(`[data-field="${name}"]`).value; });
+        if (spec.check) body[spec.check] = overlay.querySelector(`[data-field="${spec.check}"]`).checked;
         if (it) body.id = it.id;
         postJSON(`api/speech/${table}`, body).then(() => {
             closeModal();
@@ -1545,8 +1585,9 @@ function speechDelete(idx) {
     const table = speechState.table;
     const it = speechState.items[idx];
     if (!it) return;
-    const name = table === 'abbreviations' ? it.abbreviation : it.pattern;
-    confirmDialog({title: 'Delete', message: `Delete <code>${escapeHtml(name)}</code>? It is then spoken as it is written (a code spelled out).`, confirmLabel: 'Delete', danger: true}).then(ok => {
+    const name = it[SPEECH_TABLES[table].key];
+    const note = it.default ? ' It is a built-in default: it stays deleted, also after updates.' : '';
+    confirmDialog({title: 'Delete', message: `Delete <code>${escapeHtml(name)}</code>? A code is then spelled out.${note}`, confirmLabel: 'Delete', danger: true}).then(ok => {
         if (!ok) return;
         fetch(`${basePath}api/speech/${table}/${it.id}`, {method: 'DELETE'}).then(r => r.json()).then(result => {
             if (result.error) { toast(result.error, 'error'); return; }
@@ -1572,11 +1613,11 @@ function speechImportList() {
 }
 
 function speechImportCsv(table) {
-    const cols = table === 'abbreviations' ? 'abbreviation, full_text' : 'pattern, replacement, enabled';
+    const spec = SPEECH_TABLES[table];
     const overlay = openModal({
-        title: 'Import ' + (table === 'abbreviations' ? 'abbreviations' : 'replacement rules') + ' from CSV',
+        title: `Import ${spec.title.toLowerCase()} from CSV`,
         bodyHTML: `
-            <div class="panel-sub">A CSV file with the columns <code>${cols}</code>, as exported here or by the Meldkamer app. Existing rows with the same ${table === 'abbreviations' ? 'code' : 'pattern'} are updated.${table === 'abbreviations' ? '' : ' Rules with an empty replacement are skipped: they would delete text.'}</div>
+            <div class="panel-sub">A CSV file with the columns <code>${spec.csv}</code>, as exported here${table === 'abbreviations' || table === 'tts_replacements' ? ' or by the Meldkamer app' : ''}. Existing rows with the same ${escapeHtml(spec.key)} are updated.${table === 'tts_replacements' ? ' Rules with an empty replacement are skipped: they would delete text.' : ''}</div>
             <div class="form-field"><label>CSV file</label><input type="file" class="input" data-file accept=".csv,text/csv" style="padding-top: 4px;"></div>
             <label class="form-check"><input type="checkbox" data-replace> Replace: delete all current rows first</label>`,
         footHTML: '<button class="btn" data-close>Cancel</button><button class="btn btn-primary" data-import disabled>Import</button>'

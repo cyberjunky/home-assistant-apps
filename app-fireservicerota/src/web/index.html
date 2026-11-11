@@ -257,7 +257,7 @@
                     <div class="panel-sub" style="margin: 18px 0 10px;">Spoken text</div>
                     <div class="db-card speech-card">
                         <div class="db-card-head"><span class="db-card-title">Test how a text is spoken</span></div>
-                        <div class="db-card-desc">Announcements and the browser speech (🗣️) say the alarm text in words a voice reads correctly. Nothing is left out: every code and number is spoken, as itself or as its meaning. A code is only spoken as words when its meaning is certain; otherwise it is spelled out (BRT-01 → B R T 0 1). Give such a code a meaning below to have it spoken that way.</div>
+                        <div class="db-card-desc">Announcements and the browser speech (🗣️) say the alarm text in words a voice reads correctly. Nothing is left out: every code and number is spoken, as itself or as its meaning. A code is only spoken as words when its meaning is certain; otherwise it is spelled out (XQZ → X Q Z). Give such a code a meaning below to have it spoken that way. All lists below are yours to change: the built-in rows are marked <em>default</em>, and your changes are kept at updates.</div>
                         <form class="speech-test" onsubmit="speechTest(); return false;">
                             <input type="text" id="speech-test-input" class="input" placeholder="An alarm text, e.g. P 1 BRT-01 Brand woning Biltstraat 45 Utrecht" aria-label="Text to test">
                             <button type="submit" class="btn btn-primary">Say it</button>
@@ -284,6 +284,26 @@
                                 <button class="btn btn-primary" onclick="speechOpen('tts_replacements')">Manage</button>
                                 <button class="btn" onclick="dbExport('tts_replacements')">Export CSV</button>
                                 <button class="btn" onclick="speechImportCsv('tts_replacements')">Import CSV</button>
+                            </div>
+                        </div>
+                        <div class="db-card">
+                            <div class="db-card-head"><span class="db-card-title">Talk groups</span></div>
+                            <div class="db-card-desc">The letters of a talk group code like BRT-01: discipline (B Brandweer) and meldkamer or region (RT Rotterdam), spoken as "gespreksgroep Brandweer Rotterdam 0 1". From the NIPV note on talk groups in pager texts.</div>
+                            <div class="db-card-count"><span id="db-count-talkgroup_codes">0</span> rows</div>
+                            <div class="db-card-actions">
+                                <button class="btn btn-primary" onclick="speechOpen('talkgroup_codes')">Manage</button>
+                                <button class="btn" onclick="dbExport('talkgroup_codes')">Export CSV</button>
+                                <button class="btn" onclick="speechImportCsv('talkgroup_codes')">Import CSV</button>
+                            </div>
+                        </div>
+                        <div class="db-card">
+                            <div class="db-card-head"><span class="db-card-title">Place names</span></div>
+                            <div class="db-card-desc">Place-name codes in alarm texts and the place they are spoken as (UTRECH → Utrecht), the same list as in the Meldkamer app.</div>
+                            <div class="db-card-count"><span id="db-count-city_abbreviations">0</span> rows</div>
+                            <div class="db-card-actions">
+                                <button class="btn btn-primary" onclick="speechOpen('city_abbreviations')">Manage</button>
+                                <button class="btn" onclick="dbExport('city_abbreviations')">Export CSV</button>
+                                <button class="btn" onclick="speechImportCsv('city_abbreviations')">Import CSV</button>
                             </div>
                         </div>
                     </div>

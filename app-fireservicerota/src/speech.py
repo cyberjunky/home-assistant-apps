@@ -6,15 +6,19 @@ because firefighters act on what they hear:
 - nothing is left out: every word, code and number of the alarm text is spoken, as
   itself or as its meaning;
 - nothing is guessed: a code is only spoken as words when its meaning is certain;
-  otherwise it is spelled out ("BRT-01" -> "B R T 0 1");
+  otherwise it is spelled out ("XQZ" -> "X Q Z");
 - numbers are spoken exactly ("hmp 67.4" -> "hectometerpaal 67 komma 4", reference
-  numbers digit by digit).
+  numbers digit by digit, "00:00" -> "0 uur 0").
+
+Every list it uses is a database table, editable on the Data tab: replacement rules,
+abbreviations, place-name codes and talk group codes. The lists below are only the
+defaults the tables get once (Database.seed_speech): a row you change keeps your text and
+a default you delete stays deleted, also after updates.
 
 The steps, in order (explain() returns each change it made):
-1. replacement rules (regex, editable on the Data tab, applied in order);
-2. shortenings with dots ("t.h.v."), times ("00:00" -> "0 uur 0"), postal codes and
-   decimal numbers;
-3. each word: abbreviations (editable), place-name abbreviations, letter codes with
+1. replacement rules (regex, applied in order);
+2. shortenings with dots ("t.h.v."), times, postal codes and decimal numbers;
+3. each word: abbreviations, talk groups ("BRT-01"), place-name codes, letter codes with
    numbers, then unknown codes spelled out and long numbers digit by digit.
 
 The same text goes to Home Assistant's tts.speak and to the dashboard's browser speech.
@@ -24,21 +28,26 @@ import logging
 import re
 
 from .abbreviation_import import ABBREVIATIONS
-from .city_abbreviations import ABBREVIATION_TO_CITY
+from .city_abbreviations import CITY_ABBREVIATIONS
 from .database import Database
 
 logger = logging.getLogger(__name__)
 
-# Added to the database once (see Database.seed_speech): your changes are kept and a
-# default you delete stays deleted. Applied case-insensitively, top to bottom.
-# A replacement may never be empty: a rule translates, it doesn't delete.
+# ----------------------------------------------------------------- defaults (seeded once)
+
+# Applied case-insensitively, top to bottom. A replacement may never be empty.
 DEFAULT_TTS_REPLACEMENTS = [
-    # Priority at the start of the alarm text ("P 1 ...", "P1 ...", "A1 ..."). Only at the
-    # start: elsewhere "A1" or "A2" is a motorway (handled by the road rule below)
+    # Priority and urgency at the start of the alarm text ("P 1 ...", "A1 ...", "B2 ...").
+    # Sources: nl.wikipedia.org/wiki/P2000_(netwerk), 112hier.nl/uitleg, persmonitor.nl
     {"pattern": r"^\s*P\s?([1-5])\b", "replacement": r"Prio \1"},
     {"pattern": r"^\s*A\s?1\b", "replacement": "Ambulance met spoed"},
     {"pattern": r"^\s*A\s?2\b", "replacement": "Ambulance zonder spoed"},
-    # Road numbers: "A2" or "N209" is spoken as a letter and a number
+    {"pattern": r"^\s*B\s?1\b", "replacement": "Ambulance besteld vervoer, hoogcomplexe zorgvraag"},
+    {"pattern": r"^\s*B\s?2\b", "replacement": "Ambulance besteld vervoer, midden- of laagcomplexe zorgvraag"},
+    # Elsewhere in the text P1 or B2 is not a documented priority (P1 is also a car park):
+    # spoken as a letter and a number
+    {"pattern": r"\b([PB])([1-5])\b", "replacement": r"\1 \2"},
+    # Road numbers: "A2" or "N209" is spoken as a letter and a number (never "ambulance")
     {"pattern": r"\b([AN])(\d{1,3})\b", "replacement": r"\1 \2"},
     # Hectometer markers ("hmp 67.4"; the number step makes "67 komma 4")
     {"pattern": r"\bhmp\b\.?", "replacement": "hectometerpaal"},
@@ -56,68 +65,19 @@ DEFAULT_TTS_REPLACEMENTS = [
     {"pattern": r"\bSGRAVH\b", "replacement": "Den Haag"},
 ]
 
-# Codes from the abbreviation list whose listed meaning is not certain in a FireServiceRota
-# text; spelled out until you give them your own meaning on the Data tab:
-# - priority codes: handled at the start of the text; elsewhere A1/A2 is a road, and B1/B2
-#   mean different things for fire and ambulance
-# - Meldkamer talk groups (BRT-01 etc.): the list maps them to a region, which is not
-#   known to be right for a Brandweerrooster text
-# - HV: the list says "Hulpverleningsvoertuig", but in an alarm text it is often the
-#   incident class "Hulpverlening"
-# Codes whose listed meaning has a "/" (two meanings, e.g. "AC") are spelled out too.
-UNCERTAIN_CODES = frozenset(
-    {"A1", "A2", "B1", "B2", "P1", "P2", "P3"}
-    | {"BDH", "BNN", "BON", "BNH", "BLB", "BOB", "BAD", "BMD", "BRT", "BZB"}
-    | {"HV"}
-)
-SHIPPED = {code.upper(): text for code, text in ABBREVIATIONS.items()}
+# Meanings for codes the public list gives two meanings ("AC": "Alarmcentrale (BRW) /
+# Actiecentrum"), as a brigade documents them for alarm texts:
+# brandweeruitgeest.nl/betekenis-p2000-meldingen
+SOURCED_MEANINGS = {
+    "AC": "Alarmcentrale",
+    "BOT": "Bedrijfs Opvang Team",
+    "CCK": "Calamiteiten Commando Kamer",
+    "MOB": "Medische Ondersteuning Brandweer",
+    "SPB": "Schuim- Poederbluswagen",
+    "GM": "Gereedschap materiaalwagen",
+}
 
-# Short Dutch words, so a text in capitals ("BR WONING VAN DE ...") doesn't get them spelled
-COMMON_WORDS = frozenset(
-    [
-        "AAN",
-        "AF",
-        "ALS",
-        "BIJ",
-        "DAN",
-        "DAT",
-        "DE",
-        "DIE",
-        "DIT",
-        "EEN",
-        "EN",
-        "ER",
-        "HET",
-        "HIJ",
-        "IN",
-        "IS",
-        "JA",
-        "MET",
-        "NA",
-        "NAAR",
-        "NEE",
-        "NIET",
-        "NOG",
-        "OF",
-        "OM",
-        "ONDER",
-        "OP",
-        "OVER",
-        "PER",
-        "TE",
-        "TER",
-        "TOT",
-        "UIT",
-        "VAN",
-        "VIA",
-        "VOOR",
-        "WEG",
-        "ZIJ",
-    ]
-)
-
-# Standard Dutch shortenings written with dots, not in the P2000 list; added to the
-# abbreviations (stored as "T.H.V.") like the list, so you can change or delete them
+# Standard Dutch shortenings written with dots, not in the P2000 list
 DUTCH_ABBREVIATIONS = {
     "t.h.v.": "ter hoogte van",
     "i.v.m.": "in verband met",
@@ -137,6 +97,94 @@ DUTCH_ABBREVIATIONS = {
     "e.d.": "en dergelijke",
 }
 
+# Short Dutch words, so a text in capitals ("BR WONING VAN DE ...") doesn't get them spelled.
+# Stored as abbreviations of themselves; a code in the P2000 list (OM) keeps its meaning.
+COMMON_WORDS = (
+    "AAN AF ALS BIJ DAN DAT DE DIE DIT EEN EN ER HET HIJ IN IS JA MET NA NAAR NEE NIET NOG OF "
+    "ONDER OP OVER PER TE TER TOT UIT VAN VIA VOOR WEG ZIJ"
+)
+
+# Talk groups in alarm texts ("BRT-01"): discipline letter + meldkamer/region code + the
+# talk group's quick-dial number. Source: Brandweer Nederland / NIPV, "Nota van toelichting
+# Standaard Presentatietekst Gespreksgroep in GMS pagertekst", versie 25 januari 2019,
+# nipv.nl/documenten/nota-van-toelichting-standaard-presentatietekst-gespreksgroep-in-gms-pagertekst
+TALKGROUP_DISCIPLINES = {
+    "B": "Brandweer",
+    "A": "Ambulancezorg",
+    "P": "Politie",
+    "M": "Koninklijke Marechaussee",
+    "D": "Defensiediensten",
+    "S": "Multidisciplinaire samenwerking",
+}
+TALKGROUP_REGIONS = {
+    "LA": "Bovenregionaal",
+    "GR": "Groningen",
+    "FR": "Friesland",
+    "DR": "Drenthe",
+    "IJ": "IJsselland",
+    "TW": "Twente",
+    "GN": "Noord- en Oost-Gelderland",
+    "GM": "Gelderland-Midden",
+    "GZ": "Gelderland-Zuid",
+    "UT": "Utrecht",
+    "ZW": "Zaanstreek-Waterland",
+    "KE": "Kennemerland",
+    "AM": "Amsterdam-Amstelland",
+    "GV": "Gooi en Vechtstreek",
+    "HL": "Haaglanden",
+    "HM": "Hollands Midden",
+    "RR": "Rotterdam-Rijnmond",
+    "ZH": "Zuid-Holland Zuid",
+    "ZL": "Zeeland",
+    "BM": "Midden- en West-Brabant",
+    "BN": "Brabant-Noord",
+    "BZ": "Brabant-Zuidoost",
+    "LN": "Limburg-Noord",
+    "LZ": "Limburg-Zuid",
+    "FL": "Flevoland",
+    "LE": "Landelijke eenheid",
+    "AD": "Amsterdam",
+    "NN": "Noord-Nederland",
+    "ON": "Oost-Nederland",
+    "MD": "Midden-Nederland",
+    # The note has NH twice: 10 Noord-Holland Noord (region) and 38 Noord-Holland (meldkamer);
+    # in alarm texts the meldkamer is meant
+    "NH": "Noord-Holland",
+    "PA": "Politieacademie",
+    "LB": "Limburg",
+    "OB": "Oost-Brabant",
+    "ZB": "Zeeland-West-Brabant",
+    "RT": "Rotterdam",
+    "DH": "Den Haag",
+}
+
+
+def _default_abbreviations() -> dict[str, str]:
+    words = {w: w.lower() for w in COMMON_WORDS.split() if w not in {k.upper() for k in ABBREVIATIONS}}
+    merged = {code.upper(): text for code, text in ABBREVIATIONS.items()}
+    merged.update(SOURCED_MEANINGS)
+    merged.update({code.upper(): text for code, text in DUTCH_ABBREVIATIONS.items()})
+    merged.update(words)
+    return merged
+
+
+DEFAULTS: dict[str, list[dict]] = {
+    "tts_replacements": DEFAULT_TTS_REPLACEMENTS,
+    "abbreviations": [{"abbreviation": k, "full_text": v} for k, v in _default_abbreviations().items()],
+    "city_abbreviations": [{"abbreviation": a, "city": c} for c, a in CITY_ABBREVIATIONS.items()],
+    "talkgroup_codes": [{"kind": "discipline", "code": k, "name": v} for k, v in TALKGROUP_DISCIPLINES.items()]
+    + [{"kind": "region", "code": k, "name": v} for k, v in TALKGROUP_REGIONS.items()],
+}
+# The value columns of each default row by its key, to mark rows on the Data tab as "default"
+_DEFAULT_INDEX = {
+    "tts_replacements": {r["pattern"]: (r["replacement"],) for r in DEFAULT_TTS_REPLACEMENTS},
+    "abbreviations": {r["abbreviation"]: (r["full_text"],) for r in DEFAULTS["abbreviations"]},
+    "city_abbreviations": {r["abbreviation"]: (r["city"],) for r in DEFAULTS["city_abbreviations"]},
+    "talkgroup_codes": {(r["kind"], r["code"]): (r["name"],) for r in DEFAULTS["talkgroup_codes"]},
+}
+
+# ------------------------------------------------------------------------ patterns
+
 TOKEN = re.compile(r"[0-9A-Za-zÀ-ÖØ-öø-ÿ&]+(?:-[0-9A-Za-zÀ-ÖØ-öø-ÿ&]+)*")
 # Letters with dots in between: "t.h.v.", "o.a.", "O.V.D."
 DOTTED = re.compile(r"(?<![\w.])(?:[A-Za-z]{1,3}\.)+[A-Za-z]{1,3}\.?(?![\w])")
@@ -149,6 +197,7 @@ TIME = re.compile(
 POSTCODE = re.compile(r"\b(\d{4})\s?([A-Z]{2})\b")
 DECIMAL = re.compile(r"(?<![\d.,])(\d{1,3})[.,](\d)(?![\d]|[.,]\d)")
 LETTERS_DIGITS = re.compile(r"([A-Z]+)(\d+)")
+TALKGROUP = re.compile(r"([A-Z])([A-Z]{2})-(\d{1,4})")
 LEADING_PRIO = re.compile(r"\s*[A-Za-z]\s?\d\b")
 
 
@@ -183,26 +232,43 @@ def _code_like(token: str) -> bool:
     return upper == len(letters) or upper >= 2
 
 
+def is_default(table: str, row: dict) -> bool:
+    """Whether a row is a built-in default as it was added (not changed by you)."""
+    index = _DEFAULT_INDEX.get(table, {})
+    if table == "tts_replacements":
+        return index.get(row.get("pattern")) == (row.get("replacement"),)
+    if table == "abbreviations":
+        return index.get(row.get("abbreviation")) == (row.get("full_text"),)
+    if table == "city_abbreviations":
+        return index.get(row.get("abbreviation")) == (row.get("city"),)
+    if table == "talkgroup_codes":
+        return index.get((row.get("kind"), row.get("code"))) == (row.get("name"),)
+    return False
+
+
 class Speech:
-    """Turns incident texts into spoken text with the rules and abbreviations in the database."""
+    """Turns incident texts into spoken text with the tables in the database."""
 
     def __init__(self, database: Database):
         self.db = database
         self._rules: list[tuple[re.Pattern, str, str]] = []
         self._abbreviations: dict[str, str] = {}
+        self._cities: dict[str, str] = {}
+        self._disciplines: dict[str, str] = {}
+        self._regions: dict[str, str] = {}
         self.seed()
 
     def seed(self) -> None:
-        """Add the built-in list and rules (only ones never added before) and load everything."""
-        abbr, rules = self.db.seed_speech({**ABBREVIATIONS, **DUTCH_ABBREVIATIONS}, DEFAULT_TTS_REPLACEMENTS)
-        if abbr or rules:
-            logger.info(f"Added {abbr} abbreviation(s) and {rules} speech rule(s) to the database")
+        """Add the defaults (only rows never added before) and load everything."""
+        added = self.db.seed_speech(DEFAULTS)
+        if any(added.values()):
+            logger.info("Added speech defaults: " + ", ".join(f"{n} {t}" for t, n in added.items() if n))
         self.reload()
 
     def reload(self) -> None:
-        """Load the enabled rules and the abbreviations again (after a change on the Data tab)."""
+        """Load the tables again (after a change on the Data tab): no restart needed."""
         rules = []
-        for row in self.db.enabled_rules():
+        for row in self.db.speech_rows("tts_replacements"):
             if not (row["replacement"] or "").strip():
                 logger.warning(f"Speech rule {row['pattern']!r} has no replacement and would delete text: not used")
                 continue
@@ -212,19 +278,30 @@ class Speech:
                 logger.warning(f"Speech rule {row['pattern']!r} is not a valid pattern ({e}): not used")
         self._rules = rules
         self._abbreviations = self.db.abbreviation_map()
+        self._cities = {r["abbreviation"]: r["city"] for r in self.db.speech_rows("city_abbreviations")}
+        groups = self.db.speech_rows("talkgroup_codes")
+        self._disciplines = {r["code"]: r["name"] for r in groups if r["kind"] == "discipline"}
+        self._regions = {r["code"]: r["name"] for r in groups if r["kind"] == "region"}
 
     # ----------------------------------------------------------------- lookup
 
     def meaning(self, code: str) -> str | None:
-        """What an abbreviation is spoken as, or None when it is spelled out (not in the
-        list, or its listed meaning is not certain here and you didn't change it)."""
-        key = code.upper()
-        text = self._abbreviations.get(key)
-        if text is None:
-            return None
-        if text == SHIPPED.get(key) and (key in UNCERTAIN_CODES or "/" in text):
+        """What an abbreviation is spoken as, or None when it is spelled out: not in the
+        list, or a meaning with "/" (two meanings, e.g. "Mobiele Communicatie / Commando Unit")."""
+        text = self._abbreviations.get(code.upper())
+        if text is None or "/" in text:
             return None
         return clean_meaning(text)
+
+    def talkgroup(self, token: str) -> str | None:
+        """ "BRT-01" -> "gespreksgroep Brandweer Rotterdam 0 1", None for an unknown code."""
+        m = TALKGROUP.fullmatch(token.upper())
+        if not m:
+            return None
+        discipline, region = self._disciplines.get(m.group(1)), self._regions.get(m.group(2))
+        if not discipline or not region:
+            return None
+        return f"gespreksgroep {discipline} {region} {number(m.group(3), in_code=True)}"
 
     def _dotted(self, token: str) -> tuple[str, str]:
         """(spoken, kind) for letters with dots: "t.h.v." -> "ter hoogte van".
@@ -235,18 +312,13 @@ class Speech:
         """
         key = token.upper()
         for candidate in (key, key if key.endswith(".") else key + ".", key.rstrip(".")):
-            if candidate in self._abbreviations and "." in candidate:
-                meaning = self.meaning(candidate)
-                if meaning:
-                    return meaning, "abbreviation"
-        if token.isupper():
-            bare = key.replace(".", "")
-            meaning = self.meaning(bare) if bare in self._abbreviations else None
-            if meaning:
+            if "." in candidate and (meaning := self.meaning(candidate)):
                 return meaning, "abbreviation"
+        if token.isupper() and (meaning := self.meaning(key.replace(".", ""))):
+            return meaning, "abbreviation"
         return spell(token), "spelled"
 
-    def _token(self, token: str, shouting: bool) -> tuple[str, str] | None:
+    def _token(self, token: str) -> tuple[str, str] | None:
         """(spoken, kind) for a word that is spoken differently, None when it stays as it is."""
         if len(token) == 1:
             return None
@@ -256,15 +328,13 @@ class Speech:
         if not _code_like(token):
             return None
         key = token.upper()
-        if shouting and key in COMMON_WORDS:
-            return token.lower(), "word"
         if key in self._abbreviations:
             meaning = self.meaning(key)
-            if meaning:
-                return meaning, "abbreviation"
-            return spell(token), "uncertain" if key in SHIPPED else "spelled"
-        if key in ABBREVIATION_TO_CITY:
-            return ABBREVIATION_TO_CITY[key], "place"
+            return (meaning, "abbreviation") if meaning else (spell(token), "uncertain")
+        if group := self.talkgroup(key):
+            return group, "talkgroup"
+        if key in self._cities:
+            return self._cities[key], "place"
         m = LETTERS_DIGITS.fullmatch(key)
         if m:
             letters, digits = m.groups()
@@ -277,7 +347,7 @@ class Speech:
                 if part.isdigit():
                     parts.append(number(part, in_code=True))
                 else:
-                    result = self._token(part, shouting)
+                    result = self._token(part)
                     parts.append(result[0] if result else part)
             return " ".join(parts), "code"
         if key.isalpha() and len(key) >= 5:
@@ -296,7 +366,6 @@ class Speech:
         if prio and re.fullmatch(r"[A-Za-z]\s?\d", prio) and not LEADING_PRIO.match(text):
             text = f"{prio.upper()}. {text}" if text else prio.upper()
             steps.append({"kind": "priority", "from": "", "to": prio.upper(), "note": "priority of the incident"})
-        original = text
 
         for pattern, replacement, source in self._rules:
 
@@ -313,16 +382,6 @@ class Speech:
                 return f" {out} "
 
             text = pattern.sub(apply, text)
-
-        def postcode(m: re.Match) -> str:
-            out = f"{spell(m.group(1))} {spell(m.group(2))}"
-            steps.append({"kind": "postcode", "from": m.group(0), "to": out, "note": "postal code"})
-            return out
-
-        def decimal(m: re.Match) -> str:
-            out = f"{m.group(1)} komma {m.group(2)}"
-            steps.append({"kind": "number", "from": m.group(0), "to": out, "note": "decimal number"})
-            return out
 
         def dotted(m: re.Match) -> str:
             token = m.group(0)
@@ -343,16 +402,24 @@ class Speech:
             steps.append({"kind": "time", "from": m.group(0), "to": out, "note": "time"})
             return out
 
+        def postcode(m: re.Match) -> str:
+            out = f"{spell(m.group(1))} {spell(m.group(2))}"
+            steps.append({"kind": "postcode", "from": m.group(0), "to": out, "note": "postal code"})
+            return out
+
+        def decimal(m: re.Match) -> str:
+            out = f"{m.group(1)} komma {m.group(2)}"
+            steps.append({"kind": "number", "from": m.group(0), "to": out, "note": "decimal number"})
+            return out
+
         text = DOTTED.sub(dotted, text)
         text = TIME.sub(clock, text)
         text = POSTCODE.sub(postcode, text)
         text = DECIMAL.sub(decimal, text)
 
-        shouting = any(c.isalpha() for c in original) and not any(c.islower() for c in original)
-
         def word(m: re.Match) -> str:
             token = m.group(0)
-            result = self._token(token, shouting)
+            result = self._token(token)
             if not result or result[0] == token:
                 return token
             spoken, kind = result
