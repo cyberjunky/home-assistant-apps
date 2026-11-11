@@ -30,5 +30,5 @@ General Public License version 2 or later. The license text is in the image at
 /app/mame/COPYING. The source code of the exact version used is at
 https://github.com/mamedev/mame (the release tag is in mame/Dockerfile and
 Dockerfile), and mame/ in this repository holds everything needed to build it
-the same way. The hiscore plugin that comes with MAME is CC0, its plugin
+the same way, including the one patch applied (mame/save-settings.patch). The hiscore plugin that comes with MAME is CC0, its plugin
 loader (boot.lua) BSD-3-Clause and its json plugin MIT.

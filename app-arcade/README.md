@@ -17,7 +17,7 @@
 
 Classic arcade games in Home Assistant, opened from the sidebar. The MAME emulator runs in
 your browser, so the games look and sound exactly like the original machines. Your high
-scores and save states are kept on the server, so they follow you from the
+scores, settings and save states are kept on the server, so they follow you from the
 laptop to the tablet.
 
 ## Supported Features

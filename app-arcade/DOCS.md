@@ -5,7 +5,7 @@
 
 Classic arcade games in Home Assistant. Open **Arcade** from the sidebar, add ROM files and
 play: [MAME](https://www.mamedev.org/) emulates the original arcade machine in your browser,
-so the game looks and sounds like the original. High scores and save states are
+so the game looks and sounds like the original. High scores, settings and save states are
 kept by the app, so they follow you to any device.
 
 ## Getting started
@@ -63,7 +63,7 @@ Sets made for a much older MAME can have files with other names or contents.
 | Arrow keys | Joystick |
 | <kbd>Ctrl</kbd>, <kbd>Alt</kbd>, <kbd>Space</kbd> | Buttons 1, 2 and 3 |
 | <kbd>P</kbd> | Pause |
-| <kbd>Tab</kbd> | MAME's menu: input mapping, DIP switches, settings (for this session, see below) |
+| <kbd>Tab</kbd> | MAME's menu: input mapping, DIP switches, settings |
 | <kbd>F3</kbd> | Reset |
 | <kbd>F6</kbd> / <kbd>F8</kbd> | Save the game now / go back to that moment |
 | <kbd>Esc</kbd> | Back to the library |
@@ -77,7 +77,7 @@ save and load the game, reset it, turn the sound off and go full screen.
 | What | Where |
 |------|-------|
 | ROM files | The ROM folder, default `/share/arcade/roms` |
-| High scores (`hiscore/`) and save states (`sta/`) | `/data/saves` in the app; part of the app's Home Assistant backups |
+| High scores (`hiscore/`), NVRAM (`nvram/`), settings and input mapping (`cfg/`), save states (`sta/`) | `/data/saves` in the app; part of the app's Home Assistant backups |
 
 The browser loads a game's files when you open it and sends changed files back every ten
 seconds and when you leave the game, so a high score is kept even when you close the tab.
@@ -85,10 +85,11 @@ seconds and when you leave the game, so a high score is kept even when you close
 High scores are saved by MAME's **hiscore** plugin for the games in its list (most classic
 games, Jump Coaster included), within seconds of a new high score.
 
-**Not kept between sessions:** changes made in MAME's own menu (<kbd>Tab</kbd>: input mapping,
-DIP switches) and a game's NVRAM (battery-backed memory, used by later games for scores and
-settings). MAME writes those when it shuts down, and the browser version of MAME never runs
-that step. Use a save state to keep a game exactly as it is.
+Settings made in MAME's own menu (<kbd>Tab</kbd>: input mapping, DIP switches) and a game's
+NVRAM (battery-backed memory, used by later games for scores and settings) are saved every
+30 seconds and when you leave the game. MAME normally writes them only when it shuts down,
+a step its browser version never reaches; the app's MAME carries a small patch for that
+(see [Legal and licenses](#legal-and-licenses)).
 
 ## Options
 
@@ -117,10 +118,11 @@ files you add. The app asks you to confirm this once before the first upload.
 
 **MAME** is © the MAME team and contributors and licensed under the
 [GNU GPL, version 2 or later](https://github.com/mamedev/mame/blob/master/COPYING). The app
-contains an unmodified MAME release compiled to WebAssembly with a selection of drivers; the
-release tag is in the Dockerfile and on the Info tab, the source is at
-[github.com/mamedev/mame](https://github.com/mamedev/mame), and [mame/](mame/) in this
-repository holds the driver list and the build script. MAME is a registered trademark of
+contains a MAME release compiled to WebAssembly with a selection of drivers and one small
+change, [mame/save-settings.patch](mame/save-settings.patch), which lets the page ask MAME to
+write NVRAM and settings. The release tag is in the Dockerfile and on the Info tab, the
+source is at [github.com/mamedev/mame](https://github.com/mamedev/mame), and [mame/](mame/)
+in this repository holds the patch, the driver list and the build script. MAME is a registered trademark of
 Gregory Ember. This app is not made or endorsed by the MAME team.
 
 The **hiscore** plugin and `hiscore.dat` come with MAME; the plugin is CC0. MAME's plugin

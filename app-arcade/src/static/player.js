@@ -10,6 +10,9 @@ const SAVE_DIRS = ['hiscore', 'nvram', 'cfg', 'sta'];
 // boot.lua starts MAME's Lua plugins; hiscore needs json
 const PLUGIN_FILES = ['boot.lua', 'json/init.lua', 'json/plugin.json', 'hiscore/init.lua', 'hiscore/plugin.json', 'hiscore/hiscore.dat'];
 const SYNC_MS = 10000;
+// MAME writes NVRAM and settings only when asked (see mame/save-settings.patch)
+const SETTINGS_EVERY = 3;   // syncs, so every 30 seconds
+let syncCount = 0;
 
 let game = null;
 let roms = [];          // [{file, data}]
@@ -130,7 +133,7 @@ function startGame() {
             document.getElementById('start').hidden = true;
             document.querySelectorAll('[data-running]').forEach(b => { b.disabled = false; });
             canvas.focus();
-            statusLine('Playing. Esc goes back to the library. High scores are saved as you set them.');
+            statusLine('Playing. Esc goes back to the library; high scores and settings are saved.');
             setInterval(sync, SYNC_MS);
         },
         print: (t) => { log.push(t); },
@@ -148,9 +151,14 @@ function startGame() {
 }
 
 // Send every save file that changed since the app last got it
-async function sync() {
+function saveSettings() {
+    try { if (running && window.JSMAME && JSMAME.save_settings) JSMAME.save_settings(); } catch (e) { /* stopped */ }
+}
+
+async function sync(keepalive) {
     const fs = mameFS();
     if (!fs) return;
+    if (++syncCount % SETTINGS_EVERY === 0) saveSettings();
     const changed = [];
     const walk = (dir, rel) => {
         let entries = [];
@@ -169,7 +177,8 @@ async function sync() {
     SAVE_DIRS.forEach(d => walk(`${HOME}/${d}`, d));
     for (const c of changed) {
         try {
-            const r = await fetch(api(`/api/saves/${GAME}/${c.path}`), {method: 'PUT', body: c.data});
+            // keepalive lets the last save finish while the page closes (browsers allow up to 64 kB)
+            const r = await fetch(api(`/api/saves/${GAME}/${c.path}`), {method: 'PUT', body: c.data, keepalive: Boolean(keepalive) && c.data.length < 60000});
             if (r.ok) synced.set(c.path, c.sig);
         } catch (e) { /* next round */ }
     }
@@ -205,20 +214,19 @@ function toggleFullscreen() {
     else (stage.requestFullscreen ? stage.requestFullscreen() : Promise.reject()).catch(() => toast('Full screen is not allowed here'));
 }
 
-// Leaving: ask MAME to stop, send what changed, go back. (In a browser MAME skips its exit
-// step, so NVRAM and settings are not written; high scores and save states are.)
+// Leaving: have MAME write NVRAM and settings, send what changed, stop MAME, go back
 async function leave() {
     if (leaving) return;
     leaving = true;
     if (running) {
         statusLine('Saving…');
-        try { JSMAME.exit(); } catch (e) { /* already stopped */ }
-        await new Promise(r => setTimeout(r, 700));
+        saveSettings();
         await sync();
+        try { JSMAME.exit(); } catch (e) { /* already stopped */ }
     }
     window.location.href = api('/');
 }
-window.addEventListener('pagehide', () => { if (running && !leaving) sync(); });
+window.addEventListener('pagehide', () => { if (running && !leaving) { saveSettings(); sync(true); } });
 
 // Our keys first: Esc would quit MAME and leave a black page
 window.addEventListener('keydown', (e) => {

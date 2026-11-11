@@ -1,0 +1,49 @@
+--- a/src/emu/machine.h
++++ b/src/emu/machine.h
+@@ -360,6 +360,7 @@
+ 	static void emscripten_soft_reset();
+ 	static void emscripten_save(const char *name);
+ 	static void emscripten_load(const char *name);
++	static void emscripten_save_settings();
+ #endif
+ };
+ 
+--- a/src/emu/machine.cpp
++++ b/src/emu/machine.cpp
+@@ -1466,5 +1466,16 @@
+ void running_machine::emscripten_load(const char *name) {
+ 	emscripten_running_machine->schedule_load(name);
+ }
++// The browser never reaches the exit phase of run() (the main loop is handed to the
++// browser and never returns), so NVRAM and settings would never be written: let the
++// page ask for it, as the exit phase does
++void running_machine::emscripten_save_settings() {
++	running_machine *machine = emscripten_running_machine;
++	if (!machine)
++		return;
++	if (machine->options().nvram_save())
++		machine->nvram_save();
++	machine->m_configuration->save_settings();
++}
+ 
+ #endif /* defined(__EMSCRIPTEN__) */
+--- a/scripts/genie.lua
++++ b/scripts/genie.lua
+@@ -1110,7 +1110,7 @@
+ 		"-s USE_SDL=3",
+ 		"-s USE_SDL_TTF=3",
+ 		"-s DEFAULT_LIBRARY_FUNCS_TO_INCLUDE=\"['\\$$ERRNO_CODES']\"",
+-		"-s EXPORTED_FUNCTIONS=\"['_main', '_malloc', '__ZN15running_machine30emscripten_get_running_machineEv', '__ZN15running_machine17emscripten_get_uiEv', '__ZN15running_machine20emscripten_get_soundEv', '__ZN15mame_ui_manager12set_show_fpsEb', '__ZNK15mame_ui_manager8show_fpsEv', '__ZN13sound_manager4muteEbh', '__ZN15running_machine15emscripten_saveEPKc', '__ZN15running_machine15emscripten_loadEPKc', '__ZN15running_machine21emscripten_hard_resetEv', '__ZN15running_machine21emscripten_soft_resetEv', '__ZN15running_machine15emscripten_exitEv']\"",
++		"-s EXPORTED_FUNCTIONS=\"['_main', '_malloc', '__ZN15running_machine30emscripten_get_running_machineEv', '__ZN15running_machine17emscripten_get_uiEv', '__ZN15running_machine20emscripten_get_soundEv', '__ZN15mame_ui_manager12set_show_fpsEb', '__ZNK15mame_ui_manager8show_fpsEv', '__ZN13sound_manager4muteEbh', '__ZN15running_machine15emscripten_saveEPKc', '__ZN15running_machine15emscripten_loadEPKc', '__ZN15running_machine21emscripten_hard_resetEv', '__ZN15running_machine21emscripten_soft_resetEv', '__ZN15running_machine15emscripten_exitEv', '__ZN15running_machine24emscripten_save_settingsEv']\"",
+ 		"-s EXPORTED_RUNTIME_METHODS=\"['cwrap']\"",
+ 		"-s ERROR_ON_UNDEFINED_SYMBOLS=0",
+ 		"-s STACK_SIZE=5MB",
+--- a/scripts/resources/emscripten/emscripten_post.js
++++ b/scripts/resources/emscripten/emscripten_post.js
+@@ -14,5 +14,6 @@
+ JSMAME.exit = Module.cwrap('_ZN15running_machine15emscripten_exitEv', null, []);
+ JSMAME.save = Module.cwrap('_ZN15running_machine15emscripten_saveEPKc', null, ['string']);
+ JSMAME.load = Module.cwrap('_ZN15running_machine15emscripten_loadEPKc', null, ['string']);
++JSMAME.save_settings = Module.cwrap('_ZN15running_machine24emscripten_save_settingsEv', null, []);
+ 
+ var JSMESS = JSMAME;

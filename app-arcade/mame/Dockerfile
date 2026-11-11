@@ -1,4 +1,5 @@
-# MAME compiled to WebAssembly for the Arcade app, with the drivers in drivers.txt.
+# MAME compiled to WebAssembly for the Arcade app, with the drivers in drivers.txt and
+# save-settings.patch applied.
 # Built by .github/workflows/build-arcade-mame.yaml into
 # ghcr.io/<owner>/arcade/dependency/mame-wasm:<MAME_TAG>-<hash of this folder>; the app's
 # Dockerfile copies /mame from it. WebAssembly is the same on every architecture, so it
@@ -10,7 +11,10 @@ ARG MAME_TAG=mame0289
 WORKDIR /src
 RUN curl -fsSL "https://github.com/mamedev/mame/archive/refs/tags/${MAME_TAG}.tar.gz" | tar xz --strip-components=1
 
-COPY drivers.txt gamelist.py /build/
+COPY drivers.txt gamelist.py save-settings.patch /build/
+# One small patch: lets the page ask MAME to write NVRAM and settings, which MAME otherwise
+# only does at exit, a step the browser build never reaches (see save-settings.patch)
+RUN patch -p1 < /build/save-settings.patch
 RUN SOURCES="$(grep -v '^\s*#' /build/drivers.txt | sed '/^\s*$/d' | paste -sd, -)" \
     && emmake make SUBTARGET=arcade SOURCES="${SOURCES}" TOOLS=0 NOWERROR=1 REGENIE=1 WEBASSEMBLY=1 OPTIMIZE=3 -j"$(nproc)"
 
