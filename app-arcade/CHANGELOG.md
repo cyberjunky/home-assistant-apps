@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0
+
+**After updating:** nothing to do. The tables appear for games whose high scores are already saved.
+
+- **High score tables**: the saved high scores of most games are now shown as a table (rank, initials, score and what else the game keeps) in the game's details, and the best score in the Stats table. They are read with the [hi2txt](https://github.com/GreatStoneEx/hi2txt-xml) definitions by GreatStone (GPL-2.0), which describe the high score memory of about 3000 games; 1354 of the 2432 games in the app's MAME have one, Neo Geo games included (from their NVRAM). Games without one still show "kept". Credited in the documentation and on the Info tab.
+
 ## 0.4.0
 
 **After updating:** nothing to do. The first game you start downloads the larger MAME once.

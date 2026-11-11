@@ -191,6 +191,17 @@ kbd { font-family: var(--mono); font-size: 11.5px; padding: 1px 5px; border-radi
 .t-dot { display: inline-block; background: radial-gradient(circle at 50% 40%, hsl(var(--hue) 55% 30%) 0%, #05070a 80%); }
 .never { margin-top: 14px; }
 
+/* High score table (details) */
+.scores { margin-top: 12px; border: var(--card-border); border-radius: 6px; padding: 10px 12px; }
+.scores-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.score-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.score-table th { text-align: left; font-weight: 500; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--secondary-text-color); padding: 3px 8px 3px 0; border-bottom: var(--card-border); }
+.score-table td { padding: 3px 8px 3px 0; font-family: var(--mono); }
+.score-table .num { text-align: right; }
+.score-table tr:first-child td { color: var(--primary-text-color); font-weight: 600; }
+.score-table + .kv, .score-table + .score-table { margin-top: 8px; }
+
 /* Info */
 .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 14px; }
 .kv > div { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 10px; padding: 4px 0; align-items: baseline; }

@@ -7,7 +7,8 @@ import os
 import signal
 import sys
 
-from .config import DATA_DIR, MAME_DIR, Config
+from .config import DATA_DIR, HI2TXT_DIR, MAME_DIR, Config
+from .hiscores import HiScores
 from .library import Library
 from .saves import Saves
 from .stats import Stats
@@ -39,7 +40,8 @@ async def main() -> int:
     library = Library(MAME_DIR / "games.json", config.rom_folder)
     saves = Saves(DATA_DIR / "saves")
     stats = Stats(DATA_DIR / "stats.sqlite3")
-    webui = WebUI(WEB_PORT, library, saves, stats, Thumbs(DATA_DIR / "thumbs"))
+    hiscores = HiScores(HI2TXT_DIR, library.games, DATA_DIR / "saves")
+    webui = WebUI(WEB_PORT, library, saves, stats, Thumbs(DATA_DIR / "thumbs"), hiscores)
 
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()

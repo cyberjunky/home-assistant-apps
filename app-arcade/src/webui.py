@@ -11,6 +11,7 @@ from aiohttp import web
 
 from .config import DATA_DIR, MAME_DIR
 from .donate import DonatePrompt
+from .hiscores import HiScores
 from .library import Library
 from .saves import MAX_FILE, Saves
 from .stats import Stats
@@ -47,12 +48,13 @@ def _mame_info() -> dict:
 
 
 class WebUI:
-    def __init__(self, port: int, library: Library, saves: Saves, stats: Stats, thumbs: Thumbs):
+    def __init__(self, port: int, library: Library, saves: Saves, stats: Stats, thumbs: Thumbs, hiscores: HiScores):
         self.port = port
         self.library = library
         self.saves = saves
         self.stats = stats
         self.thumbs = thumbs
+        self.hiscores = hiscores
         self.mame = _mame_info()
         self.app = web.Application(client_max_size=MAX_UPLOAD)
         self._runner: web.AppRunner | None = None
@@ -77,6 +79,7 @@ class WebUI:
         r.add_get("/thumbs/{game}", self._thumb_get)
         r.add_put("/api/thumbs/{game}", self._thumb_put)
         r.add_get("/api/stats", self._stats)
+        r.add_get("/api/scores", self._scores)
         r.add_post("/api/stats/{game}/session", self._session_start)
         r.add_post("/api/stats/session/{session}", self._session_beat)
 
@@ -151,10 +154,14 @@ class WebUI:
     async def _games(self, _request: web.Request) -> web.Response:
         data = self.library.status()
         hi = self.saves.high_score_games()
+        tables = self.hiscores.all()
         thumbs = self.thumbs.all()
         played = self.stats.played()
         for g in data["games"]:
-            g["has_scores"] = g["name"] in hi
+            # Games that keep their scores in NVRAM have no .hi, but can have a table
+            g["has_scores"] = g["name"] in hi or g["name"] in tables
+            g["score_table"] = g["name"] in tables
+            g["score_definition"] = self.hiscores.definition_name(g["name"]) is not None
             g["thumb"] = thumbs.get(g["name"])
             g["played"] = played.get(g["name"])
         return web.json_response(data)
@@ -273,7 +280,7 @@ class WebUI:
         except ValueError:
             offset = 0
         data = self.stats.summary(request.query.get("tz", "")[:64], max(-900, min(900, offset)))
-        hi = self.saves.high_score_games()
+        hi = self.saves.high_score_games() | set(self.hiscores.all())
         for g in data["games"]:
             info = self.library.games.get(g["name"], {})
             g["description"] = info.get("description", g["name"])
@@ -301,3 +308,8 @@ class WebUI:
         if not self.stats.beat(session, seconds):
             raise web.HTTPNotFound()
         return web.json_response({"ok": True})
+
+    # ---------------------------------------------------------- high scores
+    async def _scores(self, _request: web.Request) -> web.Response:
+        """Every decoded high score table: {game: {tables: [{columns, rows}], fields, updated, definition}}."""
+        return web.json_response({"games": self.hiscores.all()})

@@ -21,6 +21,20 @@ RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements.txt
 # MAME (WebAssembly), its game list and the hiscore plugin
 COPY --from=mame /mame /app/mame
 
+# High score tables: the hi2txt definitions by GreatStone (GPL-2.0,
+# https://github.com/GreatStoneEx/hi2txt-xml), release and licence pinned by checksum;
+# src/hiscores.py decodes the saved scores with them
+ARG HI2TXT_RELEASE=2020-05-02
+ARG HI2TXT_SHA256=84c5a0667e224186ebe513d613675c98d0c70ff5323145b9943b34e852aed7df
+ARG HI2TXT_LICENSE_SHA256=8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643
+RUN mkdir -p /app/hi2txt \
+    && curl -fsSL -o /tmp/hi2txt.zip "https://github.com/GreatStoneEx/hi2txt-xml/releases/download/${HI2TXT_RELEASE}/hi2txt.zip" \
+    && echo "${HI2TXT_SHA256}  /tmp/hi2txt.zip" | sha256sum -c - \
+    && python3 -c "import zipfile; zipfile.ZipFile('/tmp/hi2txt.zip').extractall('/app/hi2txt/xml')" \
+    && rm /tmp/hi2txt.zip \
+    && curl -fsSL -o /app/hi2txt/LICENSE "https://raw.githubusercontent.com/GreatStoneEx/hi2txt-xml/${HI2TXT_RELEASE}/LICENSE" \
+    && echo "${HI2TXT_LICENSE_SHA256}  /app/hi2txt/LICENSE" | sha256sum -c -
+
 # Copy S6 service and set permissions
 COPY rootfs /
 RUN chmod +x /etc/services.d/arcade/*
