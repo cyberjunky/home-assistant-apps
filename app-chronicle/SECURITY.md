@@ -32,5 +32,9 @@ So you know what is at stake:
   functions that reach server files, other sessions or settings, and, when the app connects as
   a superuser, drops to the `pg_read_all_data` role. A dedicated read-only user (see DOCS.md)
   limits the app further.
+- **Changes go through Home Assistant.** *Exclude* and *Delete history* call the Chronicle
+  integration's actions (`chronicle.exclude_entities`, `exclude_domains`, `purge_entities`)
+  through Home Assistant's API, which is why the app asks for Home Assistant API access. They
+  only take an entity id or a domain name, checked before they are sent, and ask first.
 - **No third parties.** Nothing is uploaded anywhere. The page loads its fonts from Google
   Fonts, like the other apps in this repository.

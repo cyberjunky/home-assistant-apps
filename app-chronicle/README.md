@@ -19,7 +19,8 @@ storage and compression are doing, and a read-only SQL page for your own questio
 from the sidebar, it follows Home Assistant's light and dark mode.
 
 The app only reads. It connects to the same database as the integration, and every query it
-runs is read-only: it can't change or delete the history.
+runs is read-only: it can't change or delete the history itself. *Exclude* and *Delete history*
+on an entity ask the Chronicle integration to do that, through Home Assistant.
 
 ![Overview: entities, rows, sizes and compression, rows written per hour, the most active entities and domains (light theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-chronicle/screenshots/overview-light.webp)
 
@@ -54,7 +55,8 @@ runs is read-only: it can't change or delete the history.
 - 🔍 **Charts** — Every chart follows the page's width, zooms by dragging (an entity fetches finer data as you zoom in), has a tooltip and a legend that hides lines, and copies as an image or as CSV
 - 🗄️ **Storage** — Every chunk with its size before and after compression, TimescaleDB's compression, retention and averaging jobs with their last run, and the size of each table
 - 🧮 **Query** — Read-only SQL with twelve described examples, a history of what you ran with favourites, a chart of the result, and CSV
-- 🔒 **Read only** — The app never writes; even a `DELETE` typed on the Query page is refused by PostgreSQL itself
+- 🚫 **Exclude and delete** — Stop recording an entity or a whole domain, or delete an entity's history, from its page; done by the Chronicle integration (0.1.5 or later), so exclusions stay in its options
+- 🔒 **Read only** — The app never writes to the database itself; even a `DELETE` typed on the Query page is refused by PostgreSQL itself
 
 ## Installation
 

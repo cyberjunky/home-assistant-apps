@@ -1,5 +1,5 @@
 name: Chronicle
-version: "0.1.2"
+version: "0.1.3"
 slug: app-chronicle
 description: "Browse the long-term history the Chronicle integration keeps in TimescaleDB - entities, charts, storage and compression"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-chronicle"
@@ -12,6 +12,8 @@ image: "ghcr.io/cyberjunky/app-chronicle"
 ingress: true
 panel_icon: mdi:database-clock
 panel_title: Chronicle
+# Exclude and Delete history call the Chronicle integration's actions through Home Assistant
+homeassistant_api: true
 
 # The database the Chronicle integration records into; the app only reads from it
 options:
