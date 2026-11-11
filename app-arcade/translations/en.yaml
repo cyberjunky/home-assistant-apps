@@ -1,0 +1,7 @@
+configuration:
+  rom_folder:
+    name: ROM folder
+    description: Where the game zip files are kept, under /share or /media. Reachable over the Samba app as the share folder.
+  log_level:
+    name: Log level
+    description: How much the app writes to its log.

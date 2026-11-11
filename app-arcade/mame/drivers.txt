@@ -1,0 +1,27 @@
+# MAME drivers compiled into this app (paths in the MAME source tree, one per line).
+# A full MAME is too large for a browser, so the build holds these drivers only; every
+# game in them can run (see the Info tab for the list). Adding a driver: add its .cpp
+# here, bump MAME_WASM in ../Dockerfile and run the "Build Arcade MAME" workflow.
+
+# Jump Coaster, Fly-Boy, Fast Freddie, Boggy '84, Imago
+src/mame/galaxian/fastfred.cpp
+# Galaxian, Scramble, Frogger, Moon Cresta and many more on Galaxian hardware
+src/mame/galaxian/galaxian.cpp
+# Pac-Man, Ms. Pac-Man, Puck Man and their hardware family
+src/mame/pacman/pacman.cpp
+# Donkey Kong, Donkey Kong Jr., Donkey Kong 3, Radar Scope
+src/mame/nintendo/dkong.cpp
+# Defender, Stargate, Robotron, Joust, Sinistar, Bubbles; Alien Arena (free from mamedev.org)
+src/mame/williams/williams.cpp
+
+# The free ROMs on https://www.mamedev.org/roms/
+src/mame/exidy/circus.cpp
+src/mame/exidy/exidy.cpp
+src/mame/exidy/starfire.cpp
+src/mame/exidy/carpolo.cpp
+src/mame/exidy/victory.cpp
+src/mame/exidy/exidy440.cpp
+src/mame/bally/astrocde.cpp
+src/mame/bally/gridlee.cpp
+src/mame/videogames/supertnk.cpp
+src/mame/videogames/looping.cpp

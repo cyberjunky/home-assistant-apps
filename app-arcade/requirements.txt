@@ -1,0 +1,3 @@
+# Python dependencies for Arcade (installed in the Dockerfile).
+# aiohttp - web server for the page, ROM upload and save files
+aiohttp>=3.14.5,<4

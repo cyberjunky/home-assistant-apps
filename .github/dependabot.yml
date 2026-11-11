@@ -15,6 +15,7 @@ updates:
 
   - package-ecosystem: docker
     directories:
+      - /app-arcade
       - /app-dishylink
       - /app-fireservicerota
       - /app-goodwe
@@ -30,9 +31,10 @@ updates:
         update-types:
           - version-update:semver-major
 
-  # The Python packages of Tesla, GoodWe and FireServiceRota, pinned in their requirements.txt.
+  # The Python packages of Arcade, Tesla, GoodWe and FireServiceRota, pinned in their requirements.txt.
   - package-ecosystem: pip
     directories:
+      - /app-arcade
       - /app-fireservicerota
       - /app-goodwe
       - /app-tesla

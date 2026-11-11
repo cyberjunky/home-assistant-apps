@@ -28,6 +28,19 @@ The apps below then appear in the store under **Cyberjunky's Home Assistant Apps
 
 ## Apps
 
+### <img src="app-arcade/icon.png" alt="" width="36" align="absmiddle"> [Arcade](app-arcade/)
+
+![Version][arcade-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+Classic arcade games in Home Assistant, opened from the sidebar: MAME runs in your browser,
+with the original graphics and sound, keyboard, gamepad and touch controls, save states, and
+high scores kept on the server. Contains no games: you add ROM files you have the right to
+use, for example the free ones on mamedev.org.
+
+[:books: Documentation](app-arcade/DOCS.md) · [:memo: Changelog](app-arcade/CHANGELOG.md) · [:lock: Security](app-arcade/SECURITY.md)
+
 ### <img src="app-dishylink/icon.png" alt="" width="36" align="absmiddle"> [Dishylink](app-dishylink/)
 
 ![Version][dishylink-version-shield]
@@ -202,5 +215,6 @@ software each app packages keeps its own license, noted in the app's README.
 [meldkamer-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-meldkamer%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [tesla-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-tesla%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [toon-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-toon%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[arcade-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-arcade%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [fireservicerota-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-fireservicerota%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [nuclei-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-nuclei%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge

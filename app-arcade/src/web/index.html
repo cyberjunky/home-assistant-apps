@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcade</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="__BASE__/static/app.css?v=__APP_VERSION__"/>
+</head>
+<body data-base="__BASE__">
+    <header class="topbar">
+        <div class="brand">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M8 13V7"/><circle cx="8" cy="5" r="2"/><circle cx="15" cy="16.5" r="1"/><circle cx="18" cy="16.5" r="1"/></svg>
+            <span class="brand-name">ARCADE</span>
+            <span class="brand-sub" id="brand-sub"></span>
+        </div>
+        <nav class="tabs" aria-label="Views">
+            <button type="button" class="tab active" data-tab="library" onclick="switchTab('library')">Library</button>
+            <button type="button" class="tab" data-tab="info" onclick="switchTab('info')">Info</button>
+        </nav>
+        <span class="spacer"></span>
+        <input id="search" class="input" type="search" placeholder="Search games" oninput="renderGames()" aria-label="Search games">
+        <div class="tabs" role="group" aria-label="Theme">
+            <button type="button" id="theme-toggle" class="tab icon-tab" onclick="cycleTheme()" title="Theme"><span id="theme-icon">🌓</span></button>
+        </div>
+    </header>
+
+    <main class="pages">
+        <section id="tab-library" class="tab-content active">
+            <div id="legal" class="notice" hidden>
+                <div class="notice-title">Before you add games</div>
+                <p>This app contains the MAME emulator and <b>no games</b>. A game is a ROM file: a copy of the
+                    program chips of the original arcade machine. Those are copyrighted by the companies that made
+                    the games, also when they are decades old and no longer sold.</p>
+                <p>Only add ROM files you have the right to use: dumped from an arcade board you own, bought as a
+                    licensed release, or released for free by the rights holder. The MAME team offers a set of such
+                    free ROMs on <a href="https://www.mamedev.org/roms/" target="_blank" rel="noopener">mamedev.org/roms</a>.
+                    Downloading other ROMs from download sites is not legal in most countries, the Netherlands included.
+                    You are responsible for the files you add.</p>
+                <label class="check"><input type="checkbox" id="legal-check" onchange="document.getElementById('legal-accept').disabled = !this.checked">
+                    I only add ROM files I have the right to use</label>
+                <div><button type="button" id="legal-accept" class="btn btn-primary" disabled onclick="acceptLegal()">Continue</button></div>
+            </div>
+
+            <div id="upload" class="dropzone" hidden>
+                <input id="file-input" type="file" accept=".zip,application/zip" multiple hidden onchange="uploadFiles(this.files); this.value = ''">
+                <div class="drop-icon" aria-hidden="true">⬆</div>
+                <div><b>Drop ROM zip files here</b> or <button type="button" class="linkish" onclick="document.getElementById('file-input').click()">choose files</button></div>
+                <div class="panel-sub">Zips are recognised by their contents and stored under the game's own name in <span id="rom-folder" class="mono"></span>.
+                    Free, legal ROMs: <a href="https://www.mamedev.org/roms/" target="_blank" rel="noopener">mamedev.org/roms</a>.</div>
+                <div id="upload-log" class="upload-log"></div>
+            </div>
+
+            <div id="problems" class="problems" hidden></div>
+            <div id="games" class="games"></div>
+        </section>
+
+        <section id="tab-info" class="tab-content">
+            <div class="info-grid">
+                <div class="panel">
+                    <div class="panel-head"><span class="panel-title">Emulator</span></div>
+                    <div class="panel-body kv" id="info-mame"></div>
+                </div>
+                <div class="panel">
+                    <div class="panel-head"><span class="panel-title">Controls</span></div>
+                    <div class="panel-body">
+                        <table class="keys">
+                            <tr><td><kbd>5</kbd></td><td>Insert coin (player 1), <kbd>6</kbd> player 2</td></tr>
+                            <tr><td><kbd>1</kbd></td><td>Start 1 player, <kbd>2</kbd> 2 players</td></tr>
+                            <tr><td><kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd></td><td>Joystick</td></tr>
+                            <tr><td><kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>Space</kbd></td><td>Buttons 1, 2 and 3</td></tr>
+                            <tr><td><kbd>P</kbd></td><td>Pause</td></tr>
+                            <tr><td><kbd>Tab</kbd></td><td>MAME menu: inputs, DIP switches, settings (for this session)</td></tr>
+                            <tr><td><kbd>F2</kbd> <kbd>F3</kbd></td><td>Service mode, reset</td></tr>
+                            <tr><td><kbd>Esc</kbd></td><td>Back to the library (high scores are already saved)</td></tr>
+                        </table>
+                        <p class="panel-sub" style="margin-top: 10px;">A gamepad works too: plug it in and press a button once the game runs. On a touch screen the
+                            game shows on-screen controls.</p>
+                    </div>
+                </div>
+                <div class="panel">
+                    <div class="panel-head"><span class="panel-title">Legal and licenses</span></div>
+                    <div class="panel-body prose">
+                        <p>This app contains no games. You are responsible for the ROM files you add: only add files you have
+                            the right to use. Free, legal ROMs are offered by the MAME team on
+                            <a href="https://www.mamedev.org/roms/" target="_blank" rel="noopener">mamedev.org/roms</a>.</p>
+                        <p><b>MAME</b> is © the MAME team and contributors, licensed under the
+                            <a href="https://github.com/mamedev/mame/blob/master/COPYING" target="_blank" rel="noopener">GNU GPL version 2 or later</a>.
+                            Its source code, including the exact version in this app, is at
+                            <a id="mame-source" href="https://github.com/mamedev/mame" target="_blank" rel="noopener">github.com/mamedev/mame</a>;
+                            how this app builds it is in the app's repository. MAME is a registered trademark of Gregory Ember.
+                            This app is not made or endorsed by the MAME team.</p>
+                        <p>The <b>hiscore</b> plugin and hiscore.dat come with MAME (plugin CC0), with its plugin loader (BSD-3-Clause) and json plugin (MIT).</p>
+                        <p>Game names, company names and trademarks belong to their owners. This app is not affiliated with any of them.</p>
+                    </div>
+                </div>
+                <div class="panel">
+                    <div class="panel-head"><span class="panel-title">Support</span></div>
+                    <div class="panel-body prose">
+                        <p>Questions and problems: <a href="https://github.com/cyberjunky/home-assistant-apps/issues" target="_blank" rel="noopener">GitHub issues</a>.
+                            Version <span class="mono" id="info-version"></span>.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="statusbar">
+        <span id="sb-state" class="sb-warn">● LOADING…</span>
+        <span id="sb-folder" class="sb-extra"></span>
+        <span class="spacer"></span>
+        <span>GAMES <b id="sb-playable">0</b> playable</span>
+        <span class="sb-extra"><b id="sb-known">0</b> machines in MAME <span id="sb-mame"></span></span>
+        <span class="sb-extra">v__APP_VERSION__</span>
+    </footer>
+
+    <div id="toast-root" class="toast-root"></div>
+    <script src="__BASE__/static/common.js?v=__APP_VERSION__"></script>
+    <script src="__BASE__/static/library.js?v=__APP_VERSION__"></script>
+    <script src="__BASE__/static/donate.js?v=__APP_VERSION__" data-app="Arcade" data-api="__BASE__/api/donate"></script>
+</body>
+</html>
