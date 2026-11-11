@@ -23,7 +23,7 @@ laptop to the tablet.
 ## Supported Features
 
 - 🕹️ **The real thing**: MAME emulates the original arcade hardware, so graphics, sound and timing are the original's
-- 📚 **Library**: drop ROM zip files on the page; each zip is recognised by its contents and stored under the game's own name, with what is still missing if a set is incomplete
+- 📚 **Library**: drop ROM files (`.zip` or `.7z`) on the page; each one is recognised by its contents and stored under the game's own name, with what is still missing if a set is incomplete
 - 🏆 **High scores kept**: MAME's hiscore plugin saves them as soon as they change, also for games that forgot them at power-off
 - 💾 **Save states**: save the game at any moment and go back to it later, on any device
 - 🎮 **Controls**: keyboard, gamepad, and on-screen controls on a touch screen
@@ -32,7 +32,7 @@ laptop to the tablet.
 
 ## Screenshots
 
-![Library: the games your ROM zips hold](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-arcade/screenshots/library-light.webp)
+![Library: the games your ROM files hold](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-arcade/screenshots/library-light.webp)
 
 ![Super Tank, one of the free ROMs on mamedev.org, being played](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-arcade/screenshots/playing-supertank.webp)
 

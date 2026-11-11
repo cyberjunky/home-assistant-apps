@@ -158,7 +158,7 @@ class WebUI:
             if part.name != "file" or not part.filename:
                 continue
             name = Path(part.filename).name
-            fd, tmp_name = tempfile.mkstemp(suffix=".zip", dir=DATA_DIR)
+            fd, tmp_name = tempfile.mkstemp(suffix=".upload", dir=DATA_DIR)
             tmp = Path(tmp_name)
             size = 0
             try:
@@ -169,7 +169,10 @@ class WebUI:
                             raise ValueError(f"{name} is larger than {MAX_UPLOAD // 1024 // 1024} MB")
                         f.write(chunk)
                 info = self.library.add(tmp, name)
-                logger.info(f"Added {name} as {info['file']} ({info['description']})")
+                logger.info(
+                    f"Added {name} as {info['file']} ({info['description']})"
+                    + (f", replacing {', '.join(info['replaced'])}" if info["replaced"] else "")
+                )
                 results.append({"file": name, "ok": True, **info})
             except (ValueError, OSError) as e:
                 results.append({"file": name, "ok": False, "error": str(e)})

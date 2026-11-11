@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+**After updating:** nothing to do.
+
+- ROM sets in `.7z` format work too, as well as `.zip`: upload them or copy them into the ROM folder. They are recognised by their contents like zips (from the archive's file list, nothing is unpacked) and MAME reads them directly. Uploading a game in the other format replaces the one that was there; a game with both a `.zip` and a `.7z` in the folder is listed under Problems.
+
 ## 0.1.1
 
 **After updating:** nothing to do.

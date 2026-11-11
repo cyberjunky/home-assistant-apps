@@ -12,7 +12,7 @@ kept by the app, so they follow you to any device.
 
 1. Install the app, start it and open **Arcade** from the sidebar.
 2. Read the notice about ROM files and accept it. You only have to do this once.
-3. Drop ROM zip files on the page, or copy them into the ROM folder (`/share/arcade/roms`;
+3. Drop ROM files (`.zip` or `.7z`) on the page, or copy them into the ROM folder (`/share/arcade/roms`;
    over the Samba app that is `share\arcade\roms`).
 4. Click **Play**, then **Play** again on the start screen (browsers only allow sound after
    a click). Press <kbd>5</kbd> for a coin and <kbd>1</kbd> to start.
@@ -25,7 +25,7 @@ holders' permission on [mamedev.org/roms](https://www.mamedev.org/roms/), such a
 
 A complete MAME is far too large for a browser, so this app's MAME contains a selection of
 drivers. A driver emulates one family of arcade boards and runs every game made for it. The
-Info tab lists the drivers; the library shows every game a zip in your folder holds.
+Info tab lists the drivers; the library shows every game a ROM file in your folder holds.
 
 | Driver | Games, for example |
 |--------|--------------------|
@@ -42,13 +42,15 @@ gambling machines). More drivers can be added; see [Development](#development).
 
 ### ROM files
 
-A game is one zip file, named after the game's MAME short name (`jumpcoas.zip` for Jump
-Coaster). The app recognises a zip by the checksums of the files in it, whatever it is
-called, and stores an upload under the right name. A zip in the folder with another name
+A game is one `.zip` or `.7z` file, named after the game's MAME short name (`jumpcoas.zip`
+or `jumpcoas.7z` for Jump Coaster); MAME reads both. The app recognises a file by the
+checksums of the files in it, whatever it is called (both formats list them, nothing is
+unpacked), and stores an upload under the right name. Uploading a game in the other format
+replaces the one that was there. A file in the folder with another name
 shows up under **Problems**, with a button to rename it.
 
-A *clone* (another version of a game, such as `jumpcoasa`) needs its own zip and its
-parent's zip (`jumpcoas.zip`), or a merged set that holds both. When something is missing,
+A *clone* (another version of a game, such as `jumpcoasa`) needs its own file and its
+parent's (`jumpcoas.zip`), or a merged set that holds both. When something is missing,
 the game shows which files.
 
 The ROMs must match the MAME version in the app (shown in the top bar and on the Info tab).
@@ -95,7 +97,7 @@ a step its browser version never reaches; the app's MAME carries a small patch f
 
 | Option | Default | |
 |--------|---------|-|
-| `rom_folder` | `/share/arcade/roms` | Where the ROM zips are kept, under `/share` or `/media` |
+| `rom_folder` | `/share/arcade/roms` | Where the ROM files (`.zip`, `.7z`) are kept, under `/share` or `/media` |
 | `log_level` | `info` | `debug`, `info`, `warning` or `error` |
 
 ## Legal and licenses

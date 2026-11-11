@@ -58,7 +58,7 @@ function renderGames() {
         .filter(g => !q || [g.description, g.name, g.company, g.year].join(' ').toLowerCase().includes(q))
         .sort((a, b) => (b.playable - a.playable) || a.description.localeCompare(b.description));
     if (!library.games.length) {
-        el.innerHTML = `<div class="empty"><b>No games yet.</b><br>Add ROM zip files above. This MAME build runs
+        el.innerHTML = `<div class="empty"><b>No games yet.</b><br>Add ROM files (.zip or .7z) above. This MAME build runs
             ${appStatus ? appStatus.known_games : ''} machines, see the Info tab.</div>`;
         return;
     }
@@ -110,7 +110,9 @@ async function uploadFiles(files) {
             const res = await getJson('/api/roms', {method: 'POST', body: form});
             const r = res.results[0] || {ok: false, error: 'no answer'};
             line.className = r.ok ? 'ok' : 'bad';
-            line.textContent = r.ok ? `${file.name}: added as ${r.file} (${r.description})` : `${file.name}: ${r.error}`;
+            line.textContent = r.ok
+                ? `${file.name}: added as ${r.file} (${r.description})${r.replaced && r.replaced.length ? `, replacing ${r.replaced.join(', ')}` : ''}`
+                : `${file.name}: ${r.error}`;
         } catch (e) {
             line.className = 'bad';
             line.textContent = `${file.name}: ${e.message}`;
@@ -131,6 +133,6 @@ function renameRom(file, to) {
 const drop = document.getElementById('upload');
 ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
 ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
-drop.addEventListener('drop', e => uploadFiles([...e.dataTransfer.files].filter(f => /\.zip$/i.test(f.name))));
+drop.addEventListener('drop', e => uploadFiles([...e.dataTransfer.files].filter(f => /\.(zip|7z)$/i.test(f.name))));
 
 load();

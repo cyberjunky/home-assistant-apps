@@ -44,10 +44,10 @@
             </div>
 
             <div id="upload" class="dropzone" hidden>
-                <input id="file-input" type="file" accept=".zip,application/zip" multiple hidden onchange="uploadFiles(this.files); this.value = ''">
+                <input id="file-input" type="file" accept=".zip,.7z,application/zip,application/x-7z-compressed" multiple hidden onchange="uploadFiles(this.files); this.value = ''">
                 <div class="drop-icon" aria-hidden="true">⬆</div>
-                <div><b>Drop ROM zip files here</b> or <button type="button" class="linkish" onclick="document.getElementById('file-input').click()">choose files</button></div>
-                <div class="panel-sub">Zips are recognised by their contents and stored under the game's own name in <span id="rom-folder" class="mono"></span>.
+                <div><b>Drop ROM files (.zip or .7z) here</b> or <button type="button" class="linkish" onclick="document.getElementById('file-input').click()">choose files</button></div>
+                <div class="panel-sub">Files are recognised by their contents and stored under the game's own name in <span id="rom-folder" class="mono"></span>.
                     Free, legal ROMs: <a href="https://www.mamedev.org/roms/" target="_blank" rel="noopener">mamedev.org/roms</a>.</div>
                 <div id="upload-log" class="upload-log"></div>
             </div>
