@@ -51,7 +51,7 @@ Dashboard for the long-term history that the
 [Chronicle integration](https://github.com/cyberjunky/home-assistant-chronicle) keeps in
 TimescaleDB, opened from the sidebar. What is recorded and how much, every entity's history as
 a chart or state timeline, chunks and compression, TimescaleDB's background jobs, and a
-read-only SQL page with examples. Only reads.
+read-only SQL page with described examples and a history of your queries. Only reads.
 
 [:books: Documentation](app-chronicle/DOCS.md) · [:memo: Changelog](app-chronicle/CHANGELOG.md) · [:lock: Security](app-chronicle/SECURITY.md)
 
@@ -150,6 +150,8 @@ battery health. Runs entirely on your Home Assistant; no cloud, no telemetry.
 
 PostgreSQL with the TimescaleDB time-series extension plus PostGIS, pgvector, pg_cron,
 pgAgent and TimescaleDB Toolkit. Apache 2.0, derived from an earlier add-on (see its NOTICE).
+Pairs with the [Chronicle](https://github.com/cyberjunky/home-assistant-chronicle) integration
+and [app](app-chronicle/) for long-term history.
 
 [:books: Documentation](app-timescaledb/DOCS.md) · [:memo: Changelog](app-timescaledb/CHANGELOG.md) · [:lock: Security](app-timescaledb/SECURITY.md)
 
