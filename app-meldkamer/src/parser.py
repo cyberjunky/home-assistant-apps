@@ -261,7 +261,7 @@ class Parser:
                 msg.city = city_name
                 # A province code right after the town ("Velp NB") says which Velp is meant
                 if i + 1 < len(words):
-                    msg.province = message_fields.PROVINCE_CODES.get(words[i + 1].upper(), "")
+                    msg.province = self.database.province_for_code(words[i + 1])
                 # Remove the matched tokens (not the first substring hit, which
                 # could be inside a street name like "Delftweg")
                 search_text = " ".join(words[:start] + words[i + 1 :])
@@ -273,15 +273,17 @@ class Parser:
             if expanded_city:
                 # Abbreviations of same-named towns carry the province ("VELPNB" -> "Velp NB"):
                 # the stored place is "Velp" in that province
-                town, province = message_fields.split_province_code(expanded_city)
+                town, province = self.database.split_province_code(expanded_city)
                 stored = self.database.find_city_name(town) if province else None
+                # Spoken with its province, so nothing of the text is left out ("Velp Noord-Brabant")
+                spoken_city = f"{stored} {province}" if stored else expanded_city
                 if stored:
                     expanded_city, msg.province = stored, province
                 found_city = expanded_city
                 msg.city = expanded_city
                 search_text = " ".join(words[:i] + words[i + 1 :])
                 excluded_words.append(word)
-                msg.speakable_body = self._speakable_city_replace(msg.speakable_body, word, expanded_city)
+                msg.speakable_body = self._speakable_city_replace(msg.speakable_body, word, spoken_city)
                 logger.debug(f"City abbreviation expanded: {word} -> {expanded_city}")
                 break
 

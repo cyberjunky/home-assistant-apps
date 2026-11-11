@@ -64,8 +64,9 @@ def _locate(db, body, region=""):
     return msg
 
 
-def test_split_province_code():
-    from src.message_fields import split_province_code
+def test_split_province_code(db):
+    # The codes are in the province_codes table (1.4.15), so the split reads the database
+    split_province_code = db.split_province_code
 
     assert split_province_code("Velp NB") == ("Velp", "Noord-Brabant")
     assert split_province_code("Hoorn Fr") == ("Hoorn", "Friesland")
