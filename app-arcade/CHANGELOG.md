@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1
+
+**After updating:** nothing to do.
+
+- ROM files up to 512 MB can be uploaded (was 128 MB), for the largest sets such as `kof98umh`.
+
 ## 0.6.0
 
 **After updating:** nothing to do. ROM files of the new games that the app turned down before can be uploaded again; files already in the ROM folder are recognised by themselves.
