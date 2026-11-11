@@ -29,6 +29,7 @@ async function load() {
     document.getElementById('rom-folder').textContent = appStatus.rom_folder;
     document.getElementById('brand-sub').textContent = appStatus.mame.version ? `MAME ${appStatus.mame.version}` : '';
     renderInfo();
+    renderUnrecognised();
     renderStatusbar();
     renderProblems();
     renderBios();
@@ -371,6 +372,30 @@ function renderInfo() {
         <div><span>Drivers</span><span>${drivers || '—'}</span></div>
         <div><span>ROM folder</span><span class="mono">${escapeHtml(appStatus.rom_folder)}</span></div>
         ${appStatus.mame_present ? '' : '<div class="bad">The MAME build is missing from this app image.</div>'}`;
+}
+
+// Files in the ROM folder and uploads this build has no game for, grouped by the MAME driver
+// they need (from the index of every machine in MAME), so you can ask for drivers in one go
+function renderUnrecognised() {
+    const list = library.unrecognised || [];
+    document.getElementById('unrecognised-panel').hidden = !list.length;
+    document.getElementById('unrecognised-clear').hidden = !list.some(u => !u.in_folder);
+    const groups = new Map();
+    for (const u of list) {
+        const key = u.driver || '';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(u);
+    }
+    const file = (u) => `<span class="mono">${escapeHtml(u.file)}</span>${u.in_folder ? '' : ' <span class="panel-sub">(upload)</span>'}`;
+    document.getElementById('unrecognised-list').innerHTML = [...groups.entries()].map(([driver, rows]) => driver
+        ? `<div class="unrec-group"><div><b class="mono">${escapeHtml(driver)}</b>
+                <span class="panel-sub">${escapeHtml(rows[0].source || driver)}.cpp · ${rows.length} file${rows.length === 1 ? '' : 's'}</span></div>
+            <ul>${rows.map(u => `<li>${file(u)} ${escapeHtml(u.description || '')}${u.not_working ? ' <span class="chip bad">not working in MAME</span>' : ''}</li>`).join('')}</ul></div>`
+        : `<div class="unrec-group"><div><b>No driver found</b> <span class="panel-sub">not a MAME machine name, or the files don't match</span></div>
+            <ul>${rows.map(u => `<li>${file(u)} <span class="panel-sub">${escapeHtml(u.error)}</span></li>`).join('')}</ul></div>`).join('');
+}
+function forgetUnrecognised() {
+    getJson('/api/unrecognised', {method: 'DELETE'}).then(load).catch(e => toast(e.message, 'error'));
 }
 
 async function uploadFiles(files) {

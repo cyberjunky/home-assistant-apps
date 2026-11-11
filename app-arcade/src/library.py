@@ -169,7 +169,8 @@ class Library:
             except subprocess.TimeoutExpired as e:
                 raise ValueError("reading the 7z archive took too long") from e
             if result.returncode != 0:
-                raise ValueError(f"a damaged 7z file ({(result.stderr or result.stdout).strip()[:200]})")
+                detail = (result.stderr or result.stdout).replace(str(path), path.name).strip()
+                raise ValueError(f"a damaged or incomplete 7z file ({detail[:200]})")
             crcs, crc, is_dir = set(), None, False
             # One block of "Key = value" lines per file, separated by an empty line
             for line in [*result.stdout.splitlines(), ""]:
@@ -215,6 +216,16 @@ class Library:
             parts.append(line)
         return "; ".join(parts)
 
+    def recognise(self, crcs: set[str]) -> tuple[str | None, str | None]:
+        """(game, None) or (None, BIOS set) for an archive; (None, None) if it is neither. An
+        archive of only BIOS files is the BIOS set, also when a game lists those files too (a
+        PGM bootleg with the PGM BIOS in its own set)."""
+        bios = self.identify_bios(crcs)
+        if bios and crcs <= {r["crc"] for r in self.bios[bios]["roms"]}:
+            return None, bios
+        game = self.identify(crcs)
+        return (game, None) if game else (None, bios)
+
     def identify(self, crcs: set[str]) -> str | None:
         """The game whose own ROM set this archive covers best (a parent wins a tie with its clones)."""
         candidates: dict[str, int] = {}
@@ -248,7 +259,7 @@ class Library:
                 logger.warning(f"No index of MAME's machines ({path}: {e}): unrecognised files are explained less well")
         return self._machines
 
-    def diagnose(self, file: str, crcs: set[str]) -> dict:
+    def diagnose(self, file: str, crcs: set[str], read_error: str | None = None) -> dict:
         """Why an archive is no game this build can run, in a line or two. A file named after a
         MAME machine this build has no driver for says which driver it needs (from the index of
         every machine in MAME); otherwise what it holds and what comes closest (why_unknown)."""
@@ -256,7 +267,10 @@ class Library:
         parts = split_name(file)
         stem = set_name(parts[0] if parts else file)
         machine = None if stem in self.games or stem in self.bios else self.machines().get(stem)
-        if not crcs or not machine:
+        if read_error and not machine:
+            named = f" It is named like {self.games[stem]['description']} ({stem})." if stem in self.games else ""
+            return {"error": f"not readable: {read_error}.{named}", "set": stem}
+        if not machine:
             return {"error": f"not a game this app's MAME can run ({self.why_unknown(crcs, file)})", "set": stem}
         desc, company, year, source, _parent, bios, flags = machine
         driver = source.rsplit("/", 1)[-1]
@@ -280,6 +294,8 @@ class Library:
                 text += f"; it doesn't work in MAME {v} either"
             if bios:
                 text += f"; it also needs the BIOS set {bios}.zip"
+        if read_error:
+            text = f"not readable: {read_error}. By its name: {text}"
         return {
             "error": text,
             "set": stem,
@@ -326,15 +342,14 @@ class Library:
         info = ArchiveInfo(file=path.name, size=st.st_size)
         try:
             info.crcs = self.read_crcs(path)
-            info.game = self.identify(info.crcs)
-            if not info.game:
-                info.bios = self.identify_bios(info.crcs)
+            info.game, info.bios = self.recognise(info.crcs)
             if not info.game and not info.bios:
                 info.diagnosis = self.diagnose(path.name, info.crcs)
                 info.error = info.diagnosis["error"]
                 logger.warning(f"Not recognised: {path.name} ({st.st_size} bytes): {info.error}")
         except (OSError, ValueError) as e:
-            info.error = f"not readable: {e}"
+            info.diagnosis = self.diagnose(path.name, set(), str(e))
+            info.error = info.diagnosis["error"]
         self._cache[path.name] = (st.st_mtime, st.st_size, info)
         return info
 
@@ -486,9 +501,10 @@ class Library:
             kind = self.kind(upload)
             crcs = self.read_crcs(upload)
         except (OSError, ValueError) as e:
-            raise ValueError(f"{original_name}: {e}") from e
-        game = self.identify(crcs)
-        bios = None if game else self.identify_bios(crcs)
+            diagnosis = self.diagnose(original_name, set(), str(e))
+            self.remember(original_name, diagnosis)
+            raise ValueError(f"{original_name}: {diagnosis['error']}") from e
+        game, bios = self.recognise(crcs)
         if not game and not bios:
             diagnosis = self.diagnose(original_name, crcs)
             self.remember(original_name, diagnosis)

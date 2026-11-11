@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.6.0
+
+**After updating:** nothing to do. ROM files of the new games that the app turned down before can be uploaded again; files already in the ROM folder are recognised by themselves.
+
+- 38 more MAME drivers, 4182 games and versions in all (was 2432):
+  - Video pinball: Pinball Action, Atari Video Pinball (real pinball machines are mechanical; MAME can't emulate their playfield)
+  - Slot machines and video poker: Golden Poker, Witch Card and the eight free Video Klein sets from mamedev.org, Cherry Master, Golden Star, Aristocrat MK5 (with the BIOS set `aristmk5.zip`; many versions don't work in MAME and say so)
+  - Sega: After Burner, Thunder Blade, Racing Hero (X Board), Out Run, Super Hang-On, Galaxy Force II, G-LOC, Power Drift (Y Board), Zaxxon, Pengo
+  - Taito: Rainbow Islands, The NewZealand Story, Rastan, the F3 games (Bubble Symphony, Puzzle Bobble 2 and 3, Elevator Action Returns)
+  - Atari: Tetris, Gauntlet I and II, Paperboy, 720 Degrees, Super Sprint
+  - Midway and Williams: Mortal Kombat 1 to 3 and UMK3, NBA Jam, NBA Hangtime, Judge Dredd, Smash T.V., Narc, Trog, Rampage
+  - IGS PGM (with the BIOS set `pgm.zip`) and PGM2: Knights of Valour 1 to 3, Oriental Legend, DoDonPachi Dai-Ou-Jou, Ketsui, Martial Masters, KOF '98 Ultimate Match HERO
+  - Snow Bros., Pang, Double Dragon 1 to 3, WWF WrestleFest, R-Type, Image Fight, Moon Patrol, RoboCop, Bad Dudes, Contra, Gradius, Salamander, TwinBee, Track & Field, Hyper Sports, Lady Bug, Truxton, Zero Wing, Toki
+- BIOS sets work the same way for every system: the PGM BIOS (two versions, one is enough) and the Aristocrat MK5 BIOS (no versions to choose; a game outside the US needs only its GAL chips) are recognised, stored under their own name and passed to MAME like the Neo Geo BIOS. An archive of only BIOS files is taken for the BIOS set, also when a bootleg game lists the same files.
+- Which driver is missing: a file named after a MAME machine that this app has no driver for now says what it is and which driver it needs, for example "Tekken 3 (Namco, 1997): needs MAME driver namcos12, which this app doesn't include (yet)", whether it works in MAME at all, and whether it is a real (mechanical) pinball machine, a slot machine or a console. The app looks the name up in an index of every machine in MAME 0.289, made with the MAME build. A damaged file named like such a machine says both.
+- The Info tab lists the files in the ROM folder and the uploads that weren't recognised, grouped by the driver they need, so you can ask for drivers in one go.
+
 ## 0.5.1
 
 **After updating:** nothing to do. If a file isn't recognised, upload it again to see why.

@@ -1,5 +1,5 @@
 name: Arcade
-version: "0.5.1"
+version: "0.6.0"
 slug: app-arcade
 description: "Arcade games in Home Assistant: MAME in your browser, with high scores kept. No games included, bring ROMs you have the right to use"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-arcade"
