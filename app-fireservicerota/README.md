@@ -31,7 +31,7 @@ records stays in the app's data folder and is included in your Home Assistant ba
 **Console, dark theme** — follows Home Assistant's light/dark mode
 ![Console view in the dark theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-fireservicerota/screenshots/console-dark.webp)
 
-**Wallboard** — the current incident large with the countdown and answer buttons, the map, your duty, the last 48 hours and a ticker of recent incidents
+**Wallboard** — the current incident large with the countdown and answer buttons, the map, your duty, incidents per hour over the last 48 hours and the last 10 calls
 ![Wallboard view](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-fireservicerota/screenshots/wallboard-1280x800.webp)
 
 **Stats** — totals and response rates, incidents per day, by type and priority, busiest hours and weekdays, duty periods
