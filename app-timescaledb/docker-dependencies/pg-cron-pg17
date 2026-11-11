@@ -1,39 +1,31 @@
-# Version of the timescale/timescaledb image to build against (passed by project.sh / the workflow)
-ARG TIMESCALEDB_VERSION=2.29.2
-FROM timescale/timescaledb:${TIMESCALEDB_VERSION}-pg17 AS timescale-pg17
-
-FROM timescale-pg17 AS pg-cron
+ARG ALPINE_VERSION=3.24
+FROM alpine:${ALPINE_VERSION}
 ARG VERSION
 ARG TARGETARCH
 ARG TARGETVARIANT
+ARG PG_MAJOR=17
 
-# --------------------------------------------
-# pg_cron - build and install
-# --------------------------------------------
-# hadolint ignore=DL3018, DL3003
+# -----------------------------------------------------------------
+# pg_cron, built against the PostgreSQL package of this Alpine release
+# -----------------------------------------------------------------
+# hadolint ignore=DL3018,DL3003
 RUN --mount=type=cache,id=apk-${TARGETARCH}-${TARGETVARIANT},sharing=locked,target=/var/cache/apk \
     set -ex \
     && apk update \
-    && apk add --virtual .fetch-deps \
-                ca-certificates \
-                git \
-    && apk add --virtual .build-deps \
-                coreutils \
-                gcc \
-                make \
-                build-base \
-                clang21 \
-                llvm21 \
-    && mkdir -p /build \
-    && cd /build \
-    && git clone --branch v${VERSION} https://github.com/citusdata/pg_cron.git \
-    && cd pg_cron \
-    && make \
-    && make install \
-    && cd ~ \
-    && apk del .fetch-deps .build-deps \
+    && apk add \
+        build-base \
+        ca-certificates \
+        git \
+        postgresql${PG_MAJOR} \
+        postgresql${PG_MAJOR}-dev \
+    && CLANG_VERSION="$(sed -n 's/^CLANG = clang-//p' "/usr/lib/postgresql${PG_MAJOR}/pgxs/src/Makefile.global")" \
+    && apk add "clang${CLANG_VERSION}" "llvm${CLANG_VERSION}" \
+    && git clone --branch "v${VERSION}" --depth 1 https://github.com/citusdata/pg_cron.git /build/pg_cron \
+    && cd /build/pg_cron \
+    && make -j"$(nproc)" PG_CONFIG="/usr/libexec/postgresql${PG_MAJOR}/pg_config" \
+    && make install PG_CONFIG="/usr/libexec/postgresql${PG_MAJOR}/pg_config" \
+    && cd / \
     && rm -rf /build
 
-# Labels
 LABEL \
     org.opencontainers.image.source="https://github.com/cyberjunky/home-assistant-apps"

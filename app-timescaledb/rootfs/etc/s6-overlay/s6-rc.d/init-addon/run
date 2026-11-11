@@ -24,6 +24,14 @@ backupFileExists () {
 	[[ -f "${BACKUP_FILE}" ]] || [[ -f "${LEGACY_BACKUP_FILE}" ]]
 }
 
+# Returns success when extension $2 is installed in database $1.
+# Compares the query result instead of piping to 'grep -q': under bashio's errexit and
+# pipefail, grep closing the pipe early can make an installed extension look missing
+# (https://github.com/expaso/hassos-addon-timescaledb/pull/88).
+extensionInstalled () {
+	[[ "$(psql -X -U postgres -d "${1}" -tAc "select 1 from pg_extension where extname = '${2}';")" == "1" ]]
+}
+
 # Applies permission to the data directory for the postgres user
 applyPermissions () {
 	chown -R postgres:postgres ${POSTGRES_DATA}
@@ -95,28 +103,24 @@ upgradeTimeScaleExtension () {
 		--field-separator ' ' \
 		--quiet \
 	| while read -r datname; do
-		psql -X -U postgres -d "${datname}" -c "select 1 from pg_extension where extname = 'timescaledb';" | grep -q 1 \
+		extensionInstalled "${datname}" timescaledb \
 		&& (
 			bashio::log.info "Try updating Timescale Extension for database: '${datname}'.."; \
-			# Drop the old functions and views, these could be incompatible with the new version.
-			# See: https://github.com/timescale/timescaledb-extras/issues/34
+			# Drop timescaledb-extras helpers that block the update, see the script for details.
 			# Please note that we do not drop the extension itself, because that would drop the hypertables as well.
-			# The views and functions could be recreated from: https://github.com/timescale/timescaledb-extras
-			psql -U "postgres" homeassistant -c "drop function if exists public.get_dimension_details(regclass)"; \
-			psql -U "postgres" homeassistant -c "drop view if exists public.chunks_tstz"; \
-			psql -U "postgres" homeassistant -c "drop view if exists public.chunks_ts"; \
+			(psql -X -U "postgres" -d "${datname}" -f /usr/share/timescaledb/drop_timescaledb_extras.sql || true); \
 			(psql -X -U postgres -d "${datname}" -c "ALTER EXTENSION timescaledb UPDATE;" || true)
 		)
 
 		# Update Timescale Toolkit Extension when needed
-		psql -X -U postgres -d "${datname}" -c "select 1 from pg_extension where extname = 'timescaledb_toolkit';" | grep -q 1 \
+		extensionInstalled "${datname}" timescaledb_toolkit \
 		&& (
 			bashio::log.info "Try updating Timescale Toolkit Extension for database: '${datname}'.."; \
 			(psql -X -U postgres -d "${datname}" -c "ALTER EXTENSION timescaledb_toolkit UPDATE;" || true)
 		)
 
 		# Update Vector extension when needed
-		psql -X -U postgres -d "${datname}" -c "select 1 from pg_extension where extname = 'vector';" | grep -q 1 \
+		extensionInstalled "${datname}" vector \
 		&& (
 			bashio::log.info "Try updating Vector Extension for database: '${datname}'.."; \
 			(psql -X -U postgres -d "${datname}" -c "ALTER EXTENSION vector UPDATE;" || true)
@@ -172,8 +176,15 @@ upgradePostgreSQL() {
 	# pg_upgrade requires the old and new cluster to agree on data checksums.
 	# Since PostgreSQL 18, initdb enables checksums by default, while older clusters
 	# were created without them. Match the setting of the old cluster.
+	# The output is captured first: "| grep -q" could fail under pipefail.
 	local INITDB_ARGS=""
-	if "/usr/libexec/postgresql${FROM_VERSION}/pg_controldata" "${POSTGRES_DATA}${FROM_VERSION}" | grep -qE "^Data page checksum version:\s+0$"; then
+	local OLD_CONTROLDATA
+	if ! OLD_CONTROLDATA="$("/usr/libexec/postgresql${FROM_VERSION}/pg_controldata" "${POSTGRES_DATA}${FROM_VERSION}")"; then
+		bashio::log.error "Could not read the control data of the old cluster."
+		mv "${POSTGRES_DATA}${FROM_VERSION}" "${POSTGRES_DATA}"
+		return 1
+	fi
+	if [[ "${OLD_CONTROLDATA}" =~ Data\ page\ checksum\ version:[[:space:]]*0($'\n'|$) ]]; then
 		bashio::log.info "Old cluster has no data checksums, creating new cluster without checksums.."
 		INITDB_ARGS="--no-data-checksums"
 	else
@@ -191,7 +202,8 @@ upgradePostgreSQL() {
 	cd "${POSTGRES_DATA}${FROM_VERSION}" || return 1
 	if su -c "pg_upgrade --old-bindir=/usr/libexec/postgresql${FROM_VERSION} --new-bindir=/usr/libexec/postgresql${TO_VERSION} --old-datadir=${POSTGRES_DATA}${FROM_VERSION} --new-datadir=${POSTGRES_DATA} --link --username=postgres" -s /bin/sh postgres; then
 		bashio::log.notice "PostgreSQL upgraded succesfully!"
-		# Remove the old cluster...
+		# Remove the old cluster (leave it first, it is the current directory)...
+		cd / || true
 		rm -r "${POSTGRES_DATA}${FROM_VERSION}"
 		return 0
 	else
@@ -249,8 +261,15 @@ fi
 if bashio::var.true "${NEW_INSTALL}"; then
 	touch /data/firstrun
 	echo "${BUILD_TIMESTAMP}" > ${VERSION_FILE}
-	initializeDataDirectory
-	
+	# New installations use scram-sha-256 (PostgreSQL 18 deprecates MD5 passwords). A restore
+	# keeps md5: the restored roles may still have MD5 password hashes, which scram-sha-256
+	# rejects, while md5 accepts both (as upstream, expaso/hassos-addon-timescaledb#92).
+	if bashio::var.true "${RESTORE_MODE}"; then
+		initializeDataDirectory "" "md5"
+	else
+		initializeDataDirectory
+	fi
+
 	# Restore from backup if available
 	if bashio::var.true "${RESTORE_MODE}"; then
 	    bashio::log.notice "Restore mode enabled. Loading restore script..."
@@ -321,6 +340,35 @@ if bashio::var.false "${NEW_INSTALL}"; then
 	fi
 	applyPgCronSettings
 fi
+
+# Load VectorChord (vchord, needed by Immich) at startup when the vectorchord option is on,
+# and stop loading it when it is off. The other libraries are left as they are.
+# From hassos-addon-timescaledb (https://github.com/expaso/hassos-addon-timescaledb/pull/94).
+configureVectorChord() {
+	local conf="${POSTGRES_DATA}/postgresql.conf"
+	local current
+	local wanted=""
+	local lib
+	local -a libs
+
+	current="$(sed -n -E "s/^shared_preload_libraries\s*=\s*'([^']*)'.*/\1/p" "${conf}" | tail -n 1)"
+	IFS=',' read -r -a libs <<< "${current}"
+	for lib in "${libs[@]}"; do
+		lib="${lib// /}"
+		if [[ -n "${lib}" ]] && [[ "${lib}" != "vchord" ]] && [[ "${lib}" != "vchord.so" ]]; then
+			wanted="${wanted:+${wanted},}${lib}"
+		fi
+	done
+	if bashio::config.true 'vectorchord'; then
+		wanted="${wanted:+${wanted},}vchord"
+	fi
+
+	if [[ "${wanted}" != "${current}" ]]; then
+		bashio::log.info "Setting shared_preload_libraries to '${wanted}'.."
+		sed -i -E "s/^(shared_preload_libraries\s*=\s*)'[^']*'/\1'${wanted}'/" "${conf}"
+	fi
+}
+configureVectorChord
 
 # Patch telemetry level
 if bashio::config.has_value 'timescaledb.telemetry'; then

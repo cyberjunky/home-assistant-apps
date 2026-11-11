@@ -1,5 +1,7 @@
 # Backup and Restore Implementation Summary
 
+> **Note (version 5.6.0):** the dump is `/data/backup_db.sql.gz` (gzip) since 5.5.0. Since 5.6.0 the restore adds `timescaledb_pre_restore()` / `timescaledb_post_restore()` around the data of every database with TimescaleDB (without them the rows of compressed chunks were lost), moves the sequences up to the data afterwards, and the backup keeps at least 1 GiB free on `/data` and always removes a failed dump. See the scripts in `rootfs/usr/share/timescaledb/`.
+
 ## Overview
 
 This implementation adds a resilient backup and restore mechanism for the TimescaleDB addon that addresses the problem of backing up databases while they're running.

@@ -1,6 +1,6 @@
 ---
 name: TimescaleDB
-version: 5.5.1
+version: 5.6.0
 slug: timescaledb
 description: "An open-source database built on PostgreSQL for
   analyzing time-series data with the power and convenience of SQL"
@@ -36,9 +36,12 @@ options:
     maxmemory: 512MB
     maxcpus: 4
   max_connections: 50
+  vectorchord: false
   system_packages: []
   init_commands: []
   retry_upgrade: false
+  postgresql_settings: []
+  # Replaced by postgresql_settings; kept so saved options still validate. Ignored.
   postgresql_config: {}
   pg_hba_config: []
 schema:
@@ -52,11 +55,14 @@ schema:
     maxmemory: str?
     maxcpus: int(1,)?
   max_connections: int(20,)
+  vectorchord: bool?
   system_packages:
     - str
   init_commands:
     - str
   retry_upgrade: bool?
+  postgresql_settings:
+    - match(^[A-Za-z][A-Za-z0-9_.]*\s*=.+$)
   postgresql_config:
     match(^[a-z_]+$)?: str?
   pg_hba_config:

@@ -4,8 +4,8 @@ set -e;
 PLATFORM="linux/arm64"
 
 # Registry prefix for the addon and dependency images. Override to build for a fork, e.g.:
-#   REGISTRY=ghcr.io/<your-user>/timescaledb ./project.sh build-dependencies
-REGISTRY="${REGISTRY:-ghcr.io/cyberjunky/timescaledb}"
+#   REGISTRY=ghcr.io/<your-user>/app-timescaledb ./project.sh build-dependencies
+REGISTRY="${REGISTRY:-ghcr.io/cyberjunky/app-timescaledb}"
 
 # Image tag for local builds: the version from the app configuration.
 VERSION="$(yq -r '.version' ./config.yaml)"
@@ -48,18 +48,26 @@ function printInColor() {
 function build_dependency() {
     local component=$1
     local version=$2
+    local alpine
+    local tag
+    alpine="$(get_version ALPINE_VERSION)"
+    # Extensions are built on this Alpine release; timescaledb-tools is tagged latest
+    tag="${version}-alpine${alpine}"
+    if [ "${version}" == "latest" ]; then
+        tag="latest"
+    fi
 
-    printInColor "Building docker dependency ${component}" "green"
+    printInColor "Building docker dependency ${component}:${tag}" "green"
 
     docker buildx build \
         --push \
         --platform "linux/amd64,linux/arm64" \
         --cache-from "type=registry,ref=${REGISTRY}/dependency/${component}:cache" \
         --cache-to "type=registry,ref=${REGISTRY}/dependency/${component}:cache,mode=max" \
-        --tag "${REGISTRY}/dependency/${component}:${version}" \
+        --tag "${REGISTRY}/dependency/${component}:${tag}" \
         --progress plain \
         --build-arg "VERSION=${version}" \
-        --build-arg "TIMESCALEDB_VERSION=$(get_version TIMESCALEDB_VERSION)" \
+        --build-arg "ALPINE_VERSION=${alpine}" \
         --file "./docker-dependencies/${component}" \
         . \
         && printInColor "Done building docker image!" "green"    
@@ -201,6 +209,7 @@ elif [ "$1" == "build-dependencies" ]; then
             build_dependency "postgresql-extension-system-stat-${pg}" "$(get_version SYSTEM_STATS_VERSION)"
             build_dependency "pgvector-${pg}" "$(get_version PGVECTOR_VERSION)"
             build_dependency "pg-cron-${pg}" "$(get_version PG_CRON_VERSION)"
+            build_dependency "vectorchord-${pg}" "$(get_version VECTORCHORD_VERSION)"
         done
     else
         printInColor "Building dependency $2.."
