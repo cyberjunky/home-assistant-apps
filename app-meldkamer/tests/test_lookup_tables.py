@@ -5,11 +5,10 @@ from datetime import UTC, datetime
 
 import pytest
 
-from src import abbreviation_import, lookups, message_fields, vehicle_types
+from src import default_data, message_fields, vehicle_types
 from src.database import Database
 from src.message import P2000Message
 from src.parser import Parser, is_street_name_word, looks_like_street
-from src.processor import DEFAULT_IGNORE_TEXT, seed_builtin_lists
 from src.tts import SpeechRules
 
 NEW_TABLES = [
@@ -45,23 +44,32 @@ def test_every_table_is_seeded_once(db):
     for table in NEW_TABLES:
         assert db.list_lookup(table)["total"] > 0, table
     counts = {t: db.list_lookup(t)["total"] for t in NEW_TABLES}
-    db._seed_lookup_tables()
+    db.seed_all_defaults()
+    _new_version(db)
+    db.seed_all_defaults()
     assert {t: db.list_lookup(t)["total"] for t in NEW_TABLES} == counts
+
+
+def _new_version(db):
+    """As if a new version starts: its files haven't been seeded yet."""
+    db.cursor.execute("DELETE FROM speech_seeded WHERE kind = 'defaults'")
+    db._commit()
 
 
 def test_abbreviations_and_ignore_text_deletions_stay_deleted(tmp_path):
     path = str(tmp_path / "meldkamer.sqlite3")
     db = Database(path)
-    seed_builtin_lists(db)
     db.delete_abbreviation(db.list_abbreviations(search="GHOR")["items"][0]["id"])
     mob = next(r for r in db.list_ignore_text()["items"] if r["pattern"] == "*MOB*")
     db.delete_ignore_text(mob["id"])
     db.close()
 
+    _new_version(db := Database(path))
+    db.close()
     db = Database(path)
-    seed_builtin_lists(db)
     assert not [r for r in db.list_abbreviations(search="GHOR")["items"] if r["abbreviation"] == "GHOR"]
-    assert [r["pattern"] for r in db.list_ignore_text()["items"]] == [p for p in DEFAULT_IGNORE_TEXT if p != "*MOB*"]
+    defaults = [r["pattern"] for r in default_data.read("ignore_text")]
+    assert [r["pattern"] for r in db.list_ignore_text()["items"]] == [p for p in defaults if p != "*MOB*"]
     db.close()
 
 
@@ -75,18 +83,20 @@ def test_pm_gets_its_sourced_meaning_unless_edited(tmp_path):
             {"abbreviation": "PM-90", "full_text": "eigen tekst"},
         ]
     )
-    seed_builtin_lists(db)
+    db.cursor.execute("DELETE FROM speech_seeded WHERE kind = 'migration'")
+    db._commit()
+    _new_version(db)
+    db.seed_all_defaults()
     meanings = {r["abbreviation"]: r["full_text"] for r in db.list_abbreviations(search="PM")["items"]}
     assert meanings["PM"] == "Personeel- en materieelvoertuig"
     assert meanings["PM-90"] == "eigen tekst"
-    assert abbreviation_import.ABBREVIATIONS["PM"] == "Personeel- en materieelvoertuig"
+    assert {r["abbreviation"]: r["full_text"] for r in default_data.read("abbreviations")}["PM"] == meanings["PM"]
     db.close()
 
 
 def test_edits_are_used_right_away_and_survive_a_restart(tmp_path):
     path = str(tmp_path / "meldkamer.sqlite3")
     db = Database(path)
-    seed_builtin_lists(db)
     # A new incident type before the others, a street ending, a vehicle type code, a region
     db.save_lookup(
         "incident_rules", {"position": 1, "kind": "oefening", "label": "Oefening", "pattern": r"\boefening\b"}
@@ -117,7 +127,6 @@ def test_edits_are_used_right_away_and_survive_a_restart(tmp_path):
     check()
     db.close()
     db = Database(path)
-    abbreviation_import.import_abbreviations(db, replace=False)
     check()
     db.close()
 
@@ -164,7 +173,7 @@ def test_restoring_an_old_backup_seeds_the_tables(tmp_path, db):
     conn.commit()
     conn.close()
     db.replace_with(old)
-    assert db.list_lookup("incident_rules")["total"] == len(lookups.DEFAULT_INCIDENT_RULES)
+    assert db.list_lookup("incident_rules")["total"] == len(default_data.read("incident_rules"))
     assert message_fields.classify_incident("P 1 Woningbrand")[0] == "fire"
     assert is_street_name_word("van")
 

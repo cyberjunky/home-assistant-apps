@@ -1,0 +1,6 @@
+table,key,version
+tts_replacements,"(?-i:\b((?:hmp\.?|hectometerpaal)\s*\d+(?:[.,]\d+)?)\s+Li\b)",1.4.16
+tts_replacements,"(?-i:\b((?:hmp\.?|hectometerpaal)\s*\d+(?:[.,]\d+)?)\s+Re\b)",1.4.16
+tts_replacements,"(?-i:\b([AN]\s?\d{1,3})\s+Li(?=\s+(?:(?:hmp\.?|hectometerpaal)\s*)?\d+(?:[.,]\d+)?\b))",1.4.16
+tts_replacements,"(?-i:\b([AN]\s?\d{1,3})\s+Re(?=\s+(?:(?:hmp\.?|hectometerpaal)\s*)?\d+(?:[.,]\d+)?\b))",1.4.16
+tts_replacements,(?-i:\bOM\b),1.4.16

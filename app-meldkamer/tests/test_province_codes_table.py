@@ -2,8 +2,8 @@
 
 import pytest
 
+from src import default_data
 from src.database import Database
-from src.message_fields import DEFAULT_PROVINCE_CODES
 
 
 @pytest.fixture
@@ -18,8 +18,8 @@ def _row(db, code):
 
 
 def test_seeded_once(db):
-    assert db.list_lookup("province_codes")["total"] == len(DEFAULT_PROVINCE_CODES)
-    assert db.seed_defaults("province_codes", DEFAULT_PROVINCE_CODES) == 0
+    assert db.list_lookup("province_codes")["total"] == len(default_data.read("province_codes"))
+    assert db.seed_defaults("province_codes", default_data.read("province_codes")) == 0
     assert db.province_for_code("nb") == "Noord-Brabant"
     # L only counts in the place codes ("Beek L"), not as a word after a town
     assert db.province_for_code("L") == ""
@@ -60,7 +60,7 @@ def test_csv_round_trip(tmp_path, db):
     other = Database(str(tmp_path / "other.sqlite3"))
     other.clear_table("province_codes")
     result = other.import_lookup_csv("province_codes", exported, replace=True)
-    assert result == {"imported": len(DEFAULT_PROVINCE_CODES), "skipped": 0}
+    assert result == {"imported": len(default_data.read("province_codes")), "skipped": 0}
     assert other.export_lookup_csv("province_codes") == exported
     assert other.province_for_code("L") == ""
     other.close()
