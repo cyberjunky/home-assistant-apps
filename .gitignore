@@ -228,9 +228,3 @@ __marimo__/
 CLAUDE.md
 CLAUDE.local.md
 .claude/
-
-# Local Home Assistant backups unpacked for inspection, never part of the repository
-/backup/
-/*.tar.gz
-/*_timescaledb/
-/*_postgres/
