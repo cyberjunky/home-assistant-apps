@@ -35,8 +35,11 @@ runs is read-only: it can't change or delete the history.
 **Storage** — chunks, compression and TimescaleDB's background jobs
 ![Storage](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-chronicle/screenshots/storage-light.webp)
 
-**Query** — read-only SQL with examples, a chart and CSV
-![Query](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-chronicle/screenshots/query-light.webp)
+**Query** — read-only SQL, with described examples beside the editor, a chart and CSV
+![Query with the examples](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-chronicle/screenshots/query-light.webp)
+
+**Query history** — the queries you ran, with favourites pinned at the top
+![Query with the history](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-chronicle/screenshots/query-history-light.webp)
 
 **Overview, dark theme** — follows Home Assistant's light/dark mode
 ![Overview in the dark theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-chronicle/screenshots/overview-dark.webp)
@@ -49,7 +52,7 @@ runs is read-only: it can't change or delete the history.
 - 🔎 **Entities** — Every recorded entity with its last state, last change and rows in 24 hours; search, filter on domain and sort
 - 📈 **History** — Any entity over 24 hours, 7 days, 30 days, a year or everything: numbers as a line with their minimum–maximum band, on/off and other states as a timeline with the time spent in each; the latest attributes; CSV of what is shown
 - 🗄️ **Storage** — Every chunk with its size before and after compression, TimescaleDB's compression, retention and averaging jobs with their last run, and the size of each table
-- 🧮 **Query** — Read-only SQL with ready-made examples, a chart of the result, and CSV
+- 🧮 **Query** — Read-only SQL with twelve described examples, a history of what you ran with favourites, a chart of the result, and CSV
 - 🔒 **Read only** — The app never writes; even a `DELETE` typed on the Query page is refused by PostgreSQL itself
 
 ## Installation

@@ -107,17 +107,41 @@ UTC.
 
 Read-only SQL against the database, for questions the other pages don't answer.
 
-- Type a query and press **Run** or Ctrl+Enter. The examples fill in a query and run it: the
-  last day of one entity, a year of daily averages, the busiest entities, the hours a switch
-  was on per day, an attribute over time and the table sizes. Change the entity IDs to your
-  own.
+The editor and the result are on the left; on the right, **Examples** and **History** (below
+the editor on a small screen).
+
+- Type a query and press **Run** or Ctrl+Enter.
+- **Examples** are ready-made queries, each with what it shows and when it is useful. A click
+  puts one in the editor without running it. Where you must fill something in, the query has a
+  placeholder such as `<entity_id>`, which the description mentions; the editor selects the
+  first one, so you can type over it. The examples:
+
+  | Example | |
+  |---|---|
+  | Last day of one entity | Every value of `<entity_id>` in the last 24 hours |
+  | Daily averages for a year | Mean, minimum and maximum per day, from the daily averages |
+  | One month, day by day | Minimum, maximum, mean and number of values per day of the last month |
+  | Busiest entities (24 h) | The 20 entities that wrote the most rows |
+  | Changes per entity today | Changes per entity since midnight, in Home Assistant's time zone |
+  | Last value of every sensor | The newest state of every sensor, with its unit |
+  | Entities that went silent | Entities without a change for more than 24 hours |
+  | Hours on per day | How long `<entity_id>` was on per day, from its on/off changes |
+  | Attribute over time | The value of `<attribute>` of `<entity_id>` at every change |
+  | Top attribute keys | The attribute names found most often |
+  | Compression of the chunks | Every chunk with its range and its size before and after compression |
+  | Table sizes | The size of the history and the averages |
+
+- **History** keeps the last 50 queries you ran, each with when, the start of the query and
+  its rows, or *error*. Running the same query again moves it to the top. ☆ makes one a
+  favourite: favourites stay at the top and are never pushed out. A click puts a query back in
+  the editor, ✕ removes it, and **Clear history** removes all but the favourites. The history is
+  kept in your browser, per device.
 - The result shows as a table with the number of rows and how long the query took. **CSV**
   downloads it. When the result has a time column and number columns, it is also drawn as a
   chart: a line per number column, or a line per entity when there is an `entity_id` column and
   one number column. **Chart** hides or shows it.
 - When a query fails, PostgreSQL's message shows, with the line and column it points at.
 - **Cancel** stops a running query, in the database too.
-- The last query is kept in your browser for the next visit.
 
 What a query can do:
 
@@ -147,7 +171,7 @@ The tables, for your own queries:
 
 A number is stored in `value` with an empty `state`; `history` shows it as text again. `on` and
 `off` are stored as text with `value` 1 and 0. The `mean` of the averages is per recorded value,
-not per unit of time: for on/off, use the changes as the *Hours on per day* example does.
+not per unit of time: for on/off, use the changes, as the *Hours on per day* example does.
 
 ### Info
 

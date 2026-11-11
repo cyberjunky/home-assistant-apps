@@ -1,88 +1,150 @@
-// Chronicle dashboard - Query: read-only SQL against the database, with examples, CSV and a chart.
+// Chronicle dashboard - Query: read-only SQL against the database, with described examples, a
+// history of what was run (with favourites), CSV and a chart. The examples live in
+// query-examples.json, which the tests also run against a database.
 
-const QUERY_EXAMPLES = [
-    {label: 'Last day of one entity', sql: `-- Every recorded value of one entity in the last 24 hours
-SELECT time, state, value
-FROM chronicle.history
-WHERE entity_id = 'sensor.outdoor_temperature'
-  AND time > now() - INTERVAL '1 day'
-ORDER BY time`},
-    {label: 'Daily averages for a year', sql: `-- Mean, minimum and maximum per day (local days), from the daily averages
-SELECT d.bucket AS day, round(d.mean::numeric, 2) AS mean, d.min, d.max
-FROM chronicle.states_daily d
-JOIN chronicle.entities e ON e.id = d.entity
-WHERE e.entity_id = 'sensor.outdoor_temperature'
-  AND d.bucket > now() - INTERVAL '1 year'
-ORDER BY d.bucket`},
-    {label: 'Busiest entities (24 h)', sql: `-- Which entities wrote the most rows in the last 24 hours
-SELECT e.entity_id, e.name, count(*) AS rows
-FROM chronicle.states s
-JOIN chronicle.entities e ON e.id = s.entity
-WHERE s.time > now() - INTERVAL '24 hours'
-GROUP BY e.entity_id, e.name
-ORDER BY rows DESC
-LIMIT 20`},
-    {label: 'Hours on per day', sql: `-- How long a switch or binary sensor was on per day, from its on/off changes.
--- Each state lasts until the next change; a stretch past midnight counts for the day it started.
-WITH changes AS (
-    SELECT s.time, s.value,
-           lead(s.time, 1, now()) OVER (ORDER BY s.time) AS until
-    FROM chronicle.states s
-    JOIN chronicle.entities e ON e.id = s.entity
-    WHERE e.entity_id = 'switch.washing_machine'
-      AND s.time > now() - INTERVAL '30 days'
-)
-SELECT date_trunc('day', time) AS day,
-       round((sum(extract(epoch FROM until - time)) FILTER (WHERE value = 1) / 3600)::numeric, 2) AS hours_on
-FROM changes
-GROUP BY 1
-ORDER BY 1`},
-    {label: 'Attribute over time', sql: `-- One attribute's value over time, here the target temperature of a thermostat
-SELECT time, state, (attributes->>'temperature')::numeric AS target
-FROM chronicle.history
-WHERE entity_id = 'climate.thermostat'
-  AND attributes ? 'temperature'
-ORDER BY time DESC
-LIMIT 500`},
-    {label: 'Table sizes', sql: `-- The size of every hypertable in the database: the history and the averages
-SELECT format('%I.%I', hypertable_schema, hypertable_name) AS hypertable,
-       pg_size_pretty(hypertable_size(format('%I.%I', hypertable_schema, hypertable_name)::regclass)) AS size,
-       num_chunks,
-       compression_enabled
-FROM timescaledb_information.hypertables
-ORDER BY hypertable_size(format('%I.%I', hypertable_schema, hypertable_name)::regclass) DESC`},
-];
 const TABLE_ROWS = 2000;  // rows put in the page; the CSV has all of them
 const TIME_TYPES = ['timestamptz', 'timestamp', 'date'];
 const NUMBER_TYPES = ['int2', 'int4', 'int8', 'float4', 'float8', 'numeric'];
 const CHART_SERIES = 8;
 
+const HISTORY_SIZE = 50;  // queries kept besides the favourites
+const HISTORY_KEY = LS + 'query_history';
+
+let queryExamples = [];
+let querySide = 'examples';
 let queryResult = null;
 let queryAbort = null;
 let queryChart = true;  // a result with a time and a number column is drawn; the button hides it
 
-function showQuery() {
+async function showQuery() {
     const editor = document.getElementById('query-sql');
     if (!editor.value) {
         let saved = null;
         try { saved = localStorage.getItem(LS + 'query'); } catch (e) { /* only a convenience */ }
-        editor.value = saved || QUERY_EXAMPLES[0].sql;
+        editor.value = saved || '';
     }
-    document.getElementById('query-examples').innerHTML = QUERY_EXAMPLES.map((ex, i) =>
-        `<button type="button" class="btn btn-small" data-example="${i}">${escapeHtml(ex.label)}</button>`).join('');
-    // #query/3 opens and runs the third example
+    if (!queryExamples.length) {
+        try {
+            const response = await fetch(basePath + 'web/query-examples.json?v=' + encodeURIComponent(app.version));
+            queryExamples = await response.json();
+        } catch (e) {
+            queryExamples = [];
+        }
+    }
+    if (!editor.value && queryExamples.length) editor.value = queryExamples[3].sql;
+    renderQuerySide();
+    // #query/4 fills in and runs the fourth example (a link to a ready answer)
     const example = Number(window.location.hash.slice(1).split('/')[1]);
-    if (example >= 1 && example <= QUERY_EXAMPLES.length) {
+    if (example >= 1 && example <= queryExamples.length) {
         history.replaceState(null, '', '#query');
-        useExample(example - 1);
+        editor.value = queryExamples[example - 1].sql;
+        runQuery();
     }
 }
 
-function useExample(i) {
+// ---------------------------------------------------------------------
+// Side panel: examples and history
+// ---------------------------------------------------------------------
+function switchQuerySide(which) {
+    querySide = which;
+    renderQuerySide();
+}
+
+function renderQuerySide() {
+    document.querySelectorAll('#query-side-tabs .tab').forEach(t => t.classList.toggle('active', t.dataset.side === querySide));
+    const el = document.getElementById('query-side');
+    if (querySide === 'examples') {
+        el.innerHTML = queryExamples.length ? queryExamples.map((ex, i) => `
+            <button type="button" class="side-item example" data-example="${i}">
+                <b>${escapeHtml(ex.title)}</b>
+                <span>${placeholders(escapeHtml(ex.description))}</span>
+            </button>`).join('') + '<p class="panel-sub side-note">A click puts the example in the editor; run it with Run or Ctrl+Enter. Fill in what is between &lt; &gt; first.</p>'
+            : '<div class="empty-state">The examples could not be loaded</div>';
+        return;
+    }
+    const items = loadHistory();
+    el.innerHTML = items.length ? items.map((h, i) => `
+        <div class="side-item history${h.fav ? ' fav' : ''}" data-history="${i}">
+            <button type="button" class="star" data-star="${i}" title="${h.fav ? 'Remove from favourites' : 'Keep as favourite'}" aria-label="Favourite" aria-pressed="${h.fav ? 'true' : 'false'}">${h.fav ? '★' : '☆'}</button>
+            <button type="button" class="history-body" data-use="${i}" title="Put this query in the editor">
+                <span class="preview">${escapeHtml(preview(h.sql))}</span>
+                <span class="meta">${escapeHtml(fmtAgo(h.at))} · ${h.error ? '<span class="sb-bad">error</span>' : `${num(h.rows)} ${h.rows === 1 ? 'row' : 'rows'}`}</span>
+            </button>
+            <button type="button" class="remove" data-remove="${i}" title="Remove from the history" aria-label="Remove">✕</button>
+        </div>`).join('') + `<div class="side-actions"><button type="button" class="btn btn-small" onclick="clearHistory()"${items.some(h => !h.fav) ? '' : ' disabled'}>Clear history</button><span class="panel-sub">favourites stay</span></div>`
+        : '<div class="empty-state">The queries you run appear here. ☆ keeps one as a favourite at the top.</div>';
+}
+
+// <entity_id> and the like stand out in the descriptions
+function placeholders(html) {
+    return html.replace(/&lt;([a-z_]+)&gt;/g, '<code>&lt;$1&gt;</code>');
+}
+
+// The first line that isn't a comment, shortened
+function preview(sql) {
+    const line = sql.split('\n').map(l => l.trim()).find(l => l && !l.startsWith('--')) || sql.trim();
+    const text = sql.replace(/--[^\n]*/g, ' ').replace(/\s+/g, ' ').trim() || line;
+    return text.length > 90 ? text.slice(0, 88) + '…' : text;
+}
+
+// ---------------------------------------------------------------------
+// History: favourites first (never pushed out), then the last HISTORY_SIZE runs
+// ---------------------------------------------------------------------
+function loadHistory() {
+    let items = [];
+    try { items = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch (e) { items = []; }
+    if (!Array.isArray(items)) items = [];
+    items = items.filter(h => h && typeof h.sql === 'string');
+    return items.filter(h => h.fav).sort((a, b) => b.at - a.at).concat(items.filter(h => !h.fav).sort((a, b) => b.at - a.at));
+}
+
+function saveHistory(items) {
+    const favourites = items.filter(h => h.fav);
+    const rest = items.filter(h => !h.fav).sort((a, b) => b.at - a.at).slice(0, HISTORY_SIZE);
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(favourites.concat(rest))); } catch (e) { /* only a convenience */ }
+}
+
+function rememberQuery(sql, rows, error) {
+    const text = sql.trim();
+    if (!text) return;
+    const items = loadHistory();
+    // The same statement again moves to the top, and stays a favourite if it was one
+    const same = items.find(h => h.sql.trim() === text);
+    const rest = items.filter(h => h !== same);
+    rest.push({sql: text, at: Date.now() / 1000, rows: error ? null : rows, error: Boolean(error), fav: Boolean(same && same.fav)});
+    saveHistory(rest);
+    if (querySide === 'history') renderQuerySide();
+}
+
+function toggleFavourite(i) {
+    const items = loadHistory();
+    if (!items[i]) return;
+    items[i].fav = !items[i].fav;
+    saveHistory(items);
+    renderQuerySide();
+}
+
+function removeHistory(i) {
+    const items = loadHistory();
+    items.splice(i, 1);
+    saveHistory(items);
+    renderQuerySide();
+}
+
+function clearHistory() {
+    saveHistory(loadHistory().filter(h => h.fav));
+    renderQuerySide();
+}
+
+function fillEditor(sql) {
     const editor = document.getElementById('query-sql');
-    editor.value = QUERY_EXAMPLES[i].sql;
+    editor.value = sql;
     editor.focus();
-    runQuery();
+    // Straight to the first placeholder, so it can be typed over
+    const at = sql.indexOf('<');
+    if (at >= 0) editor.setSelectionRange(at, sql.indexOf('>', at) + 1);
+    else editor.setSelectionRange(0, 0);
+    editor.scrollTop = 0;
 }
 
 async function runQuery() {
@@ -108,10 +170,13 @@ async function runQuery() {
             queryResult = null;
             renderQueryError(data || {error: `Request failed (${response.status})`}, sql);
             status.textContent = '';
+            // Refused or failed in the database: still worth keeping, to fix it later
+            if (response.status === 400) rememberQuery(sql, null, true);
             return;
         }
         queryResult = data;
         renderQueryResult();
+        rememberQuery(sql, data.rows.length, false);
     } catch (e) {
         status.textContent = e.name === 'AbortError' ? 'Cancelled' : '';
         if (e.name !== 'AbortError') renderQueryError({error: e.message}, sql);
@@ -253,8 +318,13 @@ document.getElementById('query-sql').addEventListener('keydown', (e) => {
         runQuery();
     }
 });
-document.getElementById('query-examples').addEventListener('click', (e) => {
-    const button = e.target.closest('[data-example]');
-    if (button) useExample(Number(button.dataset.example));
+document.getElementById('query-side').addEventListener('click', (e) => {
+    const target = e.target.closest('[data-example], [data-star], [data-use], [data-remove]');
+    if (!target) return;
+    const d = target.dataset;
+    if (d.example !== undefined) fillEditor(queryExamples[Number(d.example)].sql);
+    else if (d.star !== undefined) toggleFavourite(Number(d.star));
+    else if (d.remove !== undefined) removeHistory(Number(d.remove));
+    else if (d.use !== undefined) fillEditor(loadHistory()[Number(d.use)].sql);
 });
 onTab('query', showQuery);

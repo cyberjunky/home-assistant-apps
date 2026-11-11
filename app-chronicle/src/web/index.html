@@ -115,27 +115,37 @@
                     </div>
                 </div>
 
-                <!-- Query: read-only SQL -->
+                <!-- Query: read-only SQL; examples and history in the side panel -->
                 <div id="tab-query" class="tab-content">
-                    <div class="panel"><div class="panel-body">
-                        <div class="chart-title"><span>SQL</span><span class="hint">read only · one statement · Ctrl+Enter runs it</span></div>
-                        <div class="query-examples" id="query-examples" aria-label="Examples"></div>
-                        <textarea id="query-sql" class="input sql-editor" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="SQL query" rows="9"></textarea>
-                        <div class="detail-actions query-actions">
-                            <button type="button" class="btn btn-primary" id="query-run" onclick="runQuery()">Run</button>
-                            <button type="button" class="btn" id="query-cancel" onclick="cancelQuery()" hidden>Cancel</button>
-                            <button type="button" class="btn" id="query-chart-toggle" onclick="toggleQueryChart()" hidden>Chart</button>
-                            <button type="button" class="btn" id="query-csv" onclick="downloadQueryCsv()" hidden>CSV</button>
-                            <span class="range-text" id="query-status"></span>
+                    <div class="query-layout">
+                        <div class="panel query-editor"><div class="panel-body">
+                            <div class="chart-title"><span>SQL</span><span class="hint">read only · one statement · Ctrl+Enter runs it</span></div>
+                            <textarea id="query-sql" class="input sql-editor" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="SQL query" rows="10"></textarea>
+                            <div class="detail-actions query-actions">
+                                <button type="button" class="btn btn-primary" id="query-run" onclick="runQuery()">Run</button>
+                                <button type="button" class="btn" id="query-cancel" onclick="cancelQuery()" hidden>Cancel</button>
+                                <button type="button" class="btn" id="query-chart-toggle" onclick="toggleQueryChart()" hidden>Chart</button>
+                                <button type="button" class="btn" id="query-csv" onclick="downloadQueryCsv()" hidden>CSV</button>
+                                <span class="range-text" id="query-status"></span>
+                            </div>
+                            <div id="query-error" class="query-error" hidden></div>
+                            <p class="panel-sub" style="margin-top:10px">Queries run in a read-only transaction that is rolled back afterwards, stop after 30 seconds and return at most 10,000 rows: nothing here can change the history.</p>
+                        </div></div>
+                        <aside class="panel query-side"><div class="panel-body">
+                            <div class="tabs" role="group" aria-label="Examples or history" id="query-side-tabs">
+                                <button type="button" class="tab" data-side="examples" onclick="switchQuerySide('examples')">Examples</button>
+                                <button type="button" class="tab" data-side="history" onclick="switchQuerySide('history')">History</button>
+                            </div>
+                            <div id="query-side" class="side-list"></div>
+                        </div></aside>
+                        <div class="query-results">
+                            <div class="panel" id="query-chart-wrap" hidden><div class="panel-body">
+                                <div id="query-chart" class="chart"></div>
+                                <div class="legend" id="query-legend"></div>
+                            </div></div>
+                            <div class="panel"><div id="query-result" class="table-wrap scroll tall"><div class="empty-state">Run a query, or pick one of the examples</div></div></div>
                         </div>
-                        <div id="query-error" class="query-error" hidden></div>
-                        <p class="panel-sub" style="margin-top:10px">Queries run in a read-only transaction that is rolled back afterwards, stop after 30 seconds and return at most 10,000 rows: nothing here can change the history.</p>
-                    </div></div>
-                    <div class="panel" id="query-chart-wrap" hidden><div class="panel-body">
-                        <div id="query-chart" class="chart"></div>
-                        <div class="legend" id="query-legend"></div>
-                    </div></div>
-                    <div class="panel"><div id="query-result" class="table-wrap scroll tall"></div></div>
+                    </div>
                 </div>
 
                 <!-- Info: the connection and the app -->

@@ -1,4 +1,8 @@
-"""The Query page: read only, one statement, at most QUERY_ROWS rows."""
+"""The Query page: read only, one statement, at most QUERY_ROWS rows; the examples run."""
+
+import json
+import re
+from pathlib import Path
 
 import asyncpg
 import pytest
@@ -115,3 +119,56 @@ async def test_values_become_json(config):
     assert j == '{"a": 1}'
     assert i == "2:00:00"
     assert x is None
+
+
+EXAMPLES = json.loads((Path(__file__).resolve().parent.parent / "src" / "web" / "query-examples.json").read_text())
+AGGREGATES = [
+    """CREATE MATERIALIZED VIEW chronicle.states_hourly WITH (timescaledb.continuous, timescaledb.materialized_only = false) AS
+       SELECT time_bucket(INTERVAL '1 hour', time) AS bucket, entity, avg(value) AS mean, min(value) AS min,
+              max(value) AS max, last(value, time) AS last, count(*) AS samples
+       FROM chronicle.states WHERE value IS NOT NULL GROUP BY bucket, entity WITH NO DATA""",
+    """CREATE MATERIALIZED VIEW chronicle.states_daily WITH (timescaledb.continuous, timescaledb.materialized_only = false) AS
+       SELECT time_bucket(INTERVAL '1 day', bucket, 'Europe/Amsterdam') AS bucket, entity,
+              sum(mean * samples) / sum(samples) AS mean, min(min) AS min, max(max) AS max,
+              last(last, bucket) AS last, sum(samples)::bigint AS samples
+       FROM chronicle.states_hourly GROUP BY 1, entity WITH NO DATA""",
+    "INSERT INTO chronicle.meta VALUES ('aggregate_time_zone', 'Europe/Amsterdam')",
+]
+
+
+def test_examples_are_described():
+    assert len(EXAMPLES) >= 12
+    for example in EXAMPLES:
+        assert example["title"] and example["sql"]
+        assert 20 < len(example["description"]) < 400
+        # Every placeholder is explained in the description
+        for placeholder in re.findall(r"<[a-z_]+>", example["sql"]):
+            assert placeholder in example["description"], (example["title"], placeholder)
+        check_query(example["sql"])
+
+
+async def test_examples_run(config):
+    conn = await asyncpg.connect(
+        host=config.host, port=config.port, user=config.username, password=config.password, database=config.database
+    )
+    try:
+        for statement in AGGREGATES:
+            await conn.execute(statement)
+    finally:
+        await conn.close()
+    db = Database(config)
+    try:
+        for example in EXAMPLES:
+            entity = "light.desk" if "on per day" in example["title"] else "sensor.temperature"
+            sql = example["sql"].replace("<entity_id>", entity).replace("<attribute>", "friendly_name")
+            result = await db.query(sql)
+            assert result["columns"], example["title"]
+        silent = await db.query(next(e["sql"] for e in EXAMPLES if e["title"] == "Entities that went silent"))
+        hours = await db.query(
+            next(e["sql"] for e in EXAMPLES if e["title"] == "Hours on per day").replace("<entity_id>", "light.desk")
+        )
+    finally:
+        await db.close()
+    # The light changed every hour for two days: on half of the time
+    assert silent["rows"] == []
+    assert sum(r[1] for r in hours["rows"]) == pytest.approx(24, abs=1.5)
