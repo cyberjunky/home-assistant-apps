@@ -26,6 +26,7 @@
 - TimescaleDB 2.31.0, TimescaleDB Toolkit 1.27.0, pgvector 0.8.7 (now built without `-march=native`, so it runs on any CPU of the architecture), pg_cron 1.6.8, on base image 21.0.11 (Alpine 3.24). PostGIS 3.6.4, pgAgent 4.2.3 and system_stats 4.1 stay, rebuilt on Alpine 3.24. All extensions are now built on Alpine itself against its PostgreSQL packages, as upstream does.
 - New `vectorchord` option (off by default): loads VectorChord 1.1.1 (`vchord`), the vector extension Immich needs. DOCS.md describes the Immich database setup.
 - Fix: left-over timescaledb-extras helpers (`compress_dimension_slice`, `decompress_dimension_slice`, `get_dimension_details`, `chunks_ts`, `chunks_tstz`) are dropped before TimescaleDB is updated, in every database. They made `ALTER EXTENSION timescaledb UPDATE` fail, which left the extension outdated and could break the PostgreSQL 17 to 18 upgrade.
+- Fix: a database restored from a backup keeps `md5` password authentication, like an upgraded one. With `scram-sha-256`, roles that still have an MD5 password hash could no longer log in after a restore.
 - `postgres_password` is applied on every start when set, without the password ever showing up in the PostgreSQL log.
 - Standalone Docker (without Home Assistant) no longer stops with "Unknown log_level:" on the new base image.
 
