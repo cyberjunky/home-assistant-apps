@@ -71,6 +71,7 @@ class WebUI:
         r.add_post("/api/roms", self._upload)
         r.add_delete("/api/roms/{file}", self._delete_rom)
         r.add_post("/api/roms/{file}/rename", self._rename_rom)
+        r.add_delete("/api/unrecognised", self._forget_unrecognised)
         r.add_get("/roms/{file}", self._rom)
         r.add_get("/api/saves/{game}", self._saves_list)
         r.add_get("/api/saves/{game}/{path:.+}", self._save_get)
@@ -188,6 +189,7 @@ class WebUI:
                         if size > MAX_UPLOAD:
                             raise ValueError(f"{name} is larger than {MAX_UPLOAD // 1024 // 1024} MB")
                         f.write(chunk)
+                logger.info(f"Received {name}: {size} bytes")
                 info = self.library.add(tmp, name)
                 logger.info(
                     f"Added {name} as {info['file']} ({info['description']})"
@@ -213,6 +215,10 @@ class WebUI:
         except ValueError as e:
             return web.json_response({"error": str(e)}, status=400)
         return web.json_response({"ok": True})
+
+    async def _forget_unrecognised(self, _request: web.Request) -> web.Response:
+        """Clear the remembered uploads that weren't recognised (files in the folder stay listed)."""
+        return web.json_response({"ok": True, "removed": self.library.forget_rejected()})
 
     async def _rom(self, request: web.Request) -> web.StreamResponse:
         path = self.library.path(request.match_info["file"])

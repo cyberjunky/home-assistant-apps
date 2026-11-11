@@ -68,21 +68,12 @@ class ArchiveInfo:
 BIOS_LABELS = {"neogeo": "Neo Geo BIOS", "pgm": "IGS PGM BIOS", "aristmk5": "Aristocrat MK5 BIOS"}
 # Uploads that weren't recognised, remembered for the Info tab's list of drivers to ask for
 MAX_REJECTED = 200
-# Files named in a diagnosis, at most
-SHOW_FILES = 4
 
 
 def set_name(stem: str) -> str:
     """The MAME set name a file name stands for: "Racherod (1).7z" -> "racherod"."""
     m = re.match(r"[a-z0-9_]+", stem.strip().lower())
     return m.group(0) if m else ""
-
-
-def some(names: list[str]) -> str:
-    """ "a, b, c" or "a, b, c and 5 more" """
-    if len(names) <= SHOW_FILES:
-        return ", ".join(names)
-    return f"{', '.join(names[: SHOW_FILES - 1])} and {len(names) - SHOW_FILES + 1} more"
 
 
 class Library:
@@ -193,6 +184,37 @@ class Library:
             return crcs
         raise ValueError("not a zip or 7z file")
 
+    def why_unknown(self, crcs: set[str], file: str) -> str:
+        """Why an archive isn't recognised, in one line: what it holds and what comes closest."""
+        if not crcs:
+            return "the archive lists no files (empty or damaged)"
+        known_bios = {r["crc"] for b in self.bios.values() for r in b["roms"]}
+        unmatched = sum(1 for c in crcs if c not in self.by_crc and c not in known_bios)
+        parts = [f"{len(crcs)} files, {unmatched} of them match no game of this MAME build"]
+        best, best_hits = None, 0
+        counts: dict[str, int] = {}
+        for crc in crcs:
+            for name in self.by_crc.get(crc, ()):
+                counts[name] = counts.get(name, 0) + 1
+        for name, hits in counts.items():
+            if hits > best_hits:
+                best, best_hits = name, hits
+        stem = (split_name(file) or (file, ""))[0].lower()
+        if stem in self.games and stem != best:
+            own = {r["crc"] for r in self.games[stem]["roms"]}
+            parts.append(
+                f"named like {self.games[stem]['description']} ({stem}), but {len(crcs & own)} of its"
+                f" {len(own)} files match: a different version of the game, or a damaged file?"
+            )
+        if best:
+            own = {r["crc"] for r in self.games[best]["roms"]}
+            missing = sorted(r["name"] for r in self.games[best]["roms"] if r["crc"] not in crcs)
+            line = f"closest: {self.games[best]['description']} ({best}), {best_hits} of {len(own)} files match"
+            if missing:
+                line += f", missing {', '.join(missing[:6])}" + (" …" if len(missing) > 6 else "")
+            parts.append(line)
+        return "; ".join(parts)
+
     def identify(self, crcs: set[str]) -> str | None:
         """The game whose own ROM set this archive covers best (a parent wins a tie with its clones)."""
         candidates: dict[str, int] = {}
@@ -226,97 +248,45 @@ class Library:
                 logger.warning(f"No index of MAME's machines ({path}: {e}): unrecognised files are explained less well")
         return self._machines
 
-    def closest(self, crcs: set[str]) -> tuple[str, int] | None:
-        """The game with the most of these files (relative to its size), and how many it has."""
-        counts: dict[str, int] = {}
-        for crc in crcs:
-            for name in self.by_crc.get(crc, ()):
-                counts[name] = counts.get(name, 0) + 1
-        if not counts:
-            return None
-        name = max(counts, key=lambda n: (counts[n] / len(self.games[n]["roms"]), counts[n], self.games[n]["parent"] is None))
-        return name, counts[name]
-
-    def _match_text(self, roms: list[dict], crcs: set[str]) -> str:
-        hits = sum(1 for r in roms if r["crc"] in crcs)
-        missing = [r["name"] for r in roms if r["crc"] not in crcs]
-        return f"{hits} of {len(roms)} files match" + (f" (missing {some(missing)})" if missing and hits else "")
-
     def diagnose(self, file: str, crcs: set[str]) -> dict:
-        """Why an archive is no game this build can run, in a line or two, and what it is: the
-        game its name says, the game its files come closest to, or the MAME driver it needs."""
+        """Why an archive is no game this build can run, in a line or two. A file named after a
+        MAME machine this build has no driver for says which driver it needs (from the index of
+        every machine in MAME); otherwise what it holds and what comes closest (why_unknown)."""
         v = self.mame_version
         parts = split_name(file)
         stem = set_name(parts[0] if parts else file)
-        if not crcs:
-            return {"error": "the archive is empty: there are no files in it", "set": stem}
-        known = set(self.by_crc)
-        for b in self.bios.values():
-            known |= {r["crc"] for r in b["roms"]}
-        stray = len(crcs - known)
-        none_match = f"none of its {len(crcs)} files" if stray == len(crcs) else f"{stray} of its {len(crcs)} files"
-        stray_text = f"; {none_match} belong to any game of this app" if stray else ""
-        if stem in self.games:
-            g = self.games[stem]
-            return {
-                "error": f"named like {g['description']} ({stem}), but {self._match_text(g['roms'], crcs)} of MAME {v}'s set"
-                f"{stray_text}: a set for another MAME version, or a damaged file?",
-                "set": stem,
-                "description": g["description"],
-            }
-        if stem in self.bios:
-            required = [r for r in self.bios[stem]["roms"] if not r.get("alt")]
-            return {
-                "error": f"named like the {self.bios_label(stem)} ({stem}), but {self._match_text(required, crcs)} of MAME {v}'s set"
-                f"{stray_text}: a set for another MAME version, or a damaged file?",
-                "set": stem,
-            }
-        machine = self.machines().get(stem)
-        if machine:
-            desc, company, year, source, _parent, bios, flags = machine
-            driver = source.rsplit("/", 1)[-1]
-            kind = (
-                "pinball machine"
-                if "p" in flags
-                else "slot machine or other gambling game"
-                if "g" in flags
-                else "console or computer"
-                if "c" in flags
-                else None
-            )
-            about = ", ".join(x for x in (company, year, kind) if x)
-            if "p" in flags and "m" in flags:
-                text = f"{desc} ({about}): a real pinball machine, MAME can't emulate its playfield (driver {driver})"
-            elif "c" in flags:
-                text = f"{desc} ({about}): not an arcade game; MAME driver {driver}, which this app doesn't include"
-            else:
-                text = f"{desc} ({about}): needs MAME driver {driver}, which this app doesn't include (yet)"
-                if "n" in flags:
-                    text += f"; it doesn't work in MAME {v} either"
-                if bios:
-                    text += f"; it also needs the BIOS set {bios}.zip"
-            return {
-                "error": text,
-                "set": stem,
-                "description": desc,
-                "driver": driver,
-                "source": source,
-                "not_working": "n" in flags,
-            }
-        best = self.closest(crcs)
-        if best:
-            name, _hits = best
-            g = self.games[name]
-            return {
-                "error": f"comes closest to {g['description']} ({name}): {self._match_text(g['roms'], crcs)}"
-                f"{stray_text}; not enough to run it",
-                "set": stem,
-                "closest": name,
-            }
+        machine = None if stem in self.games or stem in self.bios else self.machines().get(stem)
+        if not crcs or not machine:
+            return {"error": f"not a game this app's MAME can run ({self.why_unknown(crcs, file)})", "set": stem}
+        desc, company, year, source, _parent, bios, flags = machine
+        driver = source.rsplit("/", 1)[-1]
+        kind = (
+            "pinball machine"
+            if "p" in flags
+            else "slot machine or other gambling game"
+            if "g" in flags
+            else "console or computer"
+            if "c" in flags
+            else None
+        )
+        about = ", ".join(x for x in (company, year, kind) if x)
+        if "p" in flags and "m" in flags:
+            text = f"{desc} ({about}): a real pinball machine, MAME can't emulate its playfield (driver {driver})"
+        elif "c" in flags:
+            text = f"{desc} ({about}): not an arcade game (MAME driver {driver}, which this app doesn't include)"
+        else:
+            text = f"{desc} ({about}): needs MAME driver {driver}, which this app doesn't include (yet)"
+            if "n" in flags:
+                text += f"; it doesn't work in MAME {v} either"
+            if bios:
+                text += f"; it also needs the BIOS set {bios}.zip"
         return {
-            "error": f"not a game this app's MAME {v} can run: none of its {len(crcs)} files belong to one, and "
-            f"{stem or file} is not the name of a MAME {v} machine",
+            "error": text,
             "set": stem,
+            "description": desc,
+            "driver": driver,
+            "source": source,
+            "not_working": "n" in flags,
         }
 
     def remember(self, file: str, diagnosis: dict | None) -> None:
@@ -362,6 +332,7 @@ class Library:
             if not info.game and not info.bios:
                 info.diagnosis = self.diagnose(path.name, info.crcs)
                 info.error = info.diagnosis["error"]
+                logger.warning(f"Not recognised: {path.name} ({st.st_size} bytes): {info.error}")
         except (OSError, ValueError) as e:
             info.error = f"not readable: {e}"
         self._cache[path.name] = (st.st_mtime, st.st_size, info)
@@ -477,7 +448,9 @@ class Library:
                 "bios_zip": None,
                 **bios_info,
             }
-        problems = [{"file": a.file, "error": a.error, "driver": (a.diagnosis or {}).get("driver")} for a in archives if a.error]
+        problems = [
+            {"file": a.file, "error": a.error, "driver": (a.diagnosis or {}).get("driver")} for a in archives if a.error
+        ]
         for a in archives:
             stem, ext = split_name(a.file)
             if a.game and stem != a.game and stem not in self.games:
@@ -519,6 +492,9 @@ class Library:
         if not game and not bios:
             diagnosis = self.diagnose(original_name, crcs)
             self.remember(original_name, diagnosis)
+            logger.warning(
+                f"Upload not recognised: {original_name} ({kind}, {upload.stat().st_size} bytes): {diagnosis['error']}"
+            )
             raise ValueError(f"{original_name}: {diagnosis['error']}")
         self.remember(original_name, None)
         if bios:

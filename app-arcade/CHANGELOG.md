@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.1
+
+**After updating:** nothing to do. If a file isn't recognised, upload it again to see why.
+
+- A ROM file that isn't recognised now says why, instead of only "not a game this app's MAME build can run": how many files it holds and how many match nothing, which game comes closest with how many of its files match and which are missing, whether it is named like a known game whose files don't match (a different version, or a damaged file), or that the archive is empty. Also shown under Problems for files in the ROM folder.
+- The app's log notes every upload with its size in bytes, and why a file wasn't recognised.
+
 ## 0.5.0
 
 **After updating:** nothing to do. The tables appear for games whose high scores are already saved.

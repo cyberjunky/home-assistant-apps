@@ -37,7 +37,7 @@ async def main() -> int:
     except OSError as e:
         logger.error(f"Cannot create the ROM folder {config.rom_folder}: {e}")
         return 1
-    library = Library(MAME_DIR / "games.json", config.rom_folder)
+    library = Library(MAME_DIR / "games.json", config.rom_folder, DATA_DIR / "unrecognised.json")
     saves = Saves(DATA_DIR / "saves")
     stats = Stats(DATA_DIR / "stats.sqlite3")
     hiscores = HiScores(HI2TXT_DIR, library.games, DATA_DIR / "saves")
