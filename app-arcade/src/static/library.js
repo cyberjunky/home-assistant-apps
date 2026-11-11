@@ -30,6 +30,7 @@ async function load() {
     renderInfo();
     renderStatusbar();
     renderProblems();
+    renderBios();
     renderGames();
     // For the game details and the Stats tab
     loadStats().catch(() => {});
@@ -61,11 +62,33 @@ function gameArt(g, big) {
     return `<div class="${cls}" style="--hue:${hue(g.name)}" aria-hidden="true"><div class="art-ph">
         <span class="ph-title">${escapeHtml(g.description)}</span>
         <span class="ph-sub">${escapeHtml(g.year)} · ${escapeHtml(g.company)}</span>
-        <span class="ph-coin">${g.playable ? 'Insert coin' : 'Files missing'}</span></div></div>`;
+        <span class="ph-coin">${g.playable ? 'Insert coin' : g.bios_missing && !ownMissing(g).length ? 'Needs BIOS' : 'Files missing'}</span></div></div>`;
 }
 
+// The game's own files that are missing (the BIOS set is named separately)
+const ownMissing = (g) => g.missing.filter(m => m !== g.bios_missing);
 function missingText(g) {
-    return `${g.missing.length} of ${g.files} files missing${g.parent && !g.parent_zip ? ` · needs ${escapeHtml(g.parent)}.zip` : ''}`;
+    const own = ownMissing(g);
+    const parts = [];
+    if (own.length) parts.push(`${own.length} of ${g.files} files missing${g.parent && !g.parent_zip ? ` · needs ${escapeHtml(g.parent)}.zip` : ''}`);
+    if (g.bios_missing) parts.push(`needs the ${escapeHtml(g.bios_missing)}`);
+    return parts.join(' · ');
+}
+
+// BIOS sets the games need (Neo Geo: neogeo.zip): present and complete, or what is missing
+function renderBios() {
+    const el = document.getElementById('bios-status');
+    const list = library.bios || [];
+    el.hidden = !list.length;
+    el.innerHTML = list.map(b => {
+        const users = library.games.filter(g => g.bios === b.name && g.bios_missing).length;
+        const state = b.complete
+            ? `<span class="ok">✓</span> <span class="mono">${escapeHtml(b.file)}</span>`
+            : b.file
+                ? `<span class="bad">incomplete</span> <span class="mono">${escapeHtml(b.file)}</span> <span class="panel-sub">misses ${escapeHtml(b.missing.join(', '))}</span>`
+                : `<span class="bad">missing</span> <span class="panel-sub">add <span class="mono">${escapeHtml(b.name)}.zip</span> (or .7z) to play ${users} game${users === 1 ? '' : 's'}</span>`;
+        return `<div class="bios-line"><b>${escapeHtml(b.label)}</b> ${state}</div>`;
+    }).join('');
 }
 
 function gameChips(g) {
@@ -126,7 +149,10 @@ function openDetail(name) {
     const files = g
         ? row('ROM file', g.zip ? `<span class="mono">${escapeHtml(g.zip)}</span>` : '—')
             + (g.parent ? row('Parent', `<span class="mono">${escapeHtml(g.parent_zip || g.parent + '.zip')}</span>${g.parent_zip ? '' : ' <span class="bad">missing</span>'}`) : '')
-            + (g.missing.length ? row('Missing', `<span class="bad">${escapeHtml(g.missing.join(', '))}</span>`) : '')
+            + (g.bios ? row('BIOS', g.bios_missing
+                ? `<span class="bad">missing: ${escapeHtml(g.bios_missing)}</span>`
+                : `<span class="mono">${escapeHtml(g.bios_zip || g.zip || '')}</span>`) : '')
+            + (ownMissing(g).length ? row('Missing', `<span class="bad">${escapeHtml(ownMissing(g).join(', '))}</span>`) : '')
         : row('ROM file', '<span class="panel-sub">no longer in the ROM folder</span>');
     const scores = g ? g.has_scores : st.has_scores;
     document.getElementById('detail-body').innerHTML = `

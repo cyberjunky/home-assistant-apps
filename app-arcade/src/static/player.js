@@ -63,7 +63,8 @@ async function prepare() {
         document.getElementById('start-title').textContent = game.description;
         if (!game.playable) throw new Error(`Files missing: ${game.missing.join(', ')}`);
         setStatus('Loading the game files…');
-        const files = [game.zip, game.parent_zip].filter(Boolean);
+        // MAME looks for a file in the game's set, its parent's and the BIOS set (neogeo.zip)
+        const files = [game.zip, game.parent_zip, game.bios_zip].filter(Boolean);
         roms = await Promise.all(files.map(async f => ({file: f, data: await fetchBytes('/roms/' + f)})));
         const saves = (await getJson('/api/saves/' + GAME)).files;
         saved = await Promise.all(saves.map(async s => ({path: s.path, data: await fetchBytes(`/api/saves/${GAME}/${s.path}`)})));
@@ -134,7 +135,16 @@ function mameArguments() {
         '-resolution', vertical ? '768x1024' : '1024x768',
         '-samplerate', '48000',
         '-skip_gameinfo',
-        '-joystick'];
+        '-joystick',
+        ...biosArgument()];
+}
+
+// A BIOS set needs one of its alternative BIOS ROMs. MAME starts with the game's default one
+// (Neo Geo: Europe); if that one isn't in your set, choose one that is
+function biosArgument() {
+    const present = game.bios_present || [];
+    if (!game.bios || !present.length || present.includes(game.bios_default)) return [];
+    return ['-bios', present[0]];
 }
 
 function startGame() {

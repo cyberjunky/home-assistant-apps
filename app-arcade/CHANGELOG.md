@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0
+
+**After updating:** Neo Geo games need the Neo Geo BIOS set, `neogeo.zip`, in the ROM folder next to them (see the documentation). Nothing to do for the other games.
+
+- **Neo Geo**: the app's MAME now has the Neo Geo MVS driver, so Pleasure Goal, Metal Slug, The King of Fighters, Samurai Shodown, Garou and the other 282 Neo Geo games and versions in MAME 0.289 are recognised and run. A `pgoal.7z` (or `.zip`) is no longer "not a game this app's MAME build can run".
+- **BIOS sets**: a Neo Geo game needs its own file and the Neo Geo BIOS (`neogeo.zip` or `.7z`). The library recognises a BIOS set by its contents, as it does games, and stores an upload as `neogeo.zip` (or `.7z`); a BIOS set with another name in the folder gets a Rename button. A line above the games shows whether the BIOS is there; a game that needs a missing BIOS says so on its card and is not playable until the BIOS is added. A game set that holds the BIOS files itself (a non-merged set) needs no separate `neogeo.zip`.
+- The BIOS set holds one or more of the Neo Geo's BIOS versions (Europe, US, Japan, Asia, Universe BIOS). One is enough: when the set doesn't have the one MAME starts with (Europe; Japan for a few mahjong games), the app starts the game with one that is there.
+- The game list (`games.json`) is made by a better reader of MAME's sources: it understands the ROM macros of the Neo Geo driver, no longer counts ROM lines that are commented out in MAME's source (8 Galaxian, Pac-Man, Williams and Astrocade versions needed a file that doesn't exist), counts files marked as bad dumps (MAME needs them; 80 versions, Circus among them, now list all their files) and finds 3 Donkey Kong hacks it missed.
+- MAME build `mame0289-2`.
+
 ## 0.2.0
 
 **After updating:** nothing to do. Pictures and statistics start with the next game you play.

@@ -36,6 +36,7 @@ Info tab lists the drivers; the library shows every game a ROM file in your fold
 | williams | Defender, Stargate, Robotron: 2084, Joust, Sinistar, Bubbles, Alien Arena |
 | circus, exidy, starfire, carpolo, victory, exidy440 | Circus, Targ, Spectar, Side Trak, Rip Cord, Fire One, Crash, Star Fire, Car Polo, Victory, Hard Hat, Teeter Torture, FAX, Top Gunner |
 | astrocde, gridlee, supertnk, looping | Robby Roto, Gridlee, Super Tank, Looping |
+| neogeo | Neo Geo MVS: Pleasure Goal, Metal Slug 1 to 5 and X, The King of Fighters '94 to 2003, Samurai Shodown, Garou, Blazing Star, Puzzle Bobble and more (282 games and versions). Needs the BIOS set `neogeo.zip`, see [BIOS files](#bios-files) |
 
 The drivers in the second half run all the free ROMs on mamedev.org (except the Video Klein
 gambling machines). More drivers can be added; see [Development](#development).
@@ -55,6 +56,29 @@ the game shows which files.
 
 The ROMs must match the MAME version in the app (shown in the top bar and on the Info tab).
 Sets made for a much older MAME can have files with other names or contents.
+
+### BIOS files
+
+Some systems run their games on a BIOS, a program of the machine itself rather than of the
+game. MAME keeps it in a set of its own: every **Neo Geo** game needs `neogeo.zip` (or
+`neogeo.7z`) in the ROM folder next to the game's own file. Without it the game says
+*needs the Neo Geo BIOS (neogeo.zip)* and can't be started; the line above the games shows
+whether the BIOS is there and complete.
+
+- The app recognises the BIOS set by its contents, like a game, and stores an upload as
+  `neogeo.zip` (or `.7z`). A BIOS set with another name in the folder shows up under Problems, with a
+  button to rename it.
+- The set holds the files every Neo Geo needs (`sm1.sm1`, `sfix.sfix`, `000-lo.lo`) and
+  one or more versions of the BIOS itself (Europe, US, Japan, Asia, Universe BIOS). One
+  version is enough: when the set lacks the one MAME starts with (Europe; Japan for a few
+  mahjong games), the app starts the game with a version that is there.
+- A game set that already holds the BIOS files (a *non-merged* set) needs no separate
+  `neogeo.zip`.
+
+The legal rule is the same as for games: only add a BIOS you have the right to use, such
+as one dumped from your own Neo Geo MVS board. The BIOS is SNK's copyrighted software, and
+it is not among the free ROMs on mamedev.org. Homebrew Neo Geo games exist, some of them
+free, but MAME 0.289 doesn't list them, so this app can't run them.
 
 ## Playing
 
@@ -138,7 +162,8 @@ chips of the original arcade machine and are copyrighted by the company that mad
 also when it is decades old and no longer sold. Only add ROM files you have the right to
 use:
 
-- dumped from an arcade board you own,
+- dumped from an arcade board you own (for Neo Geo games: the cartridge, and the BIOS
+  from your MVS board),
 - bought as a licensed release, or
 - released for free by the rights holder, such as the ROMs on
   [mamedev.org/roms](https://www.mamedev.org/roms/). Those may be downloaded from that page
