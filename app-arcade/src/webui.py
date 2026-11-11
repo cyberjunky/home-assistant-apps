@@ -35,7 +35,8 @@ SRC_DIR = Path(__file__).resolve().parent
 STATIC_DIR = SRC_DIR / "static"
 INDEX_HTML = (SRC_DIR / "web" / "index.html").read_text(encoding="utf-8")
 PLAY_HTML = (SRC_DIR / "web" / "play.html").read_text(encoding="utf-8")
-MAX_UPLOAD = 128 * 1024 * 1024
+# The largest sets (late Neo Geo, PGM2) are 130-200 MB; uploads stream to disk
+MAX_UPLOAD = 512 * 1024 * 1024
 LEGAL_FILE = DATA_DIR / "legal.json"
 # The MAME build is fixed per app version: let browsers keep it
 MAME_MAX_AGE = 30 * 24 * 3600
