@@ -169,7 +169,9 @@ class Library:
             except subprocess.TimeoutExpired as e:
                 raise ValueError("reading the 7z archive took too long") from e
             if result.returncode != 0:
-                detail = (result.stderr or result.stdout).replace(str(path), path.name).strip()
+                # 7z's report, without the lines that only name the file: "Is not archive"
+                lines = [x.strip() for x in (result.stderr or result.stdout).splitlines()]
+                detail = "; ".join(x for x in lines if x and str(path) not in x and x != "ERRORS:")
                 raise ValueError(f"a damaged or incomplete 7z file ({detail[:200]})")
             crcs, crc, is_dir = set(), None, False
             # One block of "Key = value" lines per file, separated by an empty line
