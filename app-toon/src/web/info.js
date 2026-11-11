@@ -1,4 +1,4 @@
-// Toon dashboard - Settings: the Toon's health, connection history, configuration and about.
+// Toon dashboard - Info: the Toon's health, connection history, configuration and about.
 
 const OUTAGE_KINDS = {reboot: 'Restarted', network: 'Connection lost', app_stopped: 'App was stopped', unknown: 'Unknown'};
 const HEALTH_RANGES = [{key: '24', label: '24 hours'}, {key: '168', label: '7 days'}, {key: '720', label: '30 days'}];
@@ -207,10 +207,10 @@ async function deleteAllData() {
     app.today = null;
     stats.report = null;
     try { await loadStatus(); } catch (e) { /* the next refresh brings the counts */ }
-    showSettings();
+    showInfo();
 }
 
-async function showSettings() {
+async function showInfo() {
     renderHealth();
     renderConfig();
     renderExternalSettings();
@@ -222,4 +222,4 @@ async function showSettings() {
     }
 }
 
-onTab('settings', showSettings, () => { renderHealth(); renderConfig(); renderExternalSettings(); });
+onTab('info', showInfo, () => { renderHealth(); renderConfig(); renderExternalSettings(); });

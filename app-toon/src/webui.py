@@ -232,7 +232,7 @@ class WebUI:
         if self.monitor.importer.running:
             return web.json_response(
                 {
-                    "error": "The history import is running. Try again when it has finished: Settings shows its progress."
+                    "error": "The history import is running. Try again when it has finished: Info shows its progress."
                 },
                 status=409,
             )

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.2
+
+**After updating:** nothing to do.
+
+- The Settings page is now called **Info**, like in the other apps. A bookmark to the old Settings page opens Info.
+
 ## 0.5.1
 
 **After updating:** nothing to do.
