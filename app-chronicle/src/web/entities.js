@@ -86,6 +86,7 @@ function renderEntityTable() {
         return desc ? -c : c;
     });
     document.getElementById('entity-count').textContent = `${num(rows.length)} of ${num(entityList.length)} entities`;
+    document.getElementById('entity-clear').hidden = !search && !entityDomain;
     const head = ENTITY_COLUMNS.map(c => `<th class="sortable${c.n ? ' n' : ''}" data-sort="${c.key}">${c.label}${c.key === key ? (desc ? ' ↓' : ' ↑') : ''}</th>`).join('');
     const body = rows.map(e => `
         <tr class="link" data-entity="${escapeHtml(e.entity_id)}">
@@ -109,6 +110,13 @@ function renderEntityTable() {
         const tr = ev.target.closest('[data-entity]');
         if (tr) openEntity(tr.dataset.entity);
     };
+}
+
+function clearEntityFilter() {
+    entityDomain = '';
+    document.getElementById('entity-search').value = '';
+    document.getElementById('entity-domain').value = '';
+    renderEntityTable();
 }
 
 // From the Overview: the list filtered on one domain

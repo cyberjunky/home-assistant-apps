@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2
+
+**After updating:** nothing to do.
+
+- **Entities:** a *Clear filter* button next to the domain list, shown while a search or domain filter is set.
+- **Overview:** *Oldest history* shows a short date (11 Nov, or Nov 2025 for an earlier year) that fits the tile; the full date is in its tooltip. *Compression* says "none yet" until TimescaleDB compresses its first chunk, which it only does once a chunk is older than the compression policy.
+
 ## 0.1.1
 
 **After updating:** nothing to do.
