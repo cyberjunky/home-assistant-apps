@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3
+
+**After updating:** nothing to do.
+
+- The controls in the game's top bar sit in the middle, between the game's name and the buttons, instead of against the buttons.
+
 ## 0.1.2
 
 **After updating:** nothing to do.
