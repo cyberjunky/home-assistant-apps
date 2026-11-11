@@ -29,11 +29,11 @@ Re-run *Import All Places* and *Import BAG* after updates that add data to them 
 2. **Filtering** — Messages matching an *Ignore Text* pattern, or whose capcodes are all on the *Ignore Capcodes* list, are dropped. An identical text received again within `repeat_window_seconds` counts as a repeat of the first message instead of a new one.
 3. **Parsing** — From the text:
    - **Priority** from codes such as `A1`, `A2`, `B1`, `P 1`, `PRIO 2`.
-   - **Town**: the last words of the message are looked up in the Places table (including multi-word names such as "Koog aan de Zaan") and in the built-in list of P2000 town abbreviations (e.g. `OEGSTG` → Oegstgeest). If that finds nothing, the whole text is searched.
+   - **Town**: the last words of the message are looked up in the Places table (including multi-word names such as "Koog aan de Zaan") and in the Place Codes table of P2000 town abbreviations (e.g. `OEGSTG` → Oegstgeest). If that finds nothing, the whole text is searched.
    - **Street**: the remaining text is matched against the Streets table (longest names first, whole words only), then against address patterns with a postcode, then against common street-name endings (`-straat`, `-weg`, `-laan`, …).
    - **Capcodes** are looked up in the Capcodes table for the discipline, region, location and the names of the alerted units.
    - **Abbreviations** are explained from the Texts table, and **vehicles** recognised from the Vehicles table or from the text ("TS 07-1782").
-   - **Incident type** from the text: fire, automatic alarm (OMS), traffic accident, medical (reanimatie/AED), water, gas/smell, lift, storm, animal, assistance, GRIP. Also the **reference numbers** (rit, bon, icnum), the meldkamer **talk group** ("BAD-02") and "Directe inzet: ja". A vehicle named with its type ("ambu 16-107") gives the region when the capcodes don't.
+   - **Incident type** from the text: fire, automatic alarm (OMS), traffic accident, medical (reanimatie/AED), water, gas/smell, lift, storm, animal, assistance, GRIP. Also the **reference numbers** (rit, bon, icnum), the meldkamer **talk group** ("BAD-02", see [Talk groups and place codes](#talk-groups-and-place-codes)) and "Directe inzet: ja". A vehicle named with its type ("ambu 16-107") gives the region when the capcodes don't.
 4. **Location** — The first source that knows the address wins:
    1. the position of a full postcode in the message ("3068HA" covers a few houses), looked up once at the PDOK Locatieserver, free, and kept in the geocode cache;
    2. the street's position in the **Streets** table (street + town, from the BAG import or entered by you);
@@ -85,6 +85,8 @@ Each table gets its own card with row counts and Manage/Import actions:
 | 📨 Messages | Received P2000 messages | — (filled automatically) |
 | 📍 Geocodes | OpenCage address lookup cache | — (filled automatically) |
 | 🗣️ TTS Replacements | Regex rules for speakable text-to-speech | CSV |
+| 📻 Talk Groups | Discipline and meldkamer/region letters of talk group codes (BRT-01) | Built-in, CSV |
+| 🏷️ Place Codes | Place-name codes in messages (UTRECH → Utrecht) | Built-in, CSV |
 | 🙈 Ignore Text | Wildcard patterns to drop matching messages | CSV |
 | 🚫 Ignore Capcodes | Capcodes to drop | CSV |
 | 📷 Vehicle Photos | Photos you've uploaded per vehicle number or category | — (upload via message detail or +Add) |
@@ -309,7 +311,7 @@ With `sensors_enabled`, Meldkamer also publishes (every minute, and over MQTT wi
 
 With `ha_events: true` (default) Meldkamer fires on the Home Assistant event bus:
 
-- **`meldkamer_message`** for every new message, with all message fields (`body`, `tts`, `priority`, `discipline`, `capcodes`, `region`, `city`, `street`, `address`, `latitude`, `longitude`, `distance_km`, `incident_id`, …) plus `incident_type`/`incident_label`, `ride_number`, `bon_number`, `incident_number`, `talk_group`, `direct_deployment`, `sensors`, the names of the sensors it matched, and `dashboard_url`, a Home Assistant path (`/hassio/ingress/<addon>#msg=<id>`) that opens the dashboard on that message, for use as the `url` of a notification.
+- **`meldkamer_message`** for every new message, with all message fields (`body`, `tts`, `priority`, `discipline`, `capcodes`, `region`, `city`, `street`, `address`, `latitude`, `longitude`, `distance_km`, `incident_id`, …) plus `incident_type`/`incident_label`, `ride_number`, `bon_number`, `incident_number`, `talk_group`, `talk_group_name`, `direct_deployment`, `sensors`, the names of the sensors it matched, and `dashboard_url`, a Home Assistant path (`/hassio/ingress/<addon>#msg=<id>`) that opens the dashboard on that message, for use as the `url` of a notification.
 - **`meldkamer_incident_escalated`** when a later message for an incident raises the GRIP level or priority, or alerts more units or disciplines: `incident_id`, `address`, `disciplines`, `units`, `priority`, `grip`, `message_count`, `reasons` and the new message's `body`.
 
 ```yaml
@@ -362,6 +364,12 @@ sensors:
 ```
 
 `quiet_hours` (optional, local time, may cross midnight) silences the speakers between those times. The dashboard follows it too: no sound, browser speech or browser notifications during quiet hours (the toggles dim and say so).
+
+### Talk groups and place codes
+
+A message names its C2000 talk group as letters, a dash and a number, e.g. `BRT-01`: the first letter is the discipline (B Brandweer, A Ambulancezorg, P Politie, M Koninklijke Marechaussee, D Defensiediensten, S Multidisciplinaire samenwerking), the next two the meldkamer or region (RT Rotterdam, DH Den Haag, AD Amsterdam, MD Midden-Nederland, …), and the number the talk group's quick-dial number. The spoken text says it as "gespreksgroep Brandweer Rotterdam 0 1", the message detail shows "Gespreksgroep Brandweer Rotterdam 01" (also as `talk_group_name` in events), and a code whose letters aren't known is spelled out ("B X X 0 1"), never guessed. Source: Brandweer Nederland / NIPV, [Nota van toelichting Standaard Presentatietekst Gespreksgroep in GMS pagertekst](https://nipv.nl/documenten/nota-van-toelichting-standaard-presentatietekst-gespreksgroep-in-gms-pagertekst) (25 January 2019).
+
+The letters are in the **Talk Groups** table and the place-name codes (`UTRECH` → Utrecht, used to find the town, as tags and in the spoken text) in the **Place Codes** table, both on the Data tab: add, edit, delete, export and import CSV (the same files as the FireServiceRota app). Both are filled once with the built-in list; a row you change keeps your text and a row you delete stays deleted, also after updates. The default TTS rules work the same way since 1.4.13. Backups include both tables.
 
 ### Map Card
 

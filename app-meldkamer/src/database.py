@@ -240,7 +240,38 @@ class Database:
         image BLOB NOT NULL,
         UNIQUE(key_type, key_value)
     );
+
+    -- Place-name codes in messages (UTRECH -> Utrecht); seeded from city_abbreviations.py
+    CREATE TABLE IF NOT EXISTS city_abbreviations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        abbreviation TEXT UNIQUE NOT NULL,
+        city TEXT NOT NULL
+    );
+
+    -- Talk group codes (BRT-01): kind 'discipline' (B -> Brandweer) or 'region' (RT -> Rotterdam)
+    CREATE TABLE IF NOT EXISTS talkgroup_codes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        kind TEXT NOT NULL,
+        code TEXT NOT NULL,
+        name TEXT NOT NULL,
+        UNIQUE (kind, code)
+    );
+
+    -- Which built-in rows were added once: a default you changed or deleted is not added
+    -- again at the next start or update
+    CREATE TABLE IF NOT EXISTS speech_seeded (
+        kind TEXT NOT NULL,
+        key TEXT NOT NULL,
+        PRIMARY KEY (kind, key)
+    );
     """
+
+    # Lookup tables with defaults (seeded once): columns, the columns that identify a row,
+    # and the ones stored in capitals. The same tables and columns as the FireServiceRota app.
+    LOOKUP_TABLES = {
+        "city_abbreviations": {"cols": ("abbreviation", "city"), "key": ("abbreviation",), "upper": ("abbreviation",)},
+        "talkgroup_codes": {"cols": ("kind", "code", "name"), "key": ("kind", "code"), "upper": ("code",)},
+    }
 
     def __init__(self, db_path: str = "/data/meldkamer.sqlite3"):
         self.db_path = db_path
@@ -485,8 +516,21 @@ class Database:
             self._rebuild_table_with_id("streets", ["street", "city_id", "postalcode", "latitude", "longitude"])
             self._rebuild_places_per_province()
             self._ensure_unique_streets()
+            self._seed_lookup_tables()
         except sqlite3.Error as e:
             logger.error(f"Schema migration failed: {e}")
+
+    def _seed_lookup_tables(self) -> None:
+        """The default place-name codes and talk group codes, each added once."""
+        from .city_abbreviations import CITY_ABBREVIATIONS
+        from .talkgroups import DEFAULT_TALKGROUP_CODES
+
+        added = self.seed_defaults(
+            "city_abbreviations", [{"abbreviation": a, "city": c} for c, a in CITY_ABBREVIATIONS.items()]
+        )
+        added += self.seed_defaults("talkgroup_codes", DEFAULT_TALKGROUP_CODES)
+        if added:
+            logger.info(f"Added {added} default place-name and talk group code(s)")
 
     def _table_sql(self, table: str) -> str:
         """Return the CREATE TABLE statement for a table from SCHEMA."""
@@ -1383,7 +1427,7 @@ class Database:
         # Not stored: recognised from the text, so older rows get them too
         if "body" in d:
             d.update(self.resolve_vehicle(d["body"] or "", d.get("discipline") or ""))
-            d.update(message_fields.derived_fields(d["body"] or ""))
+            d.update(message_fields.derived_fields(d["body"] or "", self.decode_talkgroup))
         return d
 
     def list_messages(
@@ -2071,9 +2115,13 @@ class Database:
                 clean = token.upper() if code_like else token
                 if clean in all_abbrevs:
                     found.append({"abbreviation": clean, "full_text": _resolve_text(clean, all_abbrevs[clean])})
+                elif "-" in clean and clean.isupper() and (group := self.decode_talkgroup(clean)):
+                    # Talk groups like BRT-01: discipline + meldkamer/region + quick-dial number
+                    # (NIPV coding, from the talkgroup_codes table)
+                    discipline, region, number = group
+                    found.append({"abbreviation": clean, "full_text": f"Gespreksgroep {discipline} {region} {number}"})
                 elif "-" in clean and clean.isupper():
-                    # Codes like BDH-03 / BON-01: prefix = meldkamer
-                    # gespreksgroep, number = incidentkanaal
+                    # Other codes with a dash: prefix from the abbreviations, number = channel
                     prefix, _, channel = clean.partition("-")
                     if prefix in all_abbrevs and channel.isdigit():
                         base_text = _resolve_text(prefix, all_abbrevs[prefix])
@@ -2283,6 +2331,204 @@ class Database:
             count = 0
             logger.error(f"Failed to import TTS replacements: {e}")
         return count
+
+    def remove_unchanged_defaults(self, marker: str, rules: list[dict]) -> int:
+        """Remove old default TTS rules once (marker names the change), only rows still exactly
+        as they were added: a rule you changed stays. Returns the number removed."""
+        with self._transaction() as conn:
+            if conn.execute("SELECT 1 FROM speech_seeded WHERE kind = 'migration' AND key = ?", (marker,)).fetchone():
+                return 0
+            removed = 0
+            for rule in rules:
+                removed += conn.execute(
+                    "DELETE FROM tts_replacements WHERE pattern = ? AND replacement = ?",
+                    (rule["pattern"], rule["replacement"]),
+                ).rowcount
+            conn.execute("INSERT OR IGNORE INTO speech_seeded (kind, key) VALUES ('migration', ?)", (marker,))
+        return removed
+
+    # =========================================================================
+    # LOOKUP TABLES WITH DEFAULTS (city_abbreviations, talkgroup_codes)
+    # =========================================================================
+
+    _SEED_SPECS = {
+        **LOOKUP_TABLES,
+        "tts_replacements": {"cols": ("pattern", "replacement"), "key": ("pattern",), "upper": ()},
+    }
+
+    def seed_defaults(self, table: str, rows: list[dict]) -> int:
+        """Add the built-in rows that were never added before. Returns the number added.
+
+        Each row is added once: a row you changed keeps your text and a default you deleted
+        stays deleted, also after updates (speech_seeded remembers what was added).
+        """
+        spec = self._SEED_SPECS[table]
+        added = 0
+        with self._transaction() as conn:
+            seeded = {r[0] for r in conn.execute("SELECT key FROM speech_seeded WHERE kind = ?", (table,))}
+            for row in rows:
+                values = {c: str(row.get(c, "")) for c in spec["cols"]}
+                for c in spec["upper"]:
+                    values[c] = values[c].upper()
+                key = "\x1f".join(values[c] for c in spec["key"])
+                if key in seeded:
+                    continue
+                cols = list(spec["cols"])
+                added += conn.execute(
+                    f"INSERT OR IGNORE INTO {table} ({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)})",
+                    [values[c] for c in cols],
+                ).rowcount
+                conn.execute("INSERT OR IGNORE INTO speech_seeded (kind, key) VALUES (?, ?)", (table, key))
+        if added:
+            self.invalidate_text_caches()
+        return added
+
+    def _build_city_abbreviation_cache(self) -> dict[str, dict[str, str]]:
+        by_code, by_city = {}, {}
+        for row in self.cursor.execute("SELECT abbreviation, city FROM city_abbreviations ORDER BY id").fetchall():
+            by_code[row[0]] = row[1]
+            by_city.setdefault(row[1], row[0])
+        return {"by_code": by_code, "by_city": by_city}
+
+    def _city_abbreviations(self) -> dict[str, dict[str, str]]:
+        return self._get_text_cache("city_abbreviations", "city_abbreviations", self._build_city_abbreviation_cache)
+
+    def city_from_abbreviation(self, abbrev: str) -> str:
+        """The place for a place-name code ("UTRECH" -> "Utrecht"), "" when unknown."""
+        return self._city_abbreviations()["by_code"].get((abbrev or "").upper(), "")
+
+    def abbreviation_for_city(self, city: str) -> str:
+        """The place-name code of a place ("Utrecht" -> "UTRECH"), "" when unknown."""
+        return self._city_abbreviations()["by_city"].get(city or "", "")
+
+    def _build_talkgroup_cache(self) -> dict[str, dict[str, str]]:
+        maps: dict[str, dict[str, str]] = {"discipline": {}, "region": {}}
+        for row in self.cursor.execute("SELECT kind, code, name FROM talkgroup_codes").fetchall():
+            maps.setdefault(row[0], {})[row[1]] = row[2]
+        return maps
+
+    def decode_talkgroup(self, code: str) -> tuple[str, str, str] | None:
+        """ "BRT-01" -> ("Brandweer", "Rotterdam", "01"); None when it isn't a talk group code
+        or its letters aren't in the talkgroup_codes table."""
+        from .talkgroups import TALKGROUP
+
+        m = TALKGROUP.fullmatch(code or "")
+        if not m:
+            return None
+        maps = self._get_text_cache("talkgroups", "talkgroup_codes", self._build_talkgroup_cache)
+        discipline, region = maps["discipline"].get(m.group(1)), maps["region"].get(m.group(2))
+        if not discipline or not region:
+            return None
+        return discipline, region, m.group(3)
+
+    def _lookup_values(self, table: str, row: dict) -> dict[str, str]:
+        """A row's values for a lookup table, checked. Raises ValueError."""
+        from .talkgroups import KINDS
+
+        spec = self.LOOKUP_TABLES[table]
+        values = {}
+        for c in spec["cols"]:
+            value = str(row.get(c) or "").strip()
+            if c in spec["upper"]:
+                value = value.upper()
+            if not value:
+                raise ValueError(f"{c} is required")
+            values[c] = value
+        if table == "talkgroup_codes":
+            values["kind"] = values["kind"].lower()
+            if values["kind"] not in KINDS:
+                raise ValueError("kind must be discipline or region")
+            if len(values["code"]) != KINDS[values["kind"]] or not values["code"].isalpha():
+                raise ValueError(f"A {values['kind']} code is {KINDS[values['kind']]} letter(s)")
+        return values
+
+    def list_lookup(self, table: str, page: int = 1, per_page: int = 50, search: str = "") -> dict:
+        spec = self.LOOKUP_TABLES[table]
+        where, params = "", []
+        if search:
+            where = "WHERE " + " OR ".join(f"{c} LIKE ?" for c in spec["cols"])
+            params = [f"%{search}%"] * len(spec["cols"])
+        total = self.cursor.execute(f"SELECT COUNT(*) FROM {table} {where}", params).fetchone()[0]
+        rows = self.cursor.execute(
+            f"SELECT * FROM {table} {where} ORDER BY {', '.join(spec['key'])} LIMIT ? OFFSET ?",
+            [*params, per_page, (page - 1) * per_page],
+        ).fetchall()
+        return {"items": [dict(r) for r in rows], "total": total, "page": page, "per_page": per_page}
+
+    def save_lookup(self, table: str, row: dict, row_id: int | None = None) -> int:
+        """Add a row (a row with the same key is changed) or change the row with row_id.
+        Returns its id; raises ValueError for invalid input."""
+        spec = self.LOOKUP_TABLES[table]
+        values = self._lookup_values(table, row)
+        cols = list(spec["cols"])
+        with self._transaction() as conn:
+            match = " AND ".join(f"{c} = ?" for c in spec["key"])
+            other = conn.execute(f"SELECT id FROM {table} WHERE {match}", [values[c] for c in spec["key"]]).fetchone()
+            if other and other[0] != row_id:
+                if row_id is not None:
+                    raise ValueError("Another row already has this " + " and ".join(spec["key"]))
+                row_id = other[0]
+            if row_id is None:
+                row_id = conn.execute(
+                    f"INSERT INTO {table} ({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)})",
+                    [values[c] for c in cols],
+                ).lastrowid
+            elif not conn.execute(
+                f"UPDATE {table} SET {', '.join(f'{c} = ?' for c in cols)} WHERE id = ?",
+                [*(values[c] for c in cols), row_id],
+            ).rowcount:
+                raise ValueError("Row not found")
+        self.invalidate_text_caches()
+        return row_id
+
+    def delete_lookup(self, table: str, row_id: int) -> bool:
+        self.LOOKUP_TABLES[table]
+        with self._transaction() as conn:
+            deleted = conn.execute(f"DELETE FROM {table} WHERE id = ?", (row_id,)).rowcount
+        self.invalidate_text_caches()
+        return deleted > 0
+
+    def export_lookup_csv(self, table: str) -> str:
+        spec = self.LOOKUP_TABLES[table]
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(spec["cols"])
+        for row in self.cursor.execute(
+            f"SELECT {', '.join(spec['cols'])} FROM {table} ORDER BY {', '.join(spec['key'])}"
+        ).fetchall():
+            writer.writerow(list(row))
+        return output.getvalue()
+
+    def import_lookup_csv(self, table: str, csv_content: str, replace: bool = False) -> dict[str, int]:
+        """Import a CSV export of a lookup table (this app's or the FireServiceRota app's).
+        Raises ValueError for invalid CSV; the table is left untouched then."""
+        spec = self.LOOKUP_TABLES[table]
+        rows = self._read_csv(csv_content, spec["cols"])
+        items, skipped = [], 0
+        for row in rows:
+            try:
+                items.append(self._lookup_values(table, row))
+            except ValueError:
+                skipped += 1
+        cols = list(spec["cols"])
+        updates = ", ".join(f"{c} = excluded.{c}" for c in cols if c not in spec["key"])
+        sql = (
+            f"INSERT INTO {table} ({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)}) "
+            f"ON CONFLICT({', '.join(spec['key'])}) DO UPDATE SET {updates}"
+        )
+        with self._transaction() as conn:
+            if replace:
+                conn.execute(f"DELETE FROM {table}")
+            for values in items:
+                conn.execute(sql, [values[c] for c in cols])
+        self.invalidate_text_caches()
+        return {"imported": len(items), "skipped": skipped}
+
+    def import_city_abbreviations_csv(self, csv_content: str, replace: bool = False) -> dict[str, int]:
+        return self.import_lookup_csv("city_abbreviations", csv_content, replace)
+
+    def import_talkgroup_codes_csv(self, csv_content: str, replace: bool = False) -> dict[str, int]:
+        return self.import_lookup_csv("talkgroup_codes", csv_content, replace)
 
     # =========================================================================
     # GLOBAL MESSAGE FILTERS (ignore_text / ignore_capcodes)
@@ -2724,6 +2970,8 @@ class Database:
             "ignore_capcodes",
             "vehicle_photos",
             "vehicles",
+            "city_abbreviations",
+            "talkgroup_codes",
         }
         if table not in allowed:
             logger.warning(f"clear_table rejected for table: {table}")
@@ -2733,7 +2981,7 @@ class Database:
             count = self.cursor.fetchone()[0]
             self.cursor.execute(f"DELETE FROM {table}")
             self._commit()
-            if table == "abbreviations":
+            if table in ("abbreviations", "city_abbreviations", "talkgroup_codes"):
                 self.invalidate_text_caches()
             if table == "vehicles":
                 self._vehicle_cache = None

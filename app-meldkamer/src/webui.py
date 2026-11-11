@@ -301,6 +301,13 @@ class WebUI:
         self.app.router.add_delete("/api/db/tts_replacements/{id}", self._handle_delete_tts)
         self.app.router.add_delete("/api/db/tts_replacements", self._handle_delete_all_tts)
 
+        # Place-name codes and talk group codes (lookup tables with defaults)
+        for table in Database.LOOKUP_TABLES:
+            self.app.router.add_get(f"/api/db/{table}", self._handle_list_lookup)
+            self.app.router.add_post(f"/api/db/{table}", self._handle_save_lookup)
+            self.app.router.add_put(f"/api/db/{table}/{{id}}", self._handle_save_lookup)
+            self.app.router.add_delete(f"/api/db/{table}/{{id}}", self._handle_delete_lookup)
+
         # Global message filters
         self.app.router.add_get("/api/db/ignore_text", self._handle_list_ignore_text)
         self.app.router.add_post("/api/db/ignore_text", self._handle_add_ignore_text)
@@ -459,7 +466,7 @@ class WebUI:
             if m.get("body"):
                 m["abbreviations"] = self.database.find_abbreviations_in_text(
                     m["body"], m.get("discipline", "")
-                ) + city_shortname_tags(m["body"])
+                ) + city_shortname_tags(m["body"], self.database)
             if manager.sensors:
                 m["sensors"] = [s.name for s in manager.get_matching_sensors(_DictMessageView(m))]
             result.append(m)
@@ -798,6 +805,8 @@ class WebUI:
             "ignore_text": self.database.export_ignore_text_csv,
             "ignore_capcodes": self.database.export_ignore_capcodes_csv,
             "vehicles": self.database.export_vehicles_csv,
+            "city_abbreviations": lambda: self.database.export_lookup_csv("city_abbreviations"),
+            "talkgroup_codes": lambda: self.database.export_lookup_csv("talkgroup_codes"),
         }
         exporter = exporters.get(table)
         if exporter is None:
@@ -824,6 +833,8 @@ class WebUI:
             "places": self.database.import_places_csv,
             "streets": self.database.import_streets_csv,
             "vehicles": self.database.import_vehicles_csv,
+            "city_abbreviations": self.database.import_city_abbreviations_csv,
+            "talkgroup_codes": self.database.import_talkgroup_codes_csv,
         }
         if table == "messages":
             return web.json_response(
@@ -1057,7 +1068,8 @@ class WebUI:
                 return web.json_response({"error": problem}, status=400)
 
             await asyncio.to_thread(self.database.replace_with, path)
-            self._tts_changed()
+            # A backup from before 1.4.13 gets the default TTS rules, place-name and talk group codes
+            self.speech.seed()
             self._ignore_changed()
             self.messages.clear()
             self.messages.extend(self.database.get_recent_messages(MAX_MESSAGES))
@@ -1098,6 +1110,9 @@ class WebUI:
                 "ignore_capcodes",
                 "vehicle_photos",
                 "vehicles",
+                "city_abbreviations",
+                "talkgroup_codes",
+                "speech_seeded",
             ]
             for table in tables:
                 with contextlib.suppress(Exception):
@@ -1107,7 +1122,8 @@ class WebUI:
             # Recreate schema and drop cached text-matching data
             self.database._migrate_schema()
             self.database.invalidate_text_caches()
-            self._tts_changed()
+            # The defaults come back after a reset
+            self.speech.seed()
             self._ignore_changed()
 
             # Clear in-memory message cache and counters
@@ -1173,6 +1189,40 @@ class WebUI:
         except Exception as e:
             logger.error(f"Failed to find abbreviations: {e}")
             return web.json_response({"error": str(e)}, status=500)
+
+    @staticmethod
+    def _lookup_table(request: web.Request) -> str:
+        """The lookup table of a request's path (/api/db/<table>[/<id>])."""
+        return request.path.split("/api/db/", 1)[1].split("/", 1)[0]
+
+    async def _handle_list_lookup(self, request: web.Request) -> web.Response:
+        """List place-name or talk group codes with pagination and search."""
+        page = _int_param(request, "page", 1, maximum=MAX_PAGE)
+        per_page = _int_param(request, "per_page", 50)
+        search = request.query.get("search", "")
+        return web.json_response(self.database.list_lookup(self._lookup_table(request), page, per_page, search))
+
+    async def _handle_save_lookup(self, request: web.Request) -> web.Response:
+        """Add (POST) or change (PUT /{id}) a place-name or talk group code."""
+        table = self._lookup_table(request)
+        data = await _json_object(request)
+        try:
+            row_id = int(request.match_info["id"]) if "id" in request.match_info else None
+            row_id = self.database.save_lookup(table, data, row_id)
+        except (ValueError, TypeError) as e:
+            return web.json_response({"error": str(e)}, status=400)
+        self._tts_changed()
+        return web.json_response({"success": True, "id": row_id})
+
+    async def _handle_delete_lookup(self, request: web.Request) -> web.Response:
+        try:
+            row_id = int(request.match_info["id"])
+        except (KeyError, ValueError):
+            return web.json_response({"error": "Invalid id"}, status=400)
+        if not self.database.delete_lookup(self._lookup_table(request), row_id):
+            return web.json_response({"error": "Not found"}, status=404)
+        self._tts_changed()
+        return web.json_response({"success": True})
 
     async def _handle_list_tts(self, request: web.Request) -> web.Response:
         """List TTS replacements with pagination and search."""
@@ -2507,6 +2557,30 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
                             <div class="db-card">
                                 <div class="db-card-head">
+                                    <span class="db-card-title">Talk Groups</span>
+                                    <span class="db-card-status ready" id="db-status-talkgroup_codes">-</span>
+                                </div>
+                                <div class="db-card-desc">The letters of talk group codes like BRT-01: discipline (B Brandweer) and meldkamer or region (RT Rotterdam), from the NIPV coding. Spoken as "gespreksgroep Brandweer Rotterdam 0 1" and shown as a tag. Built in once; your edits are kept.</div>
+                                <div class="db-card-count"><span id="db-count-talkgroup_codes">0</span> rows</div>
+                                <div class="db-card-actions">
+                                    <button class="btn" onclick="dbOpenTable('talkgroup_codes')">Manage</button>
+                                </div>
+                            </div>
+
+                            <div class="db-card">
+                                <div class="db-card-head">
+                                    <span class="db-card-title">Place Codes</span>
+                                    <span class="db-card-status ready" id="db-status-city_abbreviations">-</span>
+                                </div>
+                                <div class="db-card-desc">Place-name codes in messages (UTRECH → Utrecht), used to find the town, as tags and in the spoken text. Built in once; your edits are kept.</div>
+                                <div class="db-card-count"><span id="db-count-city_abbreviations">0</span> rows</div>
+                                <div class="db-card-actions">
+                                    <button class="btn" onclick="dbOpenTable('city_abbreviations')">Manage</button>
+                                </div>
+                            </div>
+
+                            <div class="db-card">
+                                <div class="db-card-head">
                                     <span class="db-card-title">Ignore Text</span>
                                     <span class="db-card-status ready" id="db-status-ignore_text">-</span>
                                 </div>
@@ -3510,7 +3584,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 msg.repeats ? ['Repeats', `resent ${msg.repeats} times`] : null,
                 Array.isArray(msg.sensors) ? ['Sensors', msg.sensors.length ? msg.sensors.join(', ') : 'none', true] : null,
                 (msg.incident_label || msg.direct_deployment) ? ['Type', [msg.incident_label, msg.direct_deployment ? 'directe inzet' : ''].filter(Boolean).join(' · ')] : null,
-                msg.talk_group ? ['Talk group', msg.talk_group] : null,
+                msg.talk_group ? ['Talk group', msg.talk_group + (msg.talk_group_name ? ' · Gespreksgroep ' + msg.talk_group_name : '')] : null,
                 (msg.ride_number || msg.bon_number || msg.incident_number) ? ['Reference', [msg.ride_number && 'rit ' + msg.ride_number, msg.bon_number && 'bon ' + msg.bon_number, msg.incident_number && 'icnum ' + msg.incident_number].filter(Boolean).join(' · ')] : null,
                 ['Address', msg.address || msg.city || '—', true],
                 unmatchedCapcodes.length > 0 ? ['Capcodes', unmatchedCapcodes.join(' '), true] : null,
@@ -4466,7 +4540,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             ignore_text: ['pattern', 'enabled'],
             ignore_capcodes: ['capcode', 'enabled'],
             vehicle_photos: ['thumbnail', 'key_type', 'key_value', 'label'],
-            vehicles: ['number', 'category', 'description', 'source']
+            vehicles: ['number', 'category', 'description', 'source'],
+            talkgroup_codes: ['kind', 'code', 'name'],
+            city_abbreviations: ['abbreviation', 'city']
         };
 
         const dbTitles = {
@@ -4480,7 +4556,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             ignore_text: 'Ignore Text',
             ignore_capcodes: 'Ignore Capcodes',
             vehicle_photos: 'Vehicle Photos',
-            vehicles: 'Vehicles'
+            vehicles: 'Vehicles',
+            talkgroup_codes: 'Talk Groups',
+            city_abbreviations: 'Place Codes'
         };
 
         const dbTableButtons = {
@@ -4543,6 +4621,18 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 {label: 'Export', cls: 'btn-primary', fn: 'dbExport'},
                 {label: 'Import CSV', cls: '', fn: 'dbImportDialog'},
                 {label: 'Clear table', cls: 'btn-danger', fn: 'dbClearTable'}
+            ],
+            talkgroup_codes: [
+                {label: '+ Add', cls: 'btn-primary', fn: 'dbAdd'},
+                {label: 'Export', cls: 'btn-primary', fn: 'dbExport'},
+                {label: 'Import CSV', cls: '', fn: 'dbImportDialog'},
+                {label: 'Clear table', cls: 'btn-danger', fn: 'dbClearTable'}
+            ],
+            city_abbreviations: [
+                {label: '+ Add', cls: 'btn-primary', fn: 'dbAdd'},
+                {label: 'Export', cls: 'btn-primary', fn: 'dbExport'},
+                {label: 'Import CSV', cls: '', fn: 'dbImportDialog'},
+                {label: 'Clear table', cls: 'btn-danger', fn: 'dbClearTable'}
             ]
         };
 
@@ -4555,7 +4645,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             tts: ['pattern', 'replacement'],
             ignore_text: ['pattern'],
             ignore_capcodes: ['capcode'],
-            vehicles: ['number', 'category', 'description']
+            vehicles: ['number', 'category', 'description'],
+            talkgroup_codes: ['kind', 'code', 'name'],
+            city_abbreviations: ['abbreviation', 'city']
         };
 
         function getApiTable(table) {
@@ -4576,7 +4668,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 ['ignore_text', 'ignore_text'],
                 ['ignore_capcodes', 'ignore_capcodes'],
                 ['vehicle_photos', 'vehicle_photos'],
-                ['vehicles', 'vehicles']
+                ['vehicles', 'vehicles'],
+                ['talkgroup_codes', 'talkgroup_codes'],
+                ['city_abbreviations', 'city_abbreviations']
             ];
             tables.forEach(([api, card]) => {
                 fetch(`${basePath}api/db/${api}?page=1&per_page=1`)
@@ -4656,7 +4750,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             const thead = document.getElementById('db-thead');
             const tbody = document.getElementById('db-tbody');
             dbCurrentItems = data.items || [];
-            const editable = ['capcodes', 'places', 'streets', 'tts', 'ignore_text', 'ignore_capcodes', 'vehicles'].includes(dbCurrentTable);
+            const editable = ['capcodes', 'places', 'streets', 'tts', 'ignore_text', 'ignore_capcodes', 'vehicles', 'talkgroup_codes', 'city_abbreviations'].includes(dbCurrentTable);
 
             thead.innerHTML = '<tr>' + cols.map(c => `<th>${c}</th>`).join('') + `<th style="width: ${editable ? 76 : 40}px;"></th></tr>`;
 

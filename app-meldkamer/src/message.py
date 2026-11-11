@@ -73,6 +73,7 @@ class P2000Message:
     bon_number: str = ""  # "bon 170616"
     incident_number: str = ""  # "icnum 123456"
     talk_group: str = ""  # meldkamer gespreksgroep, e.g. "BAD-02"
+    talk_group_name: str = ""  # decoded from talkgroup_codes, e.g. "Brandweer Amsterdam 02"
     direct_deployment: bool = False  # "(Directe inzet: ja)"
     # Database row id, set once the message is stored
     id: int | None = None
@@ -120,6 +121,7 @@ class P2000Message:
             "bon_number": self.bon_number,
             "incident_number": self.incident_number,
             "talk_group": self.talk_group,
+            "talk_group_name": self.talk_group_name,
             "direct_deployment": self.direct_deployment,
             "id": self.id,
             "incident_id": self.incident_id,

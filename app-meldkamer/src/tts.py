@@ -9,6 +9,7 @@ import re
 
 from .database import Database
 from .message import P2000Message
+from .talkgroups import TALKGROUP
 
 logger = logging.getLogger(__name__)
 
@@ -22,17 +23,8 @@ DEFAULT_TTS_REPLACEMENTS = [
     {"pattern": r"\bB\s?2\b", "replacement": "Ambulance besteld vervoer"},
     {"pattern": r"\bP\s?1\b", "replacement": "Prio 1"},
     {"pattern": r"\bP\s?2\b", "replacement": "Prio 2"},
-    # Meldkamer gespreksgroep codes - short spoken forms
-    {"pattern": r"BDH\-[0-9]+", "replacement": "Brandweer Den Haag"},
-    {"pattern": r"BOB\-[0-9]+", "replacement": "Brandweer Oost-Brabant"},
-    {"pattern": r"BON\-[0-9]+", "replacement": "Brandweer Oost-Nederland"},
-    {"pattern": r"BNN\-[0-9]+", "replacement": "Brandweer Noord-Nederland"},
-    {"pattern": r"BNH\-[0-9]+", "replacement": "Brandweer Noord-Holland"},
-    {"pattern": r"BLB\-[0-9]+", "replacement": "Brandweer Limburg"},
-    {"pattern": r"BAD\-[0-9]+", "replacement": "Brandweer Amsterdam-Amstelland"},
-    {"pattern": r"BMD\-[0-9]+", "replacement": "Brandweer Midden-Nederland"},
-    {"pattern": r"BRT\-[0-9]+", "replacement": "Brandweer Rotterdam"},
-    {"pattern": r"BZB\-[0-9]+", "replacement": "Brandweer Zeeland"},
+    # Talk groups (BRT-01) are not rules any more: speak() decodes them from the
+    # talkgroup_codes table (see OLD_TALKGROUP_RULES)
     # Ambulance dienstposten - short spoken form
     {"pattern": r"DP[0-9]+", "replacement": "Dienstpost"},
     {"pattern": r"\bAMBU\b", "replacement": "Ambulance"},
@@ -81,6 +73,28 @@ DEFAULT_TTS_REPLACEMENTS = [
     {"pattern": r"\s*\b\d{6,}\b", "replacement": ""},
 ]
 
+# Until 1.4.12 talk groups were these rules: they dropped the talk group's number, and BAD is
+# Amsterdam (meldkamer AD), not Amsterdam-Amstelland (region AM) in the NIPV coding. They are
+# removed once at the update, only where you didn't change them.
+OLD_TALKGROUP_RULES = [
+    {"pattern": r"BDH\-[0-9]+", "replacement": "Brandweer Den Haag"},
+    {"pattern": r"BOB\-[0-9]+", "replacement": "Brandweer Oost-Brabant"},
+    {"pattern": r"BON\-[0-9]+", "replacement": "Brandweer Oost-Nederland"},
+    {"pattern": r"BNN\-[0-9]+", "replacement": "Brandweer Noord-Nederland"},
+    {"pattern": r"BNH\-[0-9]+", "replacement": "Brandweer Noord-Holland"},
+    {"pattern": r"BLB\-[0-9]+", "replacement": "Brandweer Limburg"},
+    {"pattern": r"BAD\-[0-9]+", "replacement": "Brandweer Amsterdam-Amstelland"},
+    {"pattern": r"BMD\-[0-9]+", "replacement": "Brandweer Midden-Nederland"},
+    {"pattern": r"BRT\-[0-9]+", "replacement": "Brandweer Rotterdam"},
+    {"pattern": r"BZB\-[0-9]+", "replacement": "Brandweer Zeeland"},
+]
+
+
+def _spell(text: str) -> str:
+    """Letter by letter and digit by digit: "BXX-01" -> "B X X 0 1"."""
+    return " ".join(c for c in text if c.isalnum())
+
+
 # B1/B2 mean "Brandweer ... spoed" for fire, but an unrelated, always
 # non-urgent "besteld vervoer" code for ambulance - consumed before the rules
 # run, so the generic fire-meaning rule never sees a B1/B2 on an ambulance message
@@ -97,10 +111,18 @@ class SpeechRules:
 
     def __init__(self, database: Database):
         self.database = database
-        imported = database.import_tts_replacements(DEFAULT_TTS_REPLACEMENTS)
+        self._rules: list[dict] = []
+        self.seed()
+
+    def seed(self) -> None:
+        """Add the default rules never added before (a rule you changed or deleted stays that
+        way, also after updates), drop the old talk group rules once, and load the rules."""
+        removed = self.database.remove_unchanged_defaults("talkgroup-rules-1.4.13", OLD_TALKGROUP_RULES)
+        if removed:
+            logger.info(f"Removed {removed} old talk group TTS rule(s): talk groups are decoded from talkgroup_codes")
+        imported = self.database.seed_defaults("tts_replacements", DEFAULT_TTS_REPLACEMENTS)
         if imported:
             logger.info(f"Seeded {imported} default TTS replacement(s) into database")
-        self._rules: list[dict] = []
         self.reload()
 
     def reload(self) -> None:
@@ -122,5 +144,15 @@ class SpeechRules:
                 text = re.sub(rule["pattern"], rule["replacement"], text, flags=re.IGNORECASE)
             except re.error as e:
                 logger.warning(f"Invalid TTS regex pattern '{rule['pattern']}': {e}")
+        text = TALKGROUP.sub(self._talkgroup, text)
         text = _DOUBLE_AMBULANCE.sub(r"Ambulance\1", text)
         return _DOUBLE_BRAND.sub(r"Brand\1", text).strip()
+
+    def _talkgroup(self, m: re.Match) -> str:
+        """ "BRT-01" -> "gespreksgroep Brandweer Rotterdam 0 1" (the number digit by digit);
+        letters that aren't in the talkgroup_codes table are spelled out, never guessed."""
+        group = self.database.decode_talkgroup(m.group(0))
+        if not group:
+            return _spell(m.group(0))
+        discipline, region, number = group
+        return f"gespreksgroep {discipline} {region} {_spell(number)}"
