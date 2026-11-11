@@ -5,7 +5,8 @@
 **After updating:** nothing to do. The database gets two new tables at the first start (abbreviations and replacement rules for the spoken text); everything already in it is kept.
 
 - Announcements and the browser speech now say the alarm text in words a voice reads correctly, made the same way as in the Meldkamer app: replacement rules, the public P2000 abbreviation list and place-name codes. "P 1 BRT-01 ... Rijksweg A2 hmp 67.4" is spoken as "Prio 1 B R T 0 1 ... Rijksweg A 2 hectometerpaal 67 komma 4".
-- Nothing is left out of the spoken text, and nothing is guessed: a code is only spoken as words when its meaning is certain, otherwise it is spelled out. Reference numbers are spoken digit by digit, decimal numbers with "komma".
+- Nothing is left out of the spoken text, and nothing is guessed: a code is only spoken as words when its meaning is certain, otherwise it is spelled out. Reference numbers are spoken digit by digit, decimal numbers with "komma", times as a time ("00:00" is "0 uur 0").
+- Dutch shortenings with dots are spoken in full: "t.h.v." is "ter hoogte van", and the same for i.v.m., z.s.m., n.a.v., o.a., i.p.v., m.b.t. and others. They are in the abbreviation list, so you can change them. Unknown ones are spelled out.
 - The priority is no longer said twice ("Prio p1. P 1 ..." is now "Prio 1 ...").
 - The incident detail shows **Spoken as** under the alarm text, with a button to hear it.
 - Data tab: test how a text is spoken (*Say it*), and view, search, add, change and delete the abbreviations and replacement rules. *Import list* adds the public abbreviation list. Both export and import as CSV, in the Meldkamer app's format.

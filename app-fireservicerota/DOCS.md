@@ -182,7 +182,8 @@ Because you act on what you hear, three rules hold:
   that aren't in any list.
 - **Numbers are exact.** `hmp 67.4` → "hectometerpaal 67 komma 4"; reference numbers and
   numbers starting with 0 digit by digit (`bon 123456` → "bonnummer 1 2 3 4 5 6");
-  postal codes as digits and letters (`3511 AX` → "3 5 1 1 A X").
+  postal codes as digits and letters (`3511 AX` → "3 5 1 1 A X"); times as a Dutch time
+  (`00:00` → "0 uur 0", `14.05 uur` → "14 uur 5").
 
 How a text is made, in this order:
 
@@ -191,7 +192,12 @@ How a text is made, in this order:
    (`A2` → "A 2", `N209` → "N 209"), `hmp`, `bon`/`rit`/`icnum` numbers, and Dutch
    shortenings (`ivm`, `tbv`, `evt.`, `ass.`). A pattern is a Python regular expression;
    `\1` in the replacement is its first group.
-2. **Postal codes and decimal numbers.**
+2. **Shortenings with dots, times, postal codes and decimal numbers.** A shortening with
+   dots is looked up in the abbreviation list with its dots (`t.h.v.` → "ter hoogte van",
+   also `i.v.m.`, `z.s.m.`, `n.a.v.`, `o.a.`, `i.p.v.`, `m.b.t.` and more, which the app
+   adds to the list). One in capitals (`O.V.D.`) is also looked up without dots; a
+   lowercase one is not, because `t.h.v.` is not the code `THV` (Technische
+   Hulpverlening). Unknown ones are spelled out.
 3. **Each word**: a code in the **abbreviation list** is spoken as its meaning (`TS` →
    "Tankautospuit", `OMS` → "Openbaar Meldsysteem", `OVD-B` → "Officier van Dienst
    Brandweer"; text in brackets in a meaning is not spoken). A place-name code is spoken as

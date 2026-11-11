@@ -61,6 +61,33 @@ EXAMPLES = [
     ),
     # A code in the list with two meanings ("AC"), HV (vehicle or incident class) and an unknown code
     ("P 2 HV AC XQZ Stationsplein 1", None, "Prio 2 H V A C X Q Z Stationsplein 1"),
+    # Times: never digits with a stray colon
+    (
+        "Test proefalarm 00:00 GRIP 1",
+        None,
+        "Test proefalarm 0 uur 0 Gecoördineerde Regionale Incidentenbestrijdingsprocedure 1",
+    ),
+    (
+        "Melding om 7:45 en 23:59:30, aanvang 14.05 uur",
+        None,
+        "Melding om 7 uur 45 en 23 uur 59 en 30 seconden, aanvang 14 uur 5",
+    ),
+    ("P 1 BDH-03 Brand St.Jansstraat 3 om 08:05", None, "Prio 1 B D H 0 3 Brand St.Jansstraat 3 om 8 uur 5"),
+    # Shortenings with dots
+    (
+        "P 1 Brand t.h.v. Rijksweg A2 hmp 45,2 i.v.m. rook z.s.m. ter plaatse",
+        None,
+        "Prio 1 Brand ter hoogte van Rijksweg A 2 hectometerpaal 45 komma 2 in verband met rook "
+        "zo snel mogelijk ter plaatse",
+    ),
+    (
+        "P 2 o.a. i.p.v. m.b.t. n.a.v. x.y.z. O.V.D. NL-Alert 23-bis DHG",
+        None,
+        "Prio 2 onder andere in plaats van met betrekking tot naar aanleiding van x y z Officier van Dienst "
+        "N L Alert 23-bis D H G",
+    ),
+    # t.h.v. is not the code THV (Technische Hulpverlening); "n.v.t" without the last dot
+    ("THV t.h.v. n.v.t", None, "Technische Hulpverlening ter hoogte van niet van toepassing"),
 ]
 
 
@@ -241,3 +268,22 @@ def test_import_list_restores_a_meaning(db, speech):
     m = db.abbreviation_map()
     assert m["TS"] == "Tankautospuit"
     assert m["XQZ"] == "eigen code"
+
+
+@pytest.mark.parametrize("text", ["00:00", "7:45", "23:59", "08:05:09", "14.05 uur", "om 00:00 uur"])
+def test_a_time_never_keeps_a_colon_between_digits(speech, text):
+    spoken = speech.speak(text)
+    assert "uur" in spoken
+    assert not re.search(r"\d\s*[:.]\s*\d", spoken), spoken
+
+
+def test_dotted_shortenings_are_editable_abbreviations(db, speech):
+    assert db.abbreviation_map()["T.H.V."] == "ter hoogte van"
+    row = db.conn.execute("SELECT id FROM abbreviations WHERE abbreviation = 'T.H.V.'").fetchone()["id"]
+    db.save_abbreviation("t.h.v.", "ter hoogte van de", row)
+    speech.reload()
+    assert speech.speak("Brand t.h.v. de brug") == "Brand ter hoogte van de de brug"
+    db.delete_speech("abbreviations", row)
+    speech.reload()
+    # Not in the list any more: spelled out, not dropped
+    assert speech.speak("Brand t.h.v. de brug") == "Brand t h v de brug"

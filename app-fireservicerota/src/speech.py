@@ -12,7 +12,8 @@ because firefighters act on what they hear:
 
 The steps, in order (explain() returns each change it made):
 1. replacement rules (regex, editable on the Data tab, applied in order);
-2. postal codes and decimal numbers;
+2. shortenings with dots ("t.h.v."), times ("00:00" -> "0 uur 0"), postal codes and
+   decimal numbers;
 3. each word: abbreviations (editable), place-name abbreviations, letter codes with
    numbers, then unknown codes spelled out and long numbers digit by digit.
 
@@ -115,7 +116,36 @@ COMMON_WORDS = frozenset(
     ]
 )
 
+# Standard Dutch shortenings written with dots, not in the P2000 list; added to the
+# abbreviations (stored as "T.H.V.") like the list, so you can change or delete them
+DUTCH_ABBREVIATIONS = {
+    "t.h.v.": "ter hoogte van",
+    "i.v.m.": "in verband met",
+    "z.s.m.": "zo snel mogelijk",
+    "n.a.v.": "naar aanleiding van",
+    "o.a.": "onder andere",
+    "i.p.v.": "in plaats van",
+    "m.b.t.": "met betrekking tot",
+    "t.b.v.": "ten behoeve van",
+    "t.o.v.": "ten opzichte van",
+    "i.o.m.": "in overleg met",
+    "i.c.m.": "in combinatie met",
+    "m.u.v.": "met uitzondering van",
+    "o.l.v.": "onder leiding van",
+    "d.w.z.": "dat wil zeggen",
+    "n.v.t.": "niet van toepassing",
+    "e.d.": "en dergelijke",
+}
+
 TOKEN = re.compile(r"[0-9A-Za-zÀ-ÖØ-öø-ÿ&]+(?:-[0-9A-Za-zÀ-ÖØ-öø-ÿ&]+)*")
+# Letters with dots in between: "t.h.v.", "o.a.", "O.V.D."
+DOTTED = re.compile(r"(?<![\w.])(?:[A-Za-z]{1,3}\.)+[A-Za-z]{1,3}\.?(?![\w])")
+# A time: "00:00", "7:45", "23:59:30"; with a dot only when "uur" follows ("14.05 uur")
+TIME = re.compile(
+    r"(?<![\d:.,])([01]?\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?(?![\d:])"
+    r"|(?<![\d:.,])([01]?\d|2[0-3])\.([0-5]\d)\s*(uur)\b",
+    re.IGNORECASE,
+)
 POSTCODE = re.compile(r"\b(\d{4})\s?([A-Z]{2})\b")
 DECIMAL = re.compile(r"(?<![\d.,])(\d{1,3})[.,](\d)(?![\d]|[.,]\d)")
 LETTERS_DIGITS = re.compile(r"([A-Z]+)(\d+)")
@@ -164,7 +194,7 @@ class Speech:
 
     def seed(self) -> None:
         """Add the built-in list and rules (only ones never added before) and load everything."""
-        abbr, rules = self.db.seed_speech(ABBREVIATIONS, DEFAULT_TTS_REPLACEMENTS)
+        abbr, rules = self.db.seed_speech({**ABBREVIATIONS, **DUTCH_ABBREVIATIONS}, DEFAULT_TTS_REPLACEMENTS)
         if abbr or rules:
             logger.info(f"Added {abbr} abbreviation(s) and {rules} speech rule(s) to the database")
         self.reload()
@@ -195,6 +225,26 @@ class Speech:
         if text == SHIPPED.get(key) and (key in UNCERTAIN_CODES or "/" in text):
             return None
         return clean_meaning(text)
+
+    def _dotted(self, token: str) -> tuple[str, str]:
+        """(spoken, kind) for letters with dots: "t.h.v." -> "ter hoogte van".
+
+        Looked up with its dots ("T.H.V.", also without the last dot). Only one in capitals
+        ("O.V.D.") is also looked up without dots: a lowercase "t.h.v." is a Dutch shortening,
+        not the code THV (Technische Hulpverlening). Unknown ones are spelled out.
+        """
+        key = token.upper()
+        for candidate in (key, key if key.endswith(".") else key + ".", key.rstrip(".")):
+            if candidate in self._abbreviations and "." in candidate:
+                meaning = self.meaning(candidate)
+                if meaning:
+                    return meaning, "abbreviation"
+        if token.isupper():
+            bare = key.replace(".", "")
+            meaning = self.meaning(bare) if bare in self._abbreviations else None
+            if meaning:
+                return meaning, "abbreviation"
+        return spell(token), "spelled"
 
     def _token(self, token: str, shouting: bool) -> tuple[str, str] | None:
         """(spoken, kind) for a word that is spoken differently, None when it stays as it is."""
@@ -274,6 +324,27 @@ class Speech:
             steps.append({"kind": "number", "from": m.group(0), "to": out, "note": "decimal number"})
             return out
 
+        def dotted(m: re.Match) -> str:
+            token = m.group(0)
+            spoken, kind = self._dotted(token)
+            steps.append({"kind": kind, "from": token, "to": spoken, "note": ""})
+            return f" {spoken} "
+
+        def clock(m: re.Match) -> str:
+            # "00:00" -> "0 uur 0" (nul uur nul), "14:05" -> "14 uur 5": how a Dutch time is
+            # said, and never digits with a stray colon
+            if m.group(1) is not None:
+                hour, minute, second = m.group(1), m.group(2), m.group(3)
+            else:
+                hour, minute, second = m.group(4), m.group(5), None
+            out = f"{int(hour)} uur {int(minute)}"
+            if second is not None:
+                out += f" en {int(second)} seconden"
+            steps.append({"kind": "time", "from": m.group(0), "to": out, "note": "time"})
+            return out
+
+        text = DOTTED.sub(dotted, text)
+        text = TIME.sub(clock, text)
         text = POSTCODE.sub(postcode, text)
         text = DECIMAL.sub(decimal, text)
 
