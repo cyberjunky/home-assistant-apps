@@ -47,8 +47,8 @@ function renderOverview(data) {
         tile('Entities', num(t.entities), `${fmtCount(t.rows_24h)} rows in 24 h`),
         tile('Rows', '≈ ' + fmtCount(t.rows), 'estimate by TimescaleDB'),
         tile('History size', bytesUnit(t.history_size), `${num(t.chunks)} chunks · ${num(t.compressed_chunks)} compressed`),
-        tile('Compression', ratio ? withUnit(num(ratio, 1), '×') : '<small>none yet</small>',
-            ratio ? `${fmtBytes(t.compressed_before)} → ${fmtBytes(t.compressed_after)}` : 'no chunk compressed yet'),
+        tile('Compression', ratio ? withUnit(num(ratio, 1), '×') : 'none yet',
+            ratio ? `${fmtBytes(t.compressed_before)} → ${fmtBytes(t.compressed_after)}` : 'chunks compress with age'),
         tile('Oldest history', t.oldest ? `<span title="${escapeHtml(fmtDate(t.oldest))}">${escapeHtml(oldestDate(t.oldest))}</span>` : '–', t.oldest ? fmtAgo(t.oldest) : ''),
         tile('Database size', bytesUnit(t.database_size), 'everything in this database'),
     ].join('');
