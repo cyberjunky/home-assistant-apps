@@ -66,6 +66,9 @@ class ArchiveInfo:
 
 # How a BIOS set is called in the app; others by the machine's own description
 BIOS_LABELS = {"neogeo": "Neo Geo BIOS", "pgm": "IGS PGM BIOS", "aristmk5": "Aristocrat MK5 BIOS"}
+# MAME artwork archives hold pictures and layouts (.lay), sometimes a text file, never ROMs
+ARTWORK_KEY = {".png", ".jpg", ".jpeg", ".lay", ".svg"}
+ARTWORK_FILES = ARTWORK_KEY | {".txt", ".xml", ".ini", ".md", ""}
 # Uploads that weren't recognised, remembered for the Info tab's list of drivers to ask for
 MAX_REJECTED = 200
 
@@ -187,6 +190,40 @@ class Library:
             return crcs
         raise ValueError("not a zip or 7z file")
 
+    @staticmethod
+    def read_names(path: Path) -> list[str]:
+        """The names of the files in a zip or 7z archive (empty if it can't be read)."""
+        try:
+            if Library.kind(path) == ".zip":
+                with zipfile.ZipFile(path) as z:
+                    return [i.filename for i in z.infolist() if not i.is_dir()]
+            result = subprocess.run(
+                ["7z", "l", "-slt", "-ba", str(path)],
+                capture_output=True,
+                text=True,
+                timeout=SEVEN_ZIP_TIMEOUT,
+                check=False,
+            )
+        except (OSError, zipfile.BadZipFile, subprocess.TimeoutExpired):
+            return []
+        names, name, is_dir = [], None, False
+        for line in [*result.stdout.splitlines(), ""]:
+            if not line.strip():
+                if name and not is_dir:
+                    names.append(name)
+                name, is_dir = None, False
+            elif line.startswith("Path = "):
+                name = line[7:].strip()
+            elif line.startswith("Attributes = "):
+                is_dir = "D" in line[13:].split(" ")[0]
+        return names
+
+    @staticmethod
+    def is_artwork(names: list[str]) -> bool:
+        """MAME artwork (bezel, cabinet frame, backdrop): pictures and .lay layout files, no ROMs."""
+        exts = {Path(n).suffix.lower() for n in names}
+        return bool(exts & ARTWORK_KEY) and exts <= ARTWORK_FILES
+
     def why_unknown(self, crcs: set[str], file: str) -> str:
         """Why an archive isn't recognised, in one line: what it holds and what comes closest."""
         if not crcs:
@@ -261,7 +298,9 @@ class Library:
                 logger.warning(f"No index of MAME's machines ({path}: {e}): unrecognised files are explained less well")
         return self._machines
 
-    def diagnose(self, file: str, crcs: set[str], read_error: str | None = None) -> dict:
+    def diagnose(
+        self, file: str, crcs: set[str], read_error: str | None = None, names: list[str] | None = None
+    ) -> dict:
         """Why an archive is no game this build can run, in a line or two. A file named after a
         MAME machine this build has no driver for says which driver it needs (from the index of
         every machine in MAME); otherwise what it holds and what comes closest (why_unknown)."""
@@ -269,6 +308,15 @@ class Library:
         parts = split_name(file)
         stem = set_name(parts[0] if parts else file)
         machine = None if stem in self.games or stem in self.bios else self.machines().get(stem)
+        if names and self.is_artwork(names):
+            known = self.games.get(stem) or (machine and {"description": machine[0]})
+            game = f"{known['description']} ({stem})" if known else "a game"
+            return {
+                "error": f"an artwork file (bezel or cabinet frame, {len(names)} pictures and layouts) for {game}, "
+                "not the game's ROMs: download the ROM set",
+                "set": stem,
+                "artwork": True,
+            }
         if read_error and not machine:
             named = f" It is named like {self.games[stem]['description']} ({stem})." if stem in self.games else ""
             return {"error": f"not readable: {read_error}.{named}", "set": stem}
@@ -346,7 +394,7 @@ class Library:
             info.crcs = self.read_crcs(path)
             info.game, info.bios = self.recognise(info.crcs)
             if not info.game and not info.bios:
-                info.diagnosis = self.diagnose(path.name, info.crcs)
+                info.diagnosis = self.diagnose(path.name, info.crcs, names=self.read_names(path))
                 info.error = info.diagnosis["error"]
                 logger.warning(f"Not recognised: {path.name} ({st.st_size} bytes): {info.error}")
         except (OSError, ValueError) as e:
@@ -508,7 +556,7 @@ class Library:
             raise ValueError(f"{original_name}: {diagnosis['error']}") from e
         game, bios = self.recognise(crcs)
         if not game and not bios:
-            diagnosis = self.diagnose(original_name, crcs)
+            diagnosis = self.diagnose(original_name, crcs, names=self.read_names(upload))
             self.remember(original_name, diagnosis)
             logger.warning(
                 f"Upload not recognised: {original_name} ({kind}, {upload.stat().st_size} bytes): {diagnosis['error']}"

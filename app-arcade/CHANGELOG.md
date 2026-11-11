@@ -16,6 +16,7 @@
 - BIOS sets work the same way for every system: the PGM BIOS (two versions, one is enough) and the Aristocrat MK5 BIOS (no versions to choose; a game outside the US needs only its GAL chips) are recognised, stored under their own name and passed to MAME like the Neo Geo BIOS. An archive of only BIOS files is taken for the BIOS set, also when a bootleg game lists the same files.
 - Which driver is missing: a file named after a MAME machine that this app has no driver for now says what it is and which driver it needs, for example "Tekken 3 (Namco, 1997): needs MAME driver namcos12, which this app doesn't include (yet)", whether it works in MAME at all, and whether it is a real (mechanical) pinball machine, a slot machine or a console. The app looks the name up in an index of every machine in MAME 0.289, made with the MAME build. A damaged file named like such a machine says both.
 - The Info tab lists the files in the ROM folder and the uploads that weren't recognised, grouped by the driver they need, so you can ask for drivers in one go.
+- A MAME artwork file (pictures and `.lay` layouts of a bezel or cabinet frame, often named like the game, such as `mslug3.zip` from an artwork pack) is now called that, "an artwork file ... for Metal Slug 3, not the game's ROMs: download the ROM set", instead of "not a game". It isn't stored.
 
 ## 0.5.2
 

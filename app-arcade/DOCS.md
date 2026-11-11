@@ -70,8 +70,10 @@ including the eight Video Klein gambling machines. More drivers can be added; se
 - **Not working**: a game that MAME marks as not working (many Aristocrat versions, some
   bootlegs) shows a red *not working* chip on its card. It may start and stop, or show
   only an error; that is MAME's state of the emulation, not the app.
-- **Speed**: the 3D-looking Sega X and Y Board games and the IGS PGM2 (an ARM9 at 100 MHz)
-  need a fast computer; on a tablet they can run slower than the original.
+- **Speed**: the heavier systems (Sega X and Y Board with several 68000s, the Midway
+  T-unit and Wolf unit with a TMS34010, the IGS PGM2 with an ARM9 at 100 MHz) need a fast
+  computer; on a tablet or an older PC they can run slower than the original. Press
+  <kbd>F11</kbd> while playing to see MAME's speed in percent.
 
 ### When a file is not recognised
 
@@ -82,7 +84,9 @@ MAME version, or a damaged file). For a file named after a MAME machine that thi
 no driver for, the app looks the name up in an index of every machine in MAME and says
 which driver it needs, for example *Tekken 3 (World, TET2/VER.E1) (Namco, 1997): needs MAME
 driver namcos12, which this app doesn't include (yet)*, and whether it works in MAME at
-all. The Info tab lists these files grouped by driver, so you can ask for the drivers you
+all. An *artwork* file (a zip of pictures and `.lay` layouts for a bezel or cabinet
+frame, often named like the game itself) says so: it isn't the game, download the ROM set.
+Artwork files are not stored. The Info tab lists these files grouped by driver, so you can ask for the drivers you
 want in one go ([open an issue](https://github.com/cyberjunky/home-assistant-apps/issues)).
 
 ### ROM files
