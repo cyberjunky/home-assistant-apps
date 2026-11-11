@@ -87,6 +87,9 @@ function renderEntityTable() {
     });
     document.getElementById('entity-count').textContent = `${num(rows.length)} of ${num(entityList.length)} entities`;
     document.getElementById('entity-clear').hidden = !search && !entityDomain;
+    const excludeButton = document.getElementById('domain-exclude');
+    excludeButton.hidden = !entityDomain;
+    if (entityDomain) excludeButton.textContent = `Exclude ${entityDomain}…`;
     const head = ENTITY_COLUMNS.map(c => `<th class="sortable${c.n ? ' n' : ''}" data-sort="${c.key}">${c.label}${c.key === key ? (desc ? ' ↓' : ' ↑') : ''}</th>`).join('');
     const body = rows.map(e => `
         <tr class="link" data-entity="${escapeHtml(e.entity_id)}">
@@ -218,7 +221,11 @@ function renderEntity(d) {
         <h2>${escapeHtml(e.name || e.entity_id)}</h2>
         <span class="id">${escapeHtml(e.entity_id)}</span>
         ${e.device_class ? `<span class="badge">${escapeHtml(e.device_class)}</span>` : ''}
-        ${e.state_class ? `<span class="badge">${escapeHtml(e.state_class)}</span>` : ''}`;
+        ${e.state_class ? `<span class="badge">${escapeHtml(e.state_class)}</span>` : ''}
+        <span class="head-actions">
+            <button type="button" class="btn" onclick="excludeEntity()">Exclude…</button>
+            <button type="button" class="btn btn-danger" onclick="purgeEntity()">Delete history…</button>
+        </span>`;
     document.getElementById('entity-source').textContent = `${fmtDateTime(d.from)} – ${fmtDateTime(d.to)} · ${SOURCE_TEXT[d.source] || d.source}${d.zoomed ? ' · zoomed' : ''}`;
     const latestHtml = !latest ? '–' : latest.state === null || latest.state === undefined
         ? withUnit(escapeHtml(fmtValue(latest.value)), e.unit) : escapeHtml(latest.state);
@@ -448,3 +455,89 @@ function renderStates(d, tiles) {
 
 document.getElementById('entity-search').addEventListener('input', () => { if (entityList) renderEntityTable(); });
 onTab('entities', showEntities);
+
+// =====================================================================
+// Exclude and delete: through the Chronicle integration's actions in Home Assistant
+// =====================================================================
+function actionModal(title, bodyHtml, label, danger, onConfirm) {
+    const root = document.getElementById('modal-root');
+    root.innerHTML = `<div class="modal-overlay open" id="action-modal"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="action-title">
+        <div class="modal-head"><span class="modal-title" id="action-title">${escapeHtml(title)}</span>
+            <button type="button" class="modal-close" aria-label="Close" onclick="closeActionModal()">×</button></div>
+        <div class="modal-body">${bodyHtml}<div class="form-error" id="action-error" hidden></div></div>
+        <div class="modal-foot"><button type="button" class="btn" onclick="closeActionModal()">Cancel</button>
+            <button type="button" class="btn ${danger ? 'btn-danger-solid' : 'btn-primary'}" id="action-go">${escapeHtml(label)}</button></div>
+    </div></div>`;
+    document.getElementById('action-modal').addEventListener('mousedown', ev => { if (ev.target.id === 'action-modal') closeActionModal(); });
+    const go = document.getElementById('action-go');
+    go.onclick = async () => {
+        go.disabled = true;
+        go.textContent = 'Working…';
+        try {
+            await onConfirm();
+            closeActionModal();
+        } catch (err) {
+            const el = document.getElementById('action-error');
+            el.textContent = err.message;
+            el.hidden = false;
+            go.disabled = false;
+            go.textContent = label;
+        }
+    };
+}
+function closeActionModal() { document.getElementById('modal-root').innerHTML = ''; }
+
+async function postAction(path, body) {
+    const response = await fetch(basePath + 'api/' + path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    let data = null;
+    try { data = await response.json(); } catch (e) { /* not JSON */ }
+    if (!response.ok) throw new Error((data && data.error) || `Request failed (${response.status})`);
+    return data || {};
+}
+
+const purgeCheckbox = what => `<label class="action-check"><input type="checkbox" id="action-purge"> Also delete ${what}</label>`;
+const deletedText = r => r.deleted_rows ? ` and ${num(r.deleted_rows)} rows deleted` : '';
+
+function excludeEntity() {
+    const id = openEntityId;
+    if (!id) return;
+    actionModal('Exclude entity', `<p>Stop recording <b>${escapeHtml(id)}</b>? It goes on <b>Excluded entities</b> in the Chronicle integration's options, and the recording restarts with it.</p>
+        ${purgeCheckbox('its recorded history, averages included')}
+        <p class="panel-sub">Without that, what was recorded stays. Undo an exclusion in the integration's options.</p>`,
+    'Exclude', false, async () => {
+        const purge = document.getElementById('action-purge').checked;
+        const result = await postAction('exclude', {entity_id: id, purge});
+        toast(`${id} excluded${deletedText(result)}`, 'success');
+        entityList = null;
+        if (purge) closeEntity();
+    });
+}
+
+function purgeEntity() {
+    const id = openEntityId;
+    if (!id) return;
+    actionModal('Delete history', `<p>Delete everything recorded for <b>${escapeHtml(id)}</b>, averages included? This can't be undone.</p>
+        <p class="panel-sub">It is recorded again from now on; exclude it to stop that.</p>`,
+    'Delete history', true, async () => {
+        const result = await postAction('purge', {entity_id: id});
+        toast(`History of ${id} deleted${deletedText(result)}`, 'success');
+        entityList = null;
+        closeEntity();
+    });
+}
+
+function excludeDomain() {
+    const domain = entityDomain;
+    if (!domain) return;
+    const count = (entityList || []).filter(e => e.domain === domain).length;
+    actionModal('Exclude domain', `<p>Stop recording every <b>${escapeHtml(domain)}</b> entity (${num(count)} recorded now)? The domain goes on <b>Excluded domains</b> in the Chronicle integration's options, and the recording restarts with it.</p>
+        ${purgeCheckbox('the recorded history of these entities, averages included')}
+        <p class="panel-sub">Without that, what was recorded stays. Undo an exclusion in the integration's options.</p>`,
+    `Exclude ${domain}`, false, async () => {
+        const purge = document.getElementById('action-purge').checked;
+        const result = await postAction('exclude', {domain, purge});
+        toast(`${domain} excluded${deletedText(result)}`, 'success');
+        if (purge) entityDomain = '';
+        await loadEntityList(true);
+    });
+}

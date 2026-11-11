@@ -8,6 +8,7 @@ import re
 from datetime import UTC, datetime
 from pathlib import Path
 
+import aiohttp
 import asyncpg
 from aiohttp import web
 
@@ -22,6 +23,8 @@ WEB_DIR = Path(__file__).resolve().parent / "web"
 # Home Assistant's ingress proxy: the only client allowed when running as an app
 INGRESS_ADDRESS = "172.30.32.2"
 ENTITY_ID = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
+DOMAIN_NAME = re.compile(r"^[a-z0-9_]+$")
+CORE_API_URL = "http://supervisor/core/api"
 OVERVIEW_HOURS = (24, 168)
 MAX_QUERY_LENGTH = 100_000
 
@@ -58,6 +61,8 @@ class WebUI:
         get("/api/entity", self._handle_entity)
         get("/api/storage", self._handle_storage)
         self.app.router.add_post("/api/query", self._handle_query)
+        self.app.router.add_post("/api/exclude", self._handle_exclude)
+        self.app.router.add_post("/api/purge", self._handle_purge)
 
     async def start(self) -> None:
         # handler_cancellation: a query the page cancels (or a closed page) stops in the database too
@@ -197,3 +202,71 @@ class WebUI:
         if not await self._require_schema():
             return _error("The Chronicle tables are not in this database", 409)
         return _json(await self.database.storage())
+
+    # ------------------------------------------------------------------ the integration's actions
+
+    async def _call_action(self, service: str, data: dict) -> dict:
+        """Calls a chronicle.* action in Home Assistant; the app itself never writes to the history."""
+        token = os.environ.get("SUPERVISOR_TOKEN")
+        if not token:
+            raise web.HTTPServiceUnavailable(
+                text=json.dumps({"error": "Only when Chronicle runs as a Home Assistant app"}),
+                content_type="application/json",
+            )
+        url = f"{CORE_API_URL}/services/chronicle/{service}?return_response"
+        timeout = aiohttp.ClientTimeout(total=300)
+        try:
+            async with (
+                aiohttp.ClientSession(headers={"Authorization": f"Bearer {token}"}, timeout=timeout) as session,
+                session.post(url, json=data) as response,
+            ):
+                text = await response.text()
+                if response.status >= 300:
+                    hint = (
+                        " Excluding needs the Chronicle integration 0.1.5 or later."
+                        if service.startswith("exclude") and response.status == 400
+                        else ""
+                    )
+                    raise web.HTTPBadGateway(
+                        text=json.dumps({"error": f"Home Assistant refused: {text.strip()[:300]}.{hint}"}),
+                        content_type="application/json",
+                    )
+                body = json.loads(text) if text else {}
+        except (aiohttp.ClientError, TimeoutError, ValueError) as e:
+            raise web.HTTPBadGateway(
+                text=json.dumps({"error": f"Cannot reach Home Assistant: {e}"}), content_type="application/json"
+            ) from e
+        self._schema = None
+        return body.get("service_response") or {}
+
+    async def _handle_exclude(self, request: web.Request) -> web.Response:
+        """Stop recording an entity or a whole domain, optionally deleting what was recorded."""
+        try:
+            body = await request.json()
+        except (ValueError, UnicodeDecodeError):
+            body = None
+        if not isinstance(body, dict):
+            return _error("Expected a JSON object")
+        purge = bool(body.get("purge"))
+        if body.get("entity_id"):
+            if not ENTITY_ID.match(str(body["entity_id"])):
+                return _error("Invalid entity_id")
+            result = await self._call_action("exclude_entities", {"entity_id": [body["entity_id"]], "purge": purge})
+        elif body.get("domain"):
+            if not DOMAIN_NAME.match(str(body["domain"])):
+                return _error("Invalid domain")
+            result = await self._call_action("exclude_domains", {"domain": [body["domain"]], "purge": purge})
+        else:
+            return _error("Give an entity_id or a domain")
+        return _json(result)
+
+    async def _handle_purge(self, request: web.Request) -> web.Response:
+        """Delete everything recorded for an entity; it is recorded again from now on."""
+        try:
+            body = await request.json()
+        except (ValueError, UnicodeDecodeError):
+            body = None
+        entity_id = body.get("entity_id") if isinstance(body, dict) else None
+        if not isinstance(entity_id, str) or not ENTITY_ID.match(entity_id):
+            return _error("Invalid entity_id")
+        return _json(await self._call_action("purge_entities", {"entity_id": [entity_id]}))

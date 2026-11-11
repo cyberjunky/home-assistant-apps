@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3
+
+**After updating:** update the Chronicle integration to 0.1.5 or later for *Exclude*; *Delete history* works with any version.
+
+- **Exclude and delete, from the page:** an entity has *Exclude…* (stop recording it, optionally deleting its history) and *Delete history…*; with a domain picked on Entities, *Exclude domain…* does the same for the whole domain. They run the Chronicle integration's actions in Home Assistant, so the exclusions land in the integration's options, where you can undo them. The app itself still only reads the database.
+
 ## 0.1.2
 
 **After updating:** nothing to do.

@@ -383,6 +383,8 @@ table.data .ent small { display: block; font-family: var(--mono); font-size: 11p
 .entity-head h2 { font-size: 20px; font-weight: 600; }
 .entity-head .id { font-family: var(--mono); font-size: 12.5px; color: var(--secondary-text-color); }
 .entity-head .badge { align-self: center; }
+.entity-head .head-actions { margin-left: auto; align-self: center; display: flex; gap: 8px; }
+.action-check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
 pre.json { font-family: var(--mono); font-size: 11.5px; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--ha-background); border: var(--card-border); border-radius: 4px; padding: 8px 10px; max-height: 380px; overflow: auto; }
 
 /* State timeline of a text entity */
