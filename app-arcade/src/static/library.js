@@ -2,6 +2,7 @@
 let appStatus = null;
 let library = {games: [], problems: []};
 let stats = null;
+let scores = {};        // game -> decoded high score table (hi2txt)
 let activeTab = 'library';
 
 function switchTab(name) {
@@ -154,7 +155,8 @@ function openDetail(name) {
                 : `<span class="mono">${escapeHtml(g.bios_zip || g.zip || '')}</span>`) : '')
             + (ownMissing(g).length ? row('Missing', `<span class="bad">${escapeHtml(ownMissing(g).join(', '))}</span>`) : '')
         : row('ROM file', '<span class="panel-sub">no longer in the ROM folder</span>');
-    const scores = g ? g.has_scores : st.has_scores;
+    const kept = g ? g.has_scores : st.has_scores;
+    const table = scores[name];
     document.getElementById('detail-body').innerHTML = `
         ${g ? gameArt(g, true) : ''}
         <div class="detail-info">
@@ -162,8 +164,9 @@ function openDetail(name) {
             <div class="card-meta">${escapeHtml(info.year)} · ${escapeHtml(info.company)}</div>
             ${g ? `<div class="game-chips">${gameChips(g)}</div>` : ''}
             <div class="kv detail-kv">${played}
-                ${row('High scores', scores ? '<span class="ok">🏆 kept</span>' : 'none saved yet')}
+                ${table ? '' : row('High scores', kept ? '<span class="ok">🏆 kept</span>' : 'none saved yet')}
                 ${files}</div>
+            ${table ? scoreTable(table) : ''}
             ${g && !g.thumb && g.playable ? '<div class="panel-sub">The picture comes from the game itself: the app takes one while you play.</div>' : ''}
             <div class="detail-actions">
                 ${g && g.playable ? playButton(g) : ''}
@@ -176,6 +179,29 @@ function openDetail(name) {
 }
 function closeDetail() { document.getElementById('detail').hidden = true; }
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDetail(); });
+
+// ------------------------------------------------------------ high scores
+// The table MAME's hi2txt decoder made of the game's saved high scores: the columns hi2txt
+// defines for the game (rank, name or initials, score, sometimes level, time ...)
+function scoreTable(t) {
+    const num = (col) => (/score|points|time|level|round|stage/i.test(col || '') ? 'num' : '');
+    const head = (cols) => cols.map(c => `<th class="${num(c)}">${escapeHtml(title(c))}</th>`).join('');
+    const tables = t.tables.map(tb => `<table class="score-table"><thead><tr>${head(tb.columns)}</tr></thead><tbody>${
+        tb.rows.slice(0, 10).map(r => `<tr>${r.map((c, i) => `<td class="${num(tb.columns[i])}">${escapeHtml(c)}</td>`).join('')}</tr>`).join('')
+    }</tbody></table>`).join('');
+    const fields = Object.entries(t.fields).map(([k, v]) => `<div><span>${escapeHtml(title(k))}</span><span>${escapeHtml(v)}</span></div>`).join('');
+    return `<div class="scores"><div class="scores-head"><b>🏆 High scores</b><span class="panel-sub">saved ${relDay(t.updated)}</span></div>
+        ${tables}${fields ? `<div class="kv">${fields}</div>` : ''}</div>`;
+}
+// "SCORE" -> "Score", "NAME" -> "Name"
+function title(c) { return String(c).replace(/_/g, ' ').toLowerCase().replace(/^./, ch => ch.toUpperCase()); }
+// The best score: the score column of the first row
+function topScore(t) {
+    const tb = t.tables[0];
+    if (!tb || !tb.rows.length) return t.fields.SCORE || null;
+    const i = tb.columns.findIndex(c => /score|points/i.test(c));
+    return i >= 0 ? tb.rows[0][i] : null;
+}
 
 // ------------------------------------------------------------------ stats
 let statsUnit = 'day';
@@ -203,7 +229,10 @@ const hh = (h) => `${String(h % 24).padStart(2, '0')}:00`;
 
 async function loadStats() {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-    stats = await getJson(`/api/stats?tz=${encodeURIComponent(tz)}&offset=${new Date().getTimezoneOffset()}`);
+    [stats, scores] = await Promise.all([
+        getJson(`/api/stats?tz=${encodeURIComponent(tz)}&offset=${new Date().getTimezoneOffset()}`),
+        getJson('/api/scores').then(r => r.games).catch(() => ({})),
+    ]);
     renderStats();
 }
 
@@ -296,7 +325,8 @@ function renderStats() {
             <td class="num">${duration(g.seconds / g.sessions)}</td>
             <td class="num">${duration(g.longest)}</td>
             <td>${relDay(g.last)}</td>
-            <td>${g.has_scores ? '<span class="ok">🏆 kept</span>' : '<span class="panel-sub">—</span>'}</td></tr>`;
+            <td>${scores[g.name] && topScore(scores[g.name]) ? `<span class="ok mono">🏆 ${escapeHtml(topScore(scores[g.name]))}</span>`
+                : g.has_scores ? '<span class="ok">🏆 kept</span>' : '<span class="panel-sub">—</span>'}</td></tr>`;
     }).join('');
 }
 

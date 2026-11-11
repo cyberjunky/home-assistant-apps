@@ -13,6 +13,8 @@ DATA_DIR = Path(os.environ.get("ARCADE_DATA_DIR", "/data"))
 OPTIONS_FILE = DATA_DIR / "options.json"
 # The MAME build (mame.js, mame.wasm, games.json, plugins/) - copied into the image
 MAME_DIR = Path(os.environ.get("ARCADE_MAME_DIR", "/app/mame"))
+# The hi2txt high score definitions (xml/<game>.xml) - see the Dockerfile
+HI2TXT_DIR = Path(os.environ.get("ARCADE_HI2TXT_DIR", "/app/hi2txt"))
 DEFAULT_ROM_FOLDER = "/share/arcade/roms"
 
 

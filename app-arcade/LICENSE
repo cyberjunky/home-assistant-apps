@@ -32,3 +32,12 @@ https://github.com/mamedev/mame (the release tag is in mame/Dockerfile and
 Dockerfile), and mame/ in this repository holds everything needed to build it
 the same way, including the one patch applied (mame/save-settings.patch). The hiscore plugin that comes with MAME is CC0, its plugin
 loader (boot.lua) BSD-3-Clause and its json plugin MIT.
+
+---
+
+Third-party components in the app image, under their own licences (not the MIT licence
+above): MAME, GNU GPL version 2 or later (https://github.com/mamedev/mame), with its
+plugins (hiscore: CC0; boot.lua: BSD-3-Clause; json: MIT); the hi2txt high score
+definitions by GreatStone, GNU GPL version 2 (https://github.com/GreatStoneEx/hi2txt-xml);
+and the app's decoder for them, src/hiscores.py, GNU GPL version 2 or later (it follows
+MAME's data_hiscore.lua). See DOCS.md, "Legal and licenses".

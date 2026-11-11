@@ -153,9 +153,17 @@ than 5 seconds is not counted. The Stats tab shows:
 
 Click a card in the library, a bar or a row in the table for a game's details.
 
-High scores are kept by MAME's hiscore plugin as the game's own memory, in a layout of its
-own for every game, so the app can tell that a game has saved high scores but not read the
-scores themselves.
+**High score tables.** MAME's hiscore plugin keeps a game's high scores as the game's own
+memory, in a layout of its own for every game. The [hi2txt](https://github.com/GreatStoneEx/hi2txt-xml)
+project by GreatStone describes those layouts for about 3000 games; the app reads the saved
+scores with them into a table: rank, name or initials, score and whatever else the game
+keeps (level, time, round). Some games, the Neo Geo games among them, keep
+their table in their own NVRAM, which the app reads the same way. Once the scores are
+saved (within seconds of a new high score; NVRAM every 30 seconds), the table shows up in
+the game's details and its best score on the Stats tab. A game
+without a hi2txt description (Jump Coaster, Circus, Super Tank and Gridlee among the
+built-in drivers) only shows that its high scores are kept. Of the 2432 games in this app's
+MAME, 1354 have one (a clone uses its parent's).
 
 ## Options
 
@@ -195,6 +203,14 @@ Gregory Ember. This app is not made or endorsed by the MAME team.
 The **hiscore** plugin and `hiscore.dat` come with MAME; the plugin is CC0. MAME's plugin
 loader (`boot.lua`, BSD-3-Clause) and **json** plugin (MIT) come along, as the hiscore
 plugin needs them.
+
+The high score tables come from **hi2txt** by GreatStone,
+[github.com/GreatStoneEx/hi2txt-xml](https://github.com/GreatStoneEx/hi2txt-xml), licensed
+under the GNU GPL version 2 (release 2020-05-02, unchanged; its licence is in the image at
+`/app/hi2txt/LICENSE`). The app's decoder for them, `src/hiscores.py`, follows the hi2txt
+XML reference and MAME's own decoder (`plugins/data/data_hiscore.lua`) and is therefore
+licensed under the GNU GPL version 2 or later, unlike the rest of the app's code. Thanks to
+GreatStone for describing the high score memory of thousands of games.
 
 The app's own code is MIT licensed. Game names, company names and trademarks belong to
 their owners; this app is not affiliated with any of them.

@@ -28,6 +28,7 @@ laptop to the tablet.
 - 🕹️ **Neo Geo**: the MVS games run too, with the Neo Geo BIOS set (`neogeo.zip`) you add next to them
 - 📚 **Library**: drop ROM files (`.zip` or `.7z`) on the page; each one is recognised by its contents and stored under the game's own name, with what is still missing if a set is incomplete
 - 🏆 **High scores kept**: MAME's hiscore plugin saves them as soon as they change, also for games that forgot them at power-off
+- 📋 **High score tables**: rank, initials and score of most games, read with the [hi2txt](https://github.com/GreatStoneEx/hi2txt-xml) definitions by GreatStone
 - 💾 **Save states**: save the game at any moment and go back to it later, on any device
 - 🎮 **Controls**: keyboard, gamepad, and on-screen controls on a touch screen
 - 🖥️ **Full screen** with sharp pixels, vertical games the right way up
