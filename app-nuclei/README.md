@@ -8,9 +8,9 @@
 [![Donate via PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg?style=for-the-badge&logo=paypal)](https://www.paypal.me/cyberjunkynl/)
 [![Sponsor on GitHub](https://img.shields.io/badge/Sponsor-GitHub-red.svg?style=for-the-badge&logo=github)](https://github.com/sponsors/cyberjunky)
 
-<img src="https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-nuclei/icon.png" alt="Nuclei Scanner" width="128" align="right">
-
 # Nuclei Scanner App for Home Assistant
+
+<img src="https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-nuclei/icon.png" alt="Nuclei Scanner" width="128" align="right">
 
 > **Internal use.** A vulnerability scanner for systems you own or are authorised to test. It will not scan a target until you register it and confirm you are allowed to.
 

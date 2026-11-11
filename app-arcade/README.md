@@ -8,9 +8,9 @@
 [![Donate via PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg?style=for-the-badge&logo=paypal)](https://www.paypal.me/cyberjunkynl/)
 [![Sponsor on GitHub](https://img.shields.io/badge/Sponsor-GitHub-red.svg?style=for-the-badge&logo=github)](https://github.com/sponsors/cyberjunky)
 
-<img src="https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-arcade/icon.png" alt="Arcade" width="128" align="right">
-
 # Arcade App for Home Assistant
+
+<img src="https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-arcade/icon.png" alt="Arcade" width="128" align="right">
 
 > **No games included.** This app contains the MAME emulator only. You add the games
 > yourself, as ROM files you have the right to use. See [Legal](#legal).
