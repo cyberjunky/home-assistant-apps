@@ -1,0 +1,15 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Chronicle - S6 Service Finish Script
+# Arguments: ${1} = exit code (256 when killed by a signal), ${2} = signal
+# ==============================================================================
+
+# Fatal error (e.g. invalid configuration): take down the add-on instead of
+# restarting it in an endless loop
+if [[ "${1:-0}" -ne 0 ]] && [[ "${1:-0}" -ne 256 ]]; then
+    echo "[ERROR] Chronicle failed with exit code ${1}, stopping add-on"
+    echo "${1:-0}" > /run/s6-linux-init-container-results/exitcode
+    exec /run/s6/basedir/bin/halt
+fi
+
+echo "[INFO] Chronicle stopped"

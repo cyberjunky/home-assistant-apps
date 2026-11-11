@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- The top bar is as high as Home Assistant's own header (its --header-height, 56px by default) -->
+    <script>try{const h=getComputedStyle(window.parent.document.documentElement).getPropertyValue('--header-height').trim();if(h)document.documentElement.style.setProperty('--ha-header-height',h);}catch(e){}</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronicle</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234c8dff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 12a8.5 8.5 0 1 0 2.5-6'/%3E%3Cpath d='M3 3.5v4h4'/%3E%3Cpath d='M12 7.5V12l3 2'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="__BASE__/web/app.css?v=__ADDON_VERSION__"/>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 3.5v4h4"/><path d="M12 7.5V12l3 2"/></svg>
+            <span class="brand-name">CHRONICLE</span>
+            <span class="brand-sub" id="brand-db"></span>
+        </div>
+        <nav class="tabs" aria-label="Views">
+            <button type="button" class="tab" data-tab="overview" onclick="switchTab('overview')">Overview</button>
+            <button type="button" class="tab" data-tab="entities" onclick="switchTab('entities')">Entities</button>
+            <button type="button" class="tab" data-tab="storage" onclick="switchTab('storage')">Storage</button>
+            <button type="button" class="tab" data-tab="query" onclick="switchTab('query')">Query</button>
+            <span class="tab-sep" aria-hidden="true"></span>
+            <button type="button" class="tab" data-tab="info" onclick="switchTab('info')" title="Info"><span class="tab-label">Info</span><span class="tab-icon" aria-hidden="true">ⓘ</span></button>
+        </nav>
+        <span class="spacer"></span>
+        <div class="tabs" role="group" aria-label="Theme">
+            <button type="button" id="theme-toggle" class="tab icon-tab" onclick="cycleTheme()" title="Theme"><span id="theme-icon" aria-hidden="true">🌓</span></button>
+        </div>
+        <span id="clock" class="clock"></span>
+    </header>
+
+    <div class="views">
+        <div class="pages" id="pages">
+            <div class="container">
+                <div id="setup-hint" class="setup-hint" hidden><span id="setup-hint-text"></span></div>
+
+                <!-- Overview: how much is recorded, and what writes the most -->
+                <div id="tab-overview" class="tab-content">
+                    <div id="overview-tiles" class="tiles kpi-tiles"></div>
+                    <div class="panel"><div class="panel-body">
+                        <div class="chart-title"><span>Rows written</span><span class="hint"><span class="tabs inline-tabs" role="group" aria-label="Period" id="overview-range"></span></span></div>
+                        <div id="chart-rows" class="chart"></div>
+                    </div></div>
+                    <div class="stats-grid" style="margin-top:14px">
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Most active</span><span class="hint">rows in the last 24 hours</span></div>
+                            <div id="top-entities" class="rank"></div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Domains</span><span class="hint">entities · rows in the last 24 hours</span></div>
+                            <div id="domains" class="rank"></div>
+                        </div></div>
+                    </div>
+                </div>
+
+                <!-- Entities: the list, and one entity's history -->
+                <div id="tab-entities" class="tab-content">
+                    <div id="entity-list-view">
+                        <div class="filters">
+                            <input type="search" class="input search" id="entity-search" placeholder="Search entities…" aria-label="Search entities" autocomplete="off" spellcheck="false">
+                            <select class="select" id="entity-domain" aria-label="Domain"></select>
+                            <span id="entity-count" class="range-text"></span>
+                        </div>
+                        <div class="panel"><div id="entity-table" class="table-wrap"></div></div>
+                    </div>
+                    <div id="entity-detail-view" hidden>
+                        <div class="filters">
+                            <button type="button" class="btn" onclick="closeEntity()">‹ All entities</button>
+                            <div class="tabs" role="group" aria-label="Period" id="entity-range"></div>
+                            <span class="range-text" id="entity-source"></span>
+                        </div>
+                        <div id="entity-head" class="entity-head"></div>
+                        <div id="entity-tiles" class="tiles"></div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span id="entity-chart-title">History</span>
+                                <span class="hint detail-actions"><span id="entity-chart-hint"></span><a class="btn btn-small" id="entity-csv" download>CSV</a></span></div>
+                            <div id="chart-entity" class="chart"></div>
+                            <div class="legend" id="legend-entity"></div>
+                        </div></div>
+                        <div class="stats-grid" style="margin-top:14px">
+                            <div class="panel" id="entity-changes-panel"><div class="panel-body">
+                                <div class="chart-title"><span id="entity-changes-title">Changes</span><span class="hint" id="entity-changes-hint"></span></div>
+                                <div id="entity-changes" class="table-wrap scroll"></div>
+                            </div></div>
+                            <div class="panel"><div class="panel-body">
+                                <div class="chart-title"><span>Latest attributes</span><span class="hint" id="entity-attr-hint"></span></div>
+                                <div id="entity-attributes"></div>
+                            </div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Storage: chunks, compression, jobs -->
+                <div id="tab-storage" class="tab-content">
+                    <div id="storage-tiles" class="tiles kpi-tiles"></div>
+                    <div class="panel"><div class="panel-body">
+                        <div class="chart-title"><span>Chunks</span><span class="hint">the size of every chunk, oldest left</span></div>
+                        <div id="chart-chunks" class="chart"></div>
+                        <div class="legend" id="legend-chunks"></div>
+                        <div id="chunks" class="table-wrap scroll" style="margin-top:12px"></div>
+                    </div></div>
+                    <div class="stats-grid" style="margin-top:14px">
+                        <div class="panel wide"><div class="panel-body">
+                            <div class="chart-title"><span>Background jobs</span><span class="hint">run by TimescaleDB</span></div>
+                            <div id="jobs" class="table-wrap"></div>
+                        </div></div>
+                        <div class="panel wide"><div class="panel-body">
+                            <div class="chart-title"><span>Tables</span><span class="hint">rows are estimates</span></div>
+                            <div id="tables" class="table-wrap"></div>
+                        </div></div>
+                    </div>
+                </div>
+
+                <!-- Query: read-only SQL -->
+                <div id="tab-query" class="tab-content">
+                    <div class="panel"><div class="panel-body">
+                        <div class="chart-title"><span>SQL</span><span class="hint">read only · one statement · Ctrl+Enter runs it</span></div>
+                        <div class="query-examples" id="query-examples" aria-label="Examples"></div>
+                        <textarea id="query-sql" class="input sql-editor" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="SQL query" rows="9"></textarea>
+                        <div class="detail-actions query-actions">
+                            <button type="button" class="btn btn-primary" id="query-run" onclick="runQuery()">Run</button>
+                            <button type="button" class="btn" id="query-cancel" onclick="cancelQuery()" hidden>Cancel</button>
+                            <button type="button" class="btn" id="query-chart-toggle" onclick="toggleQueryChart()" hidden>Chart</button>
+                            <button type="button" class="btn" id="query-csv" onclick="downloadQueryCsv()" hidden>CSV</button>
+                            <span class="range-text" id="query-status"></span>
+                        </div>
+                        <div id="query-error" class="query-error" hidden></div>
+                        <p class="panel-sub" style="margin-top:10px">Queries run in a read-only transaction that is rolled back afterwards, stop after 30 seconds and return at most 10,000 rows: nothing here can change the history.</p>
+                    </div></div>
+                    <div class="panel" id="query-chart-wrap" hidden><div class="panel-body">
+                        <div id="query-chart" class="chart"></div>
+                        <div class="legend" id="query-legend"></div>
+                    </div></div>
+                    <div class="panel"><div id="query-result" class="table-wrap scroll tall"></div></div>
+                </div>
+
+                <!-- Info: the connection and the app -->
+                <div id="tab-info" class="tab-content">
+                    <div class="info-grid">
+                        <div class="panel"><div class="panel-body"><div class="section-title">Database</div><div id="info-database"></div>
+                            <p class="panel-sub" style="margin-top:10px">Change the connection on the app's Configuration tab in Home Assistant. The app only reads: its connections are read-only.</p>
+                        </div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Chronicle</div><div id="info-chronicle"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">About</div><div id="info-about"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Donate</div>
+                            <div class="panel-sub" style="margin-bottom:12px">Chronicle is free and open source. If it's useful to you, please consider supporting its development.</div>
+                            <div class="detail-actions">
+                                <a class="btn btn-primary" href="https://www.paypal.me/cyberjunkynl/" target="_blank" rel="noopener">Donate via PayPal</a>
+                                <a class="btn" href="https://github.com/sponsors/cyberjunky" target="_blank" rel="noopener">Sponsor on GitHub</a>
+                            </div>
+                        </div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="statusbar" id="statusbar"></footer>
+
+    <div id="modal-root"></div>
+    <div id="toast-root"></div>
+
+    <script src="__BASE__/web/core.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/charts.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/overview.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/entities.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/storage.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/query.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/info.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/main.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/donate.js?v=__ADDON_VERSION__" data-app="Chronicle" data-api="__BASE__/api/donate"></script>
+</body>
+</html>

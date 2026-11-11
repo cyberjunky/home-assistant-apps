@@ -41,6 +41,20 @@ use, for example the free ones on mamedev.org.
 
 [:books: Documentation](app-arcade/DOCS.md) · [:memo: Changelog](app-arcade/CHANGELOG.md) · [:lock: Security](app-arcade/SECURITY.md)
 
+### <img src="app-chronicle/icon.png" alt="" width="36" align="absmiddle"> [Chronicle](app-chronicle/)
+
+![Version][chronicle-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+Dashboard for the long-term history that the
+[Chronicle integration](https://github.com/cyberjunky/home-assistant-chronicle) keeps in
+TimescaleDB, opened from the sidebar. What is recorded and how much, every entity's history as
+a chart or state timeline, chunks and compression, TimescaleDB's background jobs, and a
+read-only SQL page with examples. Only reads.
+
+[:books: Documentation](app-chronicle/DOCS.md) · [:memo: Changelog](app-chronicle/CHANGELOG.md) · [:lock: Security](app-chronicle/SECURITY.md)
+
 ### <img src="app-dishylink/icon.png" alt="" width="36" align="absmiddle"> [Dishylink](app-dishylink/)
 
 ![Version][dishylink-version-shield]
@@ -216,5 +230,6 @@ software each app packages keeps its own license, noted in the app's README.
 [tesla-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-tesla%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [toon-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-toon%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [arcade-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-arcade%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[chronicle-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-chronicle%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [fireservicerota-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-fireservicerota%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [nuclei-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-nuclei%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
