@@ -25,3 +25,7 @@ src/mame/bally/astrocde.cpp
 src/mame/bally/gridlee.cpp
 src/mame/videogames/supertnk.cpp
 src/mame/videogames/looping.cpp
+
+# Neo Geo MVS: Metal Slug, The King of Fighters, Pleasure Goal and the other games on it.
+# Every game needs the Neo Geo BIOS set (neogeo.zip) next to it.
+src/mame/snk/neogeo.cpp

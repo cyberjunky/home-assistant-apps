@@ -3,7 +3,7 @@ ARG BUILD_FROM=ghcr.io/home-assistant/base:3.23
 ARG BUILD_REPOSITORY=cyberjunky/home-assistant-apps
 # The MAME WebAssembly build (see mame/ and .github/workflows/build-arcade-mame.yaml):
 # "<MAME release tag>-<build number>". Bump the number when mame/ changes.
-ARG MAME_WASM=mame0289-1
+ARG MAME_WASM=mame0289-2
 FROM ghcr.io/${BUILD_REPOSITORY%/*}/arcade/dependency/mame-wasm:${MAME_WASM} AS mame
 
 FROM ${BUILD_FROM}

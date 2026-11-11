@@ -11,12 +11,15 @@ ARG MAME_TAG=mame0289
 WORKDIR /src
 RUN curl -fsSL "https://github.com/mamedev/mame/archive/refs/tags/${MAME_TAG}.tar.gz" | tar xz --strip-components=1
 
-COPY drivers.txt gamelist.py save-settings.patch /build/
+COPY drivers.txt save-settings.patch /build/
 # One small patch: lets the page ask MAME to write NVRAM and settings, which MAME otherwise
 # only does at exit, a step the browser build never reaches (see save-settings.patch)
 RUN patch -p1 < /build/save-settings.patch
 RUN SOURCES="$(grep -v '^\s*#' /build/drivers.txt | sed '/^\s*$/d' | paste -sd, -)" \
     && emmake make SUBTARGET=arcade SOURCES="${SOURCES}" TOOLS=0 NOWERROR=1 REGENIE=1 WEBASSEMBLY=1 OPTIMIZE=3 -j"$(nproc)"
+
+# After the compile, so a change to the game list doesn't redo the hour-long build
+COPY gamelist.py /build/
 
 RUN mkdir -p /out/plugins \
     && cp arcade.js /out/mame.js \
