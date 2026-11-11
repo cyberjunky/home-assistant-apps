@@ -26,6 +26,13 @@ configuration:
     description: >-
       Energy behind one kilometre of rated range, used to turn range into kWh.
       Leave at 0 to learn it from your charging sessions (recommended).
+  battery_capacity_kwh:
+    name: Battery capacity when new (kWh)
+    description: >-
+      Usable capacity of the battery when it was new, for example from the
+      car's specifications. Battery health compares the capacity measured now
+      with this figure. Leave at 0 to compare with the best capacity the app
+      has measured.
   streaming:
     name: Live stream
     description: >-

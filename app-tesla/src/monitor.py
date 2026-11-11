@@ -34,6 +34,10 @@ POLL_DRIVING_STREAMED = 10
 DISCOVERY_INTERVAL = 6 * 3600
 # The odometer may step back this far (rounding, late readings) and is then kept where it was
 ODOMETER_SLACK_KM = 2.0
+# Back with at least this many battery percent more than when last seen, at least this long ago,
+# without a recorded charge in between: it charged while nobody watched
+MISSED_CHARGE_SOC = 5
+MISSED_CHARGE_GAP = 120
 # What the stream reports about the car; a poll that is older than the last streamed values doesn't undo them
 STREAM_KEYS = ("lat", "lon", "heading", "speed_kmh", "power_kw", "odometer_km", "soc", "range_km", "est_range_km")
 
@@ -183,6 +187,8 @@ def normalize(data: dict, now: float) -> dict:
         "inside_temp": climate.get("inside_temp"),
         "outside_temp": climate.get("outside_temp"),
         "climate_on": bool(climate.get("is_climate_on")),
+        # Climate running by itself (on Auto), as against set by hand; not every car or firmware says
+        "auto_conditioning": climate.get("is_auto_conditioning_on"),
         "preconditioning": bool(climate.get("is_preconditioning")),
         "target_temp": climate.get("driver_temp_setting"),
         "passenger_temp": climate.get("passenger_temp_setting"),
@@ -649,6 +655,8 @@ class CarMonitor:
             logger.info(f"{self.label}: software version {snapshot['version']}")
         # The stream knows the elevation, the API doesn't
         snapshot["elevation_m"] = self.snapshot.get("elevation_m") if driving else None
+        if not driving and not charging and not self.charge_id:
+            self._note_missed_charge(self.snapshot, snapshot)
         self.snapshot = snapshot
         self.database.save_snapshot(self.car_id, snapshot)
         if self.stream:
@@ -670,6 +678,21 @@ class CarMonitor:
             streamed = self.stream and self.stream.live
             return max(self.config.poll_driving, POLL_DRIVING_STREAMED) if streamed else self.config.poll_driving
         return self.config.poll_charging if charging else self.config.poll_online
+
+    def _note_missed_charge(self, before: dict, after: dict) -> None:
+        """Record a charge the app didn't see: the car is back with a clearly fuller battery."""
+        if before.get("ts") is None or before.get("soc") is None or after.get("soc") is None:
+            return
+        if after["soc"] - before["soc"] < MISSED_CHARGE_SOC or after["ts"] - before["ts"] < MISSED_CHARGE_GAP:
+            return
+        capacity = self.database.battery_capacity(self.car_id) or self.config.battery_capacity_kwh or None
+        charge_id = self.database.add_estimated_charge(self.car_id, before, after, capacity, self.efficiency)
+        if charge_id:
+            logger.info(
+                f"{self.label}: charged from {before['soc']}% to {after['soc']}% while not watched,"
+                f" recorded as estimated charge {charge_id}"
+            )
+            self._background(self.places.fill_missing())
 
     def _on_stream_sample(self, sample: dict) -> None:
         """A position pushed by the car over the streaming channel."""
@@ -754,7 +777,8 @@ class CarMonitor:
         if learned and abs(learned - self.efficiency) >= 0.1:
             logger.info(f"{self.label}: rated consumption {learned} Wh/km (was {self.efficiency})")
             self.efficiency = learned
-            self.database.apply_efficiency(self.car_id, learned)
+        # Each drive keeps the consumption of its own time: only drives since the last charges change
+        self.database.apply_learned_efficiency(self.car_id, learned, self.efficiency)
 
     def _remember_car(self, snapshot: dict) -> None:
         """Keep the car's name and configuration in the database up to date."""
@@ -769,6 +793,8 @@ class CarMonitor:
         now = time.time()
         if self.config.efficiency_wh_km:
             self.database.apply_efficiency(self.car_id, self.config.efficiency_wh_km)
+        else:
+            self.database.apply_learned_efficiency(self.car_id, None, self.efficiency)
         for drive in self.database.open_drives(self.car_id):
             last = self.database.query_one("SELECT MAX(ts) AS ts FROM positions WHERE drive_id = ?", (drive["id"],))
             if not self.drive_id and last["ts"] and now - last["ts"] < DRIVE_GAP:

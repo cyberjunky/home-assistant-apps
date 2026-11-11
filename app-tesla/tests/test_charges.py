@@ -1,12 +1,10 @@
 """A paused and resumed charge books its energy once (TeslaMate #5491), and the counter's quirks."""
 
-import sqlite3
-
 import pytest
 
-from src.database import Database, counter_energy
+from src.database import SCHEMA_VERSION, Database, counter_energy
 
-from .conftest import LAT, feed, make_monitor
+from .conftest import LAT, as_layout, feed, make_monitor
 
 T0 = 1_700_000_000
 
@@ -127,10 +125,9 @@ def test_repair_runs_once_on_upgrade(tmp_path):
     car_id = database.upsert_car(1, 2, "VIN1", "car")
     _, second = _old_split_session(database, car_id)
     database.close()
-    with sqlite3.connect(path) as conn:
-        conn.execute("PRAGMA user_version=5")
+    as_layout(path, 5)
     database = Database(path)
-    assert database.query_one("PRAGMA user_version")["user_version"] == 6
+    assert database.query_one("PRAGMA user_version")["user_version"] == SCHEMA_VERSION
     assert database.query_one("SELECT energy_added_kwh FROM charges WHERE id = ?", (second,))[
         "energy_added_kwh"
     ] == pytest.approx(3.8)

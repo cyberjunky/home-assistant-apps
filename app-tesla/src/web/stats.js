@@ -101,26 +101,40 @@ function renderPeriodCharts(periods, bucket) {
 function renderBattery(battery) {
     const facts = document.getElementById('battery-facts');
     const chart = document.getElementById('chart-battery');
-    if (missing(battery.now_km)) {
+    const byCapacity = battery.basis === 'capacity';
+    document.getElementById('battery-hint').textContent = byCapacity
+        ? 'usable capacity measured by each charge in this period: kWh added ÷ battery % gained · it drops in cold weather and with BMS drift; not temperature-corrected'
+        : "the car's own rated range at 100%, after each charge in this period · it drops in cold weather and with BMS drift; not temperature-corrected";
+    if (missing(battery.loss_pct)) {
         facts.hidden = true;
-        emptyChart(chart, missing(battery.new_km) ? 'Shows up after a few charging sessions' : 'Needs at least three charging sessions in this period');
+        emptyChart(chart, missing(battery.basis) ? 'Shows up after a few charging sessions' : 'Needs at least three charging sessions in this period');
         return;
     }
     facts.hidden = false;
-    facts.innerHTML = [
+    const newNote = battery.new_source === 'option' ? 'as set in the app options' : 'best seen, all time';
+    facts.innerHTML = (byCapacity ? [
+        tile('Usable capacity', withUnit(num(battery.capacity_kwh, 1), 'kWh'), 'median of the latest charges in this period'),
+        tile('When new', withUnit(num(battery.new_kwh, 1), 'kWh'), newNote),
+        tile('Degradation', fmtPct(Math.round(battery.loss_pct * 10) / 10), `${num(100 - battery.loss_pct, 1)}% of the capacity left, this period vs. new`),
+        missing(battery.now_km) ? '' : tile('Full range now', withUnit(num(conv.dist(battery.now_km)), unit.dist()), 'rated range at 100%, latest charges'),
+    ] : [
         tile('Full range now', withUnit(num(conv.dist(battery.now_km)), unit.dist()), 'median of the latest charges in this period'),
-        tile('When new', withUnit(num(conv.dist(battery.new_km)), unit.dist()), 'best seen, all time'),
-        tile('Degradation', fmtPct(Math.round(battery.loss_pct * 10) / 10), `${num(100 - battery.loss_pct, 1)}% of the range left, this period vs. new`),
+        battery.new_source === 'option'
+            ? tile('When new', withUnit(num(battery.new_kwh, 1), 'kWh'), newNote)
+            : tile('When new', withUnit(num(conv.dist(battery.new_km)), unit.dist()), newNote),
+        tile('Degradation', fmtPct(Math.round(battery.loss_pct * 10) / 10), `${num(100 - battery.loss_pct, 1)}% left, this period vs. new`),
         tile('Usable capacity', withUnit(num(battery.capacity_kwh, 1), 'kWh'), 'estimated from the rated range'),
-    ].join('');
-    const points = battery.points;
+    ]).join('');
+    const points = battery.points.filter(p => !missing(byCapacity ? p.capacity_kwh : p.full_range_km));
     lineChart(chart, {
         x: points.map(p => p.ts),
-        series: [{name: 'Range at 100%', color: 'var(--series-1)', values: points.map(p => conv.dist(p.full_range_km))}],
+        series: [byCapacity
+            ? {name: 'Usable capacity', color: 'var(--series-1)', values: points.map(p => p.capacity_kwh)}
+            : {name: 'Range at 100%', color: 'var(--series-1)', values: points.map(p => conv.dist(p.full_range_km))}],
         height: 200,
         xTicks: timeTicks(points.map(p => p.ts), 5, t => new Date(t * 1000).toLocaleDateString([], {month: 'short', year: '2-digit'})),
         formatX: t => fmtDate(t),
-        formatY: v => `${num(v)} ${unit.dist()}`,
+        formatY: v => byCapacity ? `${num(v, 1)} kWh` : `${num(v)} ${unit.dist()}`,
     });
 }
 

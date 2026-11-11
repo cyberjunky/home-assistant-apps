@@ -55,7 +55,7 @@ CHARGE_COLUMNS = (
     "id, car_id, start_ts, end_ts, lat, lon, place, kind, charger_brand, odometer_km, start_soc, end_soc,"
     " start_range_km, end_range_km, energy_added_kwh, energy_used_kwh, power_max_kw, duration_s,"
     " outside_temp_avg, cost, cost_manual, billed_amount, billed_currency, conn_charge_cable, fast_charger_type,"
-    " start_ideal_range_km, end_ideal_range_km"
+    " start_ideal_range_km, end_ideal_range_km, capacity_kwh, estimated"
 )
 
 
@@ -850,7 +850,14 @@ class WebUI:
         car_id = self._car_id(request)
         start, end = self._range(request)
         result = await asyncio.to_thread(
-            stats.insights, self.database, car_id, start, end, int(time.time()), self._efficiency(car_id)
+            stats.insights,
+            self.database,
+            car_id,
+            start,
+            end,
+            int(time.time()),
+            self._efficiency(car_id),
+            self.config.battery_capacity_kwh,
         )
         return web.json_response(result)
 

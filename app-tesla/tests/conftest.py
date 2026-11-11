@@ -1,11 +1,12 @@
 """Shared helpers: a monitor on a temporary database, fed with made-up vehicle_data answers."""
 
+import sqlite3
 import time
 
 import pytest
 
 from src.config import KM_PER_MILE, Config
-from src.database import Database
+from src.database import LAYOUT7_COLUMNS, Database
 from src.monitor import CarMonitor, normalize
 
 LAT, LON = 52.0907, 5.1214
@@ -96,6 +97,17 @@ def make_monitor(database: Database, api=None, config: Config | None = None) -> 
 @pytest.fixture
 def monitor(database):
     return make_monitor(database)
+
+
+def as_layout(path, version: int) -> None:
+    """Turn a new database file back into one of an older layout, as an older version left it."""
+    with sqlite3.connect(path) as conn:
+        if version < 7:
+            for table, columns in LAYOUT7_COLUMNS.items():
+                for column in columns:
+                    conn.execute(f"ALTER TABLE {table} DROP COLUMN {column.split()[0]}")
+        conn.execute(f"PRAGMA user_version={version}")
+    conn.close()
 
 
 def feed(monitor: CarMonitor, ts: float, **fields) -> None:
