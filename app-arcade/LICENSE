@@ -1,0 +1,34 @@
+MIT License
+
+Copyright (c) 2026 cyberjunky
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---------------------------------------------------------------------------
+
+The MIT License above covers this app's own code. The app image also contains
+MAME, compiled to WebAssembly, which is NOT covered by it:
+
+MAME - Copyright (c) the MAME team and contributors - licensed under the GNU
+General Public License version 2 or later. The license text is in the image at
+/app/mame/COPYING. The source code of the exact version used is at
+https://github.com/mamedev/mame (the release tag is in mame/Dockerfile and
+Dockerfile), and mame/ in this repository holds everything needed to build it
+the same way, including the one patch applied (mame/save-settings.patch). The hiscore plugin that comes with MAME is CC0, its plugin
+loader (boot.lua) BSD-3-Clause and its json plugin MIT.

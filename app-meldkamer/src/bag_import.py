@@ -105,7 +105,10 @@ def try_start_import(province: str = "") -> bool:
     with _start_lock:
         if _import_progress.get("running") or _batch["batch_running"]:
             return False
-        reset_progress(province)
+        # Not part of a batch: clear the previous batch, or a page reloaded during this
+        # import would show it as "12/12" of the last batch
+        _batch.update({"batch_total": 0, "batch_index": 0, "batch_results": []})
+        reset_progress(province or "all places")
         return True
 
 

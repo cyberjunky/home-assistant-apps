@@ -1,0 +1,87 @@
+---
+name: Update Arcade MAME
+
+# Once a week: if MAME has a newer release than the one app-arcade is built with
+# (ARG MAME_WASM in app-arcade/Dockerfile), open a pull request that moves to it and
+# bumps the app version, and start "Build Arcade MAME" on that branch (a push made with
+# the workflow token starts no workflows by itself). Review and merge by hand: a new MAME
+# can change ROM sets, and mame/save-settings.patch must still apply (the build checks that).
+
+# yamllint disable-line rule:truthy
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  update:
+    name: Check for a new MAME release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Compare with the latest release
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current="$(sed -n 's/^ARG MAME_WASM=//p' app-arcade/Dockerfile)"
+          current_tag="${current%-*}"
+          latest="$(gh api repos/mamedev/mame/releases/latest --jq .tag_name)"
+          echo "current=${current_tag} latest=${latest}"
+          branch="arcade-mame-${latest}"
+          if [ -z "${latest}" ] || [ "${latest}" = "${current_tag}" ]; then
+            echo "update=false" >> "${GITHUB_OUTPUT}"
+          elif git ls-remote --exit-code --heads origin "${branch}" > /dev/null; then
+            echo "Branch ${branch} exists already"
+            echo "update=false" >> "${GITHUB_OUTPUT}"
+          else
+            echo "update=true" >> "${GITHUB_OUTPUT}"
+          fi
+          echo "latest=${latest}" >> "${GITHUB_OUTPUT}"
+          echo "branch=${branch}" >> "${GITHUB_OUTPUT}"
+
+      - name: Open the pull request
+        if: steps.check.outputs.update == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LATEST: ${{ steps.check.outputs.latest }}
+          BRANCH: ${{ steps.check.outputs.branch }}
+        run: |
+          version="0.${LATEST#mame0}"
+          sed -i "s/^ARG MAME_WASM=.*/ARG MAME_WASM=${LATEST}-1/" app-arcade/Dockerfile
+          app="$(sed -n 's/^version: "\(.*\)"/\1/p' app-arcade/config.yaml)"
+          new_app="$(echo "${app}" | awk -F. '{print $1"."$2"."$3+1}')"
+          sed -i "s/^version: \".*\"/version: \"${new_app}\"/" app-arcade/config.yaml
+          python3 - "${new_app}" "${version}" <<'PY'
+          import sys
+          app, mame = sys.argv[1], sys.argv[2]
+          p = "app-arcade/CHANGELOG.md"
+          s = open(p).read()
+          entry = (f"## {app}\n\n**After updating:** if a game no longer starts, its ROM set may have changed in this MAME version.\n\n"
+                   f"- MAME {mame}. See https://www.mamedev.org/releases/whatsnew_{mame.replace('.', '')}.txt for what changed.\n\n")
+          s = s.replace("# Changelog\n\n", "# Changelog\n\n" + entry, 1)
+          open(p, "w").write(s)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "${BRANCH}"
+          git commit -am "Arcade ${new_app}: MAME ${version}"
+          git push origin "${BRANCH}"
+          gh workflow run build-arcade-mame.yaml --ref "${BRANCH}"
+          gh pr create --base main --head "${BRANCH}" \
+            --title "Arcade ${new_app}: MAME ${version}" \
+            --body "MAME ${version} is out. This moves app-arcade to it (\`ARG MAME_WASM=${LATEST}-1\`) and bumps the app version.
+
+          - **Build Arcade MAME** has been started on this branch; it takes about an hour.
+          - The usual checks do not start by themselves on a pull request opened by a workflow: close and reopen it (once the MAME build is green) to run them.
+          - Check that \`mame/save-settings.patch\` still applied (the MAME build fails if not).
+          - A new MAME can change ROM sets: try a game or two before merging.
+
+          Opened by the weekly \"Update Arcade MAME\" workflow."

@@ -8,6 +8,7 @@
 - For a town that exists in more than one province, a message goes to the one in the province of its safety region (from the capcode, or from a vehicle number). Without a region, the town that has the street in the message wins, and otherwise the one with the most streets, so "Dorpsstraat Hoorn" from a Noord-Holland capcode is no longer placed on Terschelling, 84 km away.
 - The street counts per province under Import BAG match the import results again (once the provinces are imported again).
 - The places table shows both towns, each with its province; the streets table writes "Velp (Gelderland)" for a town that exists twice. The streets CSV export has a province column, and the streets CSV import uses it when it is there.
+- Fixed: the capcode import (bommel.net) and Import All Places could start while another import was running, and two quick clicks could start them twice. They now refuse with "Import already in progress", like Import BAG does. A page reloaded during Import All Places no longer shows the previous BAG batch ("12/12").
 
 ## 1.4.10
 

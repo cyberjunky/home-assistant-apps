@@ -1,0 +1,7 @@
+configuration:
+  rom_folder:
+    name: ROM-map
+    description: Waar de zip-bestanden van de spellen staan, onder /share of /media. Bereikbaar via de Samba-app als de map share.
+  log_level:
+    name: Logniveau
+    description: Hoeveel de app in zijn log schrijft.

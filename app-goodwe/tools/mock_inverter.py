@@ -3,9 +3,11 @@
     GOODWE_MOCK_INVERTER=tools.mock_inverter GOODWE_DATA_DIR=/tmp/goodwe python3 -m src
 
 It simulates a sunny day on fast-forward (one simulated day per real hour by default,
-MOCK_SPEED sets the factor), a house with a varying load, and a battery that charges
-from the surplus and discharges at night, following the DoD, charge current and export
-limit that are written to it, so the controller's behaviour can be watched.
+MOCK_SPEED sets the factor) with the sun of the simulated date at about 52°N, so a
+November day gives a fraction of a June day; a house with a varying load; and a battery
+(MOCK_SOC sets where it starts, 55% by default) that charges from the surplus and
+discharges at night, following the DoD, charge current and export limit that are written
+to it, so the controller's behaviour can be watched.
 """
 
 import math
@@ -16,6 +18,21 @@ from datetime import datetime
 
 SPEED = float(os.environ.get("MOCK_SPEED", "24"))
 CAPACITY_WH = 10000.0
+PEAK_W = 4000.0  # the panels, in full sun overhead
+LATITUDE = math.radians(52.1)
+SOLAR_NOON = 12.7  # local clock hour, Central European winter time at about 5°E
+
+
+def sun_height(when: datetime) -> float:
+    """Sine of the sun's elevation at `when`: 0 or less at night, highest at midsummer noon."""
+    declination = math.radians(-23.44) * math.cos(2 * math.pi / 365 * (when.timetuple().tm_yday + 10))
+    hour = when.hour + when.minute / 60 + when.second / 3600
+    if time.localtime(when.timestamp()).tm_isdst:
+        hour -= 1
+    hour_angle = math.radians(15 * (hour - SOLAR_NOON))
+    return math.sin(LATITUDE) * math.sin(declination) + math.cos(LATITUDE) * math.cos(declination) * math.cos(
+        hour_angle
+    )
 
 
 def connect():
@@ -35,7 +52,7 @@ class ES:
 
     def __init__(self):
         self.started = time.time()
-        self.soc = 55.0
+        self.soc = float(os.environ.get("MOCK_SOC", "55"))  # the battery at start
         self.settings = {
             "dod": 80,
             "grid_export_limit": 6000,
@@ -75,9 +92,10 @@ class ES:
         if now.date() != self.day_of:
             self.day_of, self.e_day = now.date(), 0.0
 
-        daylight = max(0.0, math.sin((hour - 6) / 13 * math.pi)) if 6 <= hour <= 19 else 0.0
+        # Low sun gives much less than its height suggests (longer path through the air)
+        daylight = max(0.0, sun_height(now)) ** 1.5
         cloud = 0.75 + 0.25 * math.sin(hour * 2.1 + now.day)
-        potential = 3600 * daylight * cloud
+        potential = PEAK_W * daylight * cloud
         load = 350 + 250 * (1 + math.sin(hour / 24 * 2 * math.pi * 2 + 1)) + random.uniform(-40, 40)
         if 17 <= hour <= 22:
             load += 900

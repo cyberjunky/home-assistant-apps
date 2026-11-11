@@ -881,12 +881,11 @@ class WebUI:
 
     async def _handle_import_all_places(self, request: web.Request) -> web.Response:
         """Import ALL Dutch woonplaatsen (places) into database."""
-        # Check if already running
-        if bag_import.get_import_progress().get("running"):
-            return web.json_response({"error": "Import already in progress"}, status=400)
-
-        # Reset progress BEFORE starting thread so the first poll can't see the previous run's result
-        bag_import.reset_progress("all places")
+        if busy := self._import_running():
+            return web.json_response({"error": busy}, status=409)
+        # Checks and marks the start in one step, so two quick clicks can't start it twice
+        if not bag_import.try_start_import():
+            return web.json_response({"error": "Import already in progress"}, status=409)
 
         # Start import in background thread
         def run_import():
@@ -908,12 +907,13 @@ class WebUI:
 
     async def _handle_import_bommel(self, request: web.Request) -> web.Response:
         """Start capcode import from bommel.net in background thread."""
-        # Check if already running
-        if capcode_import.get_import_progress().get("running"):
-            return web.json_response({"error": "Import already in progress"}, status=400)
+        # Refuse while any import runs (also a BAG import, like the BAG import refuses during this one)
+        if busy := self._import_running():
+            return web.json_response({"error": busy}, status=409)
 
-        # Reset progress BEFORE starting thread to avoid race condition
-        capcode_import.reset_progress()
+        # Checks and marks the start in one step, so two quick clicks can't start it twice
+        if not capcode_import.try_start_import():
+            return web.json_response({"error": "Import already in progress"}, status=409)
 
         # Start import in background thread
         def run_import():

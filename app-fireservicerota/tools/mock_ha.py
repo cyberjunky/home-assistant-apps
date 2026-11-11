@@ -32,14 +32,14 @@ DUTY_SECONDS = int(os.environ.get("FSR_MOCK_DUTY_SECONDS", "600"))
 HISTORY_DAYS = 14
 DATA_DIR = Path(os.environ.get("FSR_DATA_DIR", "/tmp/fsr-mock"))
 
-INCIDENTS = "sensor.ron_klinkien_incidents"
-DUTY = "binary_sensor.ron_klinkien_duty"
-RESPONSE = "switch.ron_klinkien_incident_response"
+INCIDENTS = "sensor.demo_firefighter_incidents"
+DUTY = "binary_sensor.demo_firefighter_duty"
+RESPONSE = "switch.demo_firefighter_incident_response"
 REGISTRY = [
     {
         "entity_id": INCIDENTS,
         "platform": "fireservicerota",
-        "unique_id": "ron@example.com_Incidents",
+        "unique_id": "demo@example.com_Incidents",
         "translation_key": "incidents",
         "config_entry_id": "mockentry",
         "disabled_by": None,
@@ -47,7 +47,7 @@ REGISTRY = [
     {
         "entity_id": DUTY,
         "platform": "fireservicerota",
-        "unique_id": "ron@example.com_Duty",
+        "unique_id": "demo@example.com_Duty",
         "translation_key": "duty",
         "config_entry_id": "mockentry",
         "disabled_by": None,
@@ -55,7 +55,7 @@ REGISTRY = [
     {
         "entity_id": RESPONSE,
         "platform": "fireservicerota",
-        "unique_id": "ron@example.com_Response",
+        "unique_id": "demo@example.com_Response",
         "translation_key": "incident_response",
         "config_entry_id": "mockentry",
         "disabled_by": None,
@@ -227,12 +227,12 @@ class MockHomeAssistant:
             "skill_ids": [3, 7],
             "type": "standby_duty",
             "assigned_function": "Bevelvoerder" if on else None,
-            "friendly_name": "Ron Klinkien Duty",
+            "friendly_name": "Demo Firefighter Duty",
         }
 
     def _response_attrs(self, status: str | None, responded: datetime | None, incident_start: datetime) -> dict:
         return {
-            "user_name": "Ron Klinkien",
+            "user_name": "Demo Firefighter",
             "assigned_skill_ids": [3],
             "responded_at": local_iso(responded) if responded else None,
             "start_time": local_iso(incident_start),
@@ -241,7 +241,7 @@ class MockHomeAssistant:
             "arrived_at_station": False,
             "available_at_incident_creation": True,
             "active_duty_function_ids": [12],
-            "friendly_name": "Ron Klinkien Incident response",
+            "friendly_name": "Demo Firefighter Incident response",
         }
 
     def _seed(self) -> None:
@@ -251,7 +251,7 @@ class MockHomeAssistant:
         first = today - timedelta(days=HISTORY_DAYS)
         self._set(DUTY, "off", self._duty_attrs(False, first, first), when=first, record=False)
         self._set(
-            RESPONSE, "unavailable", {"friendly_name": "Ron Klinkien Incident response"}, when=first, record=False
+            RESPONSE, "unavailable", {"friendly_name": "Demo Firefighter Incident response"}, when=first, record=False
         )
         for d in range(HISTORY_DAYS + 1):
             day = first + timedelta(days=d)
@@ -265,7 +265,7 @@ class MockHomeAssistant:
                     self._set(
                         RESPONSE,
                         "unknown",
-                        {"friendly_name": "Ron Klinkien Incident response"},
+                        {"friendly_name": "Demo Firefighter Incident response"},
                         when=start,
                         record=False,
                     )
@@ -354,9 +354,9 @@ class MockHomeAssistant:
         on = not self._on_duty()
         self._set(DUTY, "on" if on else "off", self._duty_attrs(on, now, now + timedelta(seconds=DUTY_SECONDS)))
         if on:
-            self._set(RESPONSE, "unknown", {"friendly_name": "Ron Klinkien Incident response"})
+            self._set(RESPONSE, "unknown", {"friendly_name": "Demo Firefighter Incident response"})
         else:
-            self._set(RESPONSE, "unavailable", {"friendly_name": "Ron Klinkien Incident response"})
+            self._set(RESPONSE, "unavailable", {"friendly_name": "Demo Firefighter Incident response"})
         logger.info(f"Mock: {'on' if on else 'off'} duty")
 
     async def _arrive_later(self) -> None:

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Arcade</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="__BASE__/static/app.css?v=__APP_VERSION__"/>
+</head>
+<body class="player" data-base="__BASE__" data-game="__GAME__" data-version="__APP_VERSION__">
+    <header class="topbar">
+        <button type="button" class="btn" onclick="leave()" title="Back to the library (Esc)">← Library</button>
+        <div class="game-title"><b id="game-name"></b> <span id="game-meta" class="panel-sub"></span></div>
+        <span class="spacer"></span>
+        <div class="tabs" role="group" aria-label="Game">
+            <button type="button" class="tab" onclick="saveState()" title="Save the game as it is now (F6)" data-running disabled>💾 Save</button>
+            <button type="button" class="tab" onclick="loadState()" title="Back to the saved moment (F8)" data-running disabled id="load-btn">⏮ Load</button>
+            <button type="button" class="tab" onclick="resetGame()" title="Reset the machine (F3)" data-running disabled>↺ Reset</button>
+            <button type="button" class="tab icon-tab" onclick="toggleMute()" title="Sound on or off" data-running disabled id="mute-btn">🔊</button>
+            <button type="button" class="tab icon-tab" onclick="toggleFullscreen()" title="Full screen" aria-label="Full screen"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+        </div>
+    </header>
+    <main class="stage" id="stage">
+        <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+        <div id="start" class="start-overlay">
+            <div class="start-box">
+                <div class="start-title" id="start-title"></div>
+                <div id="start-status" class="panel-sub">Loading…</div>
+                <button type="button" id="start-btn" class="btn btn-primary btn-big" onclick="startGame()" disabled>▶ Play</button>
+                <div class="panel-sub keys-hint"><kbd>5</kbd> coin · <kbd>1</kbd> start · arrows · <kbd>Ctrl</kbd> fire · <kbd>Esc</kbd> back</div>
+            </div>
+        </div>
+        <div id="touch" class="touch" hidden>
+            <div class="pad" id="pad"><span data-key="ArrowUp" class="u">▲</span><span data-key="ArrowLeft" class="l">◀</span><span data-key="ArrowRight" class="r">▶</span><span data-key="ArrowDown" class="d">▼</span></div>
+            <div class="tbuttons">
+                <span data-key="Digit5" class="small">COIN</span><span data-key="Digit1" class="small">START</span>
+                <span data-key="ControlLeft" class="big">A</span><span data-key="AltLeft" class="big">B</span>
+            </div>
+        </div>
+    </main>
+    <footer class="statusbar">
+        <span id="status-line"></span>
+        <span class="spacer"></span>
+        <span class="sb-extra">v__APP_VERSION__</span>
+    </footer>
+    <div id="toast-root" class="toast-root"></div>
+    <script src="__BASE__/static/common.js?v=__APP_VERSION__"></script>
+    <script src="__BASE__/static/player.js?v=__APP_VERSION__"></script>
+</body>
+</html>
