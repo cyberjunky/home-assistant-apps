@@ -15,12 +15,13 @@ bashio::log.info \
   "Service ${service} exited with code ${exit_code_service}" \
   "(by signal ${exit_code_signal})"
 
-# Terminated by SIGTERM: the container is shutting down, nothing to do.
-if [[ "${exit_code_service}" -eq 256 ]] && [[ "${exit_code_signal}" -eq 15 ]]; then
+# Stopped by S6 itself (container shutdown or service restart): nothing to do.
+if [[ "${exit_code_service}" -eq 256 ]]; then
   exit 0
 fi
 
 if [[ "${exit_code_service}" -ne 0 ]]; then
-  bashio::log.warning "pgAgent failed; restarting it in 10 seconds. PostgreSQL keeps running."
-  sleep 10
+  bashio::log.warning "pgAgent failed; restarting only pgAgent in 3 seconds. PostgreSQL keeps running."
+  # Throttle restarts (S6 gives a finish script 5 seconds)
+  sleep 3
 fi

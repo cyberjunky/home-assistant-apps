@@ -304,10 +304,16 @@ RUN date +%Y%m%d%H%M%S > /build-timestamp
 COPY --link rootfs /rootfs
 RUN rsync -LKavz /rootfs/ / && rm -rf /rootfs
 
-# Make backup and restore scripts executable
-RUN chmod +x /usr/share/timescaledb/backup_pre.sh \
-    && chmod +x /usr/share/timescaledb/backup_post.sh \
-    && chmod +x /usr/share/timescaledb/restore_from_backup.sh
+# Make the S6 service scripts, the start-up banner and the backup and restore scripts
+# executable. Git keeps them as plain files (mode 644); without this, S6 cannot run the
+# banner and the container stops right away.
+RUN chmod +x \
+        /etc/s6-overlay/s6-rc.d/*/run \
+        /etc/s6-overlay/s6-rc.d/*/finish \
+        /package/admin/s6-overlay/etc/s6-rc/scripts/base-addon-banner \
+        /usr/share/timescaledb/backup_pre.sh \
+        /usr/share/timescaledb/backup_post.sh \
+        /usr/share/timescaledb/restore_from_backup.sh
 
 WORKDIR /
 

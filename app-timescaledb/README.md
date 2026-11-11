@@ -84,7 +84,7 @@ max_connections: 50
 system_packages: []
 init_commands: []
 retry_upgrade: false
-postgresql_config: {}
+postgresql_settings: []
 pg_hba_config: []
 ```
 
@@ -100,21 +100,36 @@ pg_hba_config: []
 | `system_packages` | `[]` | Extra Alpine packages to install at start-up. |
 | `init_commands` | `[]` | Shell commands to run at start-up. |
 | `retry_upgrade` | `false` | Retry a failed PostgreSQL major-version upgrade on the next start. |
-| `postgresql_config` | `{}` | PostgreSQL parameters, see below. |
+| `postgresql_settings` | `[]` | PostgreSQL settings (`name=value`), see below. |
 | `pg_hba_config` | `[]` | Extra authentication rules, see below. |
+
+### Option: `postgresql_settings`
+
+PostgreSQL settings as a list of `name=value` entries. They are written to
+`postgresql.user.conf`, which is included at the end of `postgresql.conf`, so they win over
+the app's own settings and TimescaleDB's tuning. The file is rewritten on every start:
+removing an entry also removes the setting. Extension settings (`timescaledb.*`) work too;
+quote values that contain spaces. Settings the app manages itself
+(`shared_preload_libraries`, `port`, `data_directory`, `hba_file`, `ident_file`,
+`unix_socket_directories`, `config_file` and the `include` directives) and malformed entries
+are skipped with a warning. Before PostgreSQL starts, it checks the settings: when it rejects
+one (an unknown name or a wrong value), all of them are ignored for that start and the error
+is in the log, so a typo cannot keep the database from starting. Changes take effect after a
+restart.
+
+```yaml
+postgresql_settings:
+  - "work_mem=32MB"
+  - "log_min_duration_statement=1000"
+  - "log_line_prefix='%m [%p] '"
+  - "timescaledb.max_background_workers=12"
+```
 
 ### Option: `postgresql_config`
 
-Parameters written to `postgresql.conf` after TimescaleDB's tuning, so they override tuned
-values. Parameters the app manages itself (`shared_preload_libraries`, `port`,
-`data_directory`) cannot be changed; invalid names or values are logged and skipped.
-Changes take effect after a restart.
-
-```yaml
-postgresql_config:
-  work_mem: "32MB"
-  log_min_duration_statement: "1000"
-```
+Replaced by `postgresql_settings` in 5.6.0. It could never hold a value (the Supervisor drops
+keys of a dictionary option that the schema does not list by name), is ignored, and will be
+removed in a later version.
 
 ### Option: `pg_hba_config`
 

@@ -39,7 +39,7 @@ max_connections: 50
 system_packages: []
 init_commands: []
 retry_upgrade: false
-postgresql_config: {}
+postgresql_settings: []
 pg_hba_config: []
 ```
 
@@ -77,18 +77,33 @@ Shell commands to run at start-up.
 
 Retry a failed PostgreSQL major-version upgrade on the next start.
 
-### Option: `postgresql_config`
+### Option: `postgresql_settings`
 
-Parameters written to `postgresql.conf` after TimescaleDB's tuning, so they override tuned
-values. Parameters the app manages itself (`shared_preload_libraries`, `port`,
-`data_directory`) cannot be changed; invalid names or values are logged and skipped.
-Changes take effect after a restart.
+PostgreSQL settings as a list of `name=value` entries. They are written to
+`postgresql.user.conf`, which is included at the end of `postgresql.conf`, so they win over
+the app's own settings and TimescaleDB's tuning. The file is rewritten on every start:
+removing an entry also removes the setting. Extension settings (`timescaledb.*`) work too;
+quote values that contain spaces. Settings the app manages itself
+(`shared_preload_libraries`, `port`, `data_directory`, `hba_file`, `ident_file`,
+`unix_socket_directories`, `config_file` and the `include` directives) and malformed entries
+are skipped with a warning. Before PostgreSQL starts, it checks the settings: when it rejects
+one (an unknown name or a wrong value), all of them are ignored for that start and the error
+is in the log, so a typo cannot keep the database from starting. Changes take effect after a
+restart.
 
 ```yaml
-postgresql_config:
-  work_mem: "32MB"
-  log_min_duration_statement: "1000"
+postgresql_settings:
+  - "work_mem=32MB"
+  - "log_min_duration_statement=1000"
+  - "log_line_prefix='%m [%p] '"
+  - "timescaledb.max_background_workers=12"
 ```
+
+### Option: `postgresql_config`
+
+Replaced by `postgresql_settings` in 5.6.0. It could never hold a value (the Supervisor drops
+keys of a dictionary option that the schema does not list by name), is ignored, and will be
+removed in a later version.
 
 ### Option: `pg_hba_config`
 
@@ -155,14 +170,24 @@ the clients.
 ## Backup and restore
 
 Home Assistant backups do not copy the raw PostgreSQL data directory. Before each backup
-the app writes a complete `pg_dumpall` dump (`backup_db.sql`) into its data folder, the
-backup stores that dump, and the dump is removed afterwards. When a backup is restored and
-no usable data directory exists, the app initialises a fresh cluster and loads the dump
-automatically. If that fails, the dump stays at `/data/backup_db.sql` for a manual restore
-(the container is named `app_<slug>`, `addon_<slug>` on older Supervisors; see `docker ps`):
+the app writes a complete, gzip compressed `pg_dumpall` dump (`backup_db.sql.gz`) into its
+data folder, the backup stores that dump, and the dump is removed afterwards. The dump
+always leaves at least 1 GiB free on the data disk: when the disk gets fuller, the dump is
+stopped and removed, the log says so, and that backup fails instead of filling the disk.
+
+When a backup is restored and no usable data directory exists, the app initialises a fresh
+cluster and loads the dump automatically, the way TimescaleDB prescribes for a logical dump
+(`timescaledb_pre_restore()` before and `timescaledb_post_restore()` after the data of each
+database), and moves every sequence up to its data so new rows do not hit duplicate keys.
+If that fails, the dump stays at `/data/backup_db.sql.gz` for a manual restore (the
+container is named `app_<slug>`, `addon_<slug>` on older Supervisors; see `docker ps`).
+Stop the clients first (the dump drops and recreates the databases), and load it with the
+TimescaleDB steps added, never with a plain `psql -f`, which loses the rows of compressed
+chunks:
 
 ```bash
-docker exec -it app_1b41fb55_timescaledb su - postgres -c "psql -U postgres -f /data/backup_db.sql -d postgres"
+docker exec -it app_1b41fb55_timescaledb bash -c \
+  'source /usr/share/timescaledb/restore_from_backup.sh && gzip -dc /data/backup_db.sql.gz | addTimescaleRestoreSteps | psql -X -U postgres -d postgres'
 ```
 
 ## Troubleshooting
