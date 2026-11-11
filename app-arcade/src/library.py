@@ -6,16 +6,24 @@ lists of the drivers in this app's MAME build (games.json), without unpacking an
 A clone game needs its own files plus those it shares with its parent, which MAME also
 finds in the parent's archive.
 
-Some systems need a BIOS set besides the game: every Neo Geo game needs neogeo.zip. A BIOS
-archive is recognised by its contents as well: the files every game on the system needs,
-plus at least one of the alternative BIOS ROMs (Europe, US, Japan ... ; one is enough).
+Some systems need a BIOS set besides the game: every Neo Geo game needs neogeo.zip, an IGS
+PGM game pgm.zip, an Aristocrat MK5 slot machine aristmk5.zip. A BIOS archive is recognised
+by its contents as well: the files the games on the system need, plus at least one of the
+alternative BIOS ROMs when the system has those (Neo Geo: Europe, US, Japan ... ; one is enough).
+
+An archive the build has no game for is explained as well as possible: the game it comes
+closest to by its files, the game its name says it is, or, from the index of every machine
+in MAME (machines.json.gz), the MAME driver it needs that this build doesn't include.
 """
 
+import contextlib
+import gzip
 import json
 import logging
 import re
 import shutil
 import subprocess
+import time
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -52,14 +60,33 @@ class ArchiveInfo:
     game: str | None = None
     bios: str | None = None
     error: str | None = None
+    # Why it is no game of this build, and the MAME driver it needs (see Library.diagnose)
+    diagnosis: dict | None = None
 
 
 # How a BIOS set is called in the app; others by the machine's own description
-BIOS_LABELS = {"neogeo": "Neo Geo BIOS"}
+BIOS_LABELS = {"neogeo": "Neo Geo BIOS", "pgm": "IGS PGM BIOS", "aristmk5": "Aristocrat MK5 BIOS"}
+# Uploads that weren't recognised, remembered for the Info tab's list of drivers to ask for
+MAX_REJECTED = 200
+# Files named in a diagnosis, at most
+SHOW_FILES = 4
+
+
+def set_name(stem: str) -> str:
+    """The MAME set name a file name stands for: "Racherod (1).7z" -> "racherod"."""
+    m = re.match(r"[a-z0-9_]+", stem.strip().lower())
+    return m.group(0) if m else ""
+
+
+def some(names: list[str]) -> str:
+    """ "a, b, c" or "a, b, c and 5 more" """
+    if len(names) <= SHOW_FILES:
+        return ", ".join(names)
+    return f"{', '.join(names[: SHOW_FILES - 1])} and {len(names) - SHOW_FILES + 1} more"
 
 
 class Library:
-    def __init__(self, games_file: Path, rom_folder: Path):
+    def __init__(self, games_file: Path, rom_folder: Path, rejected_file: Path | None = None):
         self.rom_folder = rom_folder
         try:
             data = json.loads(games_file.read_text(encoding="utf-8"))
@@ -68,6 +95,16 @@ class Library:
         except (OSError, ValueError, KeyError) as e:
             logger.error(f"Cannot read the game list {games_file}: {e}")
             self.games, self.bios = {}, {}
+        self.mame_dir = games_file.parent
+        self.mame_version = "?"
+        with contextlib.suppress(OSError, ValueError, KeyError):
+            self.mame_version = json.loads((self.mame_dir / "build.json").read_text(encoding="utf-8"))["version"]
+        self._machines: dict[str, list] | None = None
+        self.rejected_file = rejected_file
+        self.rejected: dict[str, dict] = {}
+        if rejected_file:
+            with contextlib.suppress(OSError, ValueError):
+                self.rejected = json.loads(rejected_file.read_text(encoding="utf-8"))
         self.by_crc: dict[str, set[str]] = {}
         for name, game in self.games.items():
             for rom in game["roms"]:
@@ -78,16 +115,20 @@ class Library:
     def bios_label(self, name: str) -> str:
         return BIOS_LABELS.get(name) or f"{self.bios.get(name, {}).get('description', name)} BIOS"
 
-    def bios_state(self, name: str, crcs: set[str]) -> dict:
+    def bios_state(self, name: str, crcs: set[str], needed: list[str] | None = None) -> dict:
         """What of BIOS set `name` these files hold: the missing required files, and which
-        alternative BIOS ROMs (by their short names, in MAME's order) are there."""
+        alternative BIOS ROMs (by their short names, in MAME's order) are there. `needed`: the
+        CRCs of the BIOS files one game uses, when not all (games.json "bios_roms")."""
         roms = self.bios[name]["roms"]
-        missing = sorted({r["name"] for r in roms if not r.get("alt") and r["crc"] not in crcs})
+        required = [r for r in roms if not r.get("alt") and (needed is None or r["crc"] in needed)]
+        missing = sorted({r["name"] for r in required if r["crc"] not in crcs})
         present = []
         for r in roms:
             if r.get("alt") and r["crc"] in crcs and r["bios"] not in present:
                 present.append(r["bios"])
-        return {"missing": missing, "present": present, "complete": not missing and bool(present)}
+        # A system without alternative BIOS ROMs (Aristocrat MK5) needs only the required files
+        has_alts = any(r.get("alt") for r in roms)
+        return {"missing": missing, "present": present, "complete": not missing and (bool(present) or not has_alts)}
 
     def identify_bios(self, crcs: set[str]) -> str | None:
         """The BIOS set this archive holds: its required files and at least one alternative,
@@ -122,7 +163,7 @@ class Library:
                 with zipfile.ZipFile(path) as z:
                     return {f"{i.CRC:08x}" for i in z.infolist() if not i.is_dir()}
             except zipfile.BadZipFile as e:
-                raise ValueError(f"a damaged zip file ({e})") from e
+                raise ValueError(f"a damaged or incomplete zip file, was the download or copy cut off? ({e})") from e
         if kind == ".7z":
             try:
                 result = subprocess.run(
@@ -171,6 +212,142 @@ class Library:
             return None
         return best
 
+    # ------------------------------------------------------------ diagnosis
+    def machines(self) -> dict[str, list]:
+        """Every machine in MAME (machines.json.gz, made with the build): name -> [description,
+        company, year, driver, parent, BIOS, flags]; loaded the first time a file needs it."""
+        if self._machines is None:
+            self._machines = {}
+            path = self.mame_dir / "machines.json.gz"
+            try:
+                with gzip.open(path, "rt", encoding="utf-8") as f:
+                    self._machines = json.load(f)["machines"]
+            except (OSError, ValueError, KeyError) as e:
+                logger.warning(f"No index of MAME's machines ({path}: {e}): unrecognised files are explained less well")
+        return self._machines
+
+    def closest(self, crcs: set[str]) -> tuple[str, int] | None:
+        """The game with the most of these files (relative to its size), and how many it has."""
+        counts: dict[str, int] = {}
+        for crc in crcs:
+            for name in self.by_crc.get(crc, ()):
+                counts[name] = counts.get(name, 0) + 1
+        if not counts:
+            return None
+        name = max(counts, key=lambda n: (counts[n] / len(self.games[n]["roms"]), counts[n], self.games[n]["parent"] is None))
+        return name, counts[name]
+
+    def _match_text(self, roms: list[dict], crcs: set[str]) -> str:
+        hits = sum(1 for r in roms if r["crc"] in crcs)
+        missing = [r["name"] for r in roms if r["crc"] not in crcs]
+        return f"{hits} of {len(roms)} files match" + (f" (missing {some(missing)})" if missing and hits else "")
+
+    def diagnose(self, file: str, crcs: set[str]) -> dict:
+        """Why an archive is no game this build can run, in a line or two, and what it is: the
+        game its name says, the game its files come closest to, or the MAME driver it needs."""
+        v = self.mame_version
+        parts = split_name(file)
+        stem = set_name(parts[0] if parts else file)
+        if not crcs:
+            return {"error": "the archive is empty: there are no files in it", "set": stem}
+        known = set(self.by_crc)
+        for b in self.bios.values():
+            known |= {r["crc"] for r in b["roms"]}
+        stray = len(crcs - known)
+        none_match = f"none of its {len(crcs)} files" if stray == len(crcs) else f"{stray} of its {len(crcs)} files"
+        stray_text = f"; {none_match} belong to any game of this app" if stray else ""
+        if stem in self.games:
+            g = self.games[stem]
+            return {
+                "error": f"named like {g['description']} ({stem}), but {self._match_text(g['roms'], crcs)} of MAME {v}'s set"
+                f"{stray_text}: a set for another MAME version, or a damaged file?",
+                "set": stem,
+                "description": g["description"],
+            }
+        if stem in self.bios:
+            required = [r for r in self.bios[stem]["roms"] if not r.get("alt")]
+            return {
+                "error": f"named like the {self.bios_label(stem)} ({stem}), but {self._match_text(required, crcs)} of MAME {v}'s set"
+                f"{stray_text}: a set for another MAME version, or a damaged file?",
+                "set": stem,
+            }
+        machine = self.machines().get(stem)
+        if machine:
+            desc, company, year, source, _parent, bios, flags = machine
+            driver = source.rsplit("/", 1)[-1]
+            kind = (
+                "pinball machine"
+                if "p" in flags
+                else "slot machine or other gambling game"
+                if "g" in flags
+                else "console or computer"
+                if "c" in flags
+                else None
+            )
+            about = ", ".join(x for x in (company, year, kind) if x)
+            if "p" in flags and "m" in flags:
+                text = f"{desc} ({about}): a real pinball machine, MAME can't emulate its playfield (driver {driver})"
+            elif "c" in flags:
+                text = f"{desc} ({about}): not an arcade game; MAME driver {driver}, which this app doesn't include"
+            else:
+                text = f"{desc} ({about}): needs MAME driver {driver}, which this app doesn't include (yet)"
+                if "n" in flags:
+                    text += f"; it doesn't work in MAME {v} either"
+                if bios:
+                    text += f"; it also needs the BIOS set {bios}.zip"
+            return {
+                "error": text,
+                "set": stem,
+                "description": desc,
+                "driver": driver,
+                "source": source,
+                "not_working": "n" in flags,
+            }
+        best = self.closest(crcs)
+        if best:
+            name, _hits = best
+            g = self.games[name]
+            return {
+                "error": f"comes closest to {g['description']} ({name}): {self._match_text(g['roms'], crcs)}"
+                f"{stray_text}; not enough to run it",
+                "set": stem,
+                "closest": name,
+            }
+        return {
+            "error": f"not a game this app's MAME {v} can run: none of its {len(crcs)} files belong to one, and "
+            f"{stem or file} is not the name of a MAME {v} machine",
+            "set": stem,
+        }
+
+    def remember(self, file: str, diagnosis: dict | None) -> None:
+        """Keep an unrecognised upload (or forget it again: None) for the Info tab's list."""
+        if diagnosis is None:
+            if self.rejected.pop(file, None) is None:
+                return
+        else:
+            self.rejected[file] = {**diagnosis, "file": file, "at": time.time()}
+            while len(self.rejected) > MAX_REJECTED:
+                self.rejected.pop(min(self.rejected, key=lambda f: self.rejected[f]["at"]))
+        if self.rejected_file:
+            try:
+                self.rejected_file.write_text(json.dumps(self.rejected), encoding="utf-8")
+            except OSError as e:
+                logger.warning(f"Cannot write {self.rejected_file}: {e}")
+
+    def forget_rejected(self) -> int:
+        n = len(self.rejected)
+        self.rejected = {}
+        if self.rejected_file:
+            self.rejected_file.unlink(missing_ok=True)
+        return n
+
+    def unrecognised(self, archives: list[ArchiveInfo]) -> list[dict]:
+        """Files in the folder and uploads that are no game of this build, with their diagnosis."""
+        rows = {a.file: {**a.diagnosis, "file": a.file, "in_folder": True} for a in archives if a.diagnosis}
+        for file, r in self.rejected.items():
+            rows.setdefault(file, {**r, "in_folder": False})
+        return sorted(rows.values(), key=lambda r: (r.get("driver") or "~", r["file"]))
+
     def scan(self, path: Path) -> ArchiveInfo:
         st = path.stat()
         cached = self._cache.get(path.name)
@@ -183,7 +360,8 @@ class Library:
             if not info.game:
                 info.bios = self.identify_bios(info.crcs)
             if not info.game and not info.bios:
-                info.error = "not a game this app's MAME can run"
+                info.diagnosis = self.diagnose(path.name, info.crcs)
+                info.error = info.diagnosis["error"]
         except (OSError, ValueError) as e:
             info.error = f"not readable: {e}"
         self._cache[path.name] = (st.st_mtime, st.st_size, info)
@@ -239,8 +417,8 @@ class Library:
                 continue
             state = self.bios_state(name, a.crcs)
             missing = list(state["missing"])
-            if not state["present"]:
-                first = next((r["name"] for r in bios["roms"] if r.get("alt")), "")
+            first = next((r["name"] for r in bios["roms"] if r.get("alt")), None)
+            if not state["present"] and first:
                 missing.append(f"a BIOS ROM (one of the alternatives, such as {first})")
             bios_list[name] = {
                 "name": name,
@@ -263,7 +441,7 @@ class Library:
             if bios and bios in self.bios:
                 # MAME finds the BIOS files in the BIOS set, or in the game's own (a non-merged set)
                 bios_have = have | (by_name[bios].crcs if bios in by_name and by_name[bios].bios == bios else set())
-                state = self.bios_state(bios, bios_have)
+                state = self.bios_state(bios, bios_have, game.get("bios_roms"))
                 if not state["complete"]:
                     bios_missing = f"{self.bios_label(bios)} ({bios}.zip)"
                 bios_info = {
@@ -299,7 +477,7 @@ class Library:
                 "bios_zip": None,
                 **bios_info,
             }
-        problems = [{"file": a.file, "error": a.error} for a in archives if a.error]
+        problems = [{"file": a.file, "error": a.error, "driver": (a.diagnosis or {}).get("driver")} for a in archives if a.error]
         for a in archives:
             stem, ext = split_name(a.file)
             if a.game and stem != a.game and stem not in self.games:
@@ -324,6 +502,7 @@ class Library:
             "games": list(listed.values()),
             "bios": sorted(bios_list.values(), key=lambda b: b["name"]),
             "problems": problems,
+            "unrecognised": self.unrecognised(archives),
             "known": len(self.games),
         }
 
@@ -338,7 +517,10 @@ class Library:
         game = self.identify(crcs)
         bios = None if game else self.identify_bios(crcs)
         if not game and not bios:
-            raise ValueError(f"{original_name} is not a game this app's MAME build can run")
+            diagnosis = self.diagnose(original_name, crcs)
+            self.remember(original_name, diagnosis)
+            raise ValueError(f"{original_name}: {diagnosis['error']}")
+        self.remember(original_name, None)
         if bios:
             # A BIOS set is stored under its own name too (neogeo.zip), where MAME looks for it
             game = bios
