@@ -807,6 +807,7 @@ class WebUI:
             "vehicles": self.database.export_vehicles_csv,
             "city_abbreviations": lambda: self.database.export_lookup_csv("city_abbreviations"),
             "talkgroup_codes": lambda: self.database.export_lookup_csv("talkgroup_codes"),
+            "province_codes": lambda: self.database.export_lookup_csv("province_codes"),
         }
         exporter = exporters.get(table)
         if exporter is None:
@@ -835,6 +836,7 @@ class WebUI:
             "vehicles": self.database.import_vehicles_csv,
             "city_abbreviations": self.database.import_city_abbreviations_csv,
             "talkgroup_codes": self.database.import_talkgroup_codes_csv,
+            "province_codes": self.database.import_province_codes_csv,
         }
         if table == "messages":
             return web.json_response(
@@ -1112,6 +1114,7 @@ class WebUI:
                 "vehicles",
                 "city_abbreviations",
                 "talkgroup_codes",
+                "province_codes",
                 "speech_seeded",
             ]
             for table in tables:
@@ -2576,6 +2579,18 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                                 <div class="db-card-count"><span id="db-count-city_abbreviations">0</span> rows</div>
                                 <div class="db-card-actions">
                                     <button class="btn" onclick="dbOpenTable('city_abbreviations')">Manage</button>
+                                </div>
+                            </div>
+
+                            <div class="db-card">
+                                <div class="db-card-head">
+                                    <span class="db-card-title">Province codes</span>
+                                    <span class="db-card-status ready" id="db-status-province_codes">-</span>
+                                </div>
+                                <div class="db-card-desc">The province after a town name ("Velp NB", VELPNB → Noord-Brabant), to pick the right one of two same-named towns. A code with abbreviation_only 1 (L) only counts in the place codes, not as a word of the message. Built in once; your edits are kept.</div>
+                                <div class="db-card-count"><span id="db-count-province_codes">0</span> rows</div>
+                                <div class="db-card-actions">
+                                    <button class="btn" onclick="dbOpenTable('province_codes')">Manage</button>
                                 </div>
                             </div>
 
@@ -4542,7 +4557,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             vehicle_photos: ['thumbnail', 'key_type', 'key_value', 'label'],
             vehicles: ['number', 'category', 'description', 'source'],
             talkgroup_codes: ['kind', 'code', 'name'],
-            city_abbreviations: ['abbreviation', 'city']
+            city_abbreviations: ['abbreviation', 'city'],
+            province_codes: ['code', 'province', 'abbreviation_only']
         };
 
         const dbTitles = {
@@ -4558,7 +4574,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             vehicle_photos: 'Vehicle photos',
             vehicles: 'Vehicles',
             talkgroup_codes: 'Talk groups',
-            city_abbreviations: 'Place codes'
+            city_abbreviations: 'Place codes',
+            province_codes: 'Province codes'
         };
 
         const dbTableButtons = {
@@ -4622,6 +4639,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 {label: 'Import CSV', cls: '', fn: 'dbImportDialog'},
                 {label: 'Clear table', cls: 'btn-danger', fn: 'dbClearTable'}
             ],
+            province_codes: [
+                {label: '+ Add', cls: 'btn-primary', fn: 'dbAdd'},
+                {label: 'Export', cls: 'btn-primary', fn: 'dbExport'},
+                {label: 'Import CSV', cls: '', fn: 'dbImportDialog'},
+                {label: 'Clear table', cls: 'btn-danger', fn: 'dbClearTable'}
+            ],
             talkgroup_codes: [
                 {label: '+ Add', cls: 'btn-primary', fn: 'dbAdd'},
                 {label: 'Export', cls: 'btn-primary', fn: 'dbExport'},
@@ -4647,7 +4670,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             ignore_capcodes: ['capcode'],
             vehicles: ['number', 'category', 'description'],
             talkgroup_codes: ['kind', 'code', 'name'],
-            city_abbreviations: ['abbreviation', 'city']
+            city_abbreviations: ['abbreviation', 'city'],
+            province_codes: ['code', 'province', 'abbreviation_only']
         };
 
         function getApiTable(table) {
@@ -4670,6 +4694,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 ['vehicle_photos', 'vehicle_photos'],
                 ['vehicles', 'vehicles'],
                 ['talkgroup_codes', 'talkgroup_codes'],
+                ['province_codes', 'province_codes'],
                 ['city_abbreviations', 'city_abbreviations']
             ];
             tables.forEach(([api, card]) => {
@@ -4750,7 +4775,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             const thead = document.getElementById('db-thead');
             const tbody = document.getElementById('db-tbody');
             dbCurrentItems = data.items || [];
-            const editable = ['capcodes', 'places', 'streets', 'tts', 'ignore_text', 'ignore_capcodes', 'vehicles', 'talkgroup_codes', 'city_abbreviations'].includes(dbCurrentTable);
+            const editable = ['capcodes', 'places', 'streets', 'tts', 'ignore_text', 'ignore_capcodes', 'vehicles', 'talkgroup_codes', 'city_abbreviations', 'province_codes'].includes(dbCurrentTable);
 
             thead.innerHTML = '<tr>' + cols.map(c => `<th>${c}</th>`).join('') + `<th style="width: ${editable ? 76 : 40}px;"></th></tr>`;
 

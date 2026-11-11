@@ -29,7 +29,7 @@ Re-run *Import All Places* and *Import BAG* after updates that add data to them 
 2. **Filtering** — Messages matching an *Ignore text* pattern, or whose capcodes are all on the *Ignore capcodes* list, are dropped. An identical text received again within `repeat_window_seconds` counts as a repeat of the first message instead of a new one.
 3. **Parsing** — From the text:
    - **Priority** from codes such as `A1`, `A2`, `B1`, `P 1`, `PRIO 2`.
-   - **Town**: the last words of the message are looked up in the Places table (including multi-word names such as "Koog aan de Zaan") and in the Place codes table of P2000 town abbreviations (e.g. `OEGSTG` → Oegstgeest). If that finds nothing, the whole text is searched.
+   - **Town**: the last words of the message are looked up in the Places table (including multi-word names such as "Koog aan de Zaan") and in the Place codes table of P2000 town abbreviations (e.g. `OEGSTG` → Oegstgeest). A province code right after the town ("Velp NB") or in the abbreviation (`VELPNB`, `RIJSZH`) picks the town in that province, from the Province codes table; it goes before the province of the capcode's region. If that finds nothing, the whole text is searched.
    - **Street**: the remaining text is matched against the Streets table (longest names first, whole words only), then against address patterns with a postcode, then against common street-name endings (`-straat`, `-weg`, `-laan`, …).
    - **Capcodes** are looked up in the Capcodes table for the discipline, region, location and the names of the alerted units.
    - **Abbreviations** are explained from the Abbreviations table, and **vehicles** recognised from the Vehicles table or from the text ("TS 07-1782").
@@ -87,6 +87,7 @@ Each table gets its own card with row counts and Manage/Import actions:
 | 🗣️ Replacement rules | Regex rules for speakable text-to-speech | CSV |
 | 📻 Talk groups | Discipline and meldkamer/region letters of talk group codes (BRT-01) | Built-in, CSV |
 | 🏷️ Place codes | Place-name codes in messages (UTRECH → Utrecht) | Built-in, CSV |
+| 🗺️ Province codes | The province after a town name ("Velp NB", VELPNB → Noord-Brabant) | Built-in, CSV |
 | 🙈 Ignore text | Wildcard patterns to drop matching messages | CSV |
 | 🚫 Ignore capcodes | Capcodes to drop | CSV |
 | 📷 Vehicle photos | Photos you've uploaded per vehicle number or category | — (upload via message detail or +Add) |
@@ -370,6 +371,8 @@ sensors:
 A message names its C2000 talk group as letters, a dash and a number, e.g. `BRT-01`: the first letter is the discipline (B Brandweer, A Ambulancezorg, P Politie, M Koninklijke Marechaussee, D Defensiediensten, S Multidisciplinaire samenwerking), the next two the meldkamer or region (RT Rotterdam, DH Den Haag, AD Amsterdam, MD Midden-Nederland, …), and the number the talk group's quick-dial number. The spoken text says it as "gespreksgroep Brandweer Rotterdam 0 1", the message detail shows "Gespreksgroep Brandweer Rotterdam 01" (also as `talk_group_name` in events), and a code whose letters aren't known is spelled out ("B X X 0 1"), never guessed. Source: Brandweer Nederland / NIPV, [Nota van toelichting Standaard Presentatietekst Gespreksgroep in GMS pagertekst](https://nipv.nl/documenten/nota-van-toelichting-standaard-presentatietekst-gespreksgroep-in-gms-pagertekst) (25 January 2019).
 
 The letters are in the **Talk Groups** table and the place-name codes (`UTRECH` → Utrecht, used to find the town, as tags and in the spoken text) in the **Place Codes** table, both on the Data tab: add, edit, delete, export and import CSV (the same files as the FireServiceRota app). Both are filled once with the built-in list; a row you change keeps your text and a row you delete stays deleted, also after updates. The default TTS rules work the same way since 1.4.13. Backups include both tables.
+
+**Province codes** (`NB` → Noord-Brabant, `GLD` → Gelderland, …) are in the **Province codes** table on the Data tab, added once like the others. A code marked `abbreviation_only` (`L` → Limburg) only counts in a place code ("Beek L"), not as a word after a town in the message. The spoken text keeps the province: `VELPNB` is said as "Velp Noord-Brabant".
 
 ### Map Card
 

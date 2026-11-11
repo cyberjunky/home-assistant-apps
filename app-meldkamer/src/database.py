@@ -257,6 +257,15 @@ class Database:
         UNIQUE (kind, code)
     );
 
+    -- Province codes after a town name ("Velp NB", VELPNB -> Noord-Brabant). abbreviation_only:
+    -- the code only counts in the place codes ("Beek L"), not as a word of the message
+    CREATE TABLE IF NOT EXISTS province_codes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT UNIQUE NOT NULL,
+        province TEXT NOT NULL,
+        abbreviation_only INTEGER NOT NULL DEFAULT 0
+    );
+
     -- Which built-in rows were added once: a default you changed or deleted is not added
     -- again at the next start or update
     CREATE TABLE IF NOT EXISTS speech_seeded (
@@ -271,6 +280,11 @@ class Database:
     LOOKUP_TABLES = {
         "city_abbreviations": {"cols": ("abbreviation", "city"), "key": ("abbreviation",), "upper": ("abbreviation",)},
         "talkgroup_codes": {"cols": ("kind", "code", "name"), "key": ("kind", "code"), "upper": ("code",)},
+        "province_codes": {
+            "cols": ("code", "province", "abbreviation_only"),
+            "key": ("code",),
+            "upper": ("code",),
+        },
     }
 
     def __init__(self, db_path: str = "/data/meldkamer.sqlite3"):
@@ -529,8 +543,9 @@ class Database:
             "city_abbreviations", [{"abbreviation": a, "city": c} for c, a in CITY_ABBREVIATIONS.items()]
         )
         added += self.seed_defaults("talkgroup_codes", DEFAULT_TALKGROUP_CODES)
+        added += self.seed_defaults("province_codes", message_fields.DEFAULT_PROVINCE_CODES)
         if added:
-            logger.info(f"Added {added} default place-name and talk group code(s)")
+            logger.info(f"Added {added} default place-name, talk group and province code(s)")
 
     def _table_sql(self, table: str) -> str:
         """Return the CREATE TABLE statement for a table from SCHEMA."""
@@ -2428,6 +2443,12 @@ class Database:
         spec = self.LOOKUP_TABLES[table]
         values = {}
         for c in spec["cols"]:
+            if c == "abbreviation_only":
+                raw = row.get(c)
+                if isinstance(raw, str):
+                    raw = raw.strip().lower() in ("1", "true", "yes", "ja", "on")
+                values[c] = str(int(bool(raw)))
+                continue
             value = str(row.get(c) or "").strip()
             if c in spec["upper"]:
                 value = value.upper()
@@ -2440,7 +2461,29 @@ class Database:
                 raise ValueError("kind must be discipline or region")
             if len(values["code"]) != KINDS[values["kind"]] or not values["code"].isalpha():
                 raise ValueError(f"A {values['kind']} code is {KINDS[values['kind']]} letter(s)")
+        if table == "province_codes" and not values["code"].isalpha():
+            raise ValueError("A province code is letters only")
         return values
+
+    def _build_province_cache(self) -> dict[str, tuple[str, bool]]:
+        return {
+            row[0]: (row[1], bool(int(row[2] or 0)))
+            for row in self.cursor.execute("SELECT code, province, abbreviation_only FROM province_codes").fetchall()
+        }
+
+    def _province_codes(self) -> dict[str, tuple[str, bool]]:
+        return self._get_text_cache("province_codes", "province_codes", self._build_province_cache)
+
+    def province_for_code(self, word: str) -> str:
+        """The province of a code written after a town in a message ("NB" -> "Noord-Brabant"),
+        "" when unknown. Codes that only count in the abbreviation list ("L") don't count here."""
+        province, abbreviation_only = self._province_codes().get((word or "").upper(), ("", False))
+        return "" if abbreviation_only else province
+
+    def split_province_code(self, name: str) -> tuple[str, str]:
+        """A town from the abbreviation list with its province code: "Velp NB" -> ("Velp",
+        "Noord-Brabant"); a name without one comes back as is, with "". Reads province_codes."""
+        return message_fields.split_province_code(name, self._province_codes())
 
     def list_lookup(self, table: str, page: int = 1, per_page: int = 50, search: str = "") -> dict:
         spec = self.LOOKUP_TABLES[table]
@@ -2529,6 +2572,9 @@ class Database:
 
     def import_talkgroup_codes_csv(self, csv_content: str, replace: bool = False) -> dict[str, int]:
         return self.import_lookup_csv("talkgroup_codes", csv_content, replace)
+
+    def import_province_codes_csv(self, csv_content: str, replace: bool = False) -> dict[str, int]:
+        return self.import_lookup_csv("province_codes", csv_content, replace)
 
     # =========================================================================
     # GLOBAL MESSAGE FILTERS (ignore_text / ignore_capcodes)
@@ -2972,6 +3018,7 @@ class Database:
             "vehicles",
             "city_abbreviations",
             "talkgroup_codes",
+            "province_codes",
         }
         if table not in allowed:
             logger.warning(f"clear_table rejected for table: {table}")
@@ -2981,7 +3028,7 @@ class Database:
             count = self.cursor.fetchone()[0]
             self.cursor.execute(f"DELETE FROM {table}")
             self._commit()
-            if table in ("abbreviations", "city_abbreviations", "talkgroup_codes"):
+            if table in ("abbreviations", *self.LOOKUP_TABLES):
                 self.invalidate_text_caches()
             if table == "vehicles":
                 self._vehicle_cache = None
