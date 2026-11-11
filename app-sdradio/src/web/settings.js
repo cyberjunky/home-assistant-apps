@@ -33,10 +33,8 @@ function yamlHtml(options) {
     const lines = [
         'receiver:',
         `  type: ${r.type}        ${c('rtl-sdr | hackrf | soapysdr | network')}`,
-        `  serial: "${escapeHtml(r.serial)}"`,
         `  network_host: "${escapeHtml(r.network_host)}"`,
         `  network_port: ${r.network_port}`,
-        `  sample_rate: ${r.sample_rate}`,
         `  ppm_correction: ${r.ppm_correction}`,
         `  sdr_gain: ${r.sdr_gain}           ${c('0 = automatic')}`,
         `  hackrf_lna_gain: ${r.hackrf_lna_gain}`,

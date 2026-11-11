@@ -526,3 +526,4 @@ pre.yaml .c { color: var(--muted-text-color); }
     .settings-grid { grid-template-columns: 1fr; }
     .listen-btn span { display: none; }
 }
+.info-error { padding: 8px 10px; margin: 6px 0; border-radius: 4px; background: var(--danger-bg); color: var(--primary-text-color); font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }

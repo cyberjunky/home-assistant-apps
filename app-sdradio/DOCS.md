@@ -9,18 +9,17 @@ After installing, plug in the receiver, check the **Configuration** tab, start t
 
 ## Options
 
-The receiver and where the radio starts are app options; everything else is on the app's
-**Settings** page.
+The receiver options are the same as the Meldkamer app's; where the radio starts is an app
+option too. Everything else is on the app's **Settings** page. The radio receives 2.4 MHz at a
+time (2.4 MS/s), the same for every receiver.
 
 | Option | Default | |
 |---|---|---|
-| `receiver.type` | `rtl-sdr` | `rtl-sdr`, `hackrf`, `soapysdr` (any SoapySDR device) or `network` (an `rtl_tcp` server) |
-| `receiver.serial` | | Only with several receivers: the serial number of the one to use |
+| `receiver.type` | `rtl-sdr` | `rtl-sdr`, `hackrf`, `soapysdr` (the first SoapySDR device found) or `network` (an `rtl_tcp` server). The receiver itself is found automatically |
 | `receiver.network_host` / `network_port` | / `1234` | The `rtl_tcp` server, for type `network` |
-| `receiver.sample_rate` | `2400000` | Samples a second: also how wide the spectrum is (2.4 MHz). An RTL-SDR does up to 3.2 MS/s; a HackRF needs at least 2 MS/s. Less is lighter on a Raspberry Pi |
+| `receiver.sdr_gain` | `40` | Gain in dB at start, `0` = automatic. The **RF gain** knob changes it while listening |
 | `receiver.ppm_correction` | `0` | Frequency correction of the receiver's crystal |
-| `receiver.sdr_gain` | `0` | Gain in dB at start, `0` = automatic. The **RF gain** knob changes it while listening |
-| `receiver.hackrf_lna_gain` / `hackrf_vga_gain` / `hackrf_amp_enable` | `32` / `30` / `false` | The HackRF's own amplifiers |
+| `receiver.hackrf_lna_gain` / `hackrf_vga_gain` / `hackrf_amp_enable` | `40` / `30` / `true` | The HackRF's own amplifiers |
 | `receiver.bias_tee` | `false` | Power for an active antenna or LNA (RTL-SDR only) |
 | `tune.frequency` / `tune.mode` | `145.5` / `nfm` | Where the radio starts, in MHz |
 | `tune.restore_last` | `true` | Start where you left off instead |
@@ -118,8 +117,7 @@ signal. The receiver only retunes when you go outside the span it receives, so t
 waterfall is instant. Audio and spectrum go to the page over one WebSocket; audio only to pages
 that listen.
 
-The work grows with the sample rate: on a Raspberry Pi, lower `sample_rate` (1.024 or
-1.8 MS/s) if the audio stutters.
+All of that runs on the Home Assistant machine; a Raspberry Pi 4 or better is advised.
 
 ## Support
 

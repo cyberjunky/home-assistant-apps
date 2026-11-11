@@ -8,11 +8,12 @@ async function showInfo() {
     const r = (status.options || {}).receiver || {};
     const details = Object.entries(d.details || {}).map(([k, v]) => infoRow(escapeHtml(k), escapeHtml(v))).join('');
     document.getElementById('info-receiver').innerHTML = [
-        infoRow('Status', d.ok ? '<span class="state ok">receiving</span>' : `<span class="state bad">${escapeHtml(d.error || 'not open')}</span>`),
+        infoRow('Status', d.ok ? '<span class="state ok">receiving</span>' : '<span class="state bad">no receiver</span>'),
+        d.error ? `<div class="info-error">${escapeHtml(d.error)}</div>` : '',
         infoRow('Type', escapeHtml(status.receiver || r.type || '–')),
         d.driver ? infoRow('Driver', escapeHtml(d.driver)) : '',
         d.hardware ? infoRow('Hardware', escapeHtml(d.hardware)) : '',
-        infoRow('Sample rate', `${num((d.sample_rate || r.sample_rate) / 1e6, 3)} MS/s`),
+        infoRow('Sample rate', `${num((d.sample_rate || s.rate) / 1e6, 1)} MS/s`),
         d.frequency_range ? infoRow('Tunes', `${fmtHz(d.frequency_range[0])} – ${fmtHz(d.frequency_range[1])}`) : '',
         d.gain_range ? infoRow('Gain', `${num(d.gain_range[0], 1)} – ${num(d.gain_range[1], 1)} dB`) : '',
         r.ppm_correction ? infoRow('ppm correction', escapeHtml(r.ppm_correction)) : '',

@@ -2,9 +2,9 @@ configuration:
   receiver:
     name: Receiver
     description: >-
-      The SDR receiver. type is rtl-sdr, hackrf, soapysdr (any SoapySDR device)
-      or network (an rtl_tcp server at network_host:network_port). serial picks
-      one of several receivers. sdr_gain 0 is automatic gain; the RF gain knob
+      The SDR receiver: rtl-sdr, hackrf, soapysdr (the first SoapySDR device
+      found) or network (an rtl_tcp server at network_host:network_port). The
+      receiver is found by itself. sdr_gain 0 is automatic gain; the RF gain knob
       changes it while listening. The hackrf_* settings are the HackRF's own
       amplifiers; bias_tee powers an active antenna or LNA (rtl-sdr only).
   tune:

@@ -105,7 +105,10 @@ class Radio:
         self.step = int(state.get("step") or (band["step"] if band else 12_500))
         self.squelch: float | None = state.get("squelch")
         gain = state.get("gain", "unset")
-        self.gain: float | None = (config.receiver.sdr_gain or None) if gain == "unset" else gain
+        if gain == "unset":
+            # A HackRF starts with its own LNA, VGA and amp settings from the options
+            gain = None if config.receiver.type == "hackrf" else (config.receiver.sdr_gain or None)
+        self.gain: float | None = gain
         self.agc = bool(state.get("agc", True))
         self.noise_blanker = bool(state.get("nb", False))
         self.band_last: dict = state.get("band_last") or {}
