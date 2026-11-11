@@ -13,7 +13,7 @@ from .database import Database
 from .geocoding import Geocoder
 from .incidents import IncidentTracker
 from .message import P2000Message
-from .message_fields import province_of_region
+from .message_fields import message_province
 from .parser import Parser
 from .postcode import postcode_position
 from .publisher import Publisher
@@ -184,7 +184,7 @@ class MessageProcessor:
 
         # Street coordinates from the Streets table (BAG import or your own): no OpenCage request needed
         if msg.street and msg.city:
-            coords = self.database.get_street_coordinates(msg.street, msg.city, province_of_region(msg.region))
+            coords = self.database.get_street_coordinates(msg.street, msg.city, message_province(msg))
             if coords:
                 msg.latitude = coords["latitude"]
                 msg.longitude = coords["longitude"]
@@ -208,7 +208,7 @@ class MessageProcessor:
         # City-level coordinates from the local places database, so the map and
         # auto-focus also work with geocoding disabled or failed lookups
         if msg.latitude is None and msg.city:
-            coords = self.database.get_place_coordinates(msg.city, province_of_region(msg.region), msg.street)
+            coords = self.database.get_place_coordinates(msg.city, message_province(msg), msg.street)
             if coords:
                 msg.latitude = coords["latitude"]
                 msg.longitude = coords["longitude"]
@@ -221,11 +221,7 @@ class MessageProcessor:
             return False
         # Match the sensors on the city-level position the message gets without OpenCage
         probe = copy.copy(msg)
-        coords = (
-            self.database.get_place_coordinates(msg.city, province_of_region(msg.region), msg.street)
-            if msg.city
-            else None
-        )
+        coords = self.database.get_place_coordinates(msg.city, message_province(msg), msg.street) if msg.city else None
         if coords:
             probe.latitude = coords["latitude"]
             probe.longitude = coords["longitude"]

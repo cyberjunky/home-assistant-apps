@@ -136,6 +136,40 @@ def province_of_region(region: str) -> str:
     return _REGION_PROVINCES.get(key, "")
 
 
+# Province codes after a town name in a message ("Velp NB", "Hoorn NH") and in the town
+# abbreviations (VELPNB -> "Velp NB", HOORFR -> "Hoorn Fr"). They say which of two
+# same-named towns is meant
+PROVINCE_CODES = {
+    "DR": "Drenthe",
+    "FL": "Flevoland",
+    "FR": "Friesland",
+    "GE": "Gelderland",
+    "GLD": "Gelderland",
+    "GR": "Groningen",
+    "LI": "Limburg",
+    "NB": "Noord-Brabant",
+    "NH": "Noord-Holland",
+    "OV": "Overijssel",
+    "UT": "Utrecht",
+    "ZE": "Zeeland",
+    "ZH": "Zuid-Holland",
+    "ZL": "Zeeland",
+}
+
+
+def split_province_code(name: str) -> tuple[str, str]:
+    """("Velp NB") -> ("Velp", "Noord-Brabant"); a name without a province code comes back as is, with ""."""
+    town, _, code = (name or "").rpartition(" ")
+    # "L" only from the abbreviation list ("Beek L"), where it can't be a word of the message
+    province = PROVINCE_CODES.get(code.upper()) or ("Limburg" if code == "L" else "")
+    return (town, province) if town and province else (name, "")
+
+
+def message_province(msg) -> str:
+    """The province a message's town lies in: named in the text, else that of its safety region, else ""."""
+    return getattr(msg, "province", "") or province_of_region(msg.region)
+
+
 def classify_incident(body: str) -> tuple[str, str]:
     """(type, label) of what the message is about, ("", "") when the text doesn't say."""
     for kind, label, pattern in _INCIDENT_RULES:

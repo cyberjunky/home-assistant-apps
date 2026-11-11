@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.15
+
+**After updating:** nothing to do.
+
+- A town with its province in the message ("Velp NB", or an abbreviation such as VELPNB, RIJSZH, KATWZH) gets the place in that province. Before, an abbreviation with a province code gave the town as "Rijswijk ZH", which is no stored place: the message got no position on the map, even with its street found, and a sensor on "Rijswijk" didn't match it. "Velp NB" from a capcode without a region went to Velp in Gelderland, 27 km away. The province in the text goes before the region of the capcode.
+
 ## 1.4.14
 
 **After updating:** nothing to do.

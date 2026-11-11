@@ -23,6 +23,10 @@ class P2000Message:
     city: str = ""
     postalcode: str = ""
 
+    # Province named with the town in the text ("Velp NB", VELPNB), for towns that exist in
+    # more than one province. Used to pick the town; not published
+    province: str = ""
+
     # Capcode database lookups
     region: str = ""
     discipline: str = ""

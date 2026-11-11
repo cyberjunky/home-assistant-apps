@@ -259,6 +259,9 @@ class Parser:
 
                 found_city = city_name
                 msg.city = city_name
+                # A province code right after the town ("Velp NB") says which Velp is meant
+                if i + 1 < len(words):
+                    msg.province = message_fields.PROVINCE_CODES.get(words[i + 1].upper(), "")
                 # Remove the matched tokens (not the first substring hit, which
                 # could be inside a street name like "Delftweg")
                 search_text = " ".join(words[:start] + words[i + 1 :])
@@ -268,6 +271,12 @@ class Parser:
             # Check if this is a city abbreviation (e.g., OEGSTG -> Oegstgeest)
             expanded_city = self.database.city_from_abbreviation(word)
             if expanded_city:
+                # Abbreviations of same-named towns carry the province ("VELPNB" -> "Velp NB"):
+                # the stored place is "Velp" in that province
+                town, province = message_fields.split_province_code(expanded_city)
+                stored = self.database.find_city_name(town) if province else None
+                if stored:
+                    expanded_city, msg.province = stored, province
                 found_city = expanded_city
                 msg.city = expanded_city
                 search_text = " ".join(words[:i] + words[i + 1 :])
@@ -294,13 +303,12 @@ class Parser:
         # With a known town only that town's streets count; without one, only names that are
         # clearly a street, so a word like "dienst" or "contact" doesn't place the message
         # in the one town that has a street of that name. A town that isn't a stored place
-        # (e.g. "Rijswijk ZH" from the abbreviation list, stored as "Rijswijk") can't filter
-        # the streets, so those are searched in every town as before
+        # can't filter the streets, so those are searched in every town as before
         street_match = self.database.match_street_in_text(
             search_text,
             excluded_words,
             city=self.database.find_city_name(msg.city),
-            province=message_fields.province_of_region(msg.region),
+            province=message_fields.message_province(msg),
         )
         if street_match and not msg.city and not looks_like_street(street_match["street"]):
             street_match = None
