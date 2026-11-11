@@ -4,8 +4,8 @@
 
 **After updating:** nothing to do. The first game you start downloads the larger MAME once.
 
-- Many more arcade boards: 2432 game machines instead of 941. The classics of Namco (Galaga, Dig Dug, Xevious, Mappy, Pac-Land), Atari (Centipede, Asteroids, Missile Command, Tempest, Battlezone), Midway and Bally (Space Invaders, Tron, Tapper), Taito (Elevator Action, Bubble Bobble, Arkanoid), Capcom (1942, 1943, Commando, Ghosts'n Goblins), Gottlieb (Q\*bert), Universal (Mr. Do!), Data East (BurgerTime), Tecmo (Bomb Jack, Rygar), Irem (Kung-Fu Master, Lode Runner), Nintendo (Popeye, Mario Bros., Punch-Out!!) and Konami (Time Pilot, Gyruss, Pooyan); and the 16-bit boards Capcom CPS-1 and CPS-2 (Street Fighter II, Final Fight, Street Fighter Alpha, Marvel vs. Capcom), Sega System 16 and System 1 (Shinobi, Golden Axe, Altered Beast, Wonder Boy) and Konami's TMNT and The Simpsons. See the list in the documentation.
-- "Machines" on the Info tab and in the status bar is now "Game machines supported".
+- Many more arcade boards: 2432 games instead of 941. The classics of Namco (Galaga, Dig Dug, Xevious, Mappy, Pac-Land), Atari (Centipede, Asteroids, Missile Command, Tempest, Battlezone), Midway and Bally (Space Invaders, Tron, Tapper), Taito (Elevator Action, Bubble Bobble, Arkanoid), Capcom (1942, 1943, Commando, Ghosts'n Goblins), Gottlieb (Q\*bert), Universal (Mr. Do!), Data East (BurgerTime), Tecmo (Bomb Jack, Rygar), Irem (Kung-Fu Master, Lode Runner), Nintendo (Popeye, Mario Bros., Punch-Out!!) and Konami (Time Pilot, Gyruss, Pooyan); and the 16-bit boards Capcom CPS-1 and CPS-2 (Street Fighter II, Final Fight, Street Fighter Alpha, Marvel vs. Capcom), Sega System 16 and System 1 (Shinobi, Golden Axe, Altered Beast, Wonder Boy) and Konami's TMNT and The Simpsons. See the list in the documentation.
+- "Machines" on the Info tab and in the status bar is now "Games supported".
 
 ## 0.3.0
 
