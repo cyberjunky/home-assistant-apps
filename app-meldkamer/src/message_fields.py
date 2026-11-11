@@ -97,6 +97,47 @@ REGIONS = {
 }
 
 
+# The province each safety region lies in (each lies in one), keyed by the region name
+# without spaces, hyphens and case: the capcode list writes "Gelderland Midden",
+# "Brabant Zuid-Oost", "Limburg Zuid", the vehicle numbering plan "Gelderland-Midden"
+_REGION_PROVINCES = {
+    "groningen": "Groningen",
+    "fryslan": "Friesland",
+    "friesland": "Friesland",
+    "drenthe": "Drenthe",
+    "ijsselland": "Overijssel",
+    "twente": "Overijssel",
+    "noordenoostgelderland": "Gelderland",
+    "gelderlandmidden": "Gelderland",
+    "gelderlandzuid": "Gelderland",
+    "utrecht": "Utrecht",
+    "noordhollandnoord": "Noord-Holland",
+    "zaanstreekwaterland": "Noord-Holland",
+    "kennemerland": "Noord-Holland",
+    "amsterdamamstelland": "Noord-Holland",
+    "gooienvechtstreek": "Noord-Holland",
+    "haaglanden": "Zuid-Holland",
+    "hollandsmidden": "Zuid-Holland",
+    "rotterdamrijnmond": "Zuid-Holland",
+    "zuidhollandzuid": "Zuid-Holland",
+    "zeeland": "Zeeland",
+    "middenenwestbrabant": "Noord-Brabant",
+    "brabantnoord": "Noord-Brabant",
+    "brabantzuidoost": "Noord-Brabant",
+    "limburgnoord": "Limburg",
+    "limburgzuid": "Limburg",
+    "zuidlimburg": "Limburg",
+    "flevoland": "Flevoland",
+}
+
+
+def province_of_region(region: str) -> str:
+    """The province of a safety region ("Gelderland Midden" -> "Gelderland"), or "" when unknown."""
+    key = re.sub(r"[^a-z]", "", (region or "").casefold().replace("â", "a"))
+    key = key.removeprefix("veiligheidsregio").removeprefix("regio")
+    return _REGION_PROVINCES.get(key, "")
+
+
 def classify_incident(body: str) -> tuple[str, str]:
     """(type, label) of what the message is about, ("", "") when the text doesn't say."""
     for kind, label, pattern in _INCIDENT_RULES:

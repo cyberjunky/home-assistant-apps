@@ -157,11 +157,17 @@ class Parser:
         # Extract priority
         msg.priority = self._extract_priority(body)
 
+        # Lookup capcode information (first: the region tells which of two same-named towns is meant)
+        self._enrich_from_capcodes(msg)
+        # Without a region from the capcodes, a vehicle named with its type ("ambu 16-107")
+        # has the region in its number (not the bare trailing numbers, which may be anything)
+        if not msg.region:
+            named = vehicle_types.named_vehicles(body)
+            if named:
+                msg.region = message_fields.region_of_vehicle(named[0][0])
+
         # Extract address components
         self._extract_address(msg)
-
-        # Lookup capcode information
-        self._enrich_from_capcodes(msg)
 
         # Expand abbreviations in message body
         self._expand_abbreviations(msg)
@@ -175,12 +181,6 @@ class Parser:
         # Incident type, reference numbers, talk group
         for name, value in message_fields.derived_fields(body).items():
             setattr(msg, name, value)
-        # Without a region from the capcodes, a vehicle named with its type ("ambu 16-107")
-        # has the region in its number (not the bare trailing numbers, which may be anything)
-        if not msg.region:
-            named = vehicle_types.named_vehicles(body)
-            if named:
-                msg.region = message_fields.region_of_vehicle(named[0][0])
         return msg
 
     def _extract_priority(self, text: str) -> int:
@@ -298,7 +298,10 @@ class Parser:
         # (e.g. "Rijswijk ZH" from the abbreviation list, stored as "Rijswijk") can't filter
         # the streets, so those are searched in every town as before
         street_match = self.database.match_street_in_text(
-            search_text, excluded_words, city=self.database.find_city_name(msg.city)
+            search_text,
+            excluded_words,
+            city=self.database.find_city_name(msg.city),
+            province=message_fields.province_of_region(msg.region),
         )
         if street_match and not msg.city and not looks_like_street(street_match["street"]):
             street_match = None

@@ -5,6 +5,7 @@ import csv
 import io
 import json
 import logging
+import math
 import os
 import re
 import shutil
@@ -95,18 +96,32 @@ def _nl_coordinates(latitude, longitude) -> tuple[float | None, float | None]:
     return None, None
 
 
+def _km(a: tuple[float, float], b: tuple[float, float]) -> float:
+    """Distance in km between two (latitude, longitude) points (equirectangular, fine within the Netherlands)."""
+    x = (b[1] - a[1]) * math.cos(math.radians((a[0] + b[0]) / 2))
+    return math.hypot(x, b[0] - a[0]) * 111.2
+
+
+def province_key(province: str | None) -> str:
+    """A province name for comparing: "Fryslân", "Friesland" and " friesland" are the same."""
+    key = unicodedata.normalize("NFKD", province or "").encode("ascii", "ignore").decode().casefold().strip()
+    return "friesland" if key == "fryslan" else key
+
+
 class Database:
     """SQLite database for capcodes, places, streets, and geocode cache."""
 
     SCHEMA = """
-    -- Places/Cities table
+    -- Places/Cities table. A place is its name in its province: Velp (Gelderland) and
+    -- Velp (Noord-Brabant) are two places. Places without a province have province ''
     CREATE TABLE IF NOT EXISTS places (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        city TEXT UNIQUE NOT NULL,
+        city TEXT NOT NULL,
         abbreviation TEXT,
-        province TEXT,
+        province TEXT NOT NULL DEFAULT '',
         latitude REAL,
-        longitude REAL
+        longitude REAL,
+        UNIQUE(city, province)
     );
 
     -- Streets table (linked to cities for better address matching)
@@ -368,15 +383,22 @@ class Database:
 
     def _build_places_cache(self) -> dict[str, Any]:
         """Load places once and build first-word prefilter indexes."""
-        abbrev_rows = self.cursor.execute("SELECT city, abbreviation FROM places WHERE abbreviation != ''").fetchall()
-        city_rows = self.cursor.execute("SELECT city FROM places ORDER BY LENGTH(city) DESC").fetchall()
+        abbrev_rows = self.cursor.execute(
+            "SELECT DISTINCT city, abbreviation FROM places WHERE abbreviation != ''"
+        ).fetchall()
+        # A name in two provinces (Velp) is one name here; find_place() picks the place
+        city_rows = self.cursor.execute("SELECT DISTINCT city FROM places ORDER BY LENGTH(city) DESC").fetchall()
         by_normalized = {}
         for row in city_rows:
             by_normalized.setdefault(self.normalize_city(row[0]), row[0])
+        provinces: dict[str, set[str]] = {}
+        for row in self.cursor.execute("SELECT city, province FROM places").fetchall():
+            provinces.setdefault(row[0], set()).add(province_key(row[1]))
         return {
             "abbrevs": self._build_match_index(abbrev_rows, lambda row: row[1]),
             "cities": self._build_match_index(city_rows, lambda row: row[0]),
             "by_normalized": by_normalized,
+            "provinces": provinces,
         }
 
     def _build_streets_cache(self) -> dict[str, Any]:
@@ -390,13 +412,13 @@ class Database:
 
         if has_id:
             rows = self.cursor.execute(
-                """SELECT s.street, p.city, s.postalcode FROM streets s
+                """SELECT s.street, p.city, s.postalcode, p.province FROM streets s
                    LEFT JOIN places p ON s.city_id = p.id
                    ORDER BY LENGTH(s.street) DESC"""
             ).fetchall()
         else:
             rows = self.cursor.execute(
-                "SELECT street, NULL as city, postalcode FROM streets ORDER BY LENGTH(street) DESC"
+                "SELECT street, NULL as city, postalcode, NULL as province FROM streets ORDER BY LENGTH(street) DESC"
             ).fetchall()
         return self._build_match_index(rows, lambda row: row[0], min_length=3)
 
@@ -452,6 +474,8 @@ class Database:
 
             # Indexes on migrated columns (SCHEMA runs before the columns exist on upgrades)
             self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_incident ON messages(incident_id)")
+            # Places without a province have province '' since 1.4.11 (the column is NOT NULL now)
+            self.cursor.execute("UPDATE places SET province = '' WHERE province IS NULL")
             self._commit()
 
             # SQLite cannot ADD COLUMN a PRIMARY KEY - rebuild legacy tables
@@ -459,6 +483,7 @@ class Database:
             # streets.city_id links survive)
             self._rebuild_table_with_id("places", ["city", "abbreviation", "province", "latitude", "longitude"])
             self._rebuild_table_with_id("streets", ["street", "city_id", "postalcode", "latitude", "longitude"])
+            self._rebuild_places_per_province()
             self._ensure_unique_streets()
         except sqlite3.Error as e:
             logger.error(f"Schema migration failed: {e}")
@@ -493,6 +518,104 @@ class Database:
                 return
         # Recreate the indexes that were dropped together with the old table
         self.conn.executescript(self.SCHEMA)
+
+    def _places_unique_on_name(self) -> bool:
+        """Whether the places table is unique on the name alone (versions before 1.4.11)."""
+        for index in self._conn.execute("PRAGMA index_list(places)").fetchall():
+            if index[2]:  # unique
+                columns = [row[2] for row in self._conn.execute(f"PRAGMA index_info('{index[1]}')").fetchall()]
+                if columns == ["city"]:
+                    return True
+        return False
+
+    def _rebuild_places_per_province(self) -> None:
+        """Make places unique per (name, province) instead of per name (versions before 1.4.11).
+
+        Every row is copied with its id, so streets keep their place and your own places,
+        abbreviations and coordinates stay as they are. A place that already holds the
+        streets of two same-named places is not split here (that needs the BAG data):
+        importing BAG again for those provinces moves the streets to their own place
+        (see move_namesake_streets). Such places are reported in the log.
+        """
+        with self._lock:
+            if not self._places_unique_on_name():
+                return
+            create_sql = self._table_sql("places").replace("EXISTS places (", "EXISTS places_new (", 1)
+            try:
+                with self._transaction() as conn:
+                    conn.execute("DROP TABLE IF EXISTS places_new")
+                    conn.execute(create_sql)
+                    # A plain INSERT: a row that doesn't fit fails the whole rebuild (rolled
+                    # back, the old table stays as it was) instead of being skipped
+                    conn.execute(
+                        "INSERT INTO places_new (id, city, abbreviation, province, latitude, longitude) "
+                        "SELECT id, city, abbreviation, COALESCE(province, ''), latitude, longitude FROM places"
+                    )
+                    before = conn.execute("SELECT COUNT(*) FROM places").fetchone()[0]
+                    after = conn.execute("SELECT COUNT(*) FROM places_new").fetchone()[0]
+                    if before != after:
+                        raise sqlite3.Error(f"copied {after} of {before} places")
+                    conn.execute("DROP TABLE places")
+                    conn.execute("ALTER TABLE places_new RENAME TO places")
+                logger.info(f"Places are now unique per name and province ({after} places kept)")
+            except sqlite3.Error as e:
+                logger.warning(f"Could not make places unique per province: {e}")
+                return
+        self.conn.executescript(self.SCHEMA)
+        mixed = self.mixed_places()
+        if mixed:
+            names = ", ".join(f"{p['city']} ({p['km']:.0f} km)" for p in mixed)
+            logger.warning(
+                f"{len(mixed)} place(s) hold the streets of two same-named places in different provinces: "
+                f"{names}. Run Import BAG again for the provinces you imported to separate them."
+            )
+
+    def mixed_places(self, gap_km: float = 25.0) -> list[dict[str, Any]]:
+        """Places whose located streets form groups more than gap_km apart.
+
+        Versions before 1.4.11 stored same-named places in two provinces as one place, with
+        the streets of both. The streets are put on a grid of about 5 km; neighbouring cells
+        form one group, and a place with groups more than gap_km apart is reported, farthest
+        first. Returns dicts with id, city, province and km (the distance between the groups).
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT city_id, latitude, longitude FROM streets "
+                "WHERE city_id IS NOT NULL AND latitude IS NOT NULL AND longitude IS NOT NULL"
+            ).fetchall()
+            places = {row[0]: (row[1], row[2]) for row in self._conn.execute("SELECT id, city, province FROM places")}
+        cells: dict[int, set[tuple[int, int]]] = {}
+        for city_id, lat, lon in rows:
+            cells.setdefault(city_id, set()).add((int(lat // 0.05), int(lon // 0.08)))
+        mixed = []
+        for city_id, place_cells in cells.items():
+            if city_id not in places or len(place_cells) < 2:
+                continue
+            centres = []
+            todo = set(place_cells)
+            while todo:
+                stack = [todo.pop()]
+                group = []
+                while stack:
+                    cell = stack.pop()
+                    group.append(cell)
+                    for near in [(cell[0] + dy, cell[1] + dx) for dy in (-1, 0, 1) for dx in (-1, 0, 1)]:
+                        if near in todo:
+                            todo.remove(near)
+                            stack.append(near)
+                centres.append(
+                    (
+                        sum(c[0] + 0.5 for c in group) / len(group) * 0.05,
+                        sum(c[1] + 0.5 for c in group) / len(group) * 0.08,
+                    )
+                )
+            if len(centres) < 2:
+                continue
+            km = max(_km(a, b) for i, a in enumerate(centres) for b in centres[i + 1 :])
+            if km > gap_km:
+                city, province = places[city_id]
+                mixed.append({"id": city_id, "city": city, "province": province, "km": km})
+        return sorted(mixed, key=lambda p: -p["km"])
 
     def _ensure_unique_streets(self) -> None:
         """Deduplicate streets and add the UNIQUE (street, city_id) index."""
@@ -676,23 +799,52 @@ class Database:
         cache = self._get_text_cache("places", "places", self._build_places_cache)
         return cache["by_normalized"].get(self.normalize_city(city))
 
-    def get_place_coordinates(self, city: str) -> dict[str, float] | None:
-        """Get approximate coordinates for a city from the places table."""
+    def find_place(self, city: str, province: str = "", street: str = "") -> dict[str, Any] | None:
+        """The stored place a message's town means (normalised name), or None.
+
+        A name can be a place in more than one province (Velp in Gelderland and in
+        Noord-Brabant). Then, in this order:
+        1. the place in the given province (the province of the message's safety region),
+        2. among those left, the place that has the street, when the street is given,
+        3. among those left, the place with the most streets (then the oldest).
+        Returns a dict with id, city, province, latitude and longitude.
+        """
         name = self.find_city_name(city)
         if not name:
             return None
         try:
-            self.cursor.execute(
-                "SELECT latitude, longitude FROM places "
-                "WHERE city = ? AND latitude IS NOT NULL AND longitude IS NOT NULL LIMIT 1",
+            places = self.cursor.execute(
+                "SELECT p.id, p.city, p.province, p.latitude, p.longitude FROM places p WHERE p.city = ? "
+                "ORDER BY (SELECT COUNT(*) FROM streets s WHERE s.city_id = p.id) DESC, p.id",
                 (name,),
-            )
-            row = self.cursor.fetchone()
-            if row:
-                return {"latitude": float(row[0]), "longitude": float(row[1])}
-        except (sqlite3.Error, TypeError, ValueError):
-            pass
-        return None
+            ).fetchall()
+            places = [dict(row) for row in places]
+            if len(places) > 1 and province:
+                key = province_key(province)
+                places = [p for p in places if province_key(p["province"]) == key] or places
+            if len(places) > 1 and street:
+                with_street = [
+                    p
+                    for p in places
+                    if self.cursor.execute(
+                        "SELECT 1 FROM streets WHERE city_id = ? AND street = ? COLLATE NOCASE LIMIT 1",
+                        (p["id"], street),
+                    ).fetchone()
+                ]
+                places = with_street or places
+        except sqlite3.Error:
+            return None
+        return places[0] if places else None
+
+    def get_place_coordinates(self, city: str, province: str = "", street: str = "") -> dict[str, float] | None:
+        """Approximate coordinates of a town from the places table (see find_place for which place)."""
+        place = self.find_place(city, province, street)
+        if not place or place["latitude"] is None or place["longitude"] is None:
+            return None
+        try:
+            return {"latitude": float(place["latitude"]), "longitude": float(place["longitude"])}
+        except (TypeError, ValueError):
+            return None
 
     def find_city_by_abbreviation(self, abbrev: str) -> str | None:
         """Find full city name from abbreviation."""
@@ -730,7 +882,7 @@ class Database:
         return None
 
     def match_street_in_text(
-        self, text: str, excluded_words: list[str] | None = None, city: str | None = None
+        self, text: str, excluded_words: list[str] | None = None, city: str | None = None, province: str = ""
     ) -> dict[str, str] | None:
         """
         Try to find a known street name in the text using word boundary matching.
@@ -741,9 +893,17 @@ class Database:
             excluded_words: Words to exclude from street matching (e.g. already matched city names)
             city: Only match streets of this place (the town already found in the message), so a
                 street of the same name elsewhere can't supply the postcode
+            province: The province of the message's region. When the town is a place in this
+                province and in others (Hoorn), only the streets of the place in this province count
         """
         excluded_lower = [self.fold_accents(w).lower() for w in (excluded_words or [])]
         city_lower = city.lower() if city else None
+        only_province = None
+        if city and province:
+            places = self._get_text_cache("places", "places", self._build_places_cache)
+            namesakes = places["provinces"].get(city, set())
+            if len(namesakes) > 1 and province_key(province) in namesakes:
+                only_province = province_key(province)
         cache = self._get_text_cache("streets", "streets", self._build_streets_cache)
         text = self.fold_accents(text)  # BAG names have accents, P2000 messages don't
 
@@ -753,6 +913,8 @@ class Database:
 
             # Skip streets of other places once the message's town is known
             if city_lower and (row[1] or "").lower() != city_lower:
+                continue
+            if only_province and province_key(row[3]) != only_province:
                 continue
 
             # Skip if street name is in excluded words (like a city name)
@@ -824,7 +986,7 @@ class Database:
         try:
             self.cursor.execute(
                 "INSERT INTO places (city, abbreviation, province, latitude, longitude) VALUES (?, ?, ?, ?, ?)",
-                (city, abbreviation, province, latitude, longitude),
+                (city, abbreviation, province or "", latitude, longitude),
             )
             self._commit()
             self.invalidate_text_caches()
@@ -832,16 +994,52 @@ class Database:
         except sqlite3.IntegrityError:
             return False
 
-    # Upsert that keeps the row id (streets.city_id points at it) and only
-    # overwrites province/abbreviation/coordinates with non-empty values
-    _UPSERT_PLACE_SQL = (
-        "INSERT INTO places (city, abbreviation, province, latitude, longitude) VALUES (?, ?, ?, ?, ?) "
-        "ON CONFLICT(city) DO UPDATE SET "
-        "abbreviation = COALESCE(NULLIF(excluded.abbreviation, ''), places.abbreviation), "
-        "province = COALESCE(NULLIF(excluded.province, ''), places.province), "
-        "latitude = COALESCE(excluded.latitude, places.latitude), "
-        "longitude = COALESCE(excluded.longitude, places.longitude)"
-    )
+    @staticmethod
+    def _place_id(conn, city: str, province: str) -> int | None:
+        """The id of the stored place a (name, province) means, or None when it is new.
+
+        The place with that name in that province; else, for a province, a place of that name
+        without a province (it becomes this one); else, without a province, the place of that
+        name with the most streets. Provinces compare loosely ("Fryslân" is "Friesland").
+        """
+        rows = conn.execute(
+            "SELECT p.id, p.province FROM places p WHERE p.city = ? "
+            "ORDER BY (SELECT COUNT(*) FROM streets s WHERE s.city_id = p.id) DESC, p.id",
+            (city,),
+        ).fetchall()
+        key = province_key(province)
+        for row in rows:
+            if province_key(row[1]) == key:
+                return row[0]
+        for row in rows:
+            if not key or not row[1]:
+                return row[0]
+        return None
+
+    @classmethod
+    def _upsert_place_row(
+        cls, conn, city: str, abbreviation: str, province: str, latitude, longitude
+    ) -> tuple[int, bool]:
+        """Insert a place, or fill in an existing one (see _place_id); returns (place_id, created).
+
+        Keeps the row id (streets.city_id points at it) and only overwrites
+        province/abbreviation/coordinates with non-empty values.
+        """
+        province = province or ""
+        place_id = cls._place_id(conn, city, province)
+        if place_id is None:
+            cur = conn.execute(
+                "INSERT INTO places (city, abbreviation, province, latitude, longitude) VALUES (?, ?, ?, ?, ?)",
+                (city, abbreviation or "", province, latitude, longitude),
+            )
+            return cur.lastrowid, True
+        conn.execute(
+            "UPDATE places SET abbreviation = COALESCE(NULLIF(?, ''), abbreviation), "
+            "province = CASE WHEN province = '' THEN ? ELSE province END, "
+            "latitude = COALESCE(?, latitude), longitude = COALESCE(?, longitude) WHERE id = ?",
+            (abbreviation or "", province, latitude, longitude, place_id),
+        )
+        return place_id, False
 
     def upsert_place(
         self,
@@ -851,14 +1049,12 @@ class Database:
         latitude: float | None = None,
         longitude: float | None = None,
     ) -> tuple[int, bool]:
-        """Insert a place, or fill in empty fields of an existing one.
+        """Insert a place (name + province), or fill in empty fields of an existing one.
 
         Returns (place_id, created).
         """
         with self._transaction() as conn:
-            created = conn.execute("SELECT 1 FROM places WHERE city = ?", (city,)).fetchone() is None
-            conn.execute(self._UPSERT_PLACE_SQL, (city, abbreviation, province, latitude, longitude))
-            place_id = conn.execute("SELECT id FROM places WHERE city = ?", (city,)).fetchone()[0]
+            place_id, created = self._upsert_place_row(conn, city, abbreviation, province, latitude, longitude)
         self.invalidate_text_caches()
         return place_id, created
 
@@ -867,21 +1063,19 @@ class Database:
 
         Returns the number of rows processed.
         """
-        params = [
-            (
-                p["city"],
-                p.get("abbreviation", ""),
-                p.get("province", ""),
-                p.get("latitude"),
-                p.get("longitude"),
-            )
-            for p in places
-            if p.get("city")
-        ]
+        rows = [p for p in places if p.get("city")]
         with self._transaction() as conn:
-            conn.executemany(self._UPSERT_PLACE_SQL, params)
+            for p in rows:
+                self._upsert_place_row(
+                    conn,
+                    p["city"],
+                    p.get("abbreviation", ""),
+                    p.get("province", ""),
+                    p.get("latitude"),
+                    p.get("longitude"),
+                )
         self.invalidate_text_caches()
-        return len(params)
+        return len(rows)
 
     def update_place(
         self,
@@ -896,7 +1090,7 @@ class Database:
         try:
             self.cursor.execute(
                 "UPDATE places SET city=?, abbreviation=?, province=?, latitude=?, longitude=? WHERE id=?",
-                (city, abbreviation, province, latitude, longitude, place_id),
+                (city, abbreviation, province or "", latitude, longitude, place_id),
             )
             self._commit()
             self.invalidate_text_caches()
@@ -950,7 +1144,11 @@ class Database:
             total = self.cursor.fetchone()[0]
 
             self.cursor.execute(
-                f"SELECT s.id, s.street, s.postalcode, s.city_id, p.city as city_name, s.latitude, s.longitude "
+                # A town in two provinces shows its province: "Velp (Gelderland)"
+                f"SELECT s.id, s.street, s.postalcode, s.city_id, "
+                f"CASE WHEN p.province != '' AND EXISTS "
+                f"(SELECT 1 FROM places n WHERE n.city = p.city AND n.id != p.id) "
+                f"THEN p.city || ' (' || p.province || ')' ELSE p.city END as city_name, s.latitude, s.longitude "
                 f"FROM streets s "
                 f"LEFT JOIN places p ON s.city_id = p.id {where_sql} "
                 f"ORDER BY s.street LIMIT ? OFFSET ?",
@@ -1025,6 +1223,68 @@ class Database:
         self.invalidate_text_caches()
         return added
 
+    def move_namesake_streets(
+        self, city_id: int, streets: list[dict[str, Any]], max_km: float = 1.0
+    ) -> list[dict[str, Any]]:
+        """Move streets of this place that are stored under a same-named place in another province.
+
+        Versions before 1.4.11 stored Velp (Gelderland) and Velp (Noord-Brabant) as one place
+        with the streets of both. When a province import fetches the streets of a place, a
+        street of that name on a namesake (same name, other province) is moved here when it
+        is the same street: its position lies within max_km of the fetched one or, without a
+        position, it has the same postcode area. A street that is already here as well is
+        removed from the namesake instead. The namesake's own street of that name (far away)
+        stays. Returns the namesakes that gave up streets, as dicts with id, province and moved
+        (the number of streets moved or removed): a street name both places have was stored only
+        once, so the namesake may now miss its own one and should get its streets again.
+        """
+        fetched = {}
+        for s in streets:
+            if s.get("street"):
+                fetched[s["street"].casefold()] = (
+                    *_nl_coordinates(s.get("latitude"), s.get("longitude")),
+                    s.get("postcode") or "",
+                )
+        moved: dict[int, int] = {}
+        with self._transaction() as conn:
+            namesakes = {
+                row[0]: row[1]
+                for row in conn.execute(
+                    "SELECT n.id, n.province FROM places p JOIN places n ON n.city = p.city AND n.id != p.id "
+                    "WHERE p.id = ?",
+                    (city_id,),
+                ).fetchall()
+            }
+            if not namesakes:
+                return []
+            own = {
+                row[0].casefold() for row in conn.execute("SELECT street FROM streets WHERE city_id = ?", (city_id,))
+            }
+            marks = ",".join("?" * len(namesakes))
+            for street_id, namesake_id, name, postcode, lat, lon in conn.execute(
+                f"SELECT id, city_id, street, postalcode, latitude, longitude FROM streets WHERE city_id IN ({marks})",
+                list(namesakes),
+            ).fetchall():
+                match = fetched.get(name.casefold())
+                if not match:
+                    continue
+                f_lat, f_lon, f_postcode = match
+                if lat is not None and f_lat is not None:
+                    same = _km((lat, lon), (f_lat, f_lon)) <= max_km
+                else:
+                    same = lat is None and bool(postcode) and postcode == f_postcode
+                if not same:
+                    continue
+                if name.casefold() in own:
+                    conn.execute("DELETE FROM streets WHERE id = ?", (street_id,))
+                else:
+                    conn.execute("UPDATE streets SET city_id = ? WHERE id = ?", (city_id, street_id))
+                    own.add(name.casefold())
+                moved[namesake_id] = moved.get(namesake_id, 0) + 1
+        if moved:
+            self.invalidate_text_caches()
+        return [{"id": i, "province": namesakes[i], "moved": n} for i, n in moved.items()]
+
     def update_street(
         self,
         street_id: int,
@@ -1061,17 +1321,20 @@ class Database:
             return {}
         return {row[0]: {"streets": row[1], "located": row[2]} for row in rows}
 
-    def get_street_coordinates(self, street: str, city: str) -> dict[str, float] | None:
-        """Coordinates of a street in a city from the streets table (BAG centroid or your own), or None."""
-        name = self.find_city_name(city)
-        if not name:
+    def get_street_coordinates(self, street: str, city: str, province: str = "") -> dict[str, float] | None:
+        """Coordinates of a street in a town from the streets table (BAG centroid or your own), or None.
+
+        For a town in more than one province, the place is chosen as in find_place (the
+        province of the message's region first, then the place that has the street).
+        """
+        place = self.find_place(city, province, street)
+        if not place:
             return None
         try:
             self.cursor.execute(
-                "SELECT s.latitude, s.longitude FROM streets s JOIN places p ON s.city_id = p.id "
-                "WHERE p.city = ? AND s.street = ? COLLATE NOCASE "
-                "AND s.latitude IS NOT NULL AND s.longitude IS NOT NULL LIMIT 1",
-                (name, street),
+                "SELECT latitude, longitude FROM streets WHERE city_id = ? AND street = ? COLLATE NOCASE "
+                "AND latitude IS NOT NULL AND longitude IS NOT NULL LIMIT 1",
+                (place["id"], street),
             )
             row = self.cursor.fetchone()
             if row:
@@ -1356,7 +1619,8 @@ class Database:
         """Export all streets to CSV string."""
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(["street", "city", "postalcode", "latitude", "longitude"])
+        # province tells same-named towns apart (Velp in Gelderland and in Noord-Brabant)
+        writer.writerow(["street", "city", "postalcode", "latitude", "longitude", "province"])
 
         # Check if places has id for JOIN
         try:
@@ -1365,11 +1629,13 @@ class Database:
 
             if has_id:
                 self.cursor.execute(
-                    "SELECT s.street, p.city, s.postalcode, s.latitude, s.longitude FROM streets s "
+                    "SELECT s.street, p.city, s.postalcode, s.latitude, s.longitude, p.province FROM streets s "
                     "LEFT JOIN places p ON s.city_id = p.id ORDER BY s.street"
                 )
             else:
-                self.cursor.execute("SELECT street, '', postalcode, latitude, longitude FROM streets ORDER BY street")
+                self.cursor.execute(
+                    "SELECT street, '', postalcode, latitude, longitude, '' FROM streets ORDER BY street"
+                )
 
             for row in self.cursor.fetchall():
                 writer.writerow(list(row))
@@ -1516,7 +1782,7 @@ class Database:
         rows = self._read_csv(csv_content, ("city",))
         imported = 0
         skipped = 0
-        cities = set()
+        kept = set()  # ids of the places in the CSV
 
         with self._transaction() as conn:
             for row in rows:
@@ -1530,17 +1796,17 @@ class Database:
                     skipped += 1
                     continue
                 try:
-                    conn.execute(
-                        self._UPSERT_PLACE_SQL,
-                        (row["city"], row.get("abbreviation", ""), row.get("province", ""), lat, lon),
+                    # A place is its name in its province (Velp in Gelderland and in Noord-Brabant)
+                    place_id, _ = self._upsert_place_row(
+                        conn, row["city"], row.get("abbreviation", ""), row.get("province", ""), lat, lon
                     )
-                    cities.add(row["city"])
+                    kept.add(place_id)
                     imported += 1
                 except sqlite3.Error:
                     skipped += 1
 
             if replace:
-                stale = [(r[0],) for r in conn.execute("SELECT id, city FROM places").fetchall() if r[1] not in cities]
+                stale = [(r[0],) for r in conn.execute("SELECT id FROM places").fetchall() if r[0] not in kept]
                 conn.executemany("DELETE FROM streets WHERE city_id = ?", stale)
                 conn.executemany("DELETE FROM places WHERE id = ?", stale)
 
@@ -1568,11 +1834,13 @@ class Database:
                     continue
                 lat, lon = _nl_coordinates(row.get("latitude"), row.get("longitude"))
                 try:
-                    # Look up city_id
+                    # Look up city_id: the town in the row's province (optional column; without
+                    # it a town in two provinces means the one with the most streets)
                     city_id = None
                     if row.get("city"):
-                        city_row = conn.execute("SELECT id FROM places WHERE city = ?", (row["city"],)).fetchone()
-                        city_id = city_row[0] if city_row else None
+                        city_id = self._place_id(conn, row["city"], row.get("province") or "") or self._place_id(
+                            conn, row["city"], ""
+                        )
 
                     cur = conn.execute(
                         "INSERT OR IGNORE INTO streets (street, city_id, postalcode, latitude, longitude) "
