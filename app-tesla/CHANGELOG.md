@@ -9,6 +9,7 @@
 - **Trips keep their energy.** When the learned consumption changed, the energy of every trip ever recorded was worked out again with the new value. Each trip now keeps the consumption of its own time, so a change (other wheels, a software update) only shows from then on.
 - **Charges the app didn't see.** When the car comes back with a clearly fuller battery after being offline, or after the app wasn't running, and no recorded charge covers that time, an estimated charge is added (marked "est." on the Charging page). A Supercharger session from Tesla's charging history replaces it instead of being added beside it.
 - **Auto climate**: whether the climate is running on Auto shows with the climate on the dashboard and as a new entity in Home Assistant, for cars that report it.
+- The top bar is as high as Home Assistant's own header next to it (the sidebar's "Home Assistant" bar), so the two line up.
 
 ## 0.7.1
 
