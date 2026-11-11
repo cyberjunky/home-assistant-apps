@@ -26,7 +26,7 @@ runs is read-only: it can't change or delete the history.
 <details>
 <summary>More screenshots</summary>
 
-**An entity** — a week of power use: the mean line inside the minimum–maximum band, with the averages below
+**An entity** — a week of power use (the mean inside its minimum–maximum band) compared with the outdoor temperature on a second axis, with the tooltip
 ![Entity history](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-chronicle/screenshots/entity-light.webp)
 
 **Entities** — search and filter every recorded entity
@@ -50,7 +50,8 @@ runs is read-only: it can't change or delete the history.
 
 - 📊 **Overview** — Entities, rows, history size, compression ratio, oldest history and database size; rows written per hour over 24 hours or 7 days; the most active entities and domains
 - 🔎 **Entities** — Every recorded entity with its last state, last change and rows in 24 hours; search, filter on domain and sort
-- 📈 **History** — Any entity over 24 hours, 7 days, 30 days, a year or everything: numbers as a line with their minimum–maximum band, on/off and other states as a timeline with the time spent in each; the latest attributes; CSV of what is shown
+- 📈 **History** — Any entity over 24 hours, 7 days, 30 days, a year or everything: numbers as a line with their minimum–maximum band (steps for counters, gaps where unavailable), on/off and other states as a timeline with the time spent in each; compare up to four more entities, with a second axis for another unit
+- 🔍 **Charts** — Every chart follows the page's width, zooms by dragging (an entity fetches finer data as you zoom in), has a tooltip and a legend that hides lines, and copies as an image or as CSV
 - 🗄️ **Storage** — Every chunk with its size before and after compression, TimescaleDB's compression, retention and averaging jobs with their last run, and the size of each table
 - 🧮 **Query** — Read-only SQL with twelve described examples, a history of what you ran with favourites, a chart of the result, and CSV
 - 🔒 **Read only** — The app never writes; even a `DELETE` typed on the Query page is refused by PostgreSQL itself

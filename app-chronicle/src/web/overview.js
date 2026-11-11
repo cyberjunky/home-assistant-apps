@@ -46,24 +46,29 @@ function renderOverview(data) {
         tile('Database size', bytesUnit(t.database_size), 'everything in this database'),
     ].join('');
 
-    // Rows per hour, the hours without rows included
+    // Rows per hour, the hours without rows included. A history younger than the period starts
+    // at its first hour, so an hour of history isn't a sliver at the edge of 24 hours.
     const el = document.getElementById('chart-rows');
     const now = Math.floor(Date.now() / 3600000) * 3600;
+    let first = now - (overviewHours - 1) * 3600;
+    if (t.oldest) first = Math.max(first, Math.floor(t.oldest / 3600) * 3600);
     const byHour = new Map(data.per_hour.map(p => [p.t, p.rows]));
-    const bars = [];
-    for (let t0 = now - (overviewHours - 1) * 3600; t0 <= now; t0 += 3600) {
-        bars.push({
-            label: overviewHours <= 24 ? fmtTime(t0) : (new Date(t0 * 1000).getHours() === 0 ? fmtShortDate(t0) : ''),
-            tipTitle: `${fmtDay(t0)} ${fmtTime(t0)} – ${fmtTime(t0 + 3600)}`,
-            values: [byHour.get(t0) || 0],
-        });
+    const xs = [], rows = [];
+    for (let t0 = first; t0 <= now; t0 += 3600) {
+        xs.push(t0 + 1800);  // drawn in the middle of its hour
+        rows.push(byHour.get(t0) || 0);
     }
-    barChart(el, {
-        data: bars,
-        series: [{name: 'rows', color: cssVar('--series-1')}],
-        height: 190,
-        format: v => `${num(v)} rows`,
-        labelWidth: overviewHours <= 24 ? 64 : 1,
+    timeChart(el, {
+        x: xs,
+        series: [{name: 'rows', unit: 'rows', color: cssVar('--series-1'), values: rows, kind: 'bars'}],
+        xRange: [first, now + 3600],
+        height: 200,
+        barSize: 34,
+        title: 'Rows written per hour',
+        filename: 'chronicle-rows-per-hour',
+        tipTitle: t => `${fmtDay(t - 1800)} ${fmtTime(t - 1800)} – ${fmtTime(t + 1800)}`,
+        csv: (from, to) => csvFrom(['hour_start', 'rows'], xs.map((x, i) => [x - 1800, rows[i]])
+            .filter(([x]) => x + 1800 >= from && x + 1800 <= to).map(([x, r]) => [isoTime(x), r])),
         empty: 'No rows written in this period',
     });
 

@@ -263,31 +263,31 @@ function chartPlan(r) {
 function drawQueryChart(r, plan) {
     const colors = [1, 2, 3, 4, 5].map(i => cssVar(`--series-${i}`)).concat(['--seq-2', '--seq-4', '--seq-5'].map(cssVar));
     const rows = r.rows.map(row => ({t: Date.parse(row[plan.time]) / 1000, row})).filter(p => !Number.isNaN(p.t)).sort((a, b) => a.t - b.t);
-    const xs = [...new Set(rows.map(p => p.t))];
-    const index = new Map(xs.map((t, i) => [t, i]));
-    let series;
+    const number = v => (v === null || v === undefined || v === '' ? null : Number(v));
+    let x, series, aligned = false;
     if (plan.entity >= 0) {
-        const names = [...new Set(rows.map(p => p.row[plan.entity]))].slice(0, CHART_SERIES);
-        series = names.map((name, k) => ({name: String(name), color: colors[k % colors.length], values: new Array(xs.length).fill(null)}));
-        const byName = new Map(series.map(s => [s.name, s]));
-        rows.forEach(p => {
-            const s = byName.get(String(p.row[plan.entity]));
-            if (s) s.values[index.get(p.t)] = p.row[plan.numbers[0]];
+        // A line per entity: each with its own times, aligned on one axis
+        const names = [...new Set(rows.map(p => String(p.row[plan.entity])))].slice(0, CHART_SERIES);
+        const tables = names.map(name => {
+            const own = rows.filter(p => String(p.row[plan.entity]) === name);
+            return [own.map(p => p.t), own.map(p => number(p.row[plan.numbers[0]]))];
         });
+        const joined = tables.length > 1 ? uPlot.join(tables, tables.map(() => [1])) : tables[0];
+        x = Array.from(joined[0]);
+        series = names.map((name, k) => ({name, color: colors[k % colors.length], values: Array.from(joined[k + 1])}));
+        aligned = names.length > 1;
     } else {
-        series = plan.numbers.slice(0, CHART_SERIES).map((col, k) => ({name: r.columns[col].name, color: colors[k % colors.length], values: new Array(xs.length).fill(null)}));
-        rows.forEach(p => series.forEach((s, k) => { s.values[index.get(p.t)] = p.row[plan.numbers[k]]; }));
+        x = rows.map(p => p.t);
+        series = plan.numbers.slice(0, CHART_SERIES).map((col, k) => ({
+            name: r.columns[col].name, color: colors[k % colors.length], values: rows.map(p => number(p.row[col])),
+        }));
     }
-    const el = document.getElementById('query-chart');
-    const span = xs.length > 1 ? xs[xs.length - 1] - xs[0] : 0;
-    lineChart(el, {
-        x: xs, series, height: 260, connect: true,
-        formatX: t => span > 3 * 86400 ? fmtDateTime(t) : `${fmtDay(t)} ${fmtTimeSec(t)}`,
-        formatY: v => fmtValue(v),
-        xTicks: xs.length > 1 ? smartTicks(xs[0], xs[xs.length - 1], el.clientWidth) : [],
-        empty: 'Nothing to draw',
+    timeChart(document.getElementById('query-chart'), {
+        x, series, aligned, height: 280,
+        title: 'Query result',
+        filename: 'chronicle-query',
+        empty: 'Nothing to draw: the number columns are empty',
     });
-    document.getElementById('query-legend').innerHTML = legendHtml(series.map(s => ({name: s.name, color: s.color, kind: 'line'})));
 }
 
 function toggleQueryChart() {

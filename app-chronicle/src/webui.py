@@ -1,8 +1,6 @@
 """Web dashboard: serves the single-page UI and its JSON API (behind Home Assistant ingress)."""
 
 import asyncio
-import csv
-import io
 import json
 import logging
 import os
@@ -25,6 +23,7 @@ WEB_DIR = Path(__file__).resolve().parent / "web"
 INGRESS_ADDRESS = "172.30.32.2"
 ENTITY_ID = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
 OVERVIEW_HOURS = (24, 168)
+MAX_QUERY_LENGTH = 100_000
 
 
 def _json(data, status: int = 200) -> web.Response:
@@ -57,7 +56,6 @@ class WebUI:
         get("/api/overview", self._handle_overview)
         get("/api/entities", self._handle_entities)
         get("/api/entity", self._handle_entity)
-        get("/api/entity.csv", self._handle_entity_csv)
         get("/api/storage", self._handle_storage)
         self.app.router.add_post("/api/query", self._handle_query)
 
@@ -143,42 +141,31 @@ class WebUI:
             return _error("The Chronicle tables are not in this database", 409)
         return _json({"entities": await self.database.entities()})
 
-    def _entity_args(self, request: web.Request) -> tuple[str, str] | web.Response:
-        entity_id = request.query.get("entity_id", "")
-        range_key = request.query.get("range", "24h")
-        if not ENTITY_ID.match(entity_id):
-            return _error("Invalid entity_id")
-        if range_key not in RANGES:
-            return _error("Invalid range")
-        return entity_id, range_key
-
     async def _handle_entity(self, request: web.Request) -> web.Response:
+        """One entity: a range (?range=24h), or a zoom window in epoch seconds (?from=&to=)."""
         status = await self._require_schema()
         if not status:
             return _error("The Chronicle tables are not in this database", 409)
-        args = self._entity_args(request)
-        if isinstance(args, web.Response):
-            return args
-        data = await self.database.entity(*args, aggregates=status["aggregates"])
+        entity_id = request.query.get("entity_id", "")
+        if not ENTITY_ID.match(entity_id):
+            return _error("Invalid entity_id")
+        range_key = request.query.get("range", "24h")
+        if range_key not in RANGES:
+            return _error("Invalid range")
+        window = None
+        if "from" in request.query or "to" in request.query:
+            try:
+                start = datetime.fromtimestamp(float(request.query["from"]), UTC)
+                end = datetime.fromtimestamp(float(request.query["to"]), UTC)
+            except (KeyError, ValueError, OverflowError, OSError):
+                return _error("from and to must both be times in seconds")
+            if end <= start:
+                return _error("to must be after from")
+            window = (start, end)
+        data = await self.database.entity(entity_id, range_key, aggregates=status["aggregates"], window=window)
         if data is None:
             return _error("Unknown entity", 404)
         return _json(data)
-
-    async def _handle_entity_csv(self, request: web.Request) -> web.Response:
-        status = await self._require_schema()
-        if not status:
-            return _error("The Chronicle tables are not in this database", 409)
-        args = self._entity_args(request)
-        if isinstance(args, web.Response):
-            return args
-        data = await self.database.entity(*args, aggregates=status["aggregates"])
-        if data is None:
-            return _error("Unknown entity", 404)
-        return web.Response(
-            text=entity_csv(data),
-            content_type="text/csv",
-            headers={"Content-Disposition": f'attachment; filename="{args[0]}-{args[1]}.csv"'},
-        )
 
     async def _handle_query(self, request: web.Request) -> web.Response:
         """The Query page: one read-only statement; PostgreSQL's own message when it fails."""
@@ -210,31 +197,3 @@ class WebUI:
         if not await self._require_schema():
             return _error("The Chronicle tables are not in this database", 409)
         return _json(await self.database.storage())
-
-
-MAX_QUERY_LENGTH = 100_000
-
-
-def _iso(epoch: float | None) -> str:
-    return "" if epoch is None else datetime.fromtimestamp(epoch, UTC).isoformat()
-
-
-def entity_csv(data: dict) -> str:
-    """The series the chart shows, as CSV with UTC times."""
-    out = io.StringIO()
-    writer = csv.writer(out)
-    entity = data["entity"]["entity_id"]
-    points = data.get("points", [])
-    if data["kind"] == "state":
-        writer.writerow(["time", "entity_id", "state"])
-        for p in points:
-            writer.writerow([_iso(p["t"]), entity, p["state"]])
-    elif data.get("source") == "raw":
-        writer.writerow(["time", "entity_id", "value"])
-        for p in points:
-            writer.writerow([_iso(p["t"]), entity, p["v"]])
-    else:
-        writer.writerow(["bucket_start", "entity_id", "mean", "min", "max", "last", "samples"])
-        for p in points:
-            writer.writerow([_iso(p["t"]), entity, p["mean"], p["min"], p["max"], p["last"], p["n"]])
-    return out.getvalue()

@@ -61,33 +61,65 @@ Every entity in the history, with its last state, when that was, its rows in the
 hours and since when it has history. Search on name or entity ID, filter on domain, and sort
 on any column. A click opens the entity.
 
-An entity shows its history over **24 hours, 7 days, 30 days, 1 year** or **All**. The link in
-the address bar opens the same entity and range again.
+An entity shows its history over **24 hours, 7 days, 30 days, 1 year** or **All**. A range
+never starts before the entity's first record: with an hour of history, every range shows that
+hour. The link in the address bar opens the same entity and range again.
 
-**Numbers** are drawn as a line. Where there are more values than fit, the chart shows the
-mean per period with the minimum–maximum band around it:
+**Numbers** are drawn as a line. What the chart shows follows the time it spans, not the
+range's name:
 
-| Range | Data |
+| Span | Data |
 |---|---|
-| 24 hours | Every value; averaged per few minutes when there are more than 3,000 |
-| 7 days | Averaged per 15 minutes from the recorded values |
-| 30 days | The integration's hourly averages (`states_hourly`) |
-| 1 year, All | The integration's daily averages (`states_daily`, in Home Assistant's time zone) |
+| Up to 2 days | Every value; averaged per few minutes when there are more than 3,000 |
+| Up to 3 weeks | Averaged per few minutes (about 1,000 points) from the recorded values |
+| Up to 4 months | The integration's hourly averages (`states_hourly`) |
+| Longer | The integration's daily averages (`states_daily`, in Home Assistant's time zone) |
 
-When the averages are switched off in the integration, the app averages the values itself, by
-the hour or by the day. The tiles give the minimum, average and maximum of the period, and the
-number of values. Counters (`total_increasing`) are drawn as steps. Below the chart are the
-values or averages that the chart shows, the newest first.
+Averages are drawn as their mean with the minimum–maximum band around it. When the averages are
+switched off in the integration, the app averages the values itself, by the hour or by the day.
+Measurements are lines, counters (`total`, `total_increasing`) steps. Where the entity was
+*unavailable* or *unknown* the line has a gap. The value an entity has when the chart starts and
+still has at the end is drawn to the chart's edges, so a sensor that changes once an hour still
+shows a line. The tiles give the minimum, average and maximum of the period, and the number of
+values. Below the chart are the values or averages it shows, the newest first.
+
+**Compare** adds up to four more numeric entities to the chart, each in its own colour. Entities
+with another unit get a second y axis on the right; a chart has two at most.
 
 **Other states** (on/off, home/not_home, the weather, a thermostat's mode, ...) are drawn as a
-timeline: each state lasts until the next change. The legend gives the share and the time of
-each state in the period, and for on/off the tiles give how long it was on. Below are the
-changes, the newest first, with how long each lasted. A long range shows at most the newest
+timeline: each state lasts until the next change. An update that only changed attributes (a
+device tracker's position, an automation's `last_triggered`) is no change: the timeline and the
+changes leave it out, and the hint says how many there were. The legend gives the share and the
+time of each state in the period, and for on/off the tiles give how long it was on. Below are
+the changes, the newest first, with how long each lasted. A long range shows at most the newest
 5,000 changes.
 
 **Latest attributes** shows the attributes of the newest state, as the integration stored them.
-**CSV** downloads what the chart shows (the values, the averages or the changes), with times in
-UTC.
+
+### Charts
+
+Every chart in the app (Overview, Entities, Storage and Query) works the same way:
+
+- It follows the width of the page, also after turning a phone or opening the sidebar.
+- **Zoom:** drag across the chart to zoom in on that stretch of time; **Reset zoom** (or a double
+  click) goes back. On an entity, zooming in fetches the data again for that stretch, so a week
+  of hourly averages becomes every recorded value when you zoom in on an afternoon.
+- **Tooltip:** pointing at the chart shows the time and the values with their unit; for averages
+  also the minimum, maximum and the number of values behind them.
+- **Legend:** a click hides or shows a line.
+- **Toolbar** at the top right:
+  - **Copy as image:** the chart as a PNG on the clipboard. When the browser doesn't allow this
+    inside Home Assistant, the image is downloaded instead and a message says so.
+  - **Download as PNG.**
+  - **Copy the data as CSV:** what the chart shows (in the zoomed stretch), with times in UTC. The
+    same download fallback applies.
+  - **Full screen:** the chart fills the page; Esc closes it.
+- Times are in your browser's local time; numbers in your browser's format, with their unit.
+- With too little data for a chart, it says so instead of showing an empty frame; a single value
+  is drawn as a point.
+
+The charts are drawn with [uPlot](https://github.com/leeoniya/uPlot) (MIT licence), which is
+included in the app.
 
 ### Storage
 

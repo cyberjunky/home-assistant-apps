@@ -90,3 +90,44 @@ async def empty_config():
     yield Config(host=HOST, port=PORT, username="postgres", password=PASSWORD, database=name)
     await admin.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
     await admin.close()
+
+
+@pytest.fixture
+async def fresh_config():
+    """A history of one hour, as right after installing the integration: a power sensor every
+    30 s with an unavailable stretch, and a tracker whose GPS updates only change attributes."""
+    admin = await _admin()
+    name = f"chronicle_app_{uuid.uuid4().hex[:8]}"
+    await admin.execute(f'CREATE DATABASE "{name}"')
+    conn = await asyncpg.connect(host=HOST, port=PORT, user="postgres", password=PASSWORD, database=name)
+    try:
+        for statement in SCHEMA:
+            await conn.execute(statement)
+        await conn.execute(
+            """INSERT INTO chronicle.entities (entity_id, name, unit, state_class) VALUES
+               ('sensor.power', 'Power', 'W', 'measurement'),
+               ('device_tracker.phone', 'Phone', NULL, NULL)"""
+        )
+        start = datetime.now(UTC) - timedelta(hours=1)
+        rows = []
+        for i in range(120):
+            unavailable = 60 <= i < 65
+            rows.append(
+                (
+                    start + timedelta(seconds=30 * i),
+                    1,
+                    "unavailable" if unavailable else None,
+                    None if unavailable else 300.0 + i,
+                    None,
+                )
+            )
+        for i in range(12):
+            rows.append((start + timedelta(minutes=5 * i), 2, "not_home" if i >= 8 else "home", None, None))
+        await conn.copy_records_to_table(
+            "states", schema_name="chronicle", columns=["time", "entity", "state", "value", "attributes"], records=rows
+        )
+    finally:
+        await conn.close()
+    yield Config(host=HOST, port=PORT, username="postgres", password=PASSWORD, database=name)
+    await admin.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
+    await admin.close()

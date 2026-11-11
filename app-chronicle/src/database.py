@@ -28,18 +28,25 @@ STATEMENT_TIMEOUT = "30s"
 # Cache of the per-entity row counts of the last 24 hours (shared by Overview and Entities)
 ACTIVITY_TTL = 60
 
-# Ranges of the entity chart: (length, source for numeric entities)
-#   raw       every row; bucketed on the fly when there are too many
-#   minutes   buckets of a few minutes, computed from the rows
-#   hourly    chronicle.states_hourly
-#   daily     chronicle.states_daily
-RANGES: dict[str, tuple[timedelta | None, str]] = {
-    "24h": (timedelta(hours=24), "raw"),
-    "7d": (timedelta(days=7), "minutes"),
-    "30d": (timedelta(days=30), "hourly"),
-    "1y": (timedelta(days=365), "daily"),
-    "all": (None, "daily"),
+# The ranges of the entity chart; "all" starts at the entity's first row. A range never
+# starts before the entity's first row: with an hour of history, every range shows that hour.
+RANGES: dict[str, timedelta | None] = {
+    "24h": timedelta(hours=24),
+    "7d": timedelta(days=7),
+    "30d": timedelta(days=30),
+    "1y": timedelta(days=365),
+    "all": None,
 }
+# The data behind a numeric chart follows the span it shows, not the range's name:
+#   raw      every row; averaged per few minutes when there are more than RAW_POINTS
+#   minutes  buckets of a few minutes, averaged from the rows
+#   hourly   chronicle.states_hourly (averaged from the rows when it doesn't exist)
+#   daily    chronicle.states_daily (the same)
+RESOLUTIONS = (
+    (timedelta(days=2), "raw"),
+    (timedelta(days=21), "minutes"),
+    (timedelta(days=120), "hourly"),
+)
 RAW_POINTS = 3000  # up to this many rows a numeric chart shows every row
 TARGET_POINTS = 1000  # otherwise about this many buckets
 STATE_ROWS = 5000  # rows of a non-numeric entity in one range
@@ -80,6 +87,11 @@ def check_query(sql: str) -> None:
     match = QUERY_DENIED.search(sql)
     if match:
         raise QueryRefusedError(f"{match.group(0).strip()} is not available on this page")
+
+
+def resolution(span: timedelta) -> str:
+    """The data source for a chart that shows this span (see RESOLUTIONS)."""
+    return next((source for limit, source in RESOLUTIONS if span <= limit), "daily")
 
 
 def bucket_seconds(span: float, points: int = TARGET_POINTS) -> int:
@@ -317,8 +329,14 @@ class Database:
             for r in rows
         ]
 
-    async def entity(self, entity_id: str, range_key: str, aggregates: bool) -> dict | None:
-        """One entity's chart data for a range (see RANGES)."""
+    async def entity(
+        self,
+        entity_id: str,
+        range_key: str,
+        aggregates: bool,
+        window: tuple[datetime, datetime] | None = None,
+    ) -> dict | None:
+        """One entity's chart data for a range (see RANGES), or for an explicit window (zoom)."""
         meta = await self.fetchrow(
             f"""SELECT id, entity_id, domain, name, unit, device_class, state_class, first_seen
                 FROM {SCHEMA}.entities WHERE entity_id = $1""",
@@ -327,7 +345,6 @@ class Database:
         if meta is None:
             return None
         ident = meta["id"]
-        length, source = RANGES.get(range_key, RANGES["24h"])
         latest = await self.fetchrow(
             f"""SELECT s.time, s.state, s.value, a.data AS attributes
                 FROM {SCHEMA}.states s LEFT JOIN {SCHEMA}.attributes a ON a.id = s.attributes
@@ -336,10 +353,17 @@ class Database:
         )
         first = await self.fetchval(f"SELECT time FROM {SCHEMA}.states WHERE entity = $1 ORDER BY time LIMIT 1", ident)
         now = datetime.now(UTC)
-        if length is None:
-            start = first or now
+        if window is not None:
+            start, end = window
         else:
-            start = now - length
+            end = now
+            length = RANGES[range_key]
+            start = now - length if length is not None else (first or now)
+        # Nothing to show before the first row: the chart starts there
+        if first is not None and start < first:
+            start = first
+        if end <= start:
+            end = start + timedelta(seconds=1)
         # Numbers are stored with an empty state: one such row among the recent ones decides
         numeric = bool(
             await self.fetchval(
@@ -368,81 +392,133 @@ class Database:
                 "value": _number(latest["value"]),
                 "attributes": json.loads(latest["attributes"]) if latest["attributes"] else None,
             },
-            "range": range_key,
+            "range": None if window is not None else range_key,
+            "zoomed": window is not None,
             "from": ts(start),
-            "to": ts(now),
+            "to": ts(end),
             "kind": "numeric" if numeric else "state",
         }
         if numeric:
-            result.update(await self._numeric_series(ident, start, now, source, aggregates))
+            result.update(await self._numeric_series(ident, start, end, aggregates))
         else:
-            result.update(await self._state_series(ident, start, now))
+            result.update(await self._state_series(ident, start, end))
         return result
 
-    async def _numeric_series(self, ident: int, start: datetime, end: datetime, source: str, aggregates: bool) -> dict:
-        span = (end - start).total_seconds()
+    async def _numeric_series(self, ident: int, start: datetime, end: datetime, aggregates: bool) -> dict:
+        span = end - start
+        source = resolution(span)
         if source == "raw":
             count = await self.fetchval(
-                f"SELECT count(*) FROM {SCHEMA}.states WHERE entity = $1 AND time >= $2 AND value IS NOT NULL",
+                f"""SELECT count(*) FROM {SCHEMA}.states
+                    WHERE entity = $1 AND time >= $2 AND time <= $3 AND value IS NOT NULL""",
                 ident,
                 start,
+                end,
             )
             if count <= RAW_POINTS:
-                rows = await self.fetch(
-                    f"""SELECT time, value FROM {SCHEMA}.states
-                        WHERE entity = $1 AND time >= $2 AND value IS NOT NULL ORDER BY time""",
-                    ident,
-                    start,
-                )
-                return {"source": "raw", "points": [{"t": ts(r["time"]), "v": _number(r["value"])} for r in rows]}
+                return {"source": "raw", "points": await self._raw_points(ident, start, end)}
             source = "minutes"
         if source in ("hourly", "daily") and aggregates:
             view = f"{SCHEMA}.states_{source}"
             rows = await self.fetch(
                 f"""SELECT bucket, mean, min, max, last, samples FROM {view}
-                    WHERE entity = $1 AND bucket >= $2 ORDER BY bucket""",
+                    WHERE entity = $1 AND bucket >= $2 AND bucket <= $3 ORDER BY bucket""",
                 ident,
-                start - timedelta(days=1 if source == "daily" else 0),
+                start - timedelta(days=1 if source == "daily" else 0, hours=0 if source == "daily" else 1),
+                end,
             )
             return {
                 "source": source,
                 "bucket": 3600 if source == "hourly" else 86400,
                 "points": [_bucket_point(r, "bucket") for r in rows],
             }
-        # On the fly from the rows: "minutes", or the aggregates are switched off
-        width = bucket_seconds(span) if source == "minutes" else (3600 if source == "hourly" else 86400)
+        # Averaged from the rows: "minutes", or the averages are switched off in the integration
+        width = bucket_seconds(span.total_seconds()) if source == "minutes" else (3600 if source == "hourly" else 86400)
         rows = await self.fetch(
-            f"""SELECT time_bucket(make_interval(secs => $3), time) AS t,
+            f"""SELECT time_bucket(make_interval(secs => $4), time) AS t,
                        avg(value) AS mean, min(value) AS min, max(value) AS max,
                        last(value, time) AS last, count(*) AS samples
-                FROM {SCHEMA}.states WHERE entity = $1 AND time >= $2 AND value IS NOT NULL
+                FROM {SCHEMA}.states
+                WHERE entity = $1 AND time >= $2 AND time <= $3 AND value IS NOT NULL
                 GROUP BY 1 ORDER BY 1""",
             ident,
             start,
+            end,
             float(width),
         )
         return {"source": "buckets", "bucket": width, "points": [_bucket_point(r, "t") for r in rows]}
 
-    async def _state_series(self, ident: int, start: datetime, end: datetime) -> dict:
-        """The changes of a text entity, newest STATE_ROWS, plus the state it had at the start."""
+    async def _raw_points(self, ident: int, start: datetime, end: datetime) -> list[dict]:
+        """Every value in the window; unavailable and unknown as gaps (v None).
+
+        The value the entity had when the window starts, and still has when it ends, is
+        carried to those edges (marked "carried"): a sensor that changes once an hour still
+        draws a line, and isn't counted twice in the statistics or the CSV.
+        """
         rows = await self.fetch(
-            f"""SELECT time, state, value FROM {SCHEMA}.states
-                WHERE entity = $1 AND time >= $2 ORDER BY time DESC LIMIT {STATE_ROWS}""",
+            f"""SELECT time, value, state FROM {SCHEMA}.states
+                WHERE entity = $1 AND time >= $2 AND time <= $3
+                  AND (value IS NOT NULL OR state IN ('unavailable', 'unknown'))
+                ORDER BY time""",
             ident,
             start,
+            end,
+        )
+        points = [{"t": ts(r["time"]), "v": _number(r["value"])} for r in rows]
+        before = await self.fetchrow(
+            f"""SELECT time, value FROM {SCHEMA}.states
+                WHERE entity = $1 AND time < $2 AND (value IS NOT NULL OR state IN ('unavailable', 'unknown'))
+                ORDER BY time DESC LIMIT 1""",
+            ident,
+            start,
+        )
+        if before is not None and before["value"] is not None and (not points or points[0]["t"] > ts(start)):
+            points.insert(0, {"t": ts(start), "v": _number(before["value"]), "carried": True})
+        if points and points[-1]["v"] is not None and points[-1]["t"] < ts(end):
+            points.append({"t": ts(end), "v": points[-1]["v"], "carried": True})
+        return points
+
+    async def _state_series(self, ident: int, start: datetime, end: datetime) -> dict:
+        """The changes of a text entity in the window, plus the state it had when it starts.
+
+        Rows that only changed attributes (a device tracker's GPS position, an automation's
+        last_triggered) are no change of state: they are merged into the state before them.
+        """
+        rows = await self.fetch(
+            f"""SELECT time, state, value FROM (
+                    SELECT time, state, value,
+                           lag(COALESCE(state, value::text)) OVER (ORDER BY time) AS previous
+                    FROM {SCHEMA}.states WHERE entity = $1 AND time >= $2 AND time <= $3
+                ) rows
+                WHERE previous IS DISTINCT FROM COALESCE(state, value::text)
+                ORDER BY time DESC LIMIT {STATE_ROWS}""",
+            ident,
+            start,
+            end,
         )
         rows.reverse()
         before = await self.fetchrow(
             f"""SELECT time, state, value FROM {SCHEMA}.states
                 WHERE entity = $1 AND time < $2 ORDER BY time DESC LIMIT 1""",
             ident,
-            rows[0]["time"] if rows else start,
+            start,
+        )
+        points = [{"t": ts(r["time"]), "state": _text(r)} for r in rows]
+        # The first row of the window repeats the state before it when only attributes changed
+        if before is not None and points and points[0]["state"] == _text(before):
+            points.pop(0)
+        updates = await self.fetchval(
+            f"SELECT count(*) FROM {SCHEMA}.states WHERE entity = $1 AND time >= $2 AND time <= $3",
+            ident,
+            start,
+            end,
         )
         return {
             "source": "raw",
-            "truncated": len(rows) == STATE_ROWS,
+            "truncated": len(points) == STATE_ROWS,
+            "updates": updates,
             "before": None if before is None else {"t": ts(before["time"]), "state": _text(before)},
-            "points": [{"t": ts(r["time"]), "state": _text(r)} for r in rows],
+            "points": points,
         }
 
     # ------------------------------------------------------------------ storage

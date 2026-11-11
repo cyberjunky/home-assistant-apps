@@ -53,28 +53,29 @@ function renderStorage(d) {
             compression ? 'compressed ' + jobConfig(compression) : ''),
     ].join('');
 
-    // Oldest left, newest right: the size of every chunk, compressed or not
+    // The size of every chunk at its time, compressed or not
     const ordered = chunks.slice().reverse();
-    barChart(document.getElementById('chart-chunks'), {
-        data: ordered.map(c => ({
-            label: fmtShortDate(c.from),
-            tipTitle: `${fmtDate(c.from)} – ${fmtDate(c.to)}${c.compressed ? ' · compressed' : ''}`,
-            values: c.compressed ? [c.after || c.bytes || 0, 0] : [0, c.bytes || 0],
-        })),
+    timeChart(document.getElementById('chart-chunks'), {
+        x: ordered.map(c => (c.from + c.to) / 2),
         series: [
-            {name: 'compressed', color: cssVar('--series-3')},
-            {name: 'not compressed', color: cssVar('--series-4')},
+            {name: 'compressed', color: cssVar('--series-3'), kind: 'bars', values: ordered.map(c => c.compressed ? (c.after || c.bytes || 0) : null)},
+            {name: 'not compressed yet', color: cssVar('--series-4'), kind: 'bars', values: ordered.map(c => c.compressed ? null : (c.bytes || 0))},
         ],
-        height: 170,
+        xRange: ordered.length ? [ordered[0].from, ordered[ordered.length - 1].to] : null,
+        height: 180,
+        barSize: 40,
+        title: 'Chunks',
+        filename: 'chronicle-chunks',
         format: v => fmtBytes(v),
-        formatTick: v => fmtBytes(v),
-        labelWidth: 56,
+        formatAxis: v => fmtBytes(v),
+        tipTitle: t => {
+            const c = ordered.find(k => (k.from + k.to) / 2 === t);
+            return c ? `${fmtDate(c.from)} – ${fmtDate(c.to)}` : fmtDate(t);
+        },
+        csv: () => csvFrom(['from', 'to', 'compressed', 'bytes', 'bytes_before_compression'],
+            ordered.map(c => [isoTime(c.from), isoTime(c.to), c.compressed, c.compressed ? c.after : c.bytes, c.compressed ? c.before : ''])),
         empty: 'No chunks yet',
     });
-    document.getElementById('legend-chunks').innerHTML = legendHtml([
-        {name: 'compressed', color: cssVar('--series-3')},
-        {name: 'not compressed yet (younger than the compression setting)', color: cssVar('--series-4')},
-    ]);
 
     document.getElementById('chunks').innerHTML = chunks.length ? `<table class="data"><thead><tr>
             <th>From</th><th>To</th><th>Status</th><th class="n">Size</th><th class="n">Before compression</th><th class="n">Ratio</th><th>Chunk</th>
