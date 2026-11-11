@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4
+
+**After updating:** nothing to do.
+
+- **Overview:** *Compression* shows "none yet" at the size of the other tiles, aligned with them, and a detail line that fits ("chunks compress with age").
+
 ## 0.1.3
 
 **After updating:** update the Chronicle integration to 0.1.5 or later for *Exclude*; *Delete history* works with any version.
