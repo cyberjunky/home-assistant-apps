@@ -240,10 +240,6 @@ function onTab(name, show, live) {
 }
 
 function switchTab(tabName) {
-    // The Stats page of versions before 0.5.0 is now two pages
-    if (tabName === 'stats') tabName = 'electricity';
-    // The Info page was called Settings before 0.5.2
-    if (tabName === 'settings') tabName = 'info';
     if (!TABS.includes(tabName)) tabName = 'dashboard';
     activeTab = tabName;
     document.querySelectorAll('.tab[data-tab]').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
