@@ -88,7 +88,8 @@ The tabs in the top bar:
   rejected or didn't answer, the median time to answer, and your hours on duty with the
   duty periods.
 - **Data**: export each table as CSV, import the history again, download or restore a
-  backup of the database, and reset it.
+  backup of the database, and reset it. Also the abbreviations and rules for the spoken
+  text, and a test field for it (see [Spoken text](#spoken-text)).
 - **Info**: the connection to Home Assistant, the entities the app follows and their
   state, the history import, events and announcements, and the database.
 
@@ -125,7 +126,8 @@ With `ha_events: true` the app fires **`fireservicerota_app_incident`** for ever
 incident and every update of one, with the incident's fields: `id`, `body`, `prio`, `type`,
 `trigger`, `state`, `responder_mode`, `created_at`, `can_respond_until`, `latitude`,
 `longitude`, `address_type`, `formatted_address`, `message_to_speech_url`, `task_ids`, plus
-`update` (true for an update), `distance_km` from your home and `dashboard_url`, a Home
+`update` (true for an update), `spoken` (the text as the announcement says it, see
+[Spoken text](#spoken-text)), `distance_km` from your home and `dashboard_url`, a Home
 Assistant path (`/hassio/ingress/<app>#incident=<id>`) that opens the dashboard on that
 incident. Incidents older than an hour (for example after a restart) don't fire one.
 
@@ -158,10 +160,87 @@ announce:
   quiet_hours: "23:00-07:00"
 ```
 
-The priority and the incident text are spoken. `quiet_hours` (optional, local time, may
-cross midnight) silences the speakers between those times. The dashboard follows it too:
-no sound, browser speech or browser notifications during quiet hours (the buttons dim
-and say so).
+The incident text is spoken, made readable for the voice as described below (with the
+priority in front when the text doesn't start with one). `quiet_hours` (optional, local
+time, may cross midnight) silences the speakers between those times. The dashboard follows
+it too: no sound, browser speech or browser notifications during quiet hours (the buttons
+dim and say so).
+
+### Spoken text
+
+Alarm texts are full of codes a voice reads badly ("P 1 BRT-01 ... hmp 67.4"). The app
+turns each text into a spoken text, used by the announcements, the browser speech (🗣️)
+and the `spoken` field of the event. The incident detail shows it as **Spoken as** under
+the alarm text itself, so you can always compare the two.
+
+Because you act on what you hear, three rules hold:
+
+- **Nothing is left out.** Every word, code and number of the alarm text is spoken, as
+  itself or as its meaning. A replacement rule can't be empty.
+- **Nothing is guessed.** A code is only spoken as words when its meaning is known;
+  otherwise it is spelled out letter by letter (`XQZ` → "X Q Z"). The built-in meanings
+  come from published sources (listed below).
+- **Numbers are exact.** `hmp 67.4` → "hectometerpaal 67 komma 4"; reference numbers and
+  numbers starting with 0 digit by digit (`bon 123456` → "bonnummer 1 2 3 4 5 6");
+  postal codes as digits and letters (`3511 AX` → "3 5 1 1 A X"); times as a Dutch time
+  (`00:00` → "0 uur 0", `14.05 uur` → "14 uur 5").
+
+How a text is made, in this order:
+
+1. **Replacement rules**, applied top to bottom, not case-sensitive: the priority or
+   urgency at the start (`P 1` → "Prio 1", `A1` → "Ambulance met spoed", `B1` →
+   "Ambulance besteld vervoer, hoogcomplexe zorgvraag"); elsewhere in the text `P1` or `B2`
+   is spoken as a letter and a number (it can be a car park), and `A2` or `N209` is a road
+   ("A 2", "N 209"). Also `hmp`, `bon`/`rit`/`icnum` numbers and Dutch shortenings (`ivm`,
+   `tbv`, `evt.`, `ass.`). A pattern is a Python regular expression; `\1` in the
+   replacement is its first group.
+2. **Shortenings with dots, times, postal codes and decimal numbers.** A shortening with
+   dots is looked up in the abbreviations with its dots (`t.h.v.` → "ter hoogte van", also
+   `i.v.m.`, `z.s.m.`, `n.a.v.`, `o.a.`, `i.p.v.`, `m.b.t.` and more). One in capitals
+   (`O.V.D.`) is also looked up without dots; a lowercase one is not, because `t.h.v.` is
+   not the code `THV` (Technische Hulpverlening).
+3. **Each word**:
+   - a code in the **abbreviations** is spoken as its meaning (`TS` → "Tankautospuit",
+     `OMS` → "Openbaar Meldsysteem", `OVD-B` → "Officier van Dienst Brandweer"). Text in
+     brackets in a meaning is not spoken. A meaning with `/` is two meanings and is
+     spelled out until you choose one;
+   - a **talk group** (`BRT-01`) is spoken from its letters and number: "gespreksgroep
+     Brandweer Rotterdam 0 1". The first letter is the discipline, the next two the
+     meldkamer or region, and the number the talk group's quick-dial number. A code with
+     letters that aren't in the list is spelled out;
+   - a **place-name code** is spoken as the place (`UTRECH` → "Utrecht");
+   - a code with a number is the code and the number (`DP4` → "Dienstpost 4");
+   - unknown codes are spelled out, long numbers digit by digit, and a word in capitals
+     is read as a word. Short Dutch words in capitals (`VAN`, `DE`) are in the
+     abbreviations as themselves, so a text in capitals doesn't get them spelled out.
+
+**All of it is yours to change.** The abbreviations, rules, talk group letters and place
+names are tables in the app's database, on the Data tab: view, search, add, change and
+delete rows, and export or import each table as CSV. The built-in rows are added once,
+at the first start, and are marked *default*. A row you change keeps your text and a
+default you delete stays deleted, also after updates. Changes apply right away. *Say it*
+tests a text: it shows the spoken text with each change and plays it with your
+browser's voice. *Import list* adds the public P2000 abbreviation list (the same as the
+Meldkamer app) again; it sets the listed meaning again for codes in that list.
+*Reset database* doesn't touch these tables; *Download backup* and *Restore from backup*
+include them. The CSV files of abbreviations (`abbreviation,full_text`) and rules
+(`pattern,replacement,enabled`) fit the Meldkamer app; rules with an empty replacement are
+skipped at import.
+
+**Sources of the built-in meanings**:
+
+- Talk groups: Brandweer Nederland / NIPV, [Nota van toelichting Standaard Presentatietekst
+  Gespreksgroep in GMS pagertekst](https://nipv.nl/documenten/nota-van-toelichting-standaard-presentatietekst-gespreksgroep-in-gms-pagertekst)
+  (25 January 2019): disciplines B Brandweer, A Ambulancezorg, P Politie, M Koninklijke
+  Marechaussee, D Defensiediensten, S Multidisciplinaire samenwerking, and the region and
+  meldkamer codes (RT Rotterdam, DH Den Haag, AD Amsterdam, MD Midden-Nederland, ...).
+- Priority and urgency: [P2000 (netwerk) on Wikipedia](https://nl.wikipedia.org/wiki/P2000_(netwerk)),
+  [112hier.nl](https://112hier.nl/uitleg), [persmonitor.nl](https://persmonitor.nl/blog/p2000-afkortingen-en-codes).
+- Abbreviations: the public P2000 list ([p2000.bommel.net](https://p2000.bommel.net/afkortingen.php)),
+  and for codes it gives two meanings (AC, BOT, CCK, MOB, SPB, GM) the brigade list of
+  [Brandweer Uitgeest](https://brandweeruitgeest.nl/betekenis-p2000-meldingen/). PM, MCU,
+  VCK have no source for one meaning yet and are spelled out.
+- Place codes: the same list as the Meldkamer app.
 
 ## Works alongside your own automations
 
@@ -180,7 +259,8 @@ sensors.
 
 ## Your data
 
-All incidents, responses and duty changes live in one SQLite database in the app's
+All incidents, responses and duty changes (and the abbreviations and rules for the spoken
+text) live in one SQLite database in the app's
 data folder, so they are kept across updates and included in Home Assistant backups.
 The app reaches only Home Assistant (through the Supervisor) and, for the dashboard map,
 OpenStreetMap tiles through Home Assistant's map tile proxy. No telemetry.

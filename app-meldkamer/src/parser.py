@@ -5,7 +5,6 @@ import re
 from datetime import UTC, datetime
 
 from . import message_fields, vehicle_types
-from .city_abbreviations import get_city_from_abbreviation
 from .database import Database
 from .message import P2000Message
 from .postcode import full_postcode
@@ -84,7 +83,7 @@ def looks_like_street(name: str) -> bool:
     return any(lower.endswith(suffix) and len(lower) > len(suffix) + 2 for suffix in STREET_SUFFIXES)
 
 
-def city_shortname_tags(body: str) -> list[dict[str, str]]:
+def city_shortname_tags(body: str, database: Database) -> list[dict[str, str]]:
     """Town shortnames in a message ("SGRAVH" for 's-Gravenhage) as abbreviation tags for the detail.
 
     Same rule as the town search in _extract_address: one of the last 8 words,
@@ -94,7 +93,7 @@ def city_shortname_tags(body: str) -> list[dict[str, str]]:
     for word in body.split()[-8:]:
         if len(word) < 4 or word.isdigit():
             continue
-        city = get_city_from_abbreviation(word)
+        city = database.city_from_abbreviation(word)
         if city and word.lower() != city.lower() and all(t["abbreviation"] != word for t in tags):
             tags.append({"abbreviation": word, "full_text": city})
     return tags
@@ -179,7 +178,7 @@ class Parser:
         if postcode := full_postcode(body):
             msg.postalcode = postcode
         # Incident type, reference numbers, talk group
-        for name, value in message_fields.derived_fields(body).items():
+        for name, value in message_fields.derived_fields(body, self.database.decode_talkgroup).items():
             setattr(msg, name, value)
         return msg
 
@@ -267,7 +266,7 @@ class Parser:
                 logger.debug(f"City found at end of message: {city_name}")
                 break
             # Check if this is a city abbreviation (e.g., OEGSTG -> Oegstgeest)
-            expanded_city = get_city_from_abbreviation(word)
+            expanded_city = self.database.city_from_abbreviation(word)
             if expanded_city:
                 found_city = expanded_city
                 msg.city = expanded_city

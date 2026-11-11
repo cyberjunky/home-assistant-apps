@@ -10,6 +10,9 @@ arch:
 # Prebuilt by the repository Builder workflow; bump `version` to publish a new image
 image: "ghcr.io/cyberjunky/app-arcade"
 ingress: true
+# Pass uploads (backups, imports, ROMs) straight to the app: without this the Supervisor reads
+# the whole request first and refuses anything over 16 MB (413 Content Too Large)
+ingress_stream: true
 panel_icon: mdi:gamepad-variant
 panel_title: Arcade
 # The ROM folder lives in /share (reachable over Samba) or /media

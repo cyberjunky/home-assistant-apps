@@ -58,13 +58,11 @@ def is_incident_word(word: str) -> bool:
     return any(pattern.fullmatch(word) for _, _, pattern in _INCIDENT_RULES)
 
 
-# Meldkamer gespreksgroep prefixes used in P2000 texts ("BAD-02")
-_TALK_GROUPS = {"BAD", "BDH", "BLB", "BMD", "BNH", "BNN", "BOB", "BON", "BRT", "BZB"}
-
 _RIDE = re.compile(r"\brit:?\s*(\d{3,})", re.I)
 _BON = re.compile(r"\bbon:?\s*(\d{3,})", re.I)
 _ICNUM = re.compile(r"\bicnum:?\s*(\d+)", re.I)
-_TALK = re.compile(r"\b([A-Z]{3})-(\d{2})\b")
+# Talk groups ("BRT-01", "SNH-1525"): which letters are known is in the talkgroup_codes table
+_TALK = re.compile(r"(?<![\w-])([A-Z]{3})-(\d{1,4})(?![\w-])")
 _DIRECT = re.compile(r"\((?:directe inzet|dia):\s*ja\)", re.I)
 
 # The 25 safety regions, as numbered in the vehicle numbering plan ("17-135" is Rotterdam-Rijnmond)
@@ -146,24 +144,37 @@ def classify_incident(body: str) -> tuple[str, str]:
     return "", ""
 
 
-def message_references(body: str) -> dict:
-    """Reference numbers, talk group and direct-deployment flag from the text."""
+def message_references(body: str, is_talkgroup=None) -> dict:
+    """Reference numbers, talk group and direct-deployment flag from the text.
+
+    is_talkgroup(code) says whether a code like "BRT-01" is a known talk group (the
+    database's talkgroup_codes); without it any code of that shape counts.
+    """
     text = body or ""
-    talk = next((f"{m.group(1)}-{m.group(2)}" for m in _TALK.finditer(text) if m.group(1) in _TALK_GROUPS), "")
+    talk, talk_name = "", ""
+    for m in _TALK.finditer(text):
+        decoded = is_talkgroup(m.group(0)) if is_talkgroup else True
+        if decoded:
+            talk = m.group(0)
+            if isinstance(decoded, tuple):
+                # ("Brandweer", "Rotterdam", "01") from Database.decode_talkgroup
+                talk_name = " ".join(decoded)
+            break
     first = lambda pattern: m.group(1) if (m := pattern.search(text)) else ""  # noqa: E731
     return {
         "ride_number": first(_RIDE),
         "bon_number": first(_BON),
         "incident_number": first(_ICNUM),
         "talk_group": talk,
+        "talk_group_name": talk_name,
         "direct_deployment": bool(_DIRECT.search(text)),
     }
 
 
-def derived_fields(body: str) -> dict:
+def derived_fields(body: str, is_talkgroup=None) -> dict:
     """Everything this module derives, for a message dict (stored rows get it on read)."""
     kind, label = classify_incident(body)
-    return {"incident_type": kind, "incident_label": label, **message_references(body)}
+    return {"incident_type": kind, "incident_label": label, **message_references(body, is_talkgroup)}
 
 
 def region_of_vehicle(vehicle_number: str) -> str:

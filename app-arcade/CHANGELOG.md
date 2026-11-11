@@ -17,6 +17,12 @@
 - Which driver is missing: a file named after a MAME machine that this app has no driver for now says what it is and which driver it needs, for example "Tekken 3 (Namco, 1997): needs MAME driver namcos12, which this app doesn't include (yet)", whether it works in MAME at all, and whether it is a real (mechanical) pinball machine, a slot machine or a console. The app looks the name up in an index of every machine in MAME 0.289, made with the MAME build. A damaged file named like such a machine says both.
 - The Info tab lists the files in the ROM folder and the uploads that weren't recognised, grouped by the driver they need, so you can ask for drivers in one go.
 
+## 0.5.2
+
+**After updating:** nothing to do.
+
+- ROM files over 16 MB can be uploaded. Home Assistant refused them with "413 Content Too Large" (it read every upload into memory, up to 16 MB, unless an app asks for it to be passed through); the app now asks for that. Your ROM folder over Samba was never affected.
+
 ## 0.5.1
 
 **After updating:** nothing to do. If a file isn't recognised, upload it again to see why.

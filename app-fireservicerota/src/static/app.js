@@ -297,12 +297,19 @@ function toggleTts() {
     initTtsToggle();
     if (!ttsEnabled && window.speechSynthesis) speechSynthesis.cancel();
 }
+// i.spoken is made by the app (speech.py) with the abbreviations and rules on the Data tab,
+// the same text the Home Assistant announcement says
 function speakIncident(i) {
-    if (!ttsEnabled || quietNow || !window.speechSynthesis || !i || !i.body) return;
-    const utterance = new SpeechSynthesisUtterance([i.prio && 'Prio ' + prioLabel(i), i.body].filter(Boolean).join('. '));
+    if (!ttsEnabled || quietNow || !i || !i.body) return;
+    sayText(i.spoken || i.body);
+}
+function sayText(text) {
+    if (!window.speechSynthesis || !text) return false;
+    const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'nl-NL';
     speechSynthesis.cancel();
     speechSynthesis.speak(utterance);
+    return true;
 }
 
 let autoMapEnabled = localStorage.getItem('fsr_automap_enabled') !== 'false';
@@ -1007,6 +1014,9 @@ function showDetails(i) {
             <span class="when">${escapeHtml(formatDate(incidentTime(i)))}${km(i) ? ' · ' + escapeHtml(km(i)) : ''}</span>
         </div>
         <div class="detail-body">${escapeHtml(i.body || '(the text was longer than Home Assistant can store in a state)')}</div>
+        ${i.spoken ? `<div class="detail-spoken" title="What the announcement and the browser speech say; the alarm text itself is above">
+            <span class="raw-label">Spoken as</span><span class="speech-text" data-spoken>${escapeHtml(i.spoken)}</span>
+            <button type="button" class="btn" onclick="sayText(this.parentElement.querySelector('[data-spoken]').textContent)" title="Say it with this browser's voice">🗣️ Say</button></div>` : ''}
         <div class="detail-actions">
             ${isCurrent ? respondButtonsHTML() + countdownHTML(i) + '<span class="respond-reason" data-respond-reason></span>' : ''}
             ${audio}
@@ -1355,7 +1365,8 @@ function renderStats(s) {
 // =====================================================================
 function dbLoadInfo() {
     fetch(basePath + 'api/db/info').then(r => r.json()).then(info => {
-        ['incidents', 'incident_updates', 'responses', 'duty'].forEach(t => setText('db-count-' + t, info[t]));
+        ['incidents', 'incident_updates', 'responses', 'duty', 'abbreviations', 'tts_replacements', 'talkgroup_codes', 'city_abbreviations']
+            .forEach(t => setText('db-count-' + t, info[t]));
     }).catch(() => {});
 }
 function dbExport(table) { window.location.href = `${basePath}api/db/export/${table}.csv`; }
@@ -1419,6 +1430,214 @@ function dbResetDatabase() {
                 dbLoadInfo();
             })
             .catch(() => toast('Reset failed', 'error'));
+    });
+}
+
+// =====================================================================
+// Data tab: spoken text (abbreviations, replacement rules, test)
+// =====================================================================
+const SPEECH_KIND = {
+    rule: 'rule', priority: 'priority', postcode: 'postal code', number: 'number', abbreviation: 'abbreviation',
+    place: 'place', word: 'word', code: 'code', spelled: 'unknown, spelled', uncertain: 'two meanings, spelled',
+    talkgroup: 'talk group', time: 'time',
+};
+function postJSON(url, body) {
+    return fetch(basePath + url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)})
+        .then(r => r.json().then(data => r.ok ? data : Promise.reject(new Error(data.error || `HTTP ${r.status}`))));
+}
+
+function speechTest() {
+    const text = document.getElementById('speech-test-input').value.trim();
+    const out = document.getElementById('speech-test-result');
+    if (!text) { out.hidden = true; return; }
+    postJSON('api/speech/test', {text}).then(r => {
+        out.hidden = false;
+        out.innerHTML = `
+            <div class="speech-line"><span class="raw-label">Text</span><span class="speech-text">${escapeHtml(r.text)}</span></div>
+            <div class="speech-line"><span class="raw-label">Spoken as</span><span class="speech-text spoken">${escapeHtml(r.spoken)}</span></div>
+            ${r.steps.length ? `<div class="speech-line"><span class="raw-label">Changes</span><span class="speech-steps">${r.steps.map(s =>
+                `<span class="speech-step ${escapeHtml(s.kind)}" title="${escapeHtml((SPEECH_KIND[s.kind] || s.kind) + (s.note ? ': ' + s.note : ''))}">${escapeHtml(s.from || '·')} → ${escapeHtml(s.to)}</span>`).join('')}</span></div>` : ''}`;
+        if (!sayText(r.spoken)) toast('This browser has no speech', 'error');
+    }).catch(e => toast(e.message, 'error'));
+}
+
+// The speech tables on the Data tab: their columns, form fields and how a row is shown
+const DEFAULT_TAG = (it) => it.default ? ' <span class="tag-default" title="Built-in default; change it and your text is kept at updates">default</span>' : '';
+const SPEECH_TABLES = {
+    abbreviations: {
+        title: 'Abbreviations', item: 'abbreviation', key: 'abbreviation', csv: 'abbreviation, full_text',
+        head: '<tr><th>Code</th><th>Meaning</th><th>Spoken as</th><th></th></tr>',
+        row: (it) => `<td class="mono">${escapeHtml(it.abbreviation)}${DEFAULT_TAG(it)}</td><td>${escapeHtml(it.full_text)}</td>
+            <td>${escapeHtml(it.spoken)}${it.certain ? '' : '<br><span class="note-uncertain">spelled: two meanings (/), give it one</span>'}</td>`,
+        fields: [
+            ['Code', 'abbreviation', 'As in the alarm text, e.g. TS, OVD-B or t.h.v. (stored in capitals).'],
+            ['Meaning', 'full_text', 'Spoken instead of the code. Text in brackets is not spoken; a meaning with / (two meanings) is spelled out.'],
+        ],
+    },
+    tts_replacements: {
+        title: 'Replacement rules', item: 'replacement rule', key: 'pattern', csv: 'pattern, replacement, enabled',
+        head: '<tr><th>#</th><th>Pattern</th><th>Replacement</th><th>On</th><th></th></tr>',
+        rowClass: (it) => it.enabled && it.usable ? '' : 'off',
+        row: (it) => `<td class="mono">${it.id}${DEFAULT_TAG(it)}</td><td class="mono">${escapeHtml(it.pattern)}</td>
+            <td class="mono">${it.usable ? escapeHtml(it.replacement) : '<span class="note-uncertain">empty: not used (would delete text)</span>'}</td>
+            <td>${it.enabled ? 'on' : 'off'}</td>`,
+        fields: [
+            ['Pattern', 'pattern', 'A regular expression, case-insensitive, e.g. <code>\\bhmp\\b</code>.'],
+            ['Replacement', 'replacement', 'Not empty. <code>\\1</code> is the first group of the pattern.'],
+        ],
+        check: 'enabled',
+    },
+    talkgroup_codes: {
+        title: 'Talk groups', item: 'talk group code', key: 'code', csv: 'kind, code, name',
+        head: '<tr><th>Kind</th><th>Code</th><th>Name</th><th></th></tr>',
+        row: (it) => `<td>${escapeHtml(it.kind)}</td><td class="mono">${escapeHtml(it.code)}${DEFAULT_TAG(it)}</td><td>${escapeHtml(it.name)}</td>`,
+        fields: [
+            ['Kind', 'kind', '<code>discipline</code> (1 letter, the first of the code) or <code>region</code> (2 letters, the second and third).'],
+            ['Code', 'code', 'E.g. B, or RT as in BRT-01.'],
+            ['Name', 'name', 'Spoken in "gespreksgroep Brandweer Rotterdam 0 1".'],
+        ],
+    },
+    city_abbreviations: {
+        title: 'Place codes', item: 'place-name code', key: 'abbreviation', csv: 'abbreviation, city',
+        head: '<tr><th>Code</th><th>Place</th><th></th></tr>',
+        row: (it) => `<td class="mono">${escapeHtml(it.abbreviation)}${DEFAULT_TAG(it)}</td><td>${escapeHtml(it.city)}</td>`,
+        fields: [
+            ['Code', 'abbreviation', 'As in the alarm text, e.g. UTRECH (stored in capitals).'],
+            ['Place', 'city', 'Spoken instead of the code.'],
+        ],
+    },
+};
+
+const speechState = {table: null, page: 1, search: '', items: [], total: 0, perPage: 50};
+let speechSearchTimer = null;
+function speechOpen(table) {
+    speechState.table = table;
+    speechState.page = 1;
+    speechState.search = '';
+    document.getElementById('speech-search').value = '';
+    document.getElementById('speech-title').textContent = SPEECH_TABLES[table].title;
+    document.getElementById('speech-head').innerHTML = SPEECH_TABLES[table].head;
+    document.getElementById('speech-manager').hidden = false;
+    speechLoad();
+    document.getElementById('speech-manager').scrollIntoView({behavior: 'smooth', block: 'nearest'});
+}
+function speechClose() { document.getElementById('speech-manager').hidden = true; speechState.table = null; }
+function speechSearch(value) {
+    clearTimeout(speechSearchTimer);
+    speechSearchTimer = setTimeout(() => { speechState.search = value.trim(); speechState.page = 1; speechLoad(); }, 250);
+}
+function speechPage(step) {
+    const pages = Math.max(1, Math.ceil(speechState.total / speechState.perPage));
+    speechState.page = Math.min(pages, Math.max(1, speechState.page + step));
+    speechLoad();
+}
+function speechLoad() {
+    const s = speechState;
+    if (!s.table) return;
+    const spec = SPEECH_TABLES[s.table];
+    const q = new URLSearchParams({page: s.page, per_page: s.perPage, search: s.search});
+    fetch(`${basePath}api/speech/${s.table}?${q}`).then(r => r.json()).then(result => {
+        s.items = result.items || [];
+        s.total = result.total || 0;
+        const pages = Math.max(1, Math.ceil(s.total / s.perPage));
+        setText('speech-total', `${s.total} rows`);
+        setText('speech-pos', `Page ${s.page} of ${pages}`);
+        document.getElementById('speech-prev').disabled = s.page <= 1;
+        document.getElementById('speech-next').disabled = s.page >= pages;
+        const actions = (idx) => `<td class="actions"><button class="row-del" onclick="speechEdit(${idx})" title="Edit">✎</button><button class="row-del" onclick="speechDelete(${idx})" title="Delete">✕</button></td>`;
+        document.getElementById('speech-rows').innerHTML = s.items.length
+            ? s.items.map((it, idx) => `<tr class="${spec.rowClass ? spec.rowClass(it) : ''}">${spec.row(it)}${actions(idx)}</tr>`).join('')
+            : `<tr><td colspan="5" class="panel-sub">${s.search ? 'Nothing found.' : 'Empty.'}</td></tr>`;
+    }).catch(() => toast('Loading failed', 'error'));
+}
+
+function speechEdit(idx) {
+    const table = speechState.table;
+    const spec = SPEECH_TABLES[table];
+    const it = idx === null ? null : speechState.items[idx];
+    const field = ([label, name, hint]) => `
+        <div class="form-field"><label>${escapeHtml(label)}</label>
+            <input type="text" class="input" data-field="${name}" value="${escapeHtml((it && it[name]) || '')}" style="font-family: var(--mono);">
+            ${hint ? `<div class="panel-sub" style="margin-top: 4px;">${hint}</div>` : ''}</div>`;
+    const overlay = openModal({
+        title: (it ? 'Edit ' : 'Add ') + spec.item,
+        bodyHTML: spec.fields.map(field).join('')
+            + (spec.check ? `<label class="form-check"><input type="checkbox" data-field="${spec.check}" ${!it || it[spec.check] ? 'checked' : ''}> On</label>` : '')
+            + (it && it.default ? '<div class="panel-sub">A built-in default. Your change is kept at restarts and updates.</div>' : ''),
+        footHTML: '<button class="btn" data-close>Cancel</button><button class="btn btn-primary" data-save>Save</button>'
+    });
+    overlay.querySelector('[data-save]').addEventListener('click', () => {
+        const body = {};
+        spec.fields.forEach(([, name]) => { body[name] = overlay.querySelector(`[data-field="${name}"]`).value; });
+        if (spec.check) body[spec.check] = overlay.querySelector(`[data-field="${spec.check}"]`).checked;
+        if (it) body.id = it.id;
+        postJSON(`api/speech/${table}`, body).then(() => {
+            closeModal();
+            toast('Saved', 'success');
+            speechLoad();
+            dbLoadInfo();
+        }).catch(e => toast(e.message, 'error'));
+    });
+    overlay.querySelector('input').focus();
+}
+
+function speechDelete(idx) {
+    const table = speechState.table;
+    const it = speechState.items[idx];
+    if (!it) return;
+    const name = it[SPEECH_TABLES[table].key];
+    const note = it.default ? ' It is a built-in default: it stays deleted, also after updates.' : '';
+    confirmDialog({title: 'Delete', message: `Delete <code>${escapeHtml(name)}</code>? A code is then spelled out.${note}`, confirmLabel: 'Delete', danger: true}).then(ok => {
+        if (!ok) return;
+        fetch(`${basePath}api/speech/${table}/${it.id}`, {method: 'DELETE'}).then(r => r.json()).then(result => {
+            if (result.error) { toast(result.error, 'error'); return; }
+            speechLoad();
+            dbLoadInfo();
+        }).catch(() => toast('Delete failed', 'error'));
+    });
+}
+
+function speechImportList() {
+    confirmDialog({
+        title: 'Import the abbreviation list',
+        message: 'Adds the public P2000 abbreviation list (the same list as the Meldkamer app). A code that is already in your list gets the list\'s meaning again, so a meaning you changed is overwritten. Codes you added yourself stay.',
+        confirmLabel: 'Import list'
+    }).then(ok => {
+        if (!ok) return;
+        postJSON('api/speech/abbreviations/import-list', {}).then(r => {
+            toast(`${r.count} abbreviations imported`, 'success');
+            dbLoadInfo();
+            if (speechState.table === 'abbreviations') speechLoad();
+        }).catch(e => toast(e.message, 'error'));
+    });
+}
+
+function speechImportCsv(table) {
+    const spec = SPEECH_TABLES[table];
+    const overlay = openModal({
+        title: `Import ${spec.title.toLowerCase()} from CSV`,
+        bodyHTML: `
+            <div class="panel-sub">A CSV file with the columns <code>${spec.csv}</code>, as exported here${table === 'abbreviations' || table === 'tts_replacements' ? ' or by the Meldkamer app' : ''}. Existing rows with the same ${escapeHtml(spec.key)} are updated.${table === 'tts_replacements' ? ' Rules with an empty replacement are skipped: they would delete text.' : ''}</div>
+            <div class="form-field"><label>CSV file</label><input type="file" class="input" data-file accept=".csv,text/csv" style="padding-top: 4px;"></div>
+            <label class="form-check"><input type="checkbox" data-replace> Replace: delete all current rows first</label>`,
+        footHTML: '<button class="btn" data-close>Cancel</button><button class="btn btn-primary" data-import disabled>Import</button>'
+    });
+    const input = overlay.querySelector('[data-file]');
+    const button = overlay.querySelector('[data-import]');
+    input.addEventListener('change', () => { button.disabled = !input.files.length; });
+    button.addEventListener('click', () => {
+        const file = input.files[0];
+        if (!file) return;
+        button.disabled = true;
+        file.text().then(csv => postJSON(`api/speech/${table}/import`, {csv, replace: overlay.querySelector('[data-replace]').checked}))
+            .then(r => {
+                closeModal();
+                toast(`${r.imported} rows imported` + (r.skipped.length ? `, ${r.skipped.length} skipped` : ''), 'success');
+                if (r.skipped.length) console.warn('Skipped:', r.skipped);
+                dbLoadInfo();
+                if (speechState.table === table) speechLoad();
+            })
+            .catch(e => { toast(e.message, 'error'); button.disabled = false; });
     });
 }
 

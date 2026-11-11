@@ -13,8 +13,6 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
-from .city_abbreviations import get_abbreviation
-
 logger = logging.getLogger(__name__)
 
 # Dutch provinces
@@ -292,7 +290,7 @@ def import_all_places(database) -> int:
             [
                 {
                     "city": wp["name"],
-                    "abbreviation": get_abbreviation(wp["name"]),
+                    "abbreviation": database.abbreviation_for_city(wp["name"]),
                     "province": wp["province"],
                     "latitude": wp["latitude"],
                     "longitude": wp["longitude"],
@@ -556,7 +554,7 @@ def import_province_data(province: str, database) -> dict[str, Any]:
             try:
                 city_id, created = database.upsert_place(
                     city=woonplaats,
-                    abbreviation=get_abbreviation(woonplaats),
+                    abbreviation=database.abbreviation_for_city(woonplaats),
                     province=province,
                     latitude=latitude,
                     longitude=longitude,
