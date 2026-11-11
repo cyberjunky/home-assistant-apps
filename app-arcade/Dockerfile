@@ -10,8 +10,9 @@ FROM ${BUILD_FROM}
 
 ENV LANG=C.UTF-8
 
-# Python runtime for the web server; 7zip to read the file list of .7z ROM sets
-RUN apk add --no-cache python3 py3-pip 7zip
+# Python runtime for the web server; 7zip to read the file list of .7z ROM sets; tzdata so the
+# play statistics count days and hours in the browser's time zone
+RUN apk add --no-cache python3 py3-pip 7zip tzdata
 
 # Install Python dependencies (pinned in requirements.txt so Dependabot can track them)
 COPY requirements.txt /tmp/requirements.txt

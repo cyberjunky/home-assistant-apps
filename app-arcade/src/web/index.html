@@ -17,6 +17,7 @@
         </div>
         <nav class="tabs" aria-label="Views">
             <button type="button" class="tab active" data-tab="library" onclick="switchTab('library')">Library</button>
+            <button type="button" class="tab" data-tab="stats" onclick="switchTab('stats')">Stats</button>
             <button type="button" class="tab" data-tab="info" onclick="switchTab('info')">Info</button>
         </nav>
         <span class="spacer"></span>
@@ -54,6 +55,43 @@
 
             <div id="problems" class="problems" hidden></div>
             <div id="games" class="games"></div>
+        </section>
+
+        <section id="tab-stats" class="tab-content">
+            <div id="stats-empty" class="empty" hidden><b>Nothing played yet.</b><br>Play a game and come back: the app counts the time
+                a game runs in a visible tab, per game and per day.</div>
+            <div id="stats-main" hidden>
+                <div id="stats-kpis" class="kpi-grid"></div>
+                <div class="stats-grid">
+                    <div class="panel wide">
+                        <div class="panel-head"><span class="panel-title" id="series-title">Play time</span>
+                            <div class="tabs" id="stats-unit" role="group" aria-label="Per day or week">
+                                <button type="button" class="tab" data-unit="day" onclick="setStatsUnit('day')">Day</button>
+                                <button type="button" class="tab" data-unit="week" onclick="setStatsUnit('week')">Week</button>
+                            </div></div>
+                        <div class="panel-body bar-chart" id="series-chart"></div>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-head"><span class="panel-title">Most played</span></div>
+                        <div class="panel-body bar-chart" id="top-chart"></div>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-head"><span class="panel-title">Time of day</span><span class="panel-sub">play time by the hour a session started</span></div>
+                        <div class="panel-body bar-chart" id="hours-chart"></div>
+                    </div>
+                    <div class="panel wide">
+                        <div class="panel-head"><span class="panel-title">Per game</span></div>
+                        <div class="table-wrap"><table class="stats-table">
+                            <thead><tr><th>Game</th><th class="num">Played</th><th class="num">Sessions</th><th class="num">Average</th><th class="num">Longest</th><th>Last played</th><th>High scores</th></tr></thead>
+                            <tbody id="stats-table"></tbody>
+                        </table></div>
+                    </div>
+                </div>
+            </div>
+            <div id="never-panel" class="panel never" hidden>
+                <div class="panel-head"><span class="panel-title">Not played yet</span><span class="panel-sub">in your library</span></div>
+                <div class="panel-body game-chips" id="never-list"></div>
+            </div>
         </section>
 
         <section id="tab-info" class="tab-content">
@@ -125,6 +163,13 @@
         <span class="sb-extra"><b id="sb-known">0</b> machines in MAME <span id="sb-mame"></span></span>
         <span class="sb-extra">v__APP_VERSION__</span>
     </footer>
+
+    <div id="detail" class="modal" hidden onclick="if (event.target === this) closeDetail()">
+        <div class="modal-box" role="dialog" aria-modal="true" aria-label="Game">
+            <button type="button" id="detail-close" class="btn btn-ghost modal-close" onclick="closeDetail()" aria-label="Close">✕</button>
+            <div id="detail-body" class="detail"></div>
+        </div>
+    </div>
 
     <div id="toast-root" class="toast-root"></div>
     <script src="__BASE__/static/common.js?v=__APP_VERSION__"></script>

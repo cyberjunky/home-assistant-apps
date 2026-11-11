@@ -80,6 +80,8 @@ save and load the game, reset it, turn the sound off and go full screen.
 |------|-------|
 | ROM files | The ROM folder, default `/share/arcade/roms` |
 | High scores (`hiscore/`), NVRAM (`nvram/`), settings and input mapping (`cfg/`), save states (`sta/`) | `/data/saves` in the app; part of the app's Home Assistant backups |
+| Thumbnails, one per game (`<game>.webp`) | `/data/thumbs` |
+| Play statistics (sessions: game, start, seconds played) | `/data/stats.sqlite3` |
 
 The browser loads a game's files when you open it and sends changed files back every ten
 seconds and when you leave the game, so a high score is kept even when you close the tab.
@@ -92,6 +94,35 @@ NVRAM (battery-backed memory, used by later games for scores and settings) are s
 30 seconds and when you leave the game. MAME normally writes them only when it shuts down,
 a step its browser version never reaches; the app's MAME carries a small patch for that
 (see [Legal and licenses](#legal-and-licenses)).
+
+## Pictures and statistics
+
+**Thumbnails.** The library shows a picture of each game, taken from the game itself: half
+a minute after you insert a coin and press Start, the player takes a MAME snapshot (the
+game screen at its own resolution, without the black bars around it, vertical games the
+right way up) and sends it to the app. Every new game replaces the picture, so it shows
+the game as you last played it. When nobody presses Start (a gamepad's start button, or a
+game on free play), a game that has no picture yet gets one after a minute and a half.
+Until then the card shows a title tile.
+
+**Stats tab.** The app counts how long you play each game: only while the game runs in a
+visible tab, so a game left open in the background doesn't count. The player reports the
+time every half minute and when you leave, also when you close the tab. A session shorter
+than 5 seconds is not counted. The Stats tab shows:
+
+- total play time, the number of games played and sessions, the longest session, your
+  streak (days in a row with play; the current one and the longest) and the hour you play most;
+- play time per day for the last 30 days, or per week for the last 12 weeks;
+- the most played games, and play time by the hour of the day (in your browser's time zone);
+- per game: time played, sessions, average and longest session, when you last played it,
+  and whether its high scores are kept;
+- the games in your library you haven't played yet.
+
+Click a card in the library, a bar or a row in the table for a game's details.
+
+High scores are kept by MAME's hiscore plugin as the game's own memory, in a layout of its
+own for every game, so the app can tell that a game has saved high scores but not read the
+scores themselves.
 
 ## Options
 

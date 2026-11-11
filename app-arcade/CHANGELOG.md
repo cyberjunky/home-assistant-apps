@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0
+
+**After updating:** nothing to do. Pictures and statistics start with the next game you play.
+
+- **Thumbnails**: the library shows a picture of each game, taken from the game itself while you play it: half a minute after you insert a coin and press Start, so it shows the game rather than its title screen (with MAME's own snapshot, at the game's resolution, vertical games the right way up). Each new game replaces the picture. A game without one yet gets a title tile in arcade style.
+- **Larger cards**: the picture on top, the full name on two lines, year and maker, how long and when you last played it, and the Play button. Click a card for the details: play time, sessions, first and last played, whether high scores are kept, the ROM file, and Remove (no longer on the card itself).
+- **Stats tab**: total play time, games played, sessions, longest session, streak (days in a row) and favourite time of day; play time per day (last 30 days) or week (last 12 weeks), the most played games, play time by hour, a table per game (time, sessions, average and longest session, last played, high scores kept) and the games in your library you haven't played yet.
+- Play time counts only while a game runs in a visible tab. The player reports it every half minute and when you leave, also when you close the tab. Sessions shorter than 5 seconds don't count.
+- Stored in `/data`: the pictures in `thumbs/`, the statistics in `stats.sqlite3`; both part of the app's backups.
+
 ## 0.1.3
 
 **After updating:** nothing to do.

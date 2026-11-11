@@ -10,6 +10,8 @@ import sys
 from .config import DATA_DIR, MAME_DIR, Config
 from .library import Library
 from .saves import Saves
+from .stats import Stats
+from .thumbs import Thumbs
 from .webui import WebUI
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
@@ -36,7 +38,8 @@ async def main() -> int:
         return 1
     library = Library(MAME_DIR / "games.json", config.rom_folder)
     saves = Saves(DATA_DIR / "saves")
-    webui = WebUI(WEB_PORT, library, saves)
+    stats = Stats(DATA_DIR / "stats.sqlite3")
+    webui = WebUI(WEB_PORT, library, saves, stats, Thumbs(DATA_DIR / "thumbs"))
 
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -47,6 +50,7 @@ async def main() -> int:
         await stop.wait()
     finally:
         await webui.stop()
+        stats.close()
     logger.info("Arcade stopped")
     return 0
 

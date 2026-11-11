@@ -2,6 +2,7 @@
 // Before MAME starts, the game's ROM zips, its saved files (high scores, NVRAM, settings,
 // save states) and the hiscore plugin are put in MAME's in-memory file system; while the
 // game runs, changed files go back to the app every few seconds and when you leave.
+// It also reports how long you play (for the Stats tab) and takes the library's thumbnail.
 const GAME = document.body.dataset.game;
 // The MAME files are cached for long; a new app version gets new URLs
 const MAME_V = '?v=' + encodeURIComponent(document.body.dataset.version || '');
@@ -13,6 +14,12 @@ const SYNC_MS = 10000;
 // MAME writes NVRAM and settings only when asked (see mame/save-settings.patch)
 const SETTINGS_EVERY = 3;   // syncs, so every 30 seconds
 let syncCount = 0;
+// Play time counts while the game runs in a visible tab; reported every half minute and on leaving
+const BEAT_MS = 30000;
+// The thumbnail: a snapshot this long after Start was pressed (gameplay, not the title screen),
+// or, when nobody presses Start, after this much of the attract mode if the game has none yet
+const THUMB_AFTER_START_MS = 30000;
+const THUMB_FALLBACK_S = 90;
 
 let game = null;
 let roms = [];          // [{file, data}]
@@ -117,6 +124,8 @@ function mameArguments() {
         '-cfg_directory', HOME + '/cfg',
         '-nvram_directory', HOME + '/nvram',
         '-state_directory', HOME + '/sta',
+        // Snapshots (F12) go here; the app takes the library's thumbnail with one
+        '-snapshot_directory', HOME + '/snap',
         '-pluginspath', '/plugins',
         '-plugin', 'hiscore',
         // SDL3's renderer (WebGL); 'opengl', MAME's default, needs desktop OpenGL calls browsers lack
@@ -151,6 +160,7 @@ function startGame() {
             canvas.focus();
             statusLine('Playing. Esc goes back to the library; high scores and settings are saved.');
             setInterval(sync, SYNC_MS);
+            startSession();
         },
         print: (t) => { log.push(t); },
         printErr: (t) => { log.push(t); if (/error|missing|not found/i.test(t)) console.warn('MAME:', t); },
@@ -203,6 +213,118 @@ async function sync(keepalive) {
 }
 
 
+// ------------------------------------------------------------------ play time
+let session = null;         // id from the app
+let played = 0;             // seconds played in this session
+let reported = 0;
+let lastTick = 0;
+function playing() { return running && !leaving && document.visibilityState === 'visible'; }
+async function startSession() {
+    try { session = (await getJson(`/api/stats/${GAME}/session`, {method: 'POST'})).session; } catch (e) { return; }
+    lastTick = performance.now();
+    setInterval(tick, 1000);
+    setInterval(() => report(false), BEAT_MS);
+}
+function tick() {
+    const now = performance.now();
+    // Count real time between ticks (timers slow down in the background), at most a few seconds
+    if (playing()) played += Math.min(5, (now - lastTick) / 1000);
+    lastTick = now;
+    if (!thumbTimer && !thumbTaken && !game.thumb && played >= THUMB_FALLBACK_S) takeThumbnail();
+}
+// closing: sendBeacon, which the browser delivers after the page is gone
+function report(closing) {
+    if (session === null || Math.round(played) === reported) return;
+    reported = Math.round(played);
+    const body = JSON.stringify({seconds: reported});
+    const url = api(`/api/stats/session/${session}`);
+    if (closing && navigator.sendBeacon && navigator.sendBeacon(url, body)) return;
+    fetch(url, {method: 'POST', body, keepalive: true}).catch(() => { reported = -1; });
+}
+document.addEventListener('visibilitychange', () => {
+    tick();
+    if (document.visibilityState === 'hidden') report(true);
+});
+
+// ------------------------------------------------------------------ thumbnail
+let thumbTimer = null;
+let thumbTaken = false;
+const SNAP_DIR = `${HOME}/snap/${GAME}`;
+const THUMB_SIZE = [480, 360];   // 4:3, the shape of an arcade monitor (turned for vertical games)
+
+function snapFiles(fs) {
+    try { return fs.readdir(SNAP_DIR).filter(n => n.endsWith('.png')); } catch (e) { return []; }
+}
+// MAME's own snapshot (F12): the game screen at its own resolution, the right way up, no borders
+async function mameSnapshot() {
+    const fs = mameFS();
+    const before = new Set(snapFiles(fs));
+    sendKey('F12', true);
+    await new Promise(r => setTimeout(r, 150));
+    sendKey('F12', false);
+    for (let i = 0; i < 20; i += 1) {
+        await new Promise(r => setTimeout(r, 100));
+        const name = snapFiles(fs).find(n => !before.has(n));
+        if (name) {
+            const data = fs.readFile(`${SNAP_DIR}/${name}`);
+            fs.unlink(`${SNAP_DIR}/${name}`);
+            return createImageBitmap(new Blob([data], {type: 'image/png'}));
+        }
+    }
+    return null;
+}
+// If that doesn't come: the canvas, right after MAME drew a frame, without the bars around the game
+function canvasFrame() {
+    return new Promise(resolve => requestAnimationFrame(() => {
+        const c = document.getElementById('canvas');
+        const vertical = game.rotate === 90 || game.rotate === 270;
+        const aspect = vertical ? 3 / 4 : 4 / 3;
+        let w = c.width, h = c.height;
+        if (w / h > aspect) w = Math.round(h * aspect); else h = Math.round(w / aspect);
+        const out = document.createElement('canvas');
+        out.width = w; out.height = h;
+        out.getContext('2d').drawImage(c, (c.width - w) / 2, (c.height - h) / 2, w, h, 0, 0, w, h);
+        resolve(out);
+    }));
+}
+function encode(canvas) {
+    return new Promise(resolve => canvas.toBlob(b => resolve(b), 'image/webp', 0.85));
+}
+async function takeThumbnail() {
+    if (!running || leaving || document.visibilityState !== 'visible') return;
+    thumbTaken = true;
+    try {
+        const src = (await mameSnapshot()) || (await canvasFrame());
+        // The monitor's 4:3 (the game's pixels need not be square): scale up sharp first, then down smooth
+        const [w, h] = game.rotate === 90 || game.rotate === 270 ? [THUMB_SIZE[1], THUMB_SIZE[0]] : THUMB_SIZE;
+        const k = Math.max(1, Math.ceil(Math.max(w / src.width, h / src.height)));
+        const big = document.createElement('canvas');
+        big.width = src.width * k; big.height = src.height * k;
+        const bx = big.getContext('2d');
+        bx.imageSmoothingEnabled = false;
+        bx.drawImage(src, 0, 0, big.width, big.height);
+        const out = document.createElement('canvas');
+        out.width = w; out.height = h;
+        const ox = out.getContext('2d');
+        ox.imageSmoothingQuality = 'high';
+        ox.drawImage(big, 0, 0, w, h);
+        const blob = await encode(out);   // PNG where the browser can't write WebP
+        if (!blob) return;
+        const res = await getJson(`/api/thumbs/${GAME}`, {method: 'PUT', body: blob});
+        game.thumb = res.thumb;
+    } catch (e) { console.warn('Thumbnail failed:', e); }
+}
+// Start pressed after a coin (keyboard or the touch controls): a game began, so the thumbnail
+// comes some time into it rather than from the title screen
+let coined = false;
+window.addEventListener('keydown', (e) => {
+    if (!running) return;
+    if (e.code === 'Digit5' || e.code === 'Digit6') coined = true;
+    else if (coined && !thumbTimer && (e.code === 'Digit1' || e.code === 'Digit2')) {
+        thumbTimer = setTimeout(takeThumbnail, THUMB_AFTER_START_MS);
+    }
+});
+
 function saveState() {
     if (!running) return;
     JSMAME.save('1');
@@ -238,11 +360,13 @@ async function leave() {
         statusLine('Saving…');
         saveSettings();
         await sync();
+        tick();
+        report(true);
         try { mame('exit'); } catch (e) { /* already stopped */ }
     }
     window.location.href = api('/');
 }
-window.addEventListener('pagehide', () => { if (running && !leaving) { saveSettings(); sync(true); } });
+window.addEventListener('pagehide', () => { if (running && !leaving) { saveSettings(); sync(true); tick(); report(true); } });
 
 // Our keys first: Esc would quit MAME and leave a black page
 window.addEventListener('keydown', (e) => {
@@ -253,8 +377,8 @@ window.addEventListener('keydown', (e) => {
 }, true);
 
 // On-screen controls for touch screens: they send the same keys as a keyboard
-const KEYCODES = {ArrowUp: 38, ArrowDown: 40, ArrowLeft: 37, ArrowRight: 39, Digit5: 53, Digit1: 49, ControlLeft: 17, AltLeft: 18};
-const KEYNAMES = {ArrowUp: 'ArrowUp', ArrowDown: 'ArrowDown', ArrowLeft: 'ArrowLeft', ArrowRight: 'ArrowRight', Digit5: '5', Digit1: '1', ControlLeft: 'Control', AltLeft: 'Alt'};
+const KEYCODES = {ArrowUp: 38, ArrowDown: 40, ArrowLeft: 37, ArrowRight: 39, Digit5: 53, Digit1: 49, ControlLeft: 17, AltLeft: 18, F12: 123};
+const KEYNAMES = {ArrowUp: 'ArrowUp', ArrowDown: 'ArrowDown', ArrowLeft: 'ArrowLeft', ArrowRight: 'ArrowRight', Digit5: '5', Digit1: '1', ControlLeft: 'Control', AltLeft: 'Alt', F12: 'F12'};
 function sendKey(code, down) {
     const ev = new KeyboardEvent(down ? 'keydown' : 'keyup', {code, key: KEYNAMES[code], bubbles: true, cancelable: true});
     Object.defineProperty(ev, 'keyCode', {get: () => KEYCODES[code]});

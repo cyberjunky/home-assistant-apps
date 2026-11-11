@@ -23,6 +23,8 @@ laptop to the tablet.
 ## Supported Features
 
 - 🕹️ **The real thing**: MAME emulates the original arcade hardware, so graphics, sound and timing are the original's
+- 🖼️ **Thumbnails**: each game's card shows a picture taken from the game itself while you play it
+- 📊 **Stats**: play time per game and per day, most played games, longest session, streak and favourite time of day
 - 📚 **Library**: drop ROM files (`.zip` or `.7z`) on the page; each one is recognised by its contents and stored under the game's own name, with what is still missing if a set is incomplete
 - 🏆 **High scores kept**: MAME's hiscore plugin saves them as soon as they change, also for games that forgot them at power-off
 - 💾 **Save states**: save the game at any moment and go back to it later, on any device
@@ -32,7 +34,9 @@ laptop to the tablet.
 
 ## Screenshots
 
-![Library: the games your ROM files hold](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-arcade/screenshots/library-light.webp)
+![Library: the games your ROM files hold, with a picture taken while you play](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-arcade/screenshots/library-light.webp)
+
+![Stats: play time per day, most played games, time of day and a table per game](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-arcade/screenshots/stats-light.webp)
 
 ![Super Tank, one of the free ROMs on mamedev.org, being played](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-arcade/screenshots/playing-supertank.webp)
 
@@ -41,6 +45,9 @@ laptop to the tablet.
 
 **Library, dark theme** — follows Home Assistant's light/dark mode
 ![Library in the dark theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-arcade/screenshots/library-dark.webp)
+
+**Stats, dark theme**
+![Stats in the dark theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-arcade/screenshots/stats-dark.webp)
 
 </details>
 

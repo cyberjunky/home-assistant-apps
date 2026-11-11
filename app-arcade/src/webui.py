@@ -13,6 +13,8 @@ from .config import DATA_DIR, MAME_DIR
 from .donate import DonatePrompt
 from .library import Library
 from .saves import MAX_FILE, Saves
+from .stats import Stats
+from .thumbs import MAX_THUMB, TYPES, Thumbs
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +47,12 @@ def _mame_info() -> dict:
 
 
 class WebUI:
-    def __init__(self, port: int, library: Library, saves: Saves):
+    def __init__(self, port: int, library: Library, saves: Saves, stats: Stats, thumbs: Thumbs):
         self.port = port
         self.library = library
         self.saves = saves
+        self.stats = stats
+        self.thumbs = thumbs
         self.mame = _mame_info()
         self.app = web.Application(client_max_size=MAX_UPLOAD)
         self._runner: web.AppRunner | None = None
@@ -70,6 +74,11 @@ class WebUI:
         r.add_get("/api/saves/{game}/{path:.+}", self._save_get)
         r.add_put("/api/saves/{game}/{path:.+}", self._save_put)
         r.add_delete("/api/saves/{game}", self._saves_delete)
+        r.add_get("/thumbs/{game}", self._thumb_get)
+        r.add_put("/api/thumbs/{game}", self._thumb_put)
+        r.add_get("/api/stats", self._stats)
+        r.add_post("/api/stats/{game}/session", self._session_start)
+        r.add_post("/api/stats/session/{session}", self._session_beat)
 
     async def start(self) -> None:
         self._runner = web.AppRunner(self.app, access_log=None)
@@ -142,8 +151,12 @@ class WebUI:
     async def _games(self, _request: web.Request) -> web.Response:
         data = self.library.status()
         hi = self.saves.high_score_games()
+        thumbs = self.thumbs.all()
+        played = self.stats.played()
         for g in data["games"]:
             g["has_scores"] = g["name"] in hi
+            g["thumb"] = thumbs.get(g["name"])
+            g["played"] = played.get(g["name"])
         return web.json_response(data)
 
     async def _upload(self, request: web.Request) -> web.Response:
@@ -230,3 +243,61 @@ class WebUI:
         n = self.saves.delete_game(self._game(request))
         logger.info(f"Cleared {n} saved file(s) of {request.match_info['game']}")
         return web.json_response({"ok": True, "removed": n})
+
+    # ---------------------------------------------------------- thumbnails
+    async def _thumb_get(self, request: web.Request) -> web.StreamResponse:
+        path = self.thumbs.path(self._game(request))
+        if not path:
+            raise web.HTTPNotFound()
+        # The library asks for ?v=<version>, so a new picture has a new URL
+        resp = web.FileResponse(path, headers={"Cache-Control": "public, max-age=86400"})
+        resp.content_type = TYPES[path.suffix]
+        return resp
+
+    async def _thumb_put(self, request: web.Request) -> web.Response:
+        game = self._game(request)
+        if request.content_length and request.content_length > MAX_THUMB:
+            return web.json_response({"error": "image too large"}, status=413)
+        data = await request.read()
+        try:
+            self.thumbs.write(game, data)
+        except ValueError as e:
+            return web.json_response({"error": str(e)}, status=400)
+        logger.debug(f"New thumbnail for {game} ({len(data)} bytes)")
+        return web.json_response({"ok": True, "thumb": self.thumbs.version(game)})
+
+    # --------------------------------------------------------------- stats
+    async def _stats(self, request: web.Request) -> web.Response:
+        try:
+            offset = int(request.query.get("offset", "0"))
+        except ValueError:
+            offset = 0
+        data = self.stats.summary(request.query.get("tz", "")[:64], max(-900, min(900, offset)))
+        hi = self.saves.high_score_games()
+        for g in data["games"]:
+            info = self.library.games.get(g["name"], {})
+            g["description"] = info.get("description", g["name"])
+            g["year"] = info.get("year", "")
+            g["company"] = info.get("company", "")
+            g["has_scores"] = g["name"] in hi
+        if data["longest"]:
+            data["longest"]["description"] = self.library.games.get(data["longest"]["game"], {}).get(
+                "description", data["longest"]["game"]
+            )
+        return web.json_response(data)
+
+    async def _session_start(self, request: web.Request) -> web.Response:
+        return web.json_response({"session": self.stats.start(self._game(request))})
+
+    async def _session_beat(self, request: web.Request) -> web.Response:
+        # Also sent with navigator.sendBeacon when the page closes, which posts the JSON as text
+        try:
+            session = int(request.match_info["session"])
+            seconds = float(json.loads(await request.text() or "{}").get("seconds", 0))
+        except (ValueError, TypeError, AttributeError):
+            return web.json_response({"error": "invalid request"}, status=400)
+        if not 0 <= seconds < 7 * 24 * 3600:
+            return web.json_response({"error": "invalid play time"}, status=400)
+        if not self.stats.beat(session, seconds):
+            raise web.HTTPNotFound()
+        return web.json_response({"ok": True})
