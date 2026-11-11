@@ -13,8 +13,8 @@ def test_defaults():
 
 
 def test_device_args():
-    hackrf = Config.from_dict({"receiver": {"type": "hackrf", "serial": "abc"}, "tune": {"frequency": 1, "mode": "am"}})
-    assert hackrf.receiver.device_args() == {"driver": "hackrf", "serial": "abc"}
+    hackrf = Config.from_dict({"receiver": {"type": "hackrf"}, "tune": {"frequency": 1, "mode": "am"}})
+    assert hackrf.receiver.device_args() == {"driver": "hackrf"}
     network = Config.from_dict(
         {
             "receiver": {"type": "network", "network_host": "10.0.0.2", "network_port": 1235},
@@ -47,9 +47,9 @@ def test_invalid(options, message):
 def test_out_of_range_values_fall_back():
     config = Config.from_dict(
         {
-            "receiver": {"type": "rtl-sdr", "sample_rate": 50, "ppm_correction": "x"},
+            "receiver": {"type": "rtl-sdr", "sdr_gain": 99, "ppm_correction": "x"},
             "tune": {"frequency": 1, "mode": "am"},
         }
     )
-    assert config.receiver.sample_rate == 2_400_000
+    assert config.receiver.sdr_gain == 40
     assert config.receiver.ppm_correction == 0

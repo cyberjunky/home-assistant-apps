@@ -1,5 +1,5 @@
 name: SDRadio
-version: "0.1.0"
+version: "0.1.1"
 slug: app-sdradio
 description: "A software defined radio receiver in Home Assistant - tune, listen, scan and keep your channels, with an RTL-SDR, HackRF or rtl_tcp"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-sdradio"
@@ -20,15 +20,13 @@ homeassistant_api: true
 options:
   receiver:
     type: rtl-sdr
-    serial: ""
     network_host: ""
     network_port: 1234
-    sample_rate: 2400000
+    sdr_gain: 40
     ppm_correction: 0
-    sdr_gain: 0
-    hackrf_lna_gain: 32
+    hackrf_lna_gain: 40
     hackrf_vga_gain: 30
-    hackrf_amp_enable: false
+    hackrf_amp_enable: true
     bias_tee: false
   tune:
     frequency: 145.5
@@ -38,13 +36,11 @@ options:
 
 schema:
   receiver:
-    type: list(rtl-sdr|hackrf|soapysdr|network)
-    serial: str?
+    type: list(rtl-sdr|hackrf|soapysdr|network)?
     network_host: 'match(^[A-Za-z0-9.:\[\]-]*$)?'
-    network_port: port?
-    sample_rate: int(250000,20000000)?
-    ppm_correction: int(-200,200)?
-    sdr_gain: float(0,110)?
+    network_port: int?
+    sdr_gain: int(0,50)?
+    ppm_correction: int?
     hackrf_lna_gain: int(0,40)?
     hackrf_vga_gain: int(0,62)?
     hackrf_amp_enable: bool?

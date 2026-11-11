@@ -52,7 +52,7 @@
                 <!-- Radio: the front panel, favourites, spectrum and the stored channels -->
                 <div id="tab-radio" class="tab-content">
                     <section class="front" aria-label="Front panel">
-                        <div class="front-main">
+                        <div class="front-lcd">
                             <div class="lcd" id="lcd">
                                 <div class="lcd-top">
                                     <span class="ind" id="ind-scan">SCAN</span>
@@ -77,16 +77,14 @@
                                     <span class="lcd-level" id="lcd-level"></span>
                                 </div>
                             </div>
-                            <canvas class="scale" id="scale" height="58" aria-label="Band scale: click or drag to tune" role="img"></canvas>
-                            <div class="knob-row" id="knob-row"></div>
+                            <canvas class="scale" id="scale" height="44" aria-label="Band scale: click or drag to tune" role="img"></canvas>
                         </div>
+                        <div class="knob-row" id="knob-row"></div>
                         <div class="front-dial" id="tune-dial"></div>
-                        <div class="keypad-wrap">
-                            <div class="keypad" id="keypad"></div>
-                            <div class="scan-source">
-                                <span class="filter-label">Scan</span>
-                                <div class="tabs" role="group" aria-label="What to scan" id="scan-source"></div>
-                            </div>
+                        <div class="keypad" id="keypad"></div>
+                        <div class="scan-keys">
+                            <div class="keypad" id="scan-keys"></div>
+                            <div class="tabs" role="group" aria-label="What to scan" id="scan-source"></div>
                         </div>
                     </section>
 
@@ -106,9 +104,9 @@
                                 <button type="button" class="btn btn-small" id="auto-range" onclick="toggleAutoRange()">Auto range</button>
                             </div>
                             <div class="spectrum-wrap" id="spectrum-wrap">
-                                <canvas id="spectrum" height="150"></canvas>
+                                <canvas id="spectrum" height="130"></canvas>
                                 <div class="freq-axis" id="freq-axis"></div>
-                                <canvas id="waterfall" height="280"></canvas>
+                                <canvas id="waterfall" height="240"></canvas>
                             </div>
                         </section>
                         <aside class="panel chlist" aria-label="Stored channels">
@@ -126,7 +124,9 @@
                             </div>
                             <div class="chlist-items" id="chlist-items"></div>
                             <div class="chlist-foot">
-                                <button type="button" class="btn btn-primary" id="store-btn" onclick="openStore()">Store current</button>
+                                <button type="button" class="btn" onclick="radioCommand('memory', {direction: -1})" aria-label="Previous stored channel" title="Previous stored channel">◀</button>
+                                <button type="button" class="btn" onclick="radioCommand('memory', {direction: 1})" aria-label="Next stored channel" title="Next stored channel">▶</button>
+                                <button type="button" class="btn btn-primary" id="store-btn" onclick="openStore()">M+ Store current</button>
                                 <button type="button" class="btn" onclick="editCurrentChannel()">Edit…</button>
                             </div>
                         </aside>

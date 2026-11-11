@@ -2,9 +2,9 @@ configuration:
   receiver:
     name: Ontvanger
     description: >-
-      De SDR-ontvanger. type is rtl-sdr, hackrf, soapysdr (elk SoapySDR-apparaat)
-      of network (een rtl_tcp-server op network_host:network_port). serial kiest
-      een van meerdere ontvangers. sdr_gain 0 is automatische versterking; de
+      De SDR-ontvanger: rtl-sdr, hackrf, soapysdr (het eerste SoapySDR-apparaat)
+      of network (een rtl_tcp-server op network_host:network_port). De ontvanger
+      wordt vanzelf gevonden. sdr_gain 0 is automatische versterking; de
       RF gain-knop past die aan tijdens het luisteren. De hackrf_*-instellingen
       zijn de eigen versterkers van de HackRF; bias_tee voedt een actieve
       antenne of LNA (alleen rtl-sdr).

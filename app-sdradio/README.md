@@ -70,9 +70,8 @@ Alternatively:
 
 | Option | Default | |
 |---|---|---|
-| `receiver.type` | `rtl-sdr` | `rtl-sdr`, `hackrf`, `soapysdr` or `network` (`rtl_tcp`) |
-| `receiver.sample_rate` | `2400000` | Also how wide the spectrum is |
-| `receiver.sdr_gain` | `0` | `0` = automatic; the RF gain knob changes it while listening |
+| `receiver.type` | `rtl-sdr` | `rtl-sdr`, `hackrf`, `soapysdr` or `network` (`rtl_tcp`); the receiver is found automatically |
+| `receiver.sdr_gain` | `40` | `0` = automatic; the RF gain knob changes it while listening |
 | `tune.frequency` / `tune.mode` | `145.5` / `nfm` | Where the radio starts |
 
 All options, and how scanning, channels and backups work: [DOCS.md](DOCS.md).

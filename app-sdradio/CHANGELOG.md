@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.1
+
+**After updating:** open the **Configuration** tab and save it once: the `serial` and `sample_rate` options are gone.
+
+- **The radio fits the screen:** a smaller display, the keypad in the top right corner with SCAN, HOLD, PRI and L/O under it, and a smaller tune dial; ◀ ▶ and M+ (store) moved under the stored channels. The waterfall takes the height that is left, so the whole radio fits on a 1440×900 screen or bigger.
+- **Receiver options as in the Meldkamer app:** type, network host and port, gain, ppm, the HackRF amplifiers and bias tee. The receiver is found automatically (the first one of its type), always at 2.4 MS/s. A HackRF starts with its own LNA, VGA and amp settings.
+- **A busy receiver says so:** when the receiver is found but can't be opened, the page says another app (such as Meldkamer) is probably using it.
+- **Info:** the receiver's error wraps inside the panel instead of running out of it; the sample rate reads 2.4 MS/s.
+
 ## 0.1.0
 
 **After updating:** plug in the receiver, check the **Configuration** tab (receiver type, sample rate) and start the app.

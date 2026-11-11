@@ -16,6 +16,7 @@ DATA_DIR = Path(os.environ.get("SDRADIO_DATA_DIR", "/data"))
 OPTIONS_FILE = Path(os.environ.get("SDRADIO_OPTIONS", str(DATA_DIR / "options.json")))
 WEB_PORT = int(os.environ.get("SDRADIO_PORT", "8099"))
 
+SAMPLE_RATE = 2_400_000
 RECEIVER_TYPES = ("rtl-sdr", "hackrf", "soapysdr", "network")
 RECEIVER_NAMES = {"rtl-sdr": "RTL-SDR", "hackrf": "HackRF", "soapysdr": "SoapySDR", "network": "rtl_tcp"}
 
@@ -54,24 +55,25 @@ def _float(value, default: float, low: float, high: float) -> float:
 @dataclass
 class ReceiverConfig:
     type: str = "rtl-sdr"
-    serial: str = ""
     network_host: str = ""
     network_port: int = 1234
-    sample_rate: int = 2_400_000
-    ppm_correction: int = 0
     # 0 = automatic gain
-    sdr_gain: float = 0.0
-    hackrf_lna_gain: int = 32
+    sdr_gain: int = 40
+    ppm_correction: int = 0
+    hackrf_lna_gain: int = 40
     hackrf_vga_gain: int = 30
-    hackrf_amp_enable: bool = False
+    hackrf_amp_enable: bool = True
     bias_tee: bool = False
+
+    # Not an option: 2.4 MS/s suits every receiver (2.4 MHz of spectrum, light enough for a Pi)
+    sample_rate = SAMPLE_RATE
 
     @property
     def name(self) -> str:
         return RECEIVER_NAMES.get(self.type, self.type)
 
     def device_args(self) -> dict:
-        """The SoapySDR device arguments for this receiver."""
+        """The SoapySDR device arguments for this receiver: the first one found of its kind."""
         args: dict = {}
         if self.type == "rtl-sdr":
             args["driver"] = "rtlsdr"
@@ -80,8 +82,6 @@ class ReceiverConfig:
         elif self.type == "network":
             args["driver"] = "rtltcp"
             args["rtltcp"] = f"{self.network_host}:{self.network_port}"
-        if self.serial and self.type != "network":
-            args["serial"] = self.serial
         return args
 
 
@@ -123,15 +123,13 @@ class Config:
             raise ValueError("Receiver type network needs network_host: the address of the rtl_tcp server")
         rx = ReceiverConfig(
             type=kind,
-            serial=str(receiver.get("serial") or "").strip(),
             network_host=host,
             network_port=_int(receiver.get("network_port"), 1234, 1, 65535),
-            sample_rate=_int(receiver.get("sample_rate"), 2_400_000, 250_000, 20_000_000),
-            ppm_correction=_int(receiver.get("ppm_correction"), 0, -200, 200),
-            sdr_gain=_float(receiver.get("sdr_gain"), 0.0, 0.0, 110.0),
-            hackrf_lna_gain=_int(receiver.get("hackrf_lna_gain"), 32, 0, 40),
+            ppm_correction=_int(receiver.get("ppm_correction"), 0, -1000, 1000),
+            sdr_gain=_int(receiver.get("sdr_gain"), 40, 0, 50),
+            hackrf_lna_gain=_int(receiver.get("hackrf_lna_gain"), 40, 0, 40),
             hackrf_vga_gain=_int(receiver.get("hackrf_vga_gain"), 30, 0, 62),
-            hackrf_amp_enable=bool(receiver.get("hackrf_amp_enable", False)),
+            hackrf_amp_enable=bool(receiver.get("hackrf_amp_enable", True)),
             bias_tee=bool(receiver.get("bias_tee", False)),
         )
         if rx.bias_tee and kind != "rtl-sdr":
