@@ -1,5 +1,5 @@
 name: FireServiceRota
-version: "0.2.0"
+version: "0.2.1"
 slug: app-fireservicerota
 description: "FireServiceRota / Brandweerrooster dashboard for Home Assistant - live incident, respond, duty and history, read from the FireServiceRota integration"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-fireservicerota"

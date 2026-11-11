@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.14
+
+**After updating:** nothing to do.
+
+- The Data tab uses the same names as the FireServiceRota app for the same tables: Abbreviations (was Texts), Replacement rules (was TTS Replacements), Talk groups, Place codes; and all card titles are written the same way (Ignore text, Ignore capcodes, Vehicle photos).
+
 ## 1.4.13
 
 **After updating:** nothing to do. The database gets two new tables at the first start (Talk Groups and Place Codes, filled with the built-in lists); everything already in it is kept.

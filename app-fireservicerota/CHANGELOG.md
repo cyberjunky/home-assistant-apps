@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+**After updating:** nothing to do.
+
+- The Data tab uses the same names as the Meldkamer app for the same tables: Place codes (was Place names), Abbreviations, Replacement rules, Talk groups.
+
 ## 0.2.0
 
 **After updating:** nothing to do. The database gets four new tables at the first start (abbreviations, replacement rules, talk groups and place names for the spoken text); everything already in it is kept.
