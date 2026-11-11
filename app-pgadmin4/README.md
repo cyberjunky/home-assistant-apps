@@ -12,6 +12,11 @@
 
 # pgAdmin 4 App for Home Assistant
 
+> **A port of [Expaso's pgAdmin 4 add-on](https://github.com/expaso/hassos-addon-pgadmin4)**
+> by Hans van Essen. That project has had no updates since March 2025 (v4.0.0), so it was
+> brought over here and kept up to date. The changes are open to be merged back into the
+> original whenever that suits its maintainer. See [NOTICE](NOTICE).
+
 A Home Assistant app that runs [pgAdmin 4](https://www.pgadmin.org/), the web-based
 administration and development platform for PostgreSQL, and opens it from the sidebar.
 

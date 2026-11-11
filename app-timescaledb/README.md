@@ -12,6 +12,13 @@
 
 # TimescaleDB App for Home Assistant
 
+> **A port of [Expaso's TimescaleDB add-on](https://github.com/expaso/hassos-addon-timescaledb)**
+> by Hans van Essen. When this port was made, that project had seen no release for a year
+> (v5.4.2, October 2025), so it was brought over here and kept up to date. It has since
+> become active again (v6.x, November 2026). The changes here are open to be merged back
+> into the original. Moving over from the Expaso add-on is described in
+> [DOCS.md](DOCS.md#moving-from-the-expaso-add-on); see also [NOTICE](NOTICE).
+
 A Home Assistant app that runs [PostgreSQL](https://www.postgresql.org/) with the
 [TimescaleDB](https://www.timescale.com/) time-series extension, so you can keep your Home
 Assistant recorder data and your long-term measurements in one SQL database and query them
