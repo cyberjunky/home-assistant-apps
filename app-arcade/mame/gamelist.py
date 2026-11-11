@@ -19,7 +19,10 @@ import sys
 from pathlib import Path
 
 # Some drivers number their games in a comment first: /* 739 */ GAMEL( 1978, invaders, ...
-GAME_RE = re.compile(r"^\s*(?:/\*.*?\*/\s*)?(GAMEL?|GAME_CUSTOM|CONS)\s*\((.*)\)\s*(//.*|/\*.*\*/\s*)?$")
+# and some end in more than one comment: ... ) /* need internal ROM */  // V0008 04/27/99
+GAME_RE = re.compile(
+    r"^\s*(?:/\*.*?\*/\s*)?(GAMEL?|GAME_CUSTOM|CONS|COMP|SYST)\s*\((.*)\)\s*(?:(?://.*|/\*.*?\*/)\s*)*$"
+)
 ROM_START_RE = re.compile(r"ROM_START\s*\(\s*(\w+)\s*\)(.*?)ROM_END", re.S)
 DEFINE_RE = re.compile(r"^[ \t]*#[ \t]*define[ \t]+(\w+)(\([^)]*\))?(.*)$", re.S)
 CALL_RE = re.compile(r"\b([A-Za-z_]\w*)\s*\(")
@@ -227,7 +230,7 @@ def parse(path: Path) -> tuple[dict, dict, dict]:
         a = split_args(m.group(2))
         if len(a) < 11:
             continue
-        if m.group(1) == "CONS":
+        if m.group(1) != "GAME" and m.group(1) != "GAMEL":
             # CONS( year, name, parent, compat, machine, input, class, init, company, fullname, flags )
             year, name, parent, _compat, _machine, _inp, _cls, _init, company, fullname, flags = a[:11]
             monitor = "ROT0"
@@ -242,7 +245,7 @@ def parse(path: Path) -> tuple[dict, dict, dict]:
                 "driver": path.name,
             }
             continue
-        if m.group(1) == "CONS":
+        if m.group(1) != "GAME" and m.group(1) != "GAMEL":
             continue  # other consoles (such as the Neo Geo's cabinets) are no games
         rotate = {"ROT90": 90, "ROT180": 180, "ROT270": 270}.get(monitor.split("|")[0].strip(), 0)
         games[name] = {
@@ -295,6 +298,12 @@ def main() -> None:
                 game["parent"] = None
             # The BIOS files come from the BIOS set (neogeo.zip), not from the game's own
             from_bios = {r["crc"] for r in bioses[bios]["roms"]}
+            required = {r["crc"] for r in bioses[bios]["roms"] if not r.get("alt")}
+            # The BIOS files this game uses, when not all of them: an Aristocrat MK5 game outside
+            # the US needs the GALs of aristmk5.zip, not its US set chips
+            uses = {r["crc"] for r in game_roms if r["crc"] in required}
+            if uses != required:
+                game["bios_roms"] = sorted(uses)
             game_roms = [r for r in game_roms if r["crc"] not in from_bios and not r.get("alt")]
             if default:
                 game["default_bios"] = default

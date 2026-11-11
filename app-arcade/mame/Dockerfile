@@ -1,5 +1,6 @@
 # MAME compiled to WebAssembly for the Arcade app, with the drivers in drivers.txt and
-# save-settings.patch applied.
+# save-settings.patch applied, its game list (games.json) and an index of every machine in
+# MAME (machines.json.gz, to tell which driver a file the build can't run needs).
 # Built by .github/workflows/build-arcade-mame.yaml into
 # ghcr.io/<owner>/arcade/dependency/mame-wasm:<MAME_TAG>-<hash of this folder>; the app's
 # Dockerfile copies /mame from it. WebAssembly is the same on every architecture, so it
@@ -18,8 +19,8 @@ RUN patch -p1 < /build/save-settings.patch
 RUN SOURCES="$(grep -v '^\s*#' /build/drivers.txt | sed '/^\s*$/d' | paste -sd, -)" \
     && emmake make SUBTARGET=arcade SOURCES="${SOURCES}" TOOLS=0 NOWERROR=1 REGENIE=1 WEBASSEMBLY=1 OPTIMIZE=3 -j"$(nproc)"
 
-# After the compile, so a change to the game list doesn't redo the hour-long build
-COPY gamelist.py /build/
+# After the compile, so a change to the game lists doesn't redo the hour-long build
+COPY gamelist.py machines.py /build/
 
 RUN mkdir -p /out/plugins \
     && cp arcade.js /out/mame.js \
@@ -28,6 +29,7 @@ RUN mkdir -p /out/plugins \
     && cp COPYING /out/COPYING \
     && DRIVERS="$(grep -v '^\s*#' /build/drivers.txt | sed '/^\s*$/d')" \
     && python3 /build/gamelist.py /src ${DRIVERS} > /out/games.json \
+    && python3 /build/machines.py /src | gzip -9 > /out/machines.json.gz \
     && python3 -c "import json,sys; print(json.dumps({'version': '${MAME_TAG}'.replace('mame0', '0.'), 'tag': '${MAME_TAG}', 'drivers': [d.rsplit('/', 1)[-1] for d in sys.argv[1:]]}))" ${DRIVERS} > /out/build.json \
     && gzip -9k /out/mame.wasm /out/mame.js \
     && ls -la /out
