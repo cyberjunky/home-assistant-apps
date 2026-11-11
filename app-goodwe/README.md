@@ -31,7 +31,15 @@ battery for the evening by the solar forecast, and tells Home Assistant when the
 full and solar is still going spare. I'm preparing to work that way: in summer, use every bit
 of surplus solar myself (miners, boiler, car) instead of giving it to the grid.
 
-![Dashboard: energy flow, modes, live power and the day's Sankey (dark theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-goodwe/screenshots/dashboard-dark.webp)
+![Dashboard: energy flow, modes, live power and the day's Sankey (light theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-goodwe/screenshots/dashboard-light.webp)
+
+<details>
+<summary>More screenshots (dark theme)</summary>
+
+**Dashboard, dark theme** — follows Home Assistant's light/dark mode
+![Dashboard in the dark theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-goodwe/screenshots/dashboard-dark.webp)
+
+</details>
 
 ## Supported Features
 

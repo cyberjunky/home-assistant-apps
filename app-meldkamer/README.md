@@ -20,13 +20,13 @@ Meldkamer runs entirely on your Home Assistant. It decodes the public P2000 broa
 locally; everything it records stays in the app's data folder and is included in your Home
 Assistant backups.
 
-![Console view: message table, map and message detail with incident timeline](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-meldkamer/screenshots/console-dark.webp)
+![Console view: message table, map and message detail with incident timeline](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-meldkamer/screenshots/console-light.webp)
 
 <details>
-<summary>More screenshots (light theme, Wallboard, Lanes, Data, Info)</summary>
+<summary>More screenshots (dark theme, Wallboard, Lanes, Data, Info)</summary>
 
-**Console, light theme** — follows Home Assistant's light/dark mode
-![Console view in the light theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-meldkamer/screenshots/console-light.webp)
+**Console, dark theme** — follows Home Assistant's light/dark mode
+![Console view in the dark theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-meldkamer/screenshots/console-dark.webp)
 
 **Wallboard** — large map, live counts, incidents by priority and a ticker of the newest messages
 ![Wallboard view](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-meldkamer/screenshots/wallboard.webp)

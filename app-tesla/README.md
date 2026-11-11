@@ -22,12 +22,15 @@ This app runs entirely on your Home Assistant. It has no cloud service of its ow
 analytics and no telemetry: everything it records stays in the app's data folder and is
 included in your Home Assistant backups.
 
-![Dashboard: live map with the car, battery, vehicle state and recent activity (dark theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-tesla/screenshots/dashboard-dark.webp)
+![Dashboard: live map with the car, battery, vehicle state and recent activity (light theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-tesla/screenshots/dashboard-light.webp)
 
 <details>
-<summary>More screenshots (Trips, Charging, Stats)</summary>
+<summary>More screenshots (dark theme, Trips, Charging, Stats)</summary>
 
-This app follows Home Assistant's light or dark theme; the dashboard above is the dark theme, the rest here are light.
+This app follows Home Assistant's light or dark theme; the dashboard above is the light theme, and so are the Trips, Charging and Stats screenshots here.
+
+**Dashboard, dark theme**
+![Dashboard in the dark theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-tesla/screenshots/dashboard-dark.webp)
 
 **Trips** — every drive, selectable, drawn on the map coloured by speed
 ![Trips view](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-tesla/screenshots/trips.webp)

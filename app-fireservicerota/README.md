@@ -23,6 +23,22 @@ The app reads everything from the integration in Home Assistant. It never contac
 FireServiceRota or Brandweerrooster itself and needs no account of its own. Everything it
 records stays in the app's data folder and is included in your Home Assistant backups.
 
+![Console view: current incident with countdown and Acknowledge/Reject, incident table, map and incident detail](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-fireservicerota/screenshots/console-light.webp)
+
+<details>
+<summary>More screenshots (dark theme, Wallboard, Stats)</summary>
+
+**Console, dark theme** — follows Home Assistant's light/dark mode
+![Console view in the dark theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-fireservicerota/screenshots/console-dark.webp)
+
+**Wallboard** — the current incident large with the countdown and answer buttons, the map, your duty, the last 48 hours and a ticker of recent incidents
+![Wallboard view](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-fireservicerota/screenshots/wallboard-1280x800.webp)
+
+**Stats** — totals and response rates, incidents per day, by type and priority, busiest hours and weekdays, duty periods
+![Stats view](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-fireservicerota/screenshots/stats-light.webp)
+
+</details>
+
 ## Supported Features
 
 - 🚒 **Live incident**: priority, type, the text, the address on the map and the distance from home, as soon as the integration gets it
