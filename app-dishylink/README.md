@@ -8,9 +8,9 @@
 [![Donate via PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg?style=for-the-badge&logo=paypal)](https://www.paypal.me/cyberjunkynl/)
 [![Sponsor on GitHub](https://img.shields.io/badge/Sponsor-GitHub-red.svg?style=for-the-badge&logo=github)](https://github.com/sponsors/cyberjunky)
 
-<img src="https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-dishylink/icon.png" alt="Dishylink" width="128" align="right">
-
 # Dishylink App for Home Assistant
+
+<img src="https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-dishylink/icon.png" alt="Dishylink" width="128" align="right">
 
 A Home Assistant app that ports [DaveyHert/Dishylink](https://github.com/DaveyHert/Dishylink)
 in its "browser" form: the built Starlink web dashboard, the always-on history recorder

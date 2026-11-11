@@ -8,9 +8,9 @@
 [![Donate via PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg?style=for-the-badge&logo=paypal)](https://www.paypal.me/cyberjunkynl/)
 [![Sponsor on GitHub](https://img.shields.io/badge/Sponsor-GitHub-red.svg?style=for-the-badge&logo=github)](https://github.com/sponsors/cyberjunky)
 
-<img src="https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-meldkamer/icon.png" alt="Meldkamer" width="128" align="right">
-
 # Meldkamer App for Home Assistant
+
+<img src="https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-meldkamer/icon.png" alt="Meldkamer" width="128" align="right">
 
 P2000 FLEX pager decoder dashboard for Home Assistant — decode Dutch emergency services
 messages using RTL-SDR, HackRF, or network streaming, and see them on a live map with

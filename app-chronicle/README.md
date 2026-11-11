@@ -8,9 +8,9 @@
 [![Donate via PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg?style=for-the-badge&logo=paypal)](https://www.paypal.me/cyberjunkynl/)
 [![Sponsor on GitHub](https://img.shields.io/badge/Sponsor-GitHub-red.svg?style=for-the-badge&logo=github)](https://github.com/sponsors/cyberjunky)
 
-<img src="https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-chronicle/icon.png" alt="Chronicle" width="128" align="right">
-
 # Chronicle App for Home Assistant
+
+<img src="https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-chronicle/icon.png" alt="Chronicle" width="128" align="right">
 
 A dashboard for the long-term history that the
 [Chronicle integration](https://github.com/cyberjunky/home-assistant-chronicle) keeps in

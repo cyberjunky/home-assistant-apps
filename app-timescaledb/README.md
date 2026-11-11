@@ -8,9 +8,9 @@
 [![Donate via PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg?style=for-the-badge&logo=paypal)](https://www.paypal.me/cyberjunkynl/)
 [![Sponsor on GitHub](https://img.shields.io/badge/Sponsor-GitHub-red.svg?style=for-the-badge&logo=github)](https://github.com/sponsors/cyberjunky)
 
-<img src="https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-timescaledb/icon.png" alt="TimescaleDB" width="128" align="right">
-
 # TimescaleDB App for Home Assistant
+
+<img src="https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-timescaledb/icon.png" alt="TimescaleDB" width="128" align="right">
 
 > **A port of [Expaso's TimescaleDB add-on](https://github.com/expaso/hassos-addon-timescaledb)**
 > by Hans van Essen. When this port was made, that project had seen no release for a year
