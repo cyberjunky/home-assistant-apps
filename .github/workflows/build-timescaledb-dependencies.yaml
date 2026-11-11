@@ -3,7 +3,7 @@ name: Build TimescaleDB dependencies
 
 # Builds the prebuilt extension images referenced by the FROM lines in
 # app-timescaledb/Dockerfile and pushes them to
-# ghcr.io/<repository owner>/timescaledb/dependency/<component>:<version>-alpine<ALPINE_VERSION>.
+# ghcr.io/<repository owner>/app-timescaledb/dependency/<component>:<version>-alpine<ALPINE_VERSION>.
 # The extensions are built on plain Alpine against its PostgreSQL packages, the same
 # Alpine release as the app's base image, hence the Alpine suffix on the tags.
 # Run it whenever a component version in that Dockerfile changes, before
@@ -28,7 +28,7 @@ on:
         type: string
 
 env:
-  REGISTRY: ghcr.io/${{ github.repository_owner }}/timescaledb/dependency
+  REGISTRY: ghcr.io/${{ github.repository_owner }}/app-timescaledb/dependency
   APP_DIR: app-timescaledb
 
 jobs:

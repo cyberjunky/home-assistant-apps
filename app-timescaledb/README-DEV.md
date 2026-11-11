@@ -13,13 +13,13 @@ Run `./project.sh <command>` in this folder:
   with the version from `config.yaml`.
 - `build-push`: the same, then push it to the registry.
 - `build-dependencies`: build and push the prebuilt dependency images (extensions) that
-  the main Dockerfile pulls from `ghcr.io/<owner>/timescaledb/dependency`.
+  the main Dockerfile pulls from `ghcr.io/<owner>/app-timescaledb/dependency`.
 - `build-ha`: use the Home Assistant builder to build all architectures, tagged `latest`.
 - `run-hassos`: build, push, then SSH to Home Assistant and pull the image.
 - `inspect`: build and run locally with an interactive shell.
 - `debug`: build and run locally with the normal start-up.
 
-The registry defaults to `ghcr.io/cyberjunky/timescaledb`; set `REGISTRY` to push
+The registry defaults to `ghcr.io/cyberjunky/app-timescaledb`; set `REGISTRY` to push
 elsewhere. Component versions are the `ARG` lines at the top of `Dockerfile`, which `project.sh` and
 the repository's **Build TimescaleDB dependencies** workflow read.
 
@@ -28,7 +28,7 @@ the repository's **Build TimescaleDB dependencies** workflow read.
 The repository's **Builder** workflow builds this app on every push that touches it and
 publishes `ghcr.io/cyberjunky/app-timescaledb:<version>` (multi-arch) whenever the version in
 `config.yaml` is not yet on GHCR. It pulls the prebuilt extension
-images from `ghcr.io/cyberjunky/timescaledb/dependency`, so rebuild those first with the
+images from `ghcr.io/cyberjunky/app-timescaledb/dependency`, so rebuild those first with the
 **Build TimescaleDB dependencies** workflow whenever a component version changes.
 
 ## Manual build

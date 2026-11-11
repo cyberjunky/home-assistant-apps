@@ -13,7 +13,7 @@ ARG ALPINE_VERSION=3.24
 # that is being built (BUILD_REPOSITORY is passed by the CI workflows), so forks build against
 # their own dependency images. It can still be overridden explicitly.
 ARG BUILD_REPOSITORY=cyberjunky/home-assistant-apps
-ARG DEPENDENCY_REGISTRY=ghcr.io/${BUILD_REPOSITORY%/*}/timescaledb/dependency
+ARG DEPENDENCY_REGISTRY=ghcr.io/${BUILD_REPOSITORY%/*}/app-timescaledb/dependency
 
 # Define the versions for all components of the app.
 # This is the single source of truth: project.sh and the build-dependencies workflow parse

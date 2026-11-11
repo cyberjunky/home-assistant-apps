@@ -4,8 +4,8 @@ set -e;
 PLATFORM="linux/arm64"
 
 # Registry prefix for the addon and dependency images. Override to build for a fork, e.g.:
-#   REGISTRY=ghcr.io/<your-user>/timescaledb ./project.sh build-dependencies
-REGISTRY="${REGISTRY:-ghcr.io/cyberjunky/timescaledb}"
+#   REGISTRY=ghcr.io/<your-user>/app-timescaledb ./project.sh build-dependencies
+REGISTRY="${REGISTRY:-ghcr.io/cyberjunky/app-timescaledb}"
 
 # Image tag for local builds: the version from the app configuration.
 VERSION="$(yq -r '.version' ./config.yaml)"
