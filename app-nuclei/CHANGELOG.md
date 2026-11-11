@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.7
+
+**After updating:** nothing to do.
+
+- Unused code removed; nothing changes in how the app works.
+
 ## 0.1.6
 
 **After updating:** nothing to do.

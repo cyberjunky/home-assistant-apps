@@ -51,14 +51,6 @@ class HostResult:
     open_ports: list[int] = field(default_factory=list)
 
 
-@dataclass
-class ScanProgress:
-    hosts_total: int = 0
-    hosts_done: int = 0
-    open_ports: int = 0
-    findings: int = 0
-
-
 def fingerprint(host: str, port, template_id: str, matched_at: str) -> str:
     """Identifies the same issue on the same host across scans, so a repeat updates one ticket."""
     raw = f"{host}|{port or ''}|{template_id or ''}|{matched_at or ''}"

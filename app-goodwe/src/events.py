@@ -5,7 +5,6 @@ dashboard's event list, the MQTT event entity (for Home Assistant automations,
 e.g. a Telegram message) and the log all see the same thing.
 """
 
-import json
 import logging
 import time
 from collections import deque
@@ -71,7 +70,3 @@ class EventBus:
             except Exception as e:
                 logger.warning(f"Event listener failed: {e}")
         return event
-
-    @staticmethod
-    def as_json(event: dict) -> str:
-        return json.dumps(event, default=str)

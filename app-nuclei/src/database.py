@@ -240,9 +240,6 @@ class Database:
     def scans(self, limit: int = 100) -> list[dict]:
         return self._rows("SELECT * FROM scans ORDER BY started_at DESC LIMIT ?", (limit,))
 
-    def running_scans(self) -> list[dict]:
-        return self._rows("SELECT * FROM scans WHERE status = 'running' ORDER BY started_at")
-
     # -- Devices ------------------------------------------------------------
     def record_device(
         self, host: str, object_id: int | None, guessed_type: str | None, signals: list[str], open_ports: list[int]
