@@ -1,0 +1,18 @@
+configuration:
+  receiver:
+    name: Receiver
+    description: >-
+      The SDR receiver. type is rtl-sdr, hackrf, soapysdr (any SoapySDR device)
+      or network (an rtl_tcp server at network_host:network_port). serial picks
+      one of several receivers. sdr_gain 0 is automatic gain; the RF gain knob
+      changes it while listening. The hackrf_* settings are the HackRF's own
+      amplifiers; bias_tee powers an active antenna or LNA (rtl-sdr only).
+  tune:
+    name: Start tuning
+    description: >-
+      Where the radio starts: frequency in MHz and mode (am, nfm, wfm, usb,
+      lsb, cw, dsb). With restore_last the radio starts where you left it
+      instead.
+  log_level:
+    name: Log level
+    description: Logging verbosity

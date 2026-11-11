@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <!-- The top bar is as high as Home Assistant's own header (its --header-height, 56px by default) -->
+    <script>try{const h=getComputedStyle(window.parent.document.documentElement).getPropertyValue('--header-height').trim();if(h)document.documentElement.style.setProperty('--ha-header-height',h);}catch(e){}</script>
+    <script>try{if(localStorage.getItem('sdradio_theme')==='dark')document.documentElement.dataset.theme='dark';}catch(e){}</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDRadio</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232457c5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 10a7 7 0 0 1 14 0'/%3E%3Cpath d='M8 10a4 4 0 0 1 8 0'/%3E%3Ccircle cx='12' cy='10' r='1'/%3E%3Cpath d='M12 11v10'/%3E%3Cpath d='M8 21h8'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="__BASE__/web/app.css?v=__ADDON_VERSION__"/>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 10a7 7 0 0 1 14 0"/><path d="M8 10a4 4 0 0 1 8 0"/><circle cx="12" cy="10" r="1"/><path d="M12 11v10"/><path d="M8 21h8"/></svg>
+            <span class="brand-name">SDRADIO</span>
+            <span class="brand-sub" id="brand-device"></span>
+        </div>
+        <nav class="tabs" aria-label="Views">
+            <button type="button" class="tab" data-tab="radio" onclick="switchTab('radio')">Radio</button>
+            <button type="button" class="tab" data-tab="channels" onclick="switchTab('channels')">Channels</button>
+            <button type="button" class="tab" data-tab="stats" onclick="switchTab('stats')">Stats</button>
+            <button type="button" class="tab" data-tab="settings" onclick="switchTab('settings')">Settings</button>
+            <span class="tab-sep" aria-hidden="true"></span>
+            <button type="button" class="tab" data-tab="info" onclick="switchTab('info')">Info</button>
+        </nav>
+        <span class="spacer"></span>
+        <span class="badge warn" id="scan-badge" hidden></span>
+        <button type="button" class="btn listen-btn" id="listen-btn" onclick="toggleListen()">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+            <span id="listen-label">Listen</span>
+        </button>
+        <div class="tabs" role="group" aria-label="Theme">
+            <button type="button" class="tab icon-tab" id="theme-light" onclick="setTheme('light')" aria-label="Light theme" title="Light">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+            </button>
+            <button type="button" class="tab icon-tab" id="theme-dark" onclick="setTheme('dark')" aria-label="Dark theme" title="Dark">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
+            </button>
+        </div>
+        <span id="clock" class="clock"></span>
+    </header>
+
+    <div class="views">
+        <div class="pages" id="pages">
+            <div class="container">
+                <div id="setup-hint" class="setup-hint" hidden><span id="setup-hint-text"></span></div>
+
+                <!-- Radio: the front panel, favourites, spectrum and the stored channels -->
+                <div id="tab-radio" class="tab-content">
+                    <section class="front" aria-label="Front panel">
+                        <div class="front-main">
+                            <div class="lcd" id="lcd">
+                                <div class="lcd-top">
+                                    <span class="ind" id="ind-scan">SCAN</span>
+                                    <span class="ind" id="ind-hold">HOLD</span>
+                                    <span class="ind" id="ind-pri">PRI</span>
+                                    <button type="button" class="ind" id="ind-agc" onclick="toggleSetting('agc')" title="Automatic gain control (AM, SSB, CW)">AGC</button>
+                                    <button type="button" class="ind" id="ind-nb" onclick="toggleSetting('nb')" title="Noise blanker">NB</button>
+                                    <button type="button" class="ind" id="ind-mute" onclick="toggleMute()" title="Mute">MUTE</button>
+                                    <span class="ind" id="ind-lo" title="Locked out of scans">L/O</span>
+                                    <span class="spacer"></span>
+                                    <span class="lcd-info" id="lcd-info"></span>
+                                </div>
+                                <div class="lcd-main">
+                                    <div class="lcd-freq" id="lcd-freq" tabindex="0" role="textbox" aria-label="Frequency: scroll a digit to change it, or type a frequency"></div>
+                                    <span class="lcd-unit">MHz</span>
+                                    <button type="button" class="lcd-mode" id="lcd-mode" onclick="radioCommand('cycle', {what: 'mode'})" title="Mode: click for the next one"></button>
+                                    <span class="lcd-bw" id="lcd-bw"></span>
+                                </div>
+                                <div class="lcd-bottom">
+                                    <span class="lcd-name" id="lcd-name"></span>
+                                    <div class="smeter" id="smeter" aria-hidden="true"></div>
+                                    <span class="lcd-level" id="lcd-level"></span>
+                                </div>
+                            </div>
+                            <canvas class="scale" id="scale" height="58" aria-label="Band scale: click or drag to tune" role="img"></canvas>
+                            <div class="knob-row" id="knob-row"></div>
+                        </div>
+                        <div class="front-dial" id="tune-dial"></div>
+                        <div class="keypad-wrap">
+                            <div class="keypad" id="keypad"></div>
+                            <div class="scan-source">
+                                <span class="filter-label">Scan</span>
+                                <div class="tabs" role="group" aria-label="What to scan" id="scan-source"></div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="favbar" aria-label="Favourites">
+                        <span class="section-title">★ Favourites</span>
+                        <div class="fav-list" id="fav-list"></div>
+                        <button type="button" class="btn" id="fav-add" onclick="favouriteCurrent()" title="Add the current frequency to the favourites">+ ★</button>
+                    </section>
+
+                    <div class="radio-bottom">
+                        <section class="panel spectrum-panel" aria-label="Spectrum and waterfall">
+                            <div class="chart-title">
+                                <span>Spectrum</span>
+                                <span class="hint">click to tune · scroll to step · drag to move</span>
+                                <span class="spacer"></span>
+                                <div class="tabs inline-tabs" role="group" aria-label="Zoom" id="zoom"></div>
+                                <button type="button" class="btn btn-small" id="auto-range" onclick="toggleAutoRange()">Auto range</button>
+                            </div>
+                            <div class="spectrum-wrap" id="spectrum-wrap">
+                                <canvas id="spectrum" height="150"></canvas>
+                                <div class="freq-axis" id="freq-axis"></div>
+                                <canvas id="waterfall" height="280"></canvas>
+                            </div>
+                        </section>
+                        <aside class="panel chlist" aria-label="Stored channels">
+                            <div class="chlist-head">
+                                <span class="section-title">Stored channels</span>
+                                <span class="range-text" id="chlist-count"></span>
+                            </div>
+                            <div class="chlist-filters">
+                                <input type="search" class="input" id="chlist-search" placeholder="Search channels…" aria-label="Search stored channels" autocomplete="off" spellcheck="false">
+                                <select class="select" id="chlist-filter" aria-label="Which channels">
+                                    <option value="band">This band</option>
+                                    <option value="all">All bands</option>
+                                    <option value="fav">Favourites</option>
+                                </select>
+                            </div>
+                            <div class="chlist-items" id="chlist-items"></div>
+                            <div class="chlist-foot">
+                                <button type="button" class="btn btn-primary" id="store-btn" onclick="openStore()">Store current</button>
+                                <button type="button" class="btn" onclick="editCurrentChannel()">Edit…</button>
+                            </div>
+                        </aside>
+                    </div>
+                </div>
+
+                <!-- Channels: the stored channels, new finds and backups -->
+                <div id="tab-channels" class="tab-content">
+                    <div class="filters">
+                        <input type="search" class="input search" id="ch-search" placeholder="Search name, frequency, tag…" aria-label="Search channels" autocomplete="off" spellcheck="false">
+                        <select class="select" id="ch-band" aria-label="Band"></select>
+                        <select class="select" id="ch-mode" aria-label="Mode"></select>
+                        <div class="tabs" role="group" aria-label="View" id="ch-view"></div>
+                        <button type="button" class="btn" id="ch-clear" onclick="clearChannelFilter()" hidden>✕ Clear filter</button>
+                        <span class="range-text" id="ch-count"></span>
+                        <button type="button" class="btn" onclick="openImport()">Import CSV…</button>
+                        <a class="btn" id="ch-export" download>Export CSV</a>
+                        <button type="button" class="btn btn-primary" onclick="newChannel()">+ New channel</button>
+                    </div>
+                    <div class="channels-layout">
+                        <div class="panel channels-main"><div id="ch-table" class="table-wrap"></div></div>
+                        <aside class="channels-side">
+                            <div class="panel"><div class="panel-body" id="ch-edit"></div></div>
+                            <div class="panel"><div class="panel-body">
+                                <div class="chart-title"><span>Backups</span><button type="button" class="btn btn-small btn-primary" onclick="backupNow()">Back up now</button></div>
+                                <p class="panel-sub" id="backup-note"></p>
+                                <div id="backup-list"></div>
+                                <div class="detail-actions" style="margin-top:10px">
+                                    <button type="button" class="btn btn-small" onclick="document.getElementById('backup-file').click()">Upload a backup…</button>
+                                    <input type="file" id="backup-file" accept=".db,application/octet-stream" hidden>
+                                </div>
+                            </div></div>
+                        </aside>
+                    </div>
+                </div>
+
+                <!-- Stats: what was heard -->
+                <div id="tab-stats" class="tab-content">
+                    <div id="stats-tiles" class="tiles kpi-tiles"></div>
+                    <div class="stats-grid">
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Hits by hour</span><span class="hint">last 24 hours, every band</span></div>
+                            <div class="bars" id="stats-hours"></div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Channels per band</span><span class="hint">stored · heard today</span></div>
+                            <div id="stats-bands" class="rank"></div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Recently heard</span><span class="hint">every transmission the squelch let through</span></div>
+                            <div id="stats-recent" class="table-wrap"></div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>New finds to label</span><span class="hint" id="finds-hint">found by scanning, not stored</span></div>
+                            <div id="stats-finds"></div>
+                        </div></div>
+                        <div class="panel wide"><div class="panel-body">
+                            <div class="chart-title"><span>Most active</span><span class="hint">stored channels, last 7 days</span></div>
+                            <div id="stats-top" class="table-wrap"></div>
+                        </div></div>
+                    </div>
+                </div>
+
+                <!-- Settings -->
+                <div id="tab-settings" class="tab-content">
+                    <div class="settings-grid" id="settings"></div>
+                </div>
+
+                <!-- Info -->
+                <div id="tab-info" class="tab-content">
+                    <div class="info-grid">
+                        <div class="panel"><div class="panel-body"><div class="section-title">Receiver</div><div id="info-receiver"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">About</div><div id="info-about"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Keys</div><div id="info-keys"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Donate</div>
+                            <div class="panel-sub" style="margin-bottom:12px">SDRadio is free and open source. If it's useful to you, please consider supporting its development.</div>
+                            <div class="detail-actions">
+                                <a class="btn btn-primary" href="https://www.paypal.me/cyberjunkynl/" target="_blank" rel="noopener">Donate via PayPal</a>
+                                <a class="btn" href="https://github.com/sponsors/cyberjunky" target="_blank" rel="noopener">Sponsor on GitHub</a>
+                            </div>
+                        </div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="statusbar" id="statusbar"></footer>
+
+    <div id="modal-root"></div>
+    <div id="toast-root"></div>
+
+    <script src="__BASE__/web/core.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/controls.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/spectrum.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/radio.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/channels.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/stats.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/settings.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/info.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/main.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/donate.js?v=__ADDON_VERSION__" data-app="SDRadio" data-api="__BASE__/api/donate"></script>
+</body>
+</html>
