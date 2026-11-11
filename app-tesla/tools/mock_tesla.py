@@ -235,6 +235,7 @@ class Car:
                 "inside_temp": 19.5 if self.shift else 14.2,
                 "outside_temp": 11.0,
                 "is_climate_on": bool(self.shift),
+                "is_auto_conditioning_on": bool(self.shift),
                 "is_preconditioning": False,
                 "driver_temp_setting": 20.0,
             },

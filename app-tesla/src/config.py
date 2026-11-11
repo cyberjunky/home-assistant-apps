@@ -73,6 +73,8 @@ class Config:
     supercharger_costs: bool = True
     # Rated consumption in Wh/km; 0 = learn it from charging sessions
     efficiency_wh_km: float = 0.0
+    # Usable battery capacity when new (kWh): the 100% of battery health; 0 = the best measured
+    battery_capacity_kwh: float = 0.0
 
     # MQTT publishing with Home Assistant discovery
     mqtt_enabled: bool = True
@@ -115,6 +117,7 @@ class Config:
             cost_per_kwh=_clamp(data.get("cost_per_kwh"), defaults.cost_per_kwh, 0.0, 100.0),
             supercharger_costs=bool(data.get("supercharger_costs", defaults.supercharger_costs)),
             efficiency_wh_km=_clamp(data.get("efficiency_wh_km"), defaults.efficiency_wh_km, 0.0, 500.0),
+            battery_capacity_kwh=_clamp(data.get("battery_capacity_kwh"), defaults.battery_capacity_kwh, 0.0, 250.0),
             mqtt_enabled=bool(mqtt.get("enabled", defaults.mqtt_enabled)),
             mqtt_host=str(mqtt.get("host") or ""),
             mqtt_port=_clamp(mqtt.get("port"), defaults.mqtt_port, 1, 65535),

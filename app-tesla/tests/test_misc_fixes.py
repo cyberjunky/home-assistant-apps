@@ -16,14 +16,11 @@ T0 = 1_700_000_000
 
 def _learning_charge(database, car_id, start):
     """Range rises 200 -> 300 km; the energy counter stays at zero for the first 10 km of it."""
-    charge_id = database.execute(
-        "INSERT INTO charges (car_id, start_ts, end_ts, start_range_km, end_range_km, energy_added_kwh)"
-        " VALUES (?, ?, ?, 200, 300, 15)",
-        (car_id, start, start + 3600),
-    )
+    charge_id = database.open_charge(car_id, {"ts": start, "range_km": 200}, "AC", None)
     points = [(200, 0.0), (205, 0.0), (210, 0.0)] + [(210 + 9 * i, round(15.0 * i / 10, 2)) for i in range(1, 11)]
     for i, (km, kwh) in enumerate(points):
         database.add_charge_sample(charge_id, {"ts": start + i * 60, "range_km": km, "energy_added_kwh": kwh})
+    database.close_charge(charge_id, 0.0)
 
 
 def test_learned_consumption_ignores_the_counter_lag(database):

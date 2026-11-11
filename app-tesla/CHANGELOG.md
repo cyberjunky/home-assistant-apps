@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.0
+
+**After updating:** nothing to do. The first start upgrades the database: it works out the battery capacity of the charging sessions recorded so far and gives each trip the consumption of its own time, which can change the energy of older trips a little. To compare battery health with the capacity from the car's specifications, set **Battery capacity when new** in the app configuration.
+
+- **Battery health from the battery itself.** Health used to follow the rated range at 100%, so new wheels or a software update that changes the rated range looked like a worn battery. It now follows the usable capacity each charge measures (kWh added ÷ battery % gained), with the range at 100% beside it.
+- **Battery capacity when new**, a new option: the battery's usable capacity from the car's specifications, for battery health to compare with. Left at 0 it compares with the best capacity measured, as before.
+- **Trips keep their energy.** When the learned consumption changed, the energy of every trip ever recorded was worked out again with the new value. Each trip now keeps the consumption of its own time, so a change (other wheels, a software update) only shows from then on.
+- **Charges the app didn't see.** When the car comes back with a clearly fuller battery after being offline, or after the app wasn't running, and no recorded charge covers that time, an estimated charge is added (marked "est." on the Charging page). A Supercharger session from Tesla's charging history replaces it instead of being added beside it.
+- **Auto climate**: whether the climate is running on Auto shows with the climate on the dashboard and as a new entity in Home Assistant, for cars that report it.
+
 ## 0.7.1
 
 **After updating:** nothing to do. The first start corrects charging sessions recorded earlier that continued a paused charge (see below); the log says how many.

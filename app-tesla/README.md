@@ -50,7 +50,7 @@ This app follows Home Assistant's light or dark theme; the dashboard above is th
 - 🛣️ **Trips** — Every drive with start and end address, distance, duration, energy, consumption, speed, power and elevation; pick one to see it on the map, coloured by speed, and export it as GPX
 - 🔌 **Charging** — Every session with energy added, energy drawn from the charger, efficiency, AC/DC, power curve and cost: what Tesla billed at Superchargers, your price per kWh elsewhere, or set per session
 - 📊 **Statistics** — Distance, energy used and energy charged per day, week, month or year; consumption over time and by outside temperature; charging cost per 100 km
-- 🔋 **Battery health** — The range a full battery would give, followed over every charge, with degradation and estimated usable capacity
+- 🔋 **Battery health** — The usable capacity every charge measures, followed over time, with degradation against the capacity when new and the range a full battery gives
 - 💤 **Sleep friendly** — An idle car is left alone so it can fall asleep; standby ("vampire") loss while parked is measured and shown
 - 📡 **Live stream** — Positions every second while driving, and activity is noticed without keeping the car awake
 - 🏠 **Home Assistant zones** — Places inside a zone get the zone's name ("Home", "Work"); other addresses are looked up at OpenStreetMap

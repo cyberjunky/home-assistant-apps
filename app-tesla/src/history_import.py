@@ -251,10 +251,10 @@ def _import_car(cursor, database: Database, car, progress: dict, cost_per_kwh: f
     _import_states(cursor, database, car_id, progress)
     _import_updates(cursor, database, car_id)
 
-    # Now that charges are in, learn the real consumption and recompute every drive's energy with it
+    # Now that charges are in, learn the real consumption and work out each drive's energy with the
+    # consumption of its time
     learned = database.learn_efficiency(car_id)
-    if learned:
-        database.apply_efficiency(car_id, learned)
+    database.apply_learned_efficiency(car_id, learned, learned or efficiency)
 
 
 def _column_exists(cursor, table: str, column: str) -> bool:

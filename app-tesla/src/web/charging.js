@@ -30,7 +30,7 @@ function renderCharges(totals) {
         <button type="button" class="feed-row${charge.id === selectedCharge ? ' selected' : ''}" data-id="${charge.id}" onclick="selectCharge(${charge.id})">
             <span class="time">${fmtDayY(charge.start_ts)} ${fmtTime(charge.start_ts)}</span>
             <span class="route">${escapeHtml(placeName(charge.place, charge.lat, charge.lon))}</span>
-            <span class="col-kind"><span class="badge${charge.kind === 'DC' ? ' dc' : ''}">${escapeHtml(charge.kind || '?')}</span></span>
+            <span class="col-kind"><span class="badge${charge.kind === 'DC' ? ' dc' : ''}"${charge.estimated ? ' title="Estimated: charged while the app wasn\'t watching"' : ''}>${escapeHtml(charge.estimated ? 'est.' : (charge.kind || '?'))}</span></span>
             <span class="num">${num(charge.energy_added_kwh, 1)} kWh</span>
             <span class="num col-dur">${fmtDuration(charge.duration_s)}</span>
             <span class="num col-soc">${fmtPct(charge.start_soc)} → ${fmtPct(charge.end_soc)}</span>
@@ -171,9 +171,10 @@ function renderChargeDetail() {
         <div class="detail">
             <div class="detail-head">
                 <h2>${escapeHtml(placeName(charge.place, charge.lat, charge.lon))}</h2>
-                <span class="badge${charge.kind === 'DC' ? ' dc' : ''}">${escapeHtml(charge.kind === 'DC' ? (charge.charger_brand || 'DC fast charging') : 'AC')}</span>
+                <span class="badge${charge.kind === 'DC' ? ' dc' : ''}">${escapeHtml(charge.estimated ? 'Estimated' : charge.kind === 'DC' ? (charge.charger_brand || 'DC fast charging') : 'AC')}</span>
                 <span class="when">${fmtDate(charge.start_ts)} · ${fmtTime(charge.start_ts)} – ${fmtTime(charge.end_ts)}</span>
             </div>
+            ${charge.estimated ? `<div class="panel-sub">The car charged while the app wasn't watching (it was offline, or the app wasn't running): somewhere between these times, ${charge.lat == null ? 'not where it was parked' : 'where it was parked'}. The energy is estimated from the battery level gained × the battery's capacity.</div>` : ''}
             <div class="facts three">
                 ${fact('Added', withUnit(num(charge.energy_added_kwh, 1), 'kWh'), 'big')}
                 ${fact('Battery', `${fmtPct(charge.start_soc)} → ${fmtPct(charge.end_soc)}`, 'big')}

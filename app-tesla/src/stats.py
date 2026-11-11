@@ -51,6 +51,9 @@ def summary(db: Database, car_id: int, start: int, end: int) -> dict:
     charges = db.query_one(
         "SELECT COUNT(*) AS charges, COALESCE(SUM(energy_added_kwh), 0) AS added_kwh,"
         " COALESCE(SUM(energy_used_kwh), 0) AS used_kwh, SUM(cost) AS cost,"
+        # Estimated charges don't know what they drew from the charger: they stay out of the efficiency
+        " SUM(CASE WHEN energy_used_kwh IS NOT NULL THEN energy_added_kwh END) AS metered_added_kwh,"
+        " COALESCE(SUM(estimated), 0) AS estimated_charges,"
         " COALESCE(SUM(duration_s), 0) AS charge_duration_s, MAX(power_max_kw) AS charge_power_max_kw,"
         " COALESCE(SUM(CASE WHEN kind = 'DC' THEN energy_added_kwh END), 0) AS dc_kwh,"
         " COALESCE(SUM(CASE WHEN kind = 'DC' THEN 1 END), 0) AS dc_charges"
@@ -60,7 +63,9 @@ def summary(db: Database, car_id: int, start: int, end: int) -> dict:
     result = {**drives, **charges}
     energy, distance = drives["energy_kwh"], drives["energy_distance_km"]
     result["consumption_wh_km"] = energy / distance * 1000 if energy is not None and distance else None
-    result["charge_efficiency"] = charges["added_kwh"] / charges["used_kwh"] if charges["used_kwh"] else None
+    metered = charges.pop("metered_added_kwh") or 0.0
+    result.pop("metered_added_kwh", None)
+    result["charge_efficiency"] = metered / charges["used_kwh"] if charges["used_kwh"] else None
     result["ac_kwh"] = charges["added_kwh"] - charges["dc_kwh"]
     result["cost_per_100km"] = (
         charges["cost"] / drives["distance_km"] * 100 if charges["cost"] and drives["distance_km"] else None
@@ -128,35 +133,71 @@ def tires(db: Database, car_id: int, bucket: str, start: int, end: int) -> list[
     )
 
 
-def battery(db: Database, car_id: int, start: int, end: int, efficiency_wh_km: float) -> dict:
-    """Battery health: the range a full battery would give, after each charge.
+def _best(values: list[float], sample: int) -> float:
+    """The best the battery ever did; single outliers are evened out by a running median."""
+    return max(statistics.median(values[i : i + sample]) for i in range(0, len(values) - sample + 1))
 
-    A charge that ends at 80% with 400 km on the dash projects to 500 km at
-    100%. Following that number over time shows the battery's degradation.
-    The points, the current range and the loss follow the range; "new" is the
-    best the battery ever did, whatever the range, as that is what it means.
+
+def battery(
+    db: Database, car_id: int, start: int, end: int, efficiency_wh_km: float, capacity_new_kwh: float = 0.0
+) -> dict:
+    """Battery health: the usable capacity each charge measured, followed over time.
+
+    A charge that adds 30 kWh while the battery goes from 30% to 70% says 75 kWh fit in a full
+    battery (see database.session_figures). That goes by the battery level, not the rated range,
+    so new wheels or a firmware that changes the rated range don't show as wear. "New" is the
+    capacity_new_kwh option, or else the best the battery ever did, whatever the period, as that
+    is what it means. The range a full battery gives is shown beside it.
+
+    Without enough charges that measured the capacity (only imported ones, say), health falls back
+    to the range at 100%, as before 0.8.0.
     """
     rows = db.query(
-        "SELECT end_ts AS ts, odometer_km, end_soc AS soc, end_range_km * 100.0 / end_soc AS full_range_km"
-        " FROM charges WHERE car_id = ? AND end_ts IS NOT NULL AND end_soc >= 40 AND end_range_km > 0"
-        " ORDER BY end_ts",
+        "SELECT end_ts AS ts, odometer_km, end_soc AS soc, capacity_kwh,"
+        " CASE WHEN end_soc >= 40 AND end_range_km > 0 THEN end_range_km * 100.0 / end_soc END AS full_range_km"
+        " FROM charges WHERE car_id = ? AND end_ts IS NOT NULL AND estimated = 0"
+        " AND (capacity_kwh IS NOT NULL OR (end_soc >= 40 AND end_range_km > 0)) ORDER BY end_ts",
         (car_id,),
     )
     period = [row for row in rows if start <= row["ts"] < end]
-    result: dict = {"points": period, "new_km": None, "now_km": None, "loss_pct": None, "capacity_kwh": None}
-    if len(rows) >= 3:
-        values = [row["full_range_km"] for row in rows]
-        sample = max(3, min(10, len(values) // 4))
-        # The best the battery ever did counts as new; single outliers are evened out by the median
-        new = max(statistics.median(values[i : i + sample]) for i in range(0, len(values) - sample + 1))
-        result["new_km"] = new
-        if len(period) >= 3:
-            now = statistics.median([row["full_range_km"] for row in period[-sample:]])
-            result.update(
-                now_km=now,
-                loss_pct=max(0.0, (1 - now / new) * 100),
-                capacity_kwh=now * efficiency_wh_km / 1000,
-            )
+    result: dict = {
+        "points": period,
+        "basis": None,
+        "new_source": "option" if capacity_new_kwh else "best",
+        "new_km": None,
+        "now_km": None,
+        "new_kwh": capacity_new_kwh or None,
+        "loss_pct": None,
+        "capacity_kwh": None,
+    }
+
+    ranges = [row["full_range_km"] for row in rows if row["full_range_km"] is not None]
+    period_ranges = [row["full_range_km"] for row in period if row["full_range_km"] is not None]
+    if len(ranges) >= 3:
+        sample = max(3, min(10, len(ranges) // 4))
+        result["new_km"] = _best(ranges, sample)
+        if len(period_ranges) >= 3:
+            result["now_km"] = statistics.median(period_ranges[-sample:])
+
+    capacities = [row["capacity_kwh"] for row in rows if row["capacity_kwh"] is not None]
+    period_capacities = [row["capacity_kwh"] for row in period if row["capacity_kwh"] is not None]
+    if len(capacities) >= 3:
+        result["basis"] = "capacity"
+        sample = max(3, min(10, len(capacities) // 4))
+        new = capacity_new_kwh or _best(capacities, sample)
+        result["new_kwh"] = new
+        if len(period_capacities) >= 3:
+            now = statistics.median(period_capacities[-sample:])
+            result.update(capacity_kwh=now, loss_pct=max(0.0, (1 - now / new) * 100))
+    elif result["new_km"] is not None:
+        result["basis"] = "range"
+        if result["now_km"] is not None:
+            now_kwh = result["now_km"] * efficiency_wh_km / 1000
+            if capacity_new_kwh:
+                loss = (1 - now_kwh / capacity_new_kwh) * 100
+            else:
+                loss = (1 - result["now_km"] / result["new_km"]) * 100
+            result.update(capacity_kwh=now_kwh, loss_pct=max(0.0, loss))
     return result
 
 
@@ -307,11 +348,13 @@ def visited(db: Database, car_id: int, start: int, end: int, limit: int = 40000)
     return [[row["lat"], row["lon"], row["weight"]] for row in rows]
 
 
-def insights(db: Database, car_id: int, start: int, end: int, now: int, efficiency_wh_km: float) -> dict:
+def insights(
+    db: Database, car_id: int, start: int, end: int, now: int, efficiency_wh_km: float, capacity_new_kwh: float = 0.0
+) -> dict:
     """Everything the Stats page shows besides the per-period charts."""
     return {
         "summary": summary(db, car_id, start, end),
-        "battery": battery(db, car_id, start, end, efficiency_wh_km),
+        "battery": battery(db, car_id, start, end, efficiency_wh_km, capacity_new_kwh),
         "standby": standby(db, car_id, start, end, efficiency_wh_km),
         "temperature": by_temperature(db, car_id, start, end),
         "destinations": destinations(db, car_id, start, end),

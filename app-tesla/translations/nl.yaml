@@ -28,6 +28,13 @@ configuration:
       Energie achter één kilometer nominale actieradius, om actieradius om te
       rekenen naar kWh. Laat op 0 staan om dit uit je laadsessies te leren
       (aanbevolen).
+  battery_capacity_kwh:
+    name: Accucapaciteit nieuw (kWh)
+    description: >-
+      Bruikbare capaciteit van de accu toen hij nieuw was, bijvoorbeeld uit de
+      specificaties van de auto. Accugezondheid vergelijkt de capaciteit die nu
+      gemeten wordt met dit getal. Laat op 0 staan om te vergelijken met de
+      beste capaciteit die de app heeft gemeten.
   streaming:
     name: Live stream
     description: >-

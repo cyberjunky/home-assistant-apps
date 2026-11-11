@@ -5,6 +5,7 @@ seconds. One connection, guarded by a lock: the vehicle monitors write from the
 event loop, statistics run in a worker thread.
 """
 
+import bisect
 import itertools
 import json
 import logging
@@ -33,6 +34,13 @@ ELEVATION_NOISE_M = 3.0
 # Rated consumption is learned from sessions that added at least this much
 MIN_LEARN_KWH = 3.0
 MIN_LEARN_KM = 15.0
+# How many of the latest charges the consumption and battery capacity are taken from (median)
+LEARN_WINDOW = 25
+# Rated consumption outside this band (Wh/km) is a measurement glitch, not a car
+EFFICIENCY_BAND = (90.0, 350.0)
+# Usable capacity is measured over sessions that raised the battery level by at least this many points
+MIN_CAPACITY_SOC = 20
+CAPACITY_BAND = (10.0, 250.0)
 # The car's energy counter dropping by more than this means it started again from zero (a new plug-in)
 COUNTER_RESET_KWH = 0.5
 # A charge that starts again within this long after the previous one ended, at the same place and
@@ -82,6 +90,12 @@ NEW_COLUMNS = {
     ),
     "charge_samples": tuple(f"{column} REAL" for column in SAMPLE_EXTRA_COLUMNS),
 }
+# Added in layout 7 (0.8.0): what each charge tells about the battery, the consumption each drive's energy
+# was worked out with, and charges estimated afterwards. In SCHEMA for a new database, added by the migration.
+LAYOUT7_COLUMNS = {
+    "charges": ("capacity_kwh REAL", "rated_wh_km REAL", "estimated INTEGER NOT NULL DEFAULT 0"),
+    "drives": ("efficiency_wh_km REAL",),
+}
 # Only the few positions that carry tire pressures, so the tire chart never reads the others
 POSITIONS_TPMS_INDEX = (
     "CREATE INDEX positions_tpms ON positions(car_id, ts, tpms_fl, tpms_fr, tpms_rl, tpms_rr) WHERE tpms_fl IS NOT NULL"
@@ -89,7 +103,8 @@ POSITIONS_TPMS_INDEX = (
 
 
 def _new_columns(table: str) -> str:
-    return "".join(f",\n    {column}" for column in NEW_COLUMNS[table])
+    columns = (*NEW_COLUMNS[table], *LAYOUT7_COLUMNS.get(table, ()))
+    return "".join(f",\n    {column}" for column in columns)
 
 
 # Cars removed by hand: an import must not bring them back
@@ -256,7 +271,7 @@ INSERT INTO location_tags (place_key, tag) VALUES ('home', 'Home');
 # Stored in the database file. A database of an older layout is brought up to date at
 # start by the steps below; one of a newer layout (or one so old there is no step for it)
 # is refused with a message instead of failing on a missing column later.
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 
 def _statements(sql: str) -> list[str]:
@@ -277,6 +292,18 @@ MIGRATIONS = {
     4: [REMOVED_CARS_SQL],
     # 5 -> 6 (0.7.1): no new layout; sessions that resumed a paused charge counted its first part twice
     5: [lambda db: db.repair_resumed_charges()],
+    # 6 -> 7 (0.8.0): battery capacity and consumption per charge, consumption per drive, estimated charges
+    6: [
+        *[
+            f"ALTER TABLE {table} ADD COLUMN {column}"
+            for table, columns in LAYOUT7_COLUMNS.items()
+            for column in columns
+        ],
+        # Until now every drive was worked out with the car's one consumption figure
+        "UPDATE drives SET efficiency_wh_km = (SELECT efficiency_wh_km FROM cars WHERE cars.id = drives.car_id)"
+        " WHERE energy_kwh IS NOT NULL",
+        lambda db: db.fill_charge_figures(),
+    ],
 }
 
 POSITION_COLUMNS = (
@@ -345,6 +372,38 @@ def counter_energy(readings: list, fragment: bool = False) -> float:
     lowest = first.index(min(first))
     added = max(first[lowest:]) - (first[lowest] if fragment else 0.0)
     return max(0.0, added) + sum(max(stretch) for stretch in rest)
+
+
+def session_figures(samples: list[dict]) -> tuple[float | None, float | None]:
+    """What a charging session tells about the battery: its usable capacity (kWh for 100% of battery
+    level) and the rated consumption (Wh per km of rated range), or None where it can't tell.
+
+    The car's energy counter lags behind its battery level and range when charging starts (both already
+    rising, the counter still at zero), so all three are taken over the same samples: from the first one
+    that counts energy. Capacity goes by the battery level, not by the range, so new wheels or a firmware
+    that changes the rated range don't look like a battery that wore out.
+    """
+    usable = [s for s in samples if s.get("energy_added_kwh") is not None]
+    start = next((i for i, s in enumerate(usable) if s["energy_added_kwh"] > 0), None)
+    if start is None:
+        return None, None
+    usable = usable[start:]
+    kwh = counter_energy([s["energy_added_kwh"] for s in usable], fragment=True)
+    if kwh < MIN_LEARN_KWH:
+        return None, None
+    capacity = rated = None
+    with_soc = [s for s in usable if s.get("soc") is not None]
+    if with_soc and with_soc[-1]["soc"] - with_soc[0]["soc"] >= MIN_CAPACITY_SOC:
+        # The counter readings over exactly the samples the battery levels come from
+        soc_kwh = counter_energy([s["energy_added_kwh"] for s in with_soc], fragment=True)
+        value = soc_kwh / (with_soc[-1]["soc"] - with_soc[0]["soc"]) * 100.0
+        capacity = round(value, 2) if CAPACITY_BAND[0] <= value <= CAPACITY_BAND[1] else None
+    with_range = [s for s in usable if s.get("range_km") is not None]
+    if with_range and with_range[-1]["range_km"] - with_range[0]["range_km"] >= MIN_LEARN_KM:
+        range_kwh = counter_energy([s["energy_added_kwh"] for s in with_range], fragment=True)
+        value = range_kwh / (with_range[-1]["range_km"] - with_range[0]["range_km"]) * 1000.0
+        rated = round(value, 1) if range_kwh >= MIN_LEARN_KWH else None
+    return capacity, rated
 
 
 def _km_apart(lat1, lon1, lat2, lon2) -> float | None:
@@ -764,7 +823,8 @@ class Database:
             self.execute(
                 "UPDATE drives SET end_ts = ?, end_lat = ?, end_lon = ?, start_odometer_km = ?, end_odometer_km = ?,"
                 " distance_km = ?, duration_s = ?, start_soc = COALESCE(start_soc, ?), end_soc = ?,"
-                " start_range_km = ?, end_range_km = ?, energy_kwh = ?, speed_max_kmh = ?, speed_avg_kmh = ?,"
+                " start_range_km = ?, end_range_km = ?, energy_kwh = ?, efficiency_wh_km = ?, speed_max_kmh = ?,"
+                " speed_avg_kmh = ?,"
                 " power_max_kw = ?, power_min_kw = ?, outside_temp_avg = ?, inside_temp_avg = ?,"
                 " ascent_m = ?, descent_m = ? WHERE id = ?",
                 (
@@ -780,6 +840,7 @@ class Database:
                     start_range,
                     end_range,
                     energy,
+                    efficiency_wh_km if energy is not None else None,
                     agg["speed_max"],
                     distance / duration * 3600 if duration > 0 else None,
                     agg["power_max"],
@@ -1004,6 +1065,10 @@ class Database:
                 self.execute(
                     "UPDATE charges SET start_soc = COALESCE(start_soc, ?) WHERE id = ?", (first["soc"], charge_id)
                 )
+            capacity, rated = session_figures(samples)
+            self.execute(
+                "UPDATE charges SET capacity_kwh = ?, rated_wh_km = ? WHERE id = ?", (capacity, rated, charge_id)
+            )
             ideal = [sample["ideal_range_km"] for sample in samples if sample["ideal_range_km"] is not None]
             if ideal:
                 self.execute(
@@ -1041,6 +1106,87 @@ class Database:
             logger.info(f"Corrected {fixed} charging session(s) that counted the energy before a pause twice")
         return fixed
 
+    def add_estimated_charge(
+        self, car_id: int, before: dict, after: dict, capacity_kwh: float | None, efficiency_wh_km: float
+    ) -> int | None:
+        """Record a charge that happened while nobody watched (the car offline, the app not running): the car
+        is back with a clearly higher battery level than it was last seen with. `before` and `after` are the
+        last and the new snapshot. The energy is estimated from the battery level gained times the capacity
+        (or, without one, from the range gained). Returns its id, or None when a recorded charge (also one
+        imported from Tesla's charging history) covers that time already."""
+        start, end = int(before["ts"]), int(after["ts"])
+        with self._lock:
+            covered = self.query_one(
+                "SELECT 1 FROM charges WHERE car_id = ? AND start_ts < ? AND (end_ts IS NULL OR end_ts > ?) LIMIT 1",
+                (car_id, end, start),
+            )
+            if covered:
+                return None
+            gained = after["soc"] - before["soc"]
+            if capacity_kwh:
+                energy = gained / 100.0 * capacity_kwh
+            elif before.get("range_km") is not None and after.get("range_km") is not None:
+                energy = (after["range_km"] - before["range_km"]) * efficiency_wh_km / 1000.0
+            else:
+                return None
+            if energy < MIN_CHARGE_KWH:
+                return None
+            odometer = (before.get("odometer_km"), after.get("odometer_km"))
+            # Not driven in between: it charged where it is parked. Otherwise somewhere along the way.
+            stayed = None not in odometer and abs(odometer[1] - odometer[0]) < 0.5
+            return self.execute(
+                "INSERT INTO charges (car_id, start_ts, end_ts, lat, lon, odometer_km, start_soc, end_soc,"
+                " start_range_km, end_range_km, energy_added_kwh, estimated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)",
+                (
+                    car_id,
+                    start,
+                    end,
+                    after.get("lat") if stayed else None,
+                    after.get("lon") if stayed else None,
+                    after.get("odometer_km") if stayed else None,
+                    before["soc"],
+                    after["soc"],
+                    before.get("range_km"),
+                    after.get("range_km"),
+                    round(energy, 2),
+                ),
+            )
+
+    def estimated_charge_covering(self, car_id: int, start_ts: int, end_ts: int | None = None) -> int | None:
+        """The id of an estimated charge of this car whose time span holds this session, if any."""
+        row = self.query_one(
+            "SELECT id FROM charges WHERE car_id = ? AND estimated = 1 AND start_ts <= ? AND end_ts >= ?"
+            " ORDER BY start_ts DESC LIMIT 1",
+            (car_id, start_ts, end_ts if end_ts is not None else start_ts),
+        )
+        return row["id"] if row else None
+
+    def replace_estimate(self, charge_id: int, session: dict) -> None:
+        """An estimated charge turned out to be a session in Tesla's charging history: take over what that
+        knows (time, place, energy, bill). The battery levels and range of the estimate stay."""
+        self.execute(
+            "UPDATE charges SET start_ts = ?, end_ts = ?, duration_s = ?, lat = COALESCE(?, lat), lon = COALESCE(?, lon),"
+            " place = COALESCE(?, place), kind = ?, charger_brand = ?, energy_added_kwh = ?, energy_used_kwh = ?,"
+            " cost = CASE WHEN cost_manual THEN cost ELSE ? END, billed_amount = ?, billed_currency = ?, estimated = 0"
+            " WHERE id = ?",
+            (
+                session["start_ts"],
+                session["end_ts"],
+                session["duration_s"],
+                session["lat"],
+                session["lon"],
+                session["place"],
+                session["kind"],
+                session["charger_brand"],
+                session["energy_added_kwh"],
+                session["energy_used_kwh"],
+                session["cost"],
+                session["billed_amount"],
+                session["billed_currency"],
+                charge_id,
+            ),
+        )
+
     def note_charge_hardware(self, charge_id: int, cable: str | None, charger_type: str | None) -> None:
         """Remember the cable and charger of a session; the car can report them only after a few readings."""
         if cable or charger_type:
@@ -1054,11 +1200,12 @@ class Database:
         return self.query("SELECT * FROM charges WHERE car_id = ? AND end_ts IS NULL", (car_id,))
 
     def unbilled_fast_charges(self, since_ts: int) -> list[dict]:
-        """Recent fast-charge sessions for which Tesla's bill hasn't been found (yet)."""
+        """Recent fast-charge (and estimated) sessions for which Tesla's bill hasn't been found (yet)."""
         return self.query(
-            "SELECT charges.id, charges.car_id, charges.start_ts, charges.end_ts, cars.vin FROM charges"
-            " JOIN cars ON cars.id = charges.car_id"
-            " WHERE charges.kind = 'DC' AND charges.end_ts IS NOT NULL AND charges.end_ts >= ?"
+            "SELECT charges.id, charges.car_id, charges.start_ts, charges.end_ts, charges.estimated, cars.vin"
+            " FROM charges JOIN cars ON cars.id = charges.car_id"
+            # An estimated charge may have been at a Supercharger: its bill then tells what really happened
+            " WHERE (charges.kind = 'DC' OR charges.estimated = 1) AND charges.end_ts IS NOT NULL AND charges.end_ts >= ?"
             " AND charges.billed_amount IS NULL AND cars.vin IS NOT NULL ORDER BY charges.start_ts",
             (since_ts,),
         )
@@ -1189,43 +1336,88 @@ class Database:
     def learn_efficiency(self, car_id: int) -> float | None:
         """Rated consumption (Wh per km of rated range), from what recent charges added.
 
-        Each session tells how many kWh the car booked for the range it gained;
-        the median of the last sessions ignores the odd one out. The car's energy counter
-        lags behind its range when charging starts (range already rising, counter still at
-        zero), so both are taken over the same samples: from the first one that counts energy.
+        Each session tells how many kWh the car booked for the range it gained (see
+        session_figures); the median of the last sessions ignores the odd one out.
         """
-        ratios = []
-        for charge in self.query(
-            "SELECT id FROM charges WHERE car_id = ? AND end_ts IS NOT NULL AND energy_added_kwh >= ?"
-            " AND end_range_km - start_range_km >= ? ORDER BY start_ts DESC LIMIT 25",
-            (car_id, MIN_LEARN_KWH, MIN_LEARN_KM),
-        ):
-            samples = [
-                s
-                for s in self.charge_samples(charge["id"])
-                if s["range_km"] is not None and s["energy_added_kwh"] is not None
-            ]
-            start = next((i for i, s in enumerate(samples) if s["energy_added_kwh"] > 0), None)
-            if start is None:
-                continue
-            samples = samples[start:]
-            kwh = counter_energy([s["energy_added_kwh"] for s in samples], fragment=True)
-            km = samples[-1]["range_km"] - samples[0]["range_km"]
-            if kwh >= MIN_LEARN_KWH and km >= MIN_LEARN_KM:
-                ratios.append(kwh / km * 1000.0)
-        # Outside this band it's a measurement glitch, not a car
-        ratios = [r for r in ratios if 90.0 <= r <= 350.0]
-        return round(statistics.median(ratios), 1) if ratios else None
+        rows = self.query(
+            "SELECT rated_wh_km FROM charges WHERE car_id = ? AND end_ts IS NOT NULL AND rated_wh_km BETWEEN ? AND ?"
+            " ORDER BY start_ts DESC LIMIT ?",
+            (car_id, *EFFICIENCY_BAND, LEARN_WINDOW),
+        )
+        return round(statistics.median(row["rated_wh_km"] for row in rows), 1) if rows else None
+
+    def battery_capacity(self, car_id: int, before_ts: int | None = None) -> float | None:
+        """The usable battery capacity (kWh) the latest charges measured, median of the last ten."""
+        rows = self.query(
+            "SELECT capacity_kwh FROM charges WHERE car_id = ? AND end_ts IS NOT NULL AND end_ts <= ?"
+            " AND capacity_kwh IS NOT NULL ORDER BY end_ts DESC LIMIT 10",
+            (car_id, before_ts if before_ts is not None else 2**40),
+        )
+        return statistics.median(row["capacity_kwh"] for row in rows) if rows else None
+
+    def fill_charge_figures(self) -> int:
+        """Work out the capacity and consumption figures of every finished charge with samples that has none."""
+        filled = 0
+        with self._lock:
+            for charge in self.query(
+                "SELECT id FROM charges WHERE end_ts IS NOT NULL AND capacity_kwh IS NULL AND rated_wh_km IS NULL"
+            ):
+                capacity, rated = session_figures(self.charge_samples(charge["id"]))
+                if capacity is not None or rated is not None:
+                    self.execute(
+                        "UPDATE charges SET capacity_kwh = ?, rated_wh_km = ? WHERE id = ?",
+                        (capacity, rated, charge["id"]),
+                    )
+                    filled += 1
+        if filled:
+            logger.info(f"Worked out battery capacity and consumption for {filled} charging session(s)")
+        return filled
 
     def apply_efficiency(self, car_id: int, efficiency_wh_km: float) -> None:
-        """Store the rated consumption and recalculate the energy of every drive with it."""
+        """A consumption figure set by hand: store it and recalculate the energy of every drive with it."""
         with self._lock:
             self.execute("UPDATE cars SET efficiency_wh_km = ? WHERE id = ?", (efficiency_wh_km, car_id))
             self.execute(
-                "UPDATE drives SET energy_kwh = (start_range_km - end_range_km) * ? / 1000.0"
+                "UPDATE drives SET energy_kwh = (start_range_km - end_range_km) * ? / 1000.0, efficiency_wh_km = ?"
                 " WHERE car_id = ? AND start_range_km IS NOT NULL AND end_range_km IS NOT NULL",
-                (efficiency_wh_km, car_id),
+                (efficiency_wh_km, efficiency_wh_km, car_id),
             )
+
+    def apply_learned_efficiency(self, car_id: int, learned: float | None, default: float) -> int:
+        """Store the learned consumption, and work out each drive's energy with the consumption of its time.
+
+        A drive goes by the last charges before it (the median of up to LEARN_WINDOW), so a change of
+        wheels or firmware only shows from then on and later charges don't rewrite earlier drives.
+        Drives from before the first few charges go by the first ones; without any, `default`.
+        Returns the number of drives whose energy changed.
+        """
+        changed = 0
+        with self._lock:
+            if learned:
+                self.execute("UPDATE cars SET efficiency_wh_km = ? WHERE id = ?", (learned, car_id))
+            ratios = self.query(
+                "SELECT end_ts, rated_wh_km FROM charges WHERE car_id = ? AND end_ts IS NOT NULL"
+                " AND rated_wh_km BETWEEN ? AND ? ORDER BY end_ts",
+                (car_id, *EFFICIENCY_BAND),
+            )
+            ends = [row["end_ts"] for row in ratios]
+            values = [row["rated_wh_km"] for row in ratios]
+            for drive in self.query(
+                "SELECT id, start_ts, start_range_km, end_range_km, energy_kwh, efficiency_wh_km FROM drives"
+                " WHERE car_id = ? AND end_ts IS NOT NULL AND start_range_km IS NOT NULL AND end_range_km IS NOT NULL",
+                (car_id,),
+            ):
+                before = bisect.bisect_right(ends, drive["start_ts"])
+                window = values[max(0, before - LEARN_WINDOW) : before] if before >= 3 else values[:LEARN_WINDOW]
+                efficiency = round(statistics.median(window), 1) if window else drive["efficiency_wh_km"] or default
+                energy = (drive["start_range_km"] - drive["end_range_km"]) * efficiency / 1000.0
+                if drive["efficiency_wh_km"] != efficiency or drive["energy_kwh"] is None:
+                    self.execute(
+                        "UPDATE drives SET energy_kwh = ?, efficiency_wh_km = ? WHERE id = ?",
+                        (energy, efficiency, drive["id"]),
+                    )
+                    changed += 1
+        return changed
 
     # ------------------------------------------------------------------
     # States and software versions

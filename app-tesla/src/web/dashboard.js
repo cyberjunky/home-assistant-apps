@@ -124,6 +124,7 @@ function climateBlock(car) {
         missing(car.target_temp) ? '' : fact('Set to', fmtTemp(car.target_temp)
             + (missing(car.passenger_temp) || car.passenger_temp === car.target_temp ? '' : ` <small>passenger ${fmtTemp(car.passenger_temp)}</small>`)),
         missing(car.fan_status) ? '' : fact('Fan', car.fan_status ? `Speed ${num(car.fan_status)}` : 'Off'),
+        missing(car.auto_conditioning) ? '' : fact('Auto climate', onOff(car.auto_conditioning)),
         fact('Preconditioning', onOff(car.preconditioning)),
         missing(car.front_defrost) && missing(car.rear_defrost) ? '' : fact('Defrost', car.front_defrost || car.rear_defrost
             ? [car.front_defrost ? 'front' : '', car.rear_defrost ? 'rear' : ''].filter(Boolean).join(', ') : 'Off'),

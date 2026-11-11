@@ -70,6 +70,7 @@ BINARY_SENSORS = (
     ("unlocked", "Lock", "lock", None),
     ("plugged_in", "Plugged in", "plug", None),
     ("climate_on", "Climate", None, "mdi:fan"),
+    ("auto_conditioning", "Auto climate", None, "mdi:fan-auto"),
     ("sentry", "Sentry mode", None, "mdi:shield-car"),
     ("doors_open", "Doors", "door", None),
     ("windows_open", "Windows", "window", None),
@@ -99,6 +100,9 @@ BINARY_SENSORS = (
     ("speed_limit_active", "Speed limit mode", None, "mdi:speedometer-slow"),
 )
 
+# Binary sensors that not every car reports: unknown in Home Assistant instead of off
+MAYBE_UNKNOWN = ("auto_conditioning",)
+
 
 def state_payload(view: dict) -> dict:
     """The car's state as published: the monitor's view, flattened for templates."""
@@ -107,6 +111,8 @@ def state_payload(view: dict) -> dict:
         payload[f"tpms_{wheel}"] = pressure
     for key, *_ in BINARY_SENSORS:
         payload[key] = bool(view.get(key))
+    for key in MAYBE_UNKNOWN:
+        payload[key] = None if view.get(key) is None else bool(view.get(key))
     payload["unlocked"] = view.get("locked") is False
     payload["battery_heater_active"] = bool(view.get("battery_heater") or view.get("battery_heater_on"))
     payload["update_available"] = view.get("update_status") in ("available", "scheduled", "downloading")
@@ -276,7 +282,11 @@ class MqttPublisher:
                 **common,
                 "name": name,
                 "unique_id": f"{node}_{key}",
-                "value_template": f"{{{{ 'ON' if value_json.{key} else 'OFF' }}}}",
+                "value_template": (
+                    f"{{{{ 'None' if value_json.{key} is none else ('ON' if value_json.{key} else 'OFF') }}}}"
+                    if key in MAYBE_UNKNOWN
+                    else f"{{{{ 'ON' if value_json.{key} else 'OFF' }}}}"
+                ),
             }
             if device_class:
                 config["device_class"] = device_class

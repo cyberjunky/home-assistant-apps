@@ -1,5 +1,5 @@
 name: Tesla
-version: "0.7.1"
+version: "0.8.0"
 slug: app-tesla
 description: "Unofficial Tesla logger and dashboard for Home Assistant - live map, trips, charging sessions and statistics"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-tesla"
@@ -26,6 +26,7 @@ options:
   cost_per_kwh: 0.0
   supercharger_costs: true
   efficiency_wh_km: 0.0
+  battery_capacity_kwh: 0.0
   streaming: true
   geocoding: true
   polling:
@@ -51,6 +52,7 @@ schema:
   cost_per_kwh: float(0,100)?
   supercharger_costs: bool?
   efficiency_wh_km: float(0,500)?
+  battery_capacity_kwh: float(0,250)?
   streaming: bool?
   geocoding: bool?
   polling:

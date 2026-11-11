@@ -304,6 +304,11 @@ class ChargingCosts:
                     charge = session_to_charge(entry, currency)
                     if not charge:
                         continue
+                    # A charge estimated while the app wasn't watching becomes this session, not a second one
+                    estimate = self.database.estimated_charge_covering(car["id"], charge["start_ts"], charge["end_ts"])
+                    if estimate is not None:
+                        self.database.replace_estimate(estimate, charge)
+                        continue
                     existing = self.database.charge_near(car["id"], charge["start_ts"])
                     if existing is None:
                         if self.database.import_charge(car["id"], charge):
@@ -327,6 +332,12 @@ class ChargingCosts:
     def _apply(self, charge: dict, entry: dict | None) -> None:
         if entry is None:
             logger.debug(f"Charge {charge['id']}: not in Tesla's charging history (yet)")
+            return
+        if charge.get("estimated"):
+            session = session_to_charge(entry, self.config.currency)
+            if session:
+                self.database.replace_estimate(charge["id"], session)
+                logger.info(f"Charge {charge['id']}: the estimated charge is a session in Tesla's charging history")
             return
         bill = billed(entry)
         if bill is None:

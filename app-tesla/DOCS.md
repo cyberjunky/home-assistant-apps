@@ -99,8 +99,23 @@ Tesla account ──▶ owner API ──▶ vehicle monitor ──▶ SQLite ─
   This app converts range to kWh with the car's rated consumption (Wh per km of range),
   which it learns from your charging sessions (energy added ÷ range gained, median of the
   last 25; both counted from the moment the car's energy counter starts, which lags behind
-  the range). Until the first decent session a typical value for the model is used; all trips
-  are recalculated when the learned value changes. `efficiency_wh_km` fixes it instead.
+  the range). Until the first decent session a typical value for the model is used. Each trip
+  keeps the value of its own time (learned from the charges before it), so when the car's
+  rated consumption changes (other wheels, a software update) only the trips from then on
+  follow; trips from before the first few charges are recalculated once those come in.
+  `efficiency_wh_km` fixes one value for all trips instead.
+- **Battery health.** Every charge that raises the battery level by at least 20 points
+  measures the usable capacity: kWh added ÷ battery % gained. Stats → Battery health follows
+  that over time and compares it with the capacity when new: `battery_capacity_kwh` if you
+  set it, else the best the app measured. Because it goes by the battery level and not by
+  the rated range, new wheels or a software update don't look like wear. A car with only
+  imported sessions that lack a power curve falls back to the rated range at 100%.
+- **Charges the app didn't see.** When the car comes back (after being offline, or after
+  the app wasn't running) with at least 5% more battery than it was last seen with, and no
+  recorded charge covers that time, the app adds an **estimated** charge: the battery % gained
+  × the capacity measured. It is marked "est." on the Charging page. Without a power curve
+  it has no duration, energy from the charger or cost. If it turns out to be a session in
+  Tesla's charging history (a Supercharger), that session replaces it.
 - **Charging cost and efficiency.** The energy drawn from the charger is measured from
   voltage, current and phases (AC) or the reported power (DC), so it includes charging
   losses; efficiency is energy added ÷ energy drawn.
@@ -143,6 +158,7 @@ The dividers between list, map and details can be dragged; double-click one to r
 | `cost_per_kwh` | `0` | Price per kWh for new charging sessions; `0` turns cost calculation off |
 | `supercharger_costs` | `true` | Use what Tesla billed for sessions at its own chargers (from your account's charging history) as their cost |
 | `efficiency_wh_km` | `0` | Rated consumption in Wh per km of rated range; `0` learns it from your charging sessions |
+| `battery_capacity_kwh` | `0` | Usable battery capacity when new, in kWh (from the car's specifications); battery health compares with it. `0` compares with the best capacity measured |
 | `streaming` | `true` | Use Tesla's live stream (see [How it works](#how-it-works)) |
 | `geocoding` | `true` | Look up addresses at OpenStreetMap Nominatim |
 | `log_level` | `info` | `debug`, `info`, `warning` or `error` |
@@ -176,7 +192,8 @@ Each car becomes a device with:
   set temperatures, fan, seat heaters, keep climate mode, cabin overheat protection, charger
   voltage, current, phases, type, brand and cable, offered and requested current, port latch,
   scheduled charging and sunroof
-- **Binary sensors** — lock, plugged in, climate, sentry mode, doors, windows, trunk,
+- **Binary sensors** — lock, plugged in, climate, auto climate (unknown for cars that don't
+  report it), sentry mode, doors, windows, trunk,
   frunk, occupied, software update available, preconditioning, charge port door, battery
   heater, front and rear defrost, steering wheel heater, each door and window, a warning per
   tire, valet mode, speed limit mode
