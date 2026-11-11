@@ -1,10 +1,12 @@
 """The JSON API of every page against a small Chronicle history."""
 
+from datetime import timedelta
+
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
-from src.database import Database, bucket_seconds
-from src.webui import WebUI, entity_csv
+from src.database import Database, bucket_seconds, resolution
+from src.webui import WebUI
 
 
 @pytest.fixture
@@ -45,26 +47,37 @@ async def test_numeric_entity(client):
     assert data["kind"] == "numeric"
     assert data["source"] == "raw"
     assert len(data["points"]) > 100
-    # Without the aggregates the long ranges are averaged from the rows
+    # The history is two days old: 30 days shows those two days, still every value
     data = await (await client.get("/api/entity?entity_id=sensor.temperature&range=30d")).json()
-    assert data["source"] == "buckets"
-    assert data["bucket"] == 3600
+    assert data["from"] == data["entity"]["first"]
+    assert data["source"] == "raw"
 
 
-async def test_state_entity_and_csv(client):
+async def test_state_entity(client):
     data = await (await client.get("/api/entity?entity_id=light.desk&range=7d")).json()
     assert data["kind"] == "state"
     assert {p["state"] for p in data["points"]} == {"on", "off"}
     assert data["latest"]["attributes"] == {"friendly_name": "Desk"}
-    response = await client.get("/api/entity.csv?entity_id=light.desk&range=7d")
-    text = await response.text()
-    assert text.splitlines()[0] == "time,entity_id,state"
+
+
+async def test_zoom_window(client):
+    entities = await (await client.get("/api/entity?entity_id=sensor.temperature&range=24h")).json()
+    to = entities["to"]
+    data = await (await client.get(f"/api/entity?entity_id=sensor.temperature&from={to - 7200}&to={to}")).json()
+    assert data["zoomed"] is True
+    assert data["source"] == "raw"
+    # A value every 10 minutes for two hours, plus the value carried to the window's start
+    assert 12 <= len([p for p in data["points"] if not p.get("carried")]) <= 13
+    assert data["points"][0]["t"] == data["from"]
 
 
 async def test_bad_requests(client):
     assert (await client.get("/api/entity?entity_id=nope&range=24h")).status == 400
     assert (await client.get("/api/entity?entity_id=sensor.missing&range=24h")).status == 404
     assert (await client.get("/api/entity?entity_id=sensor.temperature&range=5y")).status == 400
+    assert (await client.get("/api/entity?entity_id=sensor.temperature&from=200&to=100")).status == 400
+    assert (await client.get("/api/entity?entity_id=sensor.temperature&from=100")).status == 400
+    assert (await client.get("/api/entity?entity_id=sensor.temperature&from=x&to=y")).status == 400
 
 
 async def test_storage(client):
@@ -103,14 +116,31 @@ def test_bucket_seconds():
     assert bucket_seconds(10) == 60
 
 
-def test_csv_of_buckets():
-    data = {
-        "entity": {"entity_id": "sensor.x"},
-        "kind": "numeric",
-        "source": "hourly",
-        "points": [{"t": 0, "mean": 1.5, "min": 1, "max": 2, "last": 2, "n": 4}],
-    }
-    assert entity_csv(data).splitlines() == [
-        "bucket_start,entity_id,mean,min,max,last,samples",
-        "1970-01-01T00:00:00+00:00,sensor.x,1.5,1,2,2,4",
-    ]
+def test_resolution_follows_the_span():
+    assert resolution(timedelta(hours=1)) == "raw"
+    assert resolution(timedelta(days=2)) == "raw"
+    assert resolution(timedelta(days=7)) == "minutes"
+    assert resolution(timedelta(days=30)) == "hourly"
+    assert resolution(timedelta(days=365)) == "daily"
+
+
+async def test_fresh_history_fills_every_range(fresh_config, tmp_path, monkeypatch):
+    """An hour after installing: every range shows that hour with every value (Ron saw empty
+    charts in 0.1.0: the ranges ran from 24 hours or 30 days ago, with an hour at the edge)."""
+    monkeypatch.setattr("src.webui.DATA_DIR", tmp_path)
+    db = Database(fresh_config)
+    async with TestClient(TestServer(WebUI(0, fresh_config, db).app)) as c:
+        for range_key in ("24h", "7d", "30d", "1y", "all"):
+            data = await (await c.get(f"/api/entity?entity_id=sensor.power&range={range_key}")).json()
+            assert data["source"] == "raw", range_key
+            assert data["from"] == data["entity"]["first"], range_key
+            assert data["to"] - data["from"] < 2 * 3600, range_key
+            values = [p for p in data["points"] if not p.get("carried")]
+            assert len(values) == 120, range_key
+            # The unavailable stretch is a gap, not left out
+            assert sum(1 for p in values if p["v"] is None) == 5
+        tracker = await (await c.get("/api/entity?entity_id=device_tracker.phone&range=24h")).json()
+    await db.close()
+    # Twelve updates, of which ten only changed attributes: two changes of state
+    assert [p["state"] for p in tracker["points"]] == ["home", "not_home"]
+    assert tracker["updates"] == 12
