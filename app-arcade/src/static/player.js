@@ -87,6 +87,22 @@ function signature(data) {
 
 function mameFS() { return window.FS || (window.Module && window.Module.FS); }
 
+// MAME's own JSMAME helpers (emscripten_post.js) bind the functions without arguments
+// before the WebAssembly has loaded, so those are left undefined: call the exports directly
+const MAME_FN = {
+    save_settings: '__ZN15running_machine24emscripten_save_settingsEv',
+    exit: '__ZN15running_machine15emscripten_exitEv',
+    soft_reset: '__ZN15running_machine21emscripten_soft_resetEv',
+    get_machine: '__ZN15running_machine30emscripten_get_running_machineEv',
+    get_sound: '__ZN15running_machine20emscripten_get_soundEv',
+    mute: '__ZN13sound_manager4muteEbh',
+};
+function mame(name, ...args) {
+    const fn = window.Module && window.Module[MAME_FN[name]];
+    if (typeof fn !== 'function') throw new Error(`MAME has no ${name}`);
+    return fn(...args);
+}
+
 function writeFile(fs, path, data) {
     const dir = path.substring(0, path.lastIndexOf('/'));
     if (dir) fs.mkdirTree(dir);
@@ -152,7 +168,8 @@ function startGame() {
 
 // Send every save file that changed since the app last got it
 function saveSettings() {
-    try { if (running && window.JSMAME && JSMAME.save_settings) JSMAME.save_settings(); } catch (e) { /* stopped */ }
+    if (!running) return;
+    try { mame('save_settings'); } catch (e) { console.warn('Saving MAME settings failed:', e); }
 }
 
 async function sync(keepalive) {
@@ -185,7 +202,6 @@ async function sync(keepalive) {
     if (changed.some(c => c.path.startsWith('hiscore/'))) statusLine('High scores saved.');
 }
 
-function machine() { return window.JSMAME && JSMAME.get_machine(); }
 
 function saveState() {
     if (!running) return;
@@ -201,11 +217,11 @@ function loadState() {
     try { fs.stat(`${HOME}/sta/${GAME}/1.sta`); } catch (e) { toast('Nothing saved yet: press Save first'); return; }
     JSMAME.load('1');
 }
-function resetGame() { if (running) JSMAME.soft_reset(); }
+function resetGame() { if (running) mame('soft_reset'); }
 function toggleMute() {
     if (!running) return;
     muted = !muted;
-    JSMAME.sound_manager_mute(JSMAME.get_sound(machine()), muted, 0x02);
+    mame('mute', mame('get_sound', mame('get_machine')), muted ? 1 : 0, 0x02);  // 0x02: muted by the UI
     document.getElementById('mute-btn').textContent = muted ? '🔇' : '🔊';
 }
 function toggleFullscreen() {
@@ -222,7 +238,7 @@ async function leave() {
         statusLine('Saving…');
         saveSettings();
         await sync();
-        try { JSMAME.exit(); } catch (e) { /* already stopped */ }
+        try { mame('exit'); } catch (e) { /* already stopped */ }
     }
     window.location.href = api('/');
 }

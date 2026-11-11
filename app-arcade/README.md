@@ -32,9 +32,17 @@ laptop to the tablet.
 
 ## Screenshots
 
-![Library](screenshots/library-dark.webp)
+![Library: the games your ROM zips hold](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-arcade/screenshots/library-light.webp)
 
-![Circus, one of the free ROMs on mamedev.org](screenshots/playing-circus.webp)
+![Super Tank, one of the free ROMs on mamedev.org, being played](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-arcade/screenshots/playing-supertank.webp)
+
+<details>
+<summary>More screenshots (dark theme)</summary>
+
+**Library, dark theme** — follows Home Assistant's light/dark mode
+![Library in the dark theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-arcade/screenshots/library-dark.webp)
+
+</details>
 
 ## Installation
 
