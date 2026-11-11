@@ -1,0 +1,62 @@
+[
+  {
+    "title": "Last day of one entity",
+    "description": "Every value one entity recorded in the last 24 hours, oldest first. Replace <entity_id> with the entity, for example sensor.outdoor_temperature.",
+    "sql": "SELECT time, state, value\nFROM chronicle.history\nWHERE entity_id = '<entity_id>'\n  AND time > now() - INTERVAL '1 day'\nORDER BY time"
+  },
+  {
+    "title": "Daily averages for a year",
+    "description": "Mean, minimum and maximum per day over the last year, from the daily averages: fast however long the history is. Replace <entity_id> with a numeric entity.",
+    "sql": "SELECT d.bucket AS day, round(d.mean::numeric, 2) AS mean, d.min, d.max\nFROM chronicle.states_daily d\nJOIN chronicle.entities e ON e.id = d.entity\nWHERE e.entity_id = '<entity_id>'\n  AND d.bucket > now() - INTERVAL '1 year'\nORDER BY d.bucket"
+  },
+  {
+    "title": "One month, day by day",
+    "description": "The minimum, maximum and mean of each day of the last month, with the number of values behind them. Replace <entity_id> with a numeric entity.",
+    "sql": "SELECT d.bucket AS day, d.min, d.max, round(d.mean::numeric, 2) AS mean, d.samples\nFROM chronicle.states_daily d\nJOIN chronicle.entities e ON e.id = d.entity\nWHERE e.entity_id = '<entity_id>'\n  AND d.bucket > now() - INTERVAL '1 month'\nORDER BY d.bucket"
+  },
+  {
+    "title": "Busiest entities (24 h)",
+    "description": "The 20 entities that wrote the most rows in the last 24 hours. Busy entities you don't need are the first to exclude in the integration's options.",
+    "sql": "SELECT e.entity_id, e.name, count(*) AS rows\nFROM chronicle.states s\nJOIN chronicle.entities e ON e.id = s.entity\nWHERE s.time > now() - INTERVAL '24 hours'\nGROUP BY e.entity_id, e.name\nORDER BY rows DESC\nLIMIT 20"
+  },
+  {
+    "title": "Changes per entity today",
+    "description": "How many changes each entity recorded since midnight, in Home Assistant's time zone. Shows what is busy right now.",
+    "sql": "SELECT e.entity_id, count(*) AS changes, max(s.time) AS last_change\nFROM chronicle.states s\nJOIN chronicle.entities e ON e.id = s.entity\nWHERE s.time >= date_trunc('day', now(), coalesce((SELECT value FROM chronicle.meta WHERE key = 'aggregate_time_zone'), 'UTC'))\nGROUP BY e.entity_id\nORDER BY changes DESC"
+  },
+  {
+    "title": "Last value of every sensor",
+    "description": "The newest state of every sensor with its unit and when it was recorded. One index lookup per sensor, so it stays fast on a large history.",
+    "sql": "SELECT e.entity_id, coalesce(l.state, l.value::text) AS state, e.unit, l.time\nFROM chronicle.entities e\nCROSS JOIN LATERAL (\n    SELECT s.time, s.state, s.value FROM chronicle.states s\n    WHERE s.entity = e.id ORDER BY s.time DESC LIMIT 1\n) l\nWHERE e.domain = 'sensor'\nORDER BY e.entity_id"
+  },
+  {
+    "title": "Entities that went silent",
+    "description": "Entities whose last recorded change is more than 24 hours ago, the quietest first. Useful to spot a device that stopped reporting.",
+    "sql": "SELECT e.entity_id, coalesce(l.state, l.value::text) AS last_state, l.time AS last_change,\n       now() - l.time AS silent_for\nFROM chronicle.entities e\nCROSS JOIN LATERAL (\n    SELECT s.time, s.state, s.value FROM chronicle.states s\n    WHERE s.entity = e.id ORDER BY s.time DESC LIMIT 1\n) l\nWHERE l.time < now() - INTERVAL '24 hours'\nORDER BY l.time"
+  },
+  {
+    "title": "Hours on per day",
+    "description": "How long a switch, light or binary sensor was on per day over the last 30 days, worked out from its on/off changes. Replace <entity_id>; a stretch past midnight counts for the day it started.",
+    "sql": "WITH changes AS (\n    SELECT s.time, s.value,\n           lead(s.time, 1, now()) OVER (ORDER BY s.time) AS until\n    FROM chronicle.states s\n    JOIN chronicle.entities e ON e.id = s.entity\n    WHERE e.entity_id = '<entity_id>'\n      AND s.time > now() - INTERVAL '30 days'\n)\nSELECT date_trunc('day', time) AS day,\n       round((coalesce(sum(extract(epoch FROM until - time)) FILTER (WHERE value = 1), 0) / 3600)::numeric, 2) AS hours_on\nFROM changes\nGROUP BY 1\nORDER BY 1"
+  },
+  {
+    "title": "Attribute over time",
+    "description": "The value of one attribute at every recorded change, the newest first, such as a thermostat's target temperature. Replace <entity_id> and <attribute>.",
+    "sql": "SELECT time, state, attributes->>'<attribute>' AS attribute\nFROM chronicle.history\nWHERE entity_id = '<entity_id>'\n  AND attributes ? '<attribute>'\nORDER BY time DESC\nLIMIT 500"
+  },
+  {
+    "title": "Top attribute keys",
+    "description": "The attribute names found most often, counted over the distinct attribute sets. Shows what the attributes take space for.",
+    "sql": "SELECT key, count(*) AS attribute_sets\nFROM chronicle.attributes, jsonb_object_keys(data) AS key\nGROUP BY key\nORDER BY attribute_sets DESC\nLIMIT 30"
+  },
+  {
+    "title": "Compression of the chunks",
+    "description": "Every chunk of the history with its time range, whether it is compressed and its size before and after. The newest chunks are compressed once they are older than the integration's Compress after setting.",
+    "sql": "SELECT c.chunk_name, c.range_start, c.range_end, c.is_compressed,\n       pg_size_pretty(s.before_compression_total_bytes) AS before,\n       pg_size_pretty(s.after_compression_total_bytes) AS after\nFROM timescaledb_information.chunks c\nLEFT JOIN chunk_compression_stats('chronicle.states') s USING (chunk_schema, chunk_name)\nWHERE c.hypertable_schema = 'chronicle' AND c.hypertable_name = 'states'\nORDER BY c.range_start DESC"
+  },
+  {
+    "title": "Table sizes",
+    "description": "The size and number of chunks of every hypertable in the database: the history and the hourly and daily averages.",
+    "sql": "SELECT format('%I.%I', hypertable_schema, hypertable_name) AS hypertable,\n       pg_size_pretty(hypertable_size(format('%I.%I', hypertable_schema, hypertable_name)::regclass)) AS size,\n       num_chunks,\n       compression_enabled\nFROM timescaledb_information.hypertables\nORDER BY hypertable_size(format('%I.%I', hypertable_schema, hypertable_name)::regclass) DESC"
+  }
+]

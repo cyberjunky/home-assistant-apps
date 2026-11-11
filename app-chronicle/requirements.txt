@@ -1,0 +1,5 @@
+# Python dependencies for Chronicle (installed in the Dockerfile).
+# aiohttp - web server behind Home Assistant ingress
+# asyncpg - reads the Chronicle tables in TimescaleDB (ready-made musl wheels, nothing to compile)
+aiohttp>=3.14.5,<4
+asyncpg==0.32.0

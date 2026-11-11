@@ -52,6 +52,7 @@ jobs:
       matrix:
         app:
           - app-arcade
+          - app-chronicle
           - app-fireservicerota
           - app-goodwe
           - app-meldkamer
