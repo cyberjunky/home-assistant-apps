@@ -1,0 +1,12 @@
+position,kind,label,pattern
+10,grip,GRIP,\bGRIP\s?[1-5]\b
+20,alarm,Automatische melding,\bOMS\b|\bBMI\b|automatische (?:brand)?melding|brandmelding|handbrandmelder|handmelder
+30,traffic,Verkeersongeval,\bVKO\b|verkeersongeval|aanrijding|ongeval wegvervoer|ongeval weg\b|\bVOA\b|eenzijdig ongeval
+40,water,Waterongeval,waterongeval|te water|drenkeling|\bWO\b|\bEHAD\b
+50,medical,Medisch,reanimatie|\bAED\b|hartstilstand|onwel|bewusteloos|\bCPR\b|\bBLS\b
+60,gas,Gas / stank,gaslucht|gaslek|\bstank\b|hinderlijke lucht|hind\. lucht|\bCO-?melding|koolmonoxide
+70,lift,Liftopsluiting,liftopsluiting|\blift\b|opsluiting
+80,storm,Storm / wateroverlast,stormschade|boom (?:op|over|in)\b|omgewaaide?|wateroverlast
+90,animal,Dier in nood,\bdier(?:en)?\b|\bhond\b|\bkat\b|\bpaard\b|\bkoe\b|\bschaap\b
+100,fire,Brand,\b[\w/-]*brand(?:je|en|gerucht|lucht)?\b|\b\w*br\.|\bBR\b|rookontwikkeling|\bNATBR\b|\bBINNENBR\b|\bBUITENBR\b
+110,assist,Hulpverlening,\bassistentie\b|\bass\.|\bass\b|hulpverlening|\bHV\b|\bTHV\b|beknelling

@@ -8,11 +8,11 @@ from datetime import UTC, datetime
 
 import pytest
 
+from src import default_data
 from src.database import Database
 from src.message import P2000Message
 from src.parser import Parser, city_shortname_tags
-from src.talkgroups import DEFAULT_TALKGROUP_CODES
-from src.tts import DEFAULT_TTS_REPLACEMENTS, OLD_TALKGROUP_RULES, SpeechRules
+from src.tts import SpeechRules
 
 
 @pytest.fixture
@@ -56,7 +56,7 @@ def test_seeded_once_and_your_edits_survive_a_restart(tmp_path):
     path = str(tmp_path / "meldkamer.sqlite3")
     db = Database(path)
     speech = SpeechRules(db)
-    assert db.list_lookup("talkgroup_codes")["total"] == len(DEFAULT_TALKGROUP_CODES)
+    assert db.list_lookup("talkgroup_codes")["total"] == len(default_data.read("talkgroup_codes"))
     assert db.list_lookup("city_abbreviations")["total"] > 2000
     rt = db.list_lookup("talkgroup_codes", search="Rotterdam")["items"]
     rt = next(r for r in rt if r["code"] == "RT")
@@ -81,17 +81,27 @@ def test_seeded_once_and_your_edits_survive_a_restart(tmp_path):
 
 
 def test_old_talkgroup_rules_are_removed_unless_changed(tmp_path):
+    """A database from before 1.4.13: the rules untracked, with the old talk group rules,
+    one changed by the user, one default rule deleted by the user and a rule of their own."""
     path = str(tmp_path / "meldkamer.sqlite3")
+    old_rules = [r for r in default_data.read("previous") if r["table"] == "tts_replacements"]
+    later = {r["key"] for r in default_data.read("added_later") if r["table"] == "tts_replacements"}
+    shipped = [r for r in default_data.read("tts_replacements") if r["pattern"] not in later]
+    deleted = r"\bGHOR\b"
     conn = sqlite3.connect(path)
     conn.executescript(
         "CREATE TABLE tts_replacements (id INTEGER PRIMARY KEY AUTOINCREMENT, pattern TEXT UNIQUE NOT NULL, "
         "replacement TEXT NOT NULL DEFAULT '', enabled INTEGER NOT NULL DEFAULT 1);"
     )
-    for rule in OLD_TALKGROUP_RULES:
-        replacement = "Brandweer Zeeland-West-Brabant" if rule["pattern"].startswith("BZB") else rule["replacement"]
-        conn.execute(
-            "INSERT INTO tts_replacements (pattern, replacement) VALUES (?, ?)", (rule["pattern"], replacement)
-        )
+    for rule in shipped:
+        if rule["pattern"] != deleted:
+            conn.execute(
+                "INSERT INTO tts_replacements (pattern, replacement) VALUES (?, ?)",
+                (rule["pattern"], rule["replacement"]),
+            )
+    for rule in old_rules:
+        replacement = "Brandweer Zeeland-West-Brabant" if rule["key"].startswith("BZB") else rule["value"]
+        conn.execute("INSERT INTO tts_replacements (pattern, replacement) VALUES (?, ?)", (rule["key"], replacement))
     conn.execute("INSERT INTO tts_replacements (pattern, replacement) VALUES ('MYCODE', 'mijn code')")
     conn.commit()
     conn.close()
@@ -102,7 +112,9 @@ def test_old_talkgroup_rules_are_removed_unless_changed(tmp_path):
     assert patterns[r"BZB\-[0-9]+"] == "Brandweer Zeeland-West-Brabant"  # changed by the user: kept
     assert r"BRT\-[0-9]+" not in patterns
     assert patterns["MYCODE"] == "mijn code"
-    assert all(r["pattern"] in patterns for r in DEFAULT_TTS_REPLACEMENTS)
+    assert deleted not in patterns  # deleted by the user: stays deleted
+    assert later <= set(patterns)  # rules new since then are added
+    assert all(r["pattern"] in patterns for r in shipped if r["pattern"] != deleted)
     assert spoken(speech, "P 1 BRT-01 Brand") == "Prio 1 gespreksgroep Brandweer Rotterdam 0 1 Brand"
     db.close()
 
@@ -181,6 +193,6 @@ def test_restoring_an_old_backup_seeds_the_tables(tmp_path, db, speech):
     assert Database.check_backup(old) is None
     db.replace_with(old)
     speech.seed()
-    assert db.list_lookup("talkgroup_codes")["total"] == len(DEFAULT_TALKGROUP_CODES)
+    assert db.list_lookup("talkgroup_codes")["total"] == len(default_data.read("talkgroup_codes"))
     assert db.city_from_abbreviation("UTRECH") == "Utrecht"
     assert spoken(speech, "P 1 BRT-01 Brand") == "Prio 1 gespreksgroep Brandweer Rotterdam 0 1 Brand"

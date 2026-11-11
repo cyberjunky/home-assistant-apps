@@ -37,7 +37,7 @@ def sanitize_mqtt_id(value: str) -> str:
 def parse_priority(entry: str) -> int | None:
     """Parse a priority filter entry to the int the parser stores in msg.priority.
 
-    Mirrors the default priority_rules (lookups.DEFAULT_PRIORITY_RULES): P1/A1/PRIO 1 -> 1, P2/A2 -> 2, B1-B3/P3 -> 3, P4 -> 4.
+    Mirrors the default priority_rules (src/defaults/priority_rules.csv): P1/A1/PRIO 1 -> 1, P2/A2 -> 2, B1-B3/P3 -> 3, P4 -> 4.
     Returns None when the entry can't be parsed.
     """
     match = _PRIORITY_ENTRY_RE.match(entry.strip())

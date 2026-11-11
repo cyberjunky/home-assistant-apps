@@ -7,7 +7,6 @@ import logging
 import time
 from collections.abc import Callable
 
-from . import abbreviation_import
 from .config import Config
 from .database import Database
 from .geocoding import Geocoder
@@ -22,32 +21,6 @@ from .tts import SpeechRules
 from .zones import HOME_ZONE, Zone, distance_km, osm_url
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_IGNORE_TEXT = ["*TESTOPROEP*", "*MOB*"]
-
-
-def seed_builtin_lists(database: Database) -> None:
-    """Add the built-in abbreviation dictionary and ignore filters once: a user's edit is kept
-    and a deleted entry stays deleted, also after updates (tracked in speech_seeded)."""
-    imported = database.seed_defaults(
-        "abbreviations", [{"abbreviation": k, "full_text": v} for k, v in abbreviation_import.ABBREVIATIONS.items()]
-    )
-    if imported:
-        logger.info(f"Seeded {imported} default abbreviation(s) into database")
-    # 1.4.16: PM has one sourced meaning now (was "Personeel / Materieelwagen")
-    database.update_unchanged_defaults(
-        "pm-meaning-1.4.16",
-        "abbreviations",
-        "abbreviation",
-        "full_text",
-        {
-            "PM": ("Personeel / Materieelwagen", abbreviation_import.ABBREVIATIONS["PM"]),
-            "PM-90": ("Personeels/Materieel wagen 90", abbreviation_import.ABBREVIATIONS["PM-90"]),
-        },
-    )
-    imported = database.seed_defaults("ignore_text", [{"pattern": p} for p in DEFAULT_IGNORE_TEXT])
-    if imported:
-        logger.info(f"Seeded {imported} default ignore-text pattern(s) into database")
 
 
 class MessageProcessor:
@@ -86,7 +59,7 @@ class MessageProcessor:
         self.on_message: Callable[[P2000Message], None] | None = None
         self.on_repeat: Callable[[P2000Message], None] | None = None
 
-        seed_builtin_lists(database)
+        # The default ignore texts come from src/defaults/ignore_text.csv (Database.seed_all_defaults)
         self.reload_ignore_filters()
 
     def set_zone(self, zone: Zone) -> None:

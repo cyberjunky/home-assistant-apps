@@ -13,96 +13,9 @@ from .talkgroups import TALKGROUP
 
 logger = logging.getLogger(__name__)
 
-# Seeded into the database on startup (only new patterns, user edits are kept)
-# A hectometer marker ("hmp 45,2") and a road number ("A12", "A 12"), for the Li/Re rules
-_HECTO = r"(?-i:\b((?:hmp\.?|hectometerpaal)\s*\d+(?:[.,]\d+)?)"
-_ROAD = r"(?-i:\b([AN]\s?\d{1,3})"
-_BEFORE_HECTO = r"(?=\s+(?:(?:hmp\.?|hectometerpaal)\s*)?\d+(?:[.,]\d+)?\b))"
-
-DEFAULT_TTS_REPLACEMENTS = [
-    # Priority codes - real messages use e.g. "A1"/"P1" with no space, but
-    # allow an optional one since the parser itself sees both forms
-    {"pattern": r"\bA\s?1\b", "replacement": "Ambulance met spoed"},
-    {"pattern": r"\bA\s?2\b", "replacement": "Ambulance zonder spoed"},
-    {"pattern": r"\bB\s?1\b", "replacement": "Ambulance besteld vervoer"},
-    {"pattern": r"\bB\s?2\b", "replacement": "Ambulance besteld vervoer"},
-    {"pattern": r"\bP\s?1\b", "replacement": "Prio 1"},
-    {"pattern": r"\bP\s?2\b", "replacement": "Prio 2"},
-    # Talk groups (BRT-01) are not rules any more: speak() decodes them from the
-    # talkgroup_codes table (see OLD_TALKGROUP_RULES)
-    # Ambulance dienstposten - short spoken form
-    {"pattern": r"DP[0-9]+", "replacement": "Dienstpost"},
-    {"pattern": r"\bAMBU\b", "replacement": "Ambulance"},
-    # City abbreviations - short spoken forms (see city_abbreviations.py
-    # for the full list used for address/city matching; only ones worth
-    # a distinct spoken form belong here)
-    {"pattern": r"\bSGRAVH\b", "replacement": "Den Haag"},
-    # Status flags - drop the "(... : ja)" wrapper, just speak the label
-    {"pattern": r"\(Directe inzet:\s*ja\)", "replacement": "Directe inzet"},
-    {"pattern": r"\(DIA:\s*ja\)", "replacement": "Directe inzet ambulance"},
-    # Reference numbers - not useful spoken aloud
-    {"pattern": r"\s*\bbon:?\s*\d+", "replacement": ""},
-    {"pattern": r"\s*\brit:?\s*\d+", "replacement": ""},
-    {"pattern": r"\s*\bicnum:?\s*\d+", "replacement": ""},
-    # Common role/discipline abbreviations - spoken in full
-    {"pattern": r"\bGHOR\b", "replacement": "Geneeskundige hulpverlening bij ongevallen en rampen"},
-    {"pattern": r"\bMMT\b", "replacement": "Mobiel medisch team"},
-    {"pattern": r"\bSEH\b", "replacement": "Spoedeisende Hulp"},
-    {"pattern": r"\bOVD-B\b", "replacement": "Officier van Dienst Brandweer"},
-    {"pattern": r"\bOVD-G\b", "replacement": "Officier van Dienst Geneeskundig"},
-    {"pattern": r"\bOVD-P\b", "replacement": "Officier van Dienst Politie"},
-    {"pattern": r"\bOvD\b", "replacement": "Officier van Dienst"},
-    {"pattern": r"\bPOL\b", "replacement": "Politie"},
-    {"pattern": r"\bRAV\b", "replacement": "Regionale ambulancevoorziening"},
-    {"pattern": r"\bBR\b", "replacement": "Brand"},
-    # Shortenings and codes that read badly aloud
-    {"pattern": r"\bhind\.", "replacement": "hinderlijke"},
-    {"pattern": r"\bass\.", "replacement": "assistentie"},
-    {"pattern": r"\bivm\b", "replacement": "in verband met"},
-    {"pattern": r"\btbv\b", "replacement": "ten behoeve van"},
-    {"pattern": r"\bevt\.?(?=\s)", "replacement": "eventueel"},
-    {"pattern": r"\bVKO\b", "replacement": "verkeersongeval"},
-    {"pattern": r"\bOMS\s+brandmelding\b|\bOMS\b", "replacement": "automatische brandmelding"},
-    {"pattern": r"\bBMI\b", "replacement": "brandmeldinstallatie"},
-    {"pattern": r"\bAED\b", "replacement": "A E D"},
-    {"pattern": r"\bTS\b", "replacement": "tankautospuit"},
-    {"pattern": r"\bHW\b", "replacement": "hoogwerker"},
-    {"pattern": r"\bHV\b", "replacement": "hulpverlening"},
-    # Road numbers: "N 209" and "A 27" are spoken as a letter and a number, "N209" is not
-    {"pattern": r"\bN(\d{2,3})\b", "replacement": "N \\1"},
-    {"pattern": r"\bA(\d{2})\b", "replacement": "A \\1"},
-    # Long standalone numbers (capcodes, other reference numbers) - postal
-    # codes are 4 digits and ambulance unit numbers are 5 (e.g. "17341"),
-    # so both are left alone; bon/rit/icnum numbers are already stripped
-    # above regardless of length
-    {"pattern": r"\s*\b\d{6,}\b", "replacement": ""},
-    # Since 1.4.16. Rules are applied case-insensitively; (?-i:...) makes these exact.
-    # The carriageway right after a hectometer marker ("hmp 45,2 Li", "A12 Li 45,2"): Re is
-    # the side where the hectometers go up, Li where they go down (Rijksoverheid, "doel
-    # hectometerpaaltjes snelwegen"; Rijkswaterstaat). Elsewhere Li/Re stay as written
-    {"pattern": _HECTO + r"\s+Li\b)", "replacement": r"\1 rijbaan links"},
-    {"pattern": _HECTO + r"\s+Re\b)", "replacement": r"\1 rijbaan rechts"},
-    {"pattern": _ROAD + r"\s+Li" + _BEFORE_HECTO, "replacement": r"\1 rijbaan links"},
-    {"pattern": _ROAD + r"\s+Re" + _BEFORE_HECTO, "replacement": r"\1 rijbaan rechts"},
-    # OM: Openbaar Ministerie or the word "om" - spelled out, not guessed
-    {"pattern": r"(?-i:\bOM\b)", "replacement": "O M"},
-]
-
-# Until 1.4.12 talk groups were these rules: they dropped the talk group's number, and BAD is
-# Amsterdam (meldkamer AD), not Amsterdam-Amstelland (region AM) in the NIPV coding. They are
-# removed once at the update, only where you didn't change them.
-OLD_TALKGROUP_RULES = [
-    {"pattern": r"BDH\-[0-9]+", "replacement": "Brandweer Den Haag"},
-    {"pattern": r"BOB\-[0-9]+", "replacement": "Brandweer Oost-Brabant"},
-    {"pattern": r"BON\-[0-9]+", "replacement": "Brandweer Oost-Nederland"},
-    {"pattern": r"BNN\-[0-9]+", "replacement": "Brandweer Noord-Nederland"},
-    {"pattern": r"BNH\-[0-9]+", "replacement": "Brandweer Noord-Holland"},
-    {"pattern": r"BLB\-[0-9]+", "replacement": "Brandweer Limburg"},
-    {"pattern": r"BAD\-[0-9]+", "replacement": "Brandweer Amsterdam-Amstelland"},
-    {"pattern": r"BMD\-[0-9]+", "replacement": "Brandweer Midden-Nederland"},
-    {"pattern": r"BRT\-[0-9]+", "replacement": "Brandweer Rotterdam"},
-    {"pattern": r"BZB\-[0-9]+", "replacement": "Brandweer Zeeland"},
-]
+# The replacement rules are the tts_replacements table (built-in rows in
+# src/defaults/tts_replacements.csv, applied case-insensitively in id order). Talk groups
+# (BRT-01) are not rules: speak() decodes them from the talkgroup_codes table.
 
 
 def _spell(text: str) -> str:
@@ -130,14 +43,10 @@ class SpeechRules:
         self.seed()
 
     def seed(self) -> None:
-        """Add the default rules never added before (a rule you changed or deleted stays that
-        way, also after updates), drop the old talk group rules once, and load the rules."""
-        removed = self.database.remove_unchanged_defaults("talkgroup-rules-1.4.13", OLD_TALKGROUP_RULES)
-        if removed:
-            logger.info(f"Removed {removed} old talk group TTS rule(s): talk groups are decoded from talkgroup_codes")
-        imported = self.database.seed_defaults("tts_replacements", DEFAULT_TTS_REPLACEMENTS)
-        if imported:
-            logger.info(f"Seeded {imported} default TTS replacement(s) into database")
+        """Fill the tables from src/defaults/ when this version hasn't yet (after a restore or
+        reset), and load the rules."""
+        self.database.seed_all_defaults()
+        self.database.load_lookups()
         self.reload()
 
     def reload(self) -> None:

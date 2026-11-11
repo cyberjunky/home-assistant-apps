@@ -35,30 +35,10 @@ def province_of_region(region: str) -> str:
 
 
 # Province codes after a town name in a message ("Velp NB", "Hoorn NH") and in the town
-# abbreviations (VELPNB -> "Velp NB", HOORFR -> "Hoorn Fr"). They say which of two
-# same-named towns is meant. These are only the defaults of the province_codes table
-# (seeded once, editable on the Data tab); the lookups read the table.
-# abbreviation_only: "L" only counts in the abbreviation list ("Beek L"), where it can't
-# be a word of the message
-DEFAULT_PROVINCE_CODES = [
-    {"code": code, "province": province, "abbreviation_only": "0"}
-    for code, province in (
-        ("DR", "Drenthe"),
-        ("FL", "Flevoland"),
-        ("FR", "Friesland"),
-        ("GE", "Gelderland"),
-        ("GLD", "Gelderland"),
-        ("GR", "Groningen"),
-        ("LI", "Limburg"),
-        ("NB", "Noord-Brabant"),
-        ("NH", "Noord-Holland"),
-        ("OV", "Overijssel"),
-        ("UT", "Utrecht"),
-        ("ZE", "Zeeland"),
-        ("ZH", "Zuid-Holland"),
-        ("ZL", "Zeeland"),
-    )
-] + [{"code": "L", "province": "Limburg", "abbreviation_only": "1"}]
+# abbreviations (VELPNB -> "Velp NB", HOORFR -> "Hoorn Fr") say which of two same-named
+# towns is meant. They are the province_codes table (built-in rows in
+# src/defaults/province_codes.csv). abbreviation_only: "L" only counts in the abbreviation
+# list ("Beek L"), where it can't be a word of the message
 
 
 def split_province_code(name: str, codes: dict[str, tuple[str, bool]]) -> tuple[str, str]:

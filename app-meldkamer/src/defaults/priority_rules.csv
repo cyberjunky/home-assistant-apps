@@ -1,0 +1,5 @@
+level,pattern
+1,^A\s?1|\bA\s?1|PRIO\s?1|^P\s?1
+2,^A\s?2|\bA\s?2|PRIO\s?2|^P\s?2
+3,^B\s?[123]|PRIO\s?3|^P\s?3
+4,PRIO\s?4|^P\s?4

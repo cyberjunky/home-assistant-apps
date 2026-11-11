@@ -16,8 +16,7 @@ import unicodedata
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from . import lookups, message_fields, vehicle_types
-from .abbreviation_import import DISCIPLINE_ABBREVIATION_OVERRIDES
+from . import default_data, lookups, message_fields, vehicle_types
 
 logger = logging.getLogger(__name__)
 
@@ -612,50 +611,82 @@ class Database:
             self._rebuild_table_with_id("streets", ["street", "city_id", "postalcode", "latitude", "longitude"])
             self._rebuild_places_per_province()
             self._ensure_unique_streets()
-            self._seed_lookup_tables()
+            self.seed_all_defaults()
+            self.load_lookups()
         except sqlite3.Error as e:
             logger.error(f"Schema migration failed: {e}")
 
-    def _seed_lookup_tables(self) -> None:
-        """The default place-name codes and talk group codes, each added once."""
-        from .city_abbreviations import CITY_ABBREVIATIONS
-        from .talkgroups import DEFAULT_TALKGROUP_CODES
+    # Tables filled from src/defaults/<table>.csv, in this order
+    DEFAULT_TABLES = (
+        "abbreviations",
+        "discipline_abbreviations",
+        "city_abbreviations",
+        "talkgroup_codes",
+        "province_codes",
+        "tts_replacements",
+        "ignore_text",
+        "incident_rules",
+        "priority_rules",
+        "parser_words",
+        "vehicle_regions",
+        "region_provinces",
+        "vehicle_type_codes",
+    )
 
-        added = self.seed_defaults(
-            "city_abbreviations", [{"abbreviation": a, "city": c} for c, a in CITY_ABBREVIATIONS.items()]
-        )
-        added += self.seed_defaults("talkgroup_codes", DEFAULT_TALKGROUP_CODES)
-        added += self.seed_defaults("province_codes", message_fields.DEFAULT_PROVINCE_CODES)
-        added += self.seed_defaults(
-            "discipline_abbreviations",
-            [{"code": c, "discipline": d, "full_text": t} for (c, d), t in DISCIPLINE_ABBREVIATION_OVERRIDES.items()],
-        )
-        added += self.seed_defaults(
-            "incident_rules",
-            [
-                {"position": (n + 1) * 10, "kind": k, "label": label, "pattern": p}
-                for n, (k, label, p) in enumerate(lookups.DEFAULT_INCIDENT_RULES)
-            ],
-        )
-        added += self.seed_defaults(
-            "priority_rules", [{"level": level, "pattern": p} for level, p in lookups.DEFAULT_PRIORITY_RULES]
-        )
-        added += self.seed_defaults(
-            "parser_words",
-            [{"kind": k, "word": w} for k, words in lookups.DEFAULT_PARSER_WORDS.items() for w in words],
-        )
-        added += self.seed_defaults(
-            "vehicle_regions", [{"prefix": k, "region": v} for k, v in lookups.DEFAULT_VEHICLE_REGIONS.items()]
-        )
-        added += self.seed_defaults(
-            "region_provinces", [{"region": k, "province": v} for k, v in lookups.DEFAULT_REGION_PROVINCES.items()]
-        )
-        added += self.seed_defaults(
-            "vehicle_type_codes", [{"code": k, "category": v} for k, v in lookups.DEFAULT_VEHICLE_TYPE_CODES.items()]
-        )
+    def seed_all_defaults(self) -> int:
+        """Fill the tables from the factory lists in src/defaults/ (see default_data.py).
+
+        Runs at the first start of a version only (the files' signature is remembered), so
+        the files are not read again after that. A row is offered once: a row you changed
+        keeps your text and a row you deleted stays deleted, also after updates. Returns the
+        number of rows added.
+        """
+        marker = default_data.signature()
+        if self.cursor.execute("SELECT 1 FROM speech_seeded WHERE kind = 'defaults' AND key = ?", (marker,)).fetchone():
+            return 0
+        later: dict[str, set[str]] = {}
+        for row in default_data.read("added_later"):
+            later.setdefault(row["table"], set()).add(row["key"])
+        added = 0
+        current: dict[str, dict[str, dict]] = {}
+        for table in self.DEFAULT_TABLES:
+            rows = default_data.read(table)
+            spec = self._SEED_SPECS[table]
+            if len(spec["key"]) == 1:
+                current[table] = {self._seed_values(spec, row)[spec["key"][0]]: row for row in rows}
+            added += self.seed_defaults(table, rows, later.get(table, set()))
+        self._apply_previous_defaults(current)
+        with self._transaction() as conn:
+            conn.execute("DELETE FROM speech_seeded WHERE kind = 'defaults'")
+            conn.execute("INSERT INTO speech_seeded (kind, key) VALUES ('defaults', ?)", (marker,))
         if added:
-            logger.info(f"Added {added} default lookup row(s) (place, talk group, province, parser and vehicle codes)")
-        self.load_lookups()
+            logger.info(f"Added {added} built-in row(s) from src/defaults")
+        return added
+
+    def _apply_previous_defaults(self, current: dict[str, dict[str, dict]]) -> None:
+        """Rows still at a value an older version shipped (src/defaults/previous.csv) get the
+        current value, or are removed when that key isn't shipped any more. Once per entry;
+        an entry whose migration already ran under an older version is skipped."""
+        with self._transaction() as conn:
+            done = {r[0] for r in conn.execute("SELECT key FROM speech_seeded WHERE kind = 'migration'")}
+            for row in default_data.read("previous"):
+                entry = "\x1f".join((row["table"], row["key"], row["column"], row["value"]))
+                if entry in done or row.get("migration") in done:
+                    continue
+                table, column = row["table"], row["column"]
+                key_column = self._SEED_SPECS[table]["key"][0]
+                now = current.get(table, {}).get(row["key"])
+                if now is not None:
+                    conn.execute(
+                        f"UPDATE {table} SET {column} = ? WHERE {key_column} = ? AND {column} = ?",
+                        (now[column], row["key"], row["value"]),
+                    )
+                else:
+                    conn.execute(
+                        f"DELETE FROM {table} WHERE {key_column} = ? AND {column} = ?", (row["key"], row["value"])
+                    )
+                conn.execute("INSERT OR IGNORE INTO speech_seeded (kind, key) VALUES ('migration', ?)", (entry,))
+        self.invalidate_text_caches()
 
     def load_lookups(self) -> None:
         """Hand the current contents of the parser's lookup tables to the parsing modules."""
@@ -2503,70 +2534,57 @@ class Database:
             logger.error(f"Failed to import TTS replacements: {e}")
         return count
 
-    def update_unchanged_defaults(self, marker: str, table: str, key: str, column: str, changes: dict) -> int:
-        """Give built-in rows a new default once (marker names the change): {key: (old, new)}.
-        Only rows still exactly at the old default change; a row you edited stays."""
-        with self._transaction() as conn:
-            if conn.execute("SELECT 1 FROM speech_seeded WHERE kind = 'migration' AND key = ?", (marker,)).fetchone():
-                return 0
-            updated = 0
-            for value, (old, new) in changes.items():
-                updated += conn.execute(
-                    f"UPDATE {table} SET {column} = ? WHERE {key} = ? AND {column} = ?", (new, value, old)
-                ).rowcount
-            conn.execute("INSERT OR IGNORE INTO speech_seeded (kind, key) VALUES ('migration', ?)", (marker,))
-        self.invalidate_text_caches()
-        return updated
-
-    def remove_unchanged_defaults(self, marker: str, rules: list[dict]) -> int:
-        """Remove old default TTS rules once (marker names the change), only rows still exactly
-        as they were added: a rule you changed stays. Returns the number removed."""
-        with self._transaction() as conn:
-            if conn.execute("SELECT 1 FROM speech_seeded WHERE kind = 'migration' AND key = ?", (marker,)).fetchone():
-                return 0
-            removed = 0
-            for rule in rules:
-                removed += conn.execute(
-                    "DELETE FROM tts_replacements WHERE pattern = ? AND replacement = ?",
-                    (rule["pattern"], rule["replacement"]),
-                ).rowcount
-            conn.execute("INSERT OR IGNORE INTO speech_seeded (kind, key) VALUES ('migration', ?)", (marker,))
-        return removed
-
     # =========================================================================
     # LOOKUP TABLES WITH DEFAULTS (city_abbreviations, talkgroup_codes)
     # =========================================================================
 
     _SEED_SPECS = {
         **LOOKUP_TABLES,
-        "tts_replacements": {"cols": ("pattern", "replacement"), "key": ("pattern",), "upper": ()},
+        "tts_replacements": {
+            "cols": ("pattern", "replacement", "enabled"),
+            "key": ("pattern",),
+            "upper": (),
+            "raw": ("pattern", "replacement"),
+        },
         "abbreviations": {"cols": ("abbreviation", "full_text"), "key": ("abbreviation",), "upper": ("abbreviation",)},
-        "ignore_text": {"cols": ("pattern",), "key": ("pattern",), "upper": ()},
+        "ignore_text": {"cols": ("pattern", "enabled"), "key": ("pattern",), "upper": ()},
     }
 
-    def seed_defaults(self, table: str, rows: list[dict]) -> int:
-        """Add the built-in rows that were never added before. Returns the number added.
+    @staticmethod
+    def _seed_values(spec: dict, row: dict) -> dict[str, str]:
+        values = {c: str(row.get(c) if row.get(c) is not None else "") for c in spec["cols"]}
+        if "enabled" in values and values["enabled"] == "":
+            values["enabled"] = "1"
+        for c in spec["upper"]:
+            values[c] = values[c].upper()
+        return values
 
-        Each row is added once: a row you changed keeps your text and a default you deleted
-        stays deleted, also after updates (speech_seeded remembers what was added).
+    def seed_defaults(self, table: str, rows: list[dict], added_later: set[str] | None = None) -> int:
+        """Add the built-in rows that were never offered before. Returns the number added.
+
+        Each row is offered once: a row you changed keeps your text and a row you deleted stays
+        deleted, also after updates (speech_seeded remembers what was offered). A table that
+        an older version filled without keeping track (it has rows but nothing is recorded)
+        only gets the keys in added_later; the other rows count as offered already.
         """
         spec = self._SEED_SPECS[table]
         added = 0
         with self._transaction() as conn:
             seeded = {r[0] for r in conn.execute("SELECT key FROM speech_seeded WHERE kind = ?", (table,))}
+            untracked = not seeded and conn.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone() is not None
             for row in rows:
-                values = {c: str(row.get(c, "")) for c in spec["cols"]}
-                for c in spec["upper"]:
-                    values[c] = values[c].upper()
+                values = self._seed_values(spec, row)
                 key = "\x1f".join(values[c] for c in spec["key"])
                 if key in seeded:
                     continue
-                cols = list(spec["cols"])
-                added += conn.execute(
-                    f"INSERT OR IGNORE INTO {table} ({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)})",
-                    [values[c] for c in cols],
-                ).rowcount
+                if not untracked or key in (added_later or set()):
+                    cols = list(spec["cols"])
+                    added += conn.execute(
+                        f"INSERT OR IGNORE INTO {table} ({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)})",
+                        [values[c] for c in cols],
+                    ).rowcount
                 conn.execute("INSERT OR IGNORE INTO speech_seeded (kind, key) VALUES (?, ?)", (table, key))
+                seeded.add(key)
         if added:
             self.invalidate_text_caches()
         return added
@@ -2650,8 +2668,8 @@ class Database:
             values["discipline"] = values["discipline"].lower()
         if table == "parser_words":
             values["kind"] = values["kind"].lower()
-            if values["kind"] not in lookups.DEFAULT_PARSER_WORDS:
-                raise ValueError("kind must be one of " + ", ".join(lookups.DEFAULT_PARSER_WORDS))
+            if values["kind"] not in lookups.PARSER_WORD_KINDS:
+                raise ValueError("kind must be one of " + ", ".join(lookups.PARSER_WORD_KINDS))
             if values["kind"] != "street_skip_word":
                 values["word"] = values["word"].lower()
         if table == "vehicle_regions" and not values["prefix"].isdigit():
