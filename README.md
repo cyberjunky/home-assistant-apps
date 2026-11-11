@@ -130,6 +130,20 @@ app automatically. Apache 2.0, derived from an earlier add-on (see its NOTICE).
 
 [:books: Documentation](app-pgadmin4/DOCS.md) · [:memo: Changelog](app-pgadmin4/CHANGELOG.md) · [:lock: Security](app-pgadmin4/SECURITY.md)
 
+### <img src="app-sdradio/icon.png" alt="" width="36" align="absmiddle"> [SDRadio](app-sdradio/)
+
+![Version][sdradio-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+A software defined radio receiver in Home Assistant, with an RTL-SDR, HackRF or `rtl_tcp`
+server: a receiver front panel with a display, knobs, tune dial and keypad, a live spectrum and
+waterfall, listening in the browser (AM, NFM, WFM, SSB, CW), scanning of stored channels, bands
+and ranges, and every channel and transmission kept in a database with CSV import, statistics
+and backups.
+
+[:books: Documentation](app-sdradio/DOCS.md) · [:memo: Changelog](app-sdradio/CHANGELOG.md) · [:lock: Security](app-sdradio/SECURITY.md)
+
 ### <img src="app-tesla/icon.png" alt="" width="36" align="absmiddle"> [Tesla](app-tesla/)
 
 ![Version][tesla-version-shield]
@@ -235,3 +249,4 @@ software each app packages keeps its own license, noted in the app's README.
 [chronicle-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-chronicle%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [fireservicerota-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-fireservicerota%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [nuclei-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-nuclei%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[sdradio-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-sdradio%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge

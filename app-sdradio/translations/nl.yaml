@@ -1,0 +1,18 @@
+configuration:
+  receiver:
+    name: Ontvanger
+    description: >-
+      De SDR-ontvanger. type is rtl-sdr, hackrf, soapysdr (elk SoapySDR-apparaat)
+      of network (een rtl_tcp-server op network_host:network_port). serial kiest
+      een van meerdere ontvangers. sdr_gain 0 is automatische versterking; de
+      RF gain-knop past die aan tijdens het luisteren. De hackrf_*-instellingen
+      zijn de eigen versterkers van de HackRF; bias_tee voedt een actieve
+      antenne of LNA (alleen rtl-sdr).
+  tune:
+    name: Startfrequentie
+    description: >-
+      Waar de radio start: frequentie in MHz en modulatie (am, nfm, wfm, usb,
+      lsb, cw, dsb). Met restore_last start de radio waar je hem achterliet.
+  log_level:
+    name: Logniveau
+    description: Hoeveel er wordt gelogd

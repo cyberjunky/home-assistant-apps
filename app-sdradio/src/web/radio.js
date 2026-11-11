@@ -1,0 +1,475 @@
+// SDRadio dashboard - the Radio page: display, knobs, keypad, favourites, stored channels and audio.
+
+const radio = {knobs: {}, dial: null, entry: null, lastDevice: null, listKey: '', favKey: ''};
+
+// =====================================================================
+// Audio: PCM from the app, played with Web Audio
+// =====================================================================
+const audio = {ctx: null, gain: null, next: 0, on: false, muted: false, volume: lsGet('volume', 65)};
+
+function audioGain() { return audio.muted ? 0 : Math.pow(audio.volume / 100, 2) * 2; }
+
+function toggleListen() {
+    if (audio.on) {
+        audio.on = false;
+        sendSocket({cmd: 'listen', on: false});
+        socketWanted.listen = false;
+        if (audio.ctx) audio.ctx.close();
+        audio.ctx = null;
+    } else {
+        // Browsers only start audio from a click
+        audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        audio.gain = audio.ctx.createGain();
+        audio.gain.gain.value = audioGain();
+        audio.gain.connect(audio.ctx.destination);
+        audio.next = 0;
+        audio.on = true;
+        socketWanted.listen = true;
+        sendSocket({cmd: 'listen', on: true});
+    }
+    renderListen();
+}
+function renderListen() {
+    const button = document.getElementById('listen-btn');
+    button.classList.toggle('on', audio.on);
+    document.getElementById('listen-label').textContent = audio.on ? 'Listening' : 'Listen';
+    button.title = audio.on ? 'Stop listening in this browser' : 'Listen in this browser';
+}
+function setVolume(v) {
+    audio.volume = v;
+    lsSet('volume', v);
+    if (audio.gain) audio.gain.gain.setTargetAtTime(audioGain(), audio.ctx.currentTime, 0.02);
+}
+function toggleMute() {
+    audio.muted = !audio.muted;
+    if (audio.gain) audio.gain.gain.setTargetAtTime(audioGain(), audio.ctx.currentTime, 0.02);
+    document.getElementById('ind-mute').classList.toggle('on', audio.muted);
+}
+
+onSocket('audio', (rate, pcm) => {
+    if (!audio.on || !audio.ctx) return;
+    const buffer = audio.ctx.createBuffer(1, pcm.length, rate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < pcm.length; i++) data[i] = pcm[i] / 32768;
+    const source = audio.ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audio.gain);
+    const lead = ((app.settings && app.settings.audio_buffer_ms) || 250) / 1000;
+    const now = audio.ctx.currentTime;
+    // Start a little ahead; after a gap (squelch closed) or when too far behind, start over
+    if (audio.next < now + 0.01 || audio.next > now + lead * 3) audio.next = now + lead;
+    source.start(audio.next);
+    audio.next += buffer.duration;
+});
+
+// =====================================================================
+// The front panel
+// =====================================================================
+function initRadio() {
+    const row = document.getElementById('knob-row');
+    const k = radio.knobs;
+    k.volume = new Knob(row, {label: 'Volume', min: 0, max: 100, step: 1, value: audio.volume, defaultValue: 65,
+        format: v => `${v} %`, onInput: setVolume});
+    k.squelch = new Knob(row, {label: 'Squelch', min: -140, max: -10, step: 1, value: -140, defaultValue: -140,
+        format: v => v <= -140 ? 'off' : `${v} dB`,
+        onInput: throttle(v => radioCommand('set', {squelch: v <= -140 ? null : v}), 120)});
+    k.gain = new Knob(row, {label: 'RF gain', min: -1, max: 50, step: 1, value: -1,
+        // A plain function: called with the knob's options as `this`, the lowest position is "auto"
+        format(v) { return v < this.min + this.step / 2 ? 'auto' : `${num(v, 1)} dB`; },
+        onChange: v => radioCommand('set', {gain: v < k.gain.opts.min + k.gain.opts.step / 2 ? null : v})});
+    k.filter = new Knob(row, {label: 'Filter', values: [12500], value: 12500, format: v => fmtKHz(v),
+        onChange: v => radioCommand('set', {bandwidth: v})});
+    k.speed = new Knob(row, {label: 'Scan speed', min: 1, max: 20, step: 1, value: 10, defaultValue: 10,
+        format: v => `${v} ch/s`, onChange: v => saveSetting('scan_speed', v, true)});
+
+    radio.dial = new TuneDial(document.getElementById('tune-dial'), {size: 210,
+        onSteps: n => radioCommand('step_tune', {steps: n})});
+
+    buildKeypad();
+    const sources = [{key: 'channels', label: 'Channels'}, {key: 'band', label: 'Band'}, {key: 'range', label: 'Range…'}];
+    radio.scanSource = lsGet('scan_source', 'channels');
+    buildChips(document.getElementById('scan-source'), sources, radio.scanSource, (key) => {
+        radio.scanSource = key;
+        lsSet('scan_source', key);
+        if (key === 'range') openRangeModal();
+    });
+
+    const freq = document.getElementById('lcd-freq');
+    freq.addEventListener('wheel', (e) => {
+        const digit = e.target.closest('[data-p]');
+        if (!digit || !app.state) return;
+        e.preventDefault();
+        const delta = Math.pow(10, Number(digit.dataset.p)) * (e.deltaY < 0 ? 1 : -1);
+        radioCommand('tune', {frequency: Math.max(10000, app.state.frequency + delta)});
+    }, {passive: false});
+    freq.addEventListener('click', () => { if (radio.entry === null) startEntry(''); });
+
+    document.getElementById('chlist-search').addEventListener('input', () => renderChannelList(true));
+    const filter = document.getElementById('chlist-filter');
+    filter.value = lsGet('chlist_filter', 'band');
+    filter.addEventListener('change', () => { lsSet('chlist_filter', filter.value); renderChannelList(true); });
+
+    document.addEventListener('keydown', radioKeys);
+    initSpectrum();
+    renderListen();
+}
+
+function throttle(fn, ms) {
+    let timer = null, lastArgs = null;
+    return (...args) => {
+        lastArgs = args;
+        if (timer) return;
+        timer = setTimeout(() => { timer = null; fn(...lastArgs); }, ms);
+    };
+}
+
+const KEYS = [
+    ['1'], ['2'], ['3'], ['MODE', '', 'fn', () => radioCommand('cycle', {what: 'mode'})],
+    ['4'], ['5'], ['6'], ['BAND', '', 'fn', () => radioCommand('band', {direction: 1})],
+    ['7'], ['8'], ['9'], ['STEP', '', 'fn', () => radioCommand('cycle', {what: 'step'})],
+    ['.'], ['0'], ['CLR', '', 'fn', () => cancelEntry()], ['MHz', '', 'go', () => commitEntry()],
+    ['SCAN', '', 'fn', () => toggleScan(), 'scan'], ['HOLD', '', 'fn', () => radioCommand('scan', {action: 'hold'}), 'hold'],
+    ['PRI', '', 'fn', () => radioCommand('priority'), 'pri'], ['L/O', '', 'fn', () => radioCommand('lockout'), 'lo'],
+    ['MR', 'recall', 'fn', () => { const s = document.getElementById('chlist-search'); s.focus(); s.select(); }],
+    ['M+', 'store', 'fn', () => openStore()],
+    ['◀', 'channel', 'fn', () => radioCommand('memory', {direction: -1})], ['▶', 'channel', 'fn', () => radioCommand('memory', {direction: 1})],
+];
+const KEY_TITLES = {
+    MODE: 'Next mode', BAND: 'Next band', STEP: 'Next tuning step', CLR: 'Clear the entry', MHz: 'Tune to the frequency typed',
+    SCAN: 'Start or stop scanning', HOLD: 'Stay on this channel while scanning', PRI: 'Priority: check the priority channels every few seconds',
+    'L/O': 'Lock this channel out of scans (or ignore this frequency)', MR: 'Recall: search the stored channels', 'M+': 'Store the current frequency',
+};
+
+function buildKeypad() {
+    const pad = document.getElementById('keypad');
+    pad.innerHTML = '';
+    KEYS.forEach(([label, small, cls, action, id]) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'key' + (cls ? ' ' + cls : '');
+        b.innerHTML = escapeHtml(label) + (small ? `<small>${escapeHtml(small)}</small>` : '');
+        if (KEY_TITLES[label]) b.title = KEY_TITLES[label];
+        if (id) b.dataset.key = id;
+        b.onclick = action || (() => typeDigit(label));
+        pad.appendChild(b);
+    });
+}
+
+// Typing a frequency: on the keypad or the keyboard, in MHz
+function startEntry(text) {
+    radio.entry = text;
+    renderLcd();
+}
+function typeDigit(d) {
+    if (radio.entry === null) radio.entry = '';
+    if (d === '.' && radio.entry.includes('.')) return;
+    if (radio.entry.length >= 11) return;
+    radio.entry += d;
+    renderLcd();
+}
+function cancelEntry() { radio.entry = null; renderLcd(); }
+function commitEntry() {
+    if (radio.entry === null || radio.entry === '' || radio.entry === '.') return cancelEntry();
+    const mhz = parseFloat(radio.entry);
+    radio.entry = null;
+    if (!(mhz > 0) || mhz > 6000) { toast('Type a frequency in MHz, 0.01 to 6000', 'error'); return renderLcd(); }
+    radioCommand('tune', {frequency: Math.round(mhz * 1e6)});
+    renderLcd();
+}
+
+function radioKeys(e) {
+    if (activeTab !== 'radio' || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target.closest('input, textarea, select, .modal')) return;
+    if (/^[0-9]$/.test(e.key)) { typeDigit(e.key); e.preventDefault(); }
+    else if (e.key === '.' || e.key === ',') { typeDigit('.'); e.preventDefault(); }
+    else if (e.key === 'Enter' && radio.entry !== null) { commitEntry(); e.preventDefault(); }
+    else if (e.key === 'Escape' && radio.entry !== null) { cancelEntry(); e.preventDefault(); }
+    else if (e.key === 'Backspace' && radio.entry) { radio.entry = radio.entry.slice(0, -1); renderLcd(); e.preventDefault(); }
+    else if (e.target.closest('.knob')) { /* the knob handles its own keys */ }
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { radioCommand('step_tune', {steps: 1}); e.preventDefault(); }
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { radioCommand('step_tune', {steps: -1}); e.preventDefault(); }
+    else if (e.key === 'PageUp') { radioCommand('step_tune', {steps: 10}); e.preventDefault(); }
+    else if (e.key === 'PageDown') { radioCommand('step_tune', {steps: -10}); e.preventDefault(); }
+}
+
+function toggleScan() {
+    const s = app.state || {};
+    if (s.scan) return radioCommand('scan', {action: 'stop'});
+    const source = radio.scanSource || 'channels';
+    if (source === 'channels') {
+        const filter = document.getElementById('chlist-filter').value;
+        radioCommand('scan', {action: 'start', kind: 'channels', band: filter === 'band' ? s.band : null});
+    } else if (source === 'band') {
+        radioCommand('scan', {action: 'start', kind: 'band', band: s.band});
+    } else {
+        radioCommand('scan', {action: 'start', kind: 'range'});
+    }
+}
+
+function toggleSetting(key) {
+    const s = app.state || {};
+    radioCommand('set', {[key]: !s[key]});
+}
+
+// =====================================================================
+// Rendering the state
+// =====================================================================
+function freqDigitsHtml(hz) {
+    const mhz = Math.floor(hz / 1e6);
+    const rest = String(hz % 1e6).padStart(6, '0');
+    const mhzDigits = String(mhz);
+    let html = '';
+    for (let i = 0; i < mhzDigits.length; i++) html += `<span class="d" data-p="${6 + mhzDigits.length - 1 - i}">${mhzDigits[i]}</span>`;
+    html += '<span class="sep">.</span>';
+    for (let i = 0; i < 3; i++) html += `<span class="d" data-p="${5 - i}">${rest[i]}</span>`;
+    html += '<span class="sep dim">.</span>';
+    for (let i = 3; i < 6; i++) html += `<span class="d dim" data-p="${5 - i}">${rest[i]}</span>`;
+    return html;
+}
+
+function renderLcd() {
+    const s = app.state;
+    if (!s) return;
+    const freq = document.getElementById('lcd-freq');
+    if (radio.entry !== null) {
+        freq.classList.add('entry');
+        freq.textContent = radio.entry;
+    } else {
+        freq.classList.remove('entry');
+        freq.innerHTML = freqDigitsHtml(s.frequency);
+    }
+    document.getElementById('lcd-mode').textContent = modeLabel(s.mode);
+    document.getElementById('lcd-bw').textContent = `BW ${fmtKHz(s.bandwidth)} · STEP ${fmtKHz(s.step)}`;
+    const set = (id, on) => document.getElementById(id).classList.toggle('on', !!on);
+    set('ind-scan', s.scan);
+    set('ind-hold', s.scan && s.scan.hold);
+    set('ind-pri', s.priority);
+    set('ind-agc', s.agc);
+    set('ind-nb', s.nb);
+    set('ind-mute', audio.muted);
+    set('ind-lo', (s.channel && !s.channel.scan) || s.ignored);
+    const info = [s.band || 'no band'];
+    if (s.channel) info.push(`M${chNum(s.channel.number)}`);
+    if (s.scan) info.push(`${s.scan.kind === 'channels' ? 'CH' : 'STEP'} ${s.scan.position}/${s.scan.count}`);
+    document.getElementById('lcd-info').textContent = info.join(' · ');
+    const name = document.getElementById('lcd-name');
+    name.innerHTML = s.channel
+        ? `${escapeHtml(s.channel.name || 'Unnamed')}<small>M${chNum(s.channel.number)}${s.channel.favourite ? ' ★' : ''}</small>`
+        : `<span style="opacity:.6">${s.busy ? 'Signal · not stored' : 'Not stored'}</span>`;
+    // S-meter: -120 to -20 dBFS over 24 segments
+    const meter = document.getElementById('smeter');
+    if (meter.children.length !== 24) meter.innerHTML = Array.from({length: 24}, (_, i) => `<i class="${i >= 18 ? 'hot' : ''}" style="height:${6 + i * 0.5}px"></i>`).join('');
+    const lit = Math.max(0, Math.min(24, Math.round((s.level + 120) / 100 * 24)));
+    Array.from(meter.children).forEach((seg, i) => seg.classList.toggle('lit', i < lit));
+    const snr = s.noise > -140 ? Math.max(0, s.level - s.noise) : null;
+    document.getElementById('lcd-level').textContent = `${num(s.level, 0)} dBFS${snr !== null ? ` · SNR ${num(snr, 0)} dB` : ''}`;
+}
+
+function renderControls() {
+    const s = app.state;
+    if (!s) return;
+    const k = radio.knobs;
+    k.squelch.set(s.squelch === null || s.squelch === undefined ? -140 : s.squelch, true);
+    if (s.gain_range) {
+        const [lo, hi, step] = s.gain_range;
+        const st = step > 0 ? step : 0.5;
+        if (k.gain.opts.max !== hi || k.gain.opts.min !== lo - st) k.gain.setRange(lo - st, hi, st);
+    }
+    k.gain.set(s.gain === null || s.gain === undefined ? k.gain.opts.min : s.gain, true);
+    if (s.bandwidths && String(k.filter.opts.values) !== String(s.bandwidths)) k.filter.setValues(s.bandwidths);
+    k.filter.set(s.bandwidth, true);
+    if (app.settings && app.settings.scan_speed) k.speed.set(app.settings.scan_speed, true);
+    radio.dial.setReadout(`step ${fmtHz(s.step)}`);
+    document.querySelectorAll('#keypad [data-key]').forEach(b => {
+        const key = b.dataset.key;
+        const on = key === 'scan' ? s.scan : key === 'hold' ? s.scan && s.scan.hold : key === 'pri' ? s.priority
+            : key === 'lo' ? (s.channel && !s.channel.scan) || s.ignored : false;
+        b.classList.toggle('on', !!on);
+    });
+    const badge = document.getElementById('scan-badge');
+    badge.hidden = !s.scan;
+    if (s.scan) badge.textContent = `${s.scan.hold ? 'HOLD' : 'SCANNING'} · ${s.scan.label || (s.scan.kind === 'channels' ? 'all channels' : s.scan.kind)}`;
+    document.getElementById('store-btn').textContent = s.channel ? `Update M${chNum(s.channel.number)}` : 'Store current';
+}
+
+onSocket('state', (s) => {
+    const deviceKey = JSON.stringify([s.device && s.device.ok, s.device && s.device.error]);
+    if (deviceKey !== radio.lastDevice) { radio.lastDevice = deviceKey; renderChrome(); }
+    if (activeTab !== 'radio') return;
+    renderLcd();
+    renderControls();
+    renderChannelList(false);
+    renderFavourites();
+    drawScale();
+});
+
+let channelsReload = null;
+function reloadChannelsSoon() {
+    if (channelsReload) return;
+    channelsReload = setTimeout(async () => {
+        channelsReload = null;
+        await loadChannels();
+        renderChannelList(true);
+        renderFavourites(true);
+        if (activeTab === 'channels' && typeof renderChannelsPage === 'function') renderChannelsPage();
+    }, 1500);
+}
+onSocket('hit', reloadChannelsSoon);
+onSocket('changed', (m) => {
+    reloadChannelsSoon();
+    if (m.what === 'settings' || m.what === 'bands' || m.what === 'all') loadSettings().then(() => loadStatus());
+});
+onSocket('notice', (m) => toast(m.message));
+
+// =====================================================================
+// Favourites and the stored channels
+// =====================================================================
+function renderFavourites(force) {
+    const s = app.state || {};
+    const favs = app.channels.filter(c => c.favourite);
+    const current = s.channel ? s.channel.id : null;
+    const key = JSON.stringify([favs.map(c => [c.id, c.name, c.frequency]), current]);
+    if (!force && key === radio.favKey) return;
+    radio.favKey = key;
+    const el = document.getElementById('fav-list');
+    el.innerHTML = favs.length ? favs.map(c => `
+        <button type="button" class="fav${c.id === current ? ' on' : ''}" data-id="${c.id}" title="${escapeHtml(c.name || '')} · ${fmtMHz(c.frequency)} MHz">
+            <b>${fmtMHz(c.frequency)}</b><span>${escapeHtml(c.name || 'M' + chNum(c.number))} · ${modeLabel(c.mode)}</span>
+        </button>`).join('')
+        : '<span class="fav-empty">No favourites yet: tune to a channel and press + ★, or tick Favourite on the Channels page.</span>';
+    el.onclick = (e) => {
+        const b = e.target.closest('[data-id]');
+        if (b) radioCommand('channel', {id: Number(b.dataset.id)});
+    };
+    document.getElementById('fav-add').textContent = s.channel && s.channel.favourite ? '− ★' : '+ ★';
+}
+
+async function favouriteCurrent() {
+    const s = app.state || {};
+    if (!s.channel) return openStore({favourite: true});
+    try {
+        await api(`channels/${s.channel.id}`, {method: 'PUT', json: {favourite: !s.channel.favourite}});
+        await loadChannels();
+        renderFavourites(true);
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+function renderChannelList(force) {
+    const s = app.state || {};
+    const search = document.getElementById('chlist-search').value.trim().toLowerCase();
+    const filter = document.getElementById('chlist-filter').value;
+    const current = s.channel ? s.channel.id : null;
+    const key = JSON.stringify([search, filter, s.band, current, app.channels.length]);
+    if (!force && key === radio.listKey) return;
+    radio.listKey = key;
+    let rows = app.channels;
+    if (filter === 'band') rows = rows.filter(c => c.band === s.band);
+    else if (filter === 'fav') rows = rows.filter(c => c.favourite);
+    if (search) {
+        rows = rows.filter(c => (c.name || '').toLowerCase().includes(search) || fmtMHz(c.frequency).includes(search)
+            || String(c.number).includes(search) || (c.tags || '').toLowerCase().includes(search));
+    }
+    document.getElementById('chlist-count').textContent = `${filter === 'band' && s.band ? s.band + ' · ' : ''}${rows.length} of ${app.channels.length}`;
+    const el = document.getElementById('chlist-items');
+    el.innerHTML = rows.length ? rows.map(c => `
+        <button type="button" class="ch-item${c.id === current ? ' on' : ''}${c.scan ? '' : ' locked'}" data-id="${c.id}">
+            <span class="num">${chNum(c.number)}</span>
+            <span class="body"><b>${escapeHtml(c.name || 'Unnamed')}${c.favourite ? ' ★' : ''}</b><small>${fmtMHz(c.frequency)} · ${modeLabel(c.mode)}</small></span>
+            <span class="seen" title="last heard">${c.last_heard ? fmtAgo(c.last_heard) : '—'}</span>
+        </button>`).join('')
+        : `<div class="empty-state">${app.channels.length ? 'No channel matches' : 'No channels stored yet. Tune to something and press Store current, or import a CSV on the Channels page.'}</div>`;
+    el.onclick = (e) => {
+        const b = e.target.closest('[data-id]');
+        if (b) radioCommand('channel', {id: Number(b.dataset.id)});
+    };
+    const on = el.querySelector('.ch-item.on');
+    if (on && force !== true) on.scrollIntoView({block: 'nearest'});
+}
+
+function bandOptions(selected) {
+    return '<option value="">(automatic)</option>' + app.bands.map(b =>
+        `<option value="${escapeHtml(b.name)}"${b.name === selected ? ' selected' : ''}>${escapeHtml(b.name)}</option>`).join('');
+}
+
+// Store the current frequency as a channel, or update the stored channel it is on
+function openStore(preset) {
+    const s = app.state;
+    if (!s) return;
+    const existing = s.channel ? app.channels.find(c => c.id === s.channel.id) : null;
+    const c = Object.assign({number: existing ? existing.number : app.nextNumber, name: '', band: '', tags: '', favourite: false, scan: true},
+        existing || {}, preset || {});
+    const body = `
+        <div class="note">${fmtMHz(s.frequency)} MHz · ${modeLabel(s.mode)} · filter ${fmtKHz(s.bandwidth)}${s.squelch !== null ? ` · squelch ${s.squelch} dB` : ''}</div>
+        <div class="form-grid">
+            <div class="form-field"><label for="st-number">Number</label><input id="st-number" class="input mono" type="number" min="0" max="99999" value="${c.number ?? ''}"></div>
+            <div class="form-field"><label for="st-band">Band</label><select id="st-band" class="input">${bandOptions(c.band)}</select></div>
+            <div class="form-field full"><label for="st-name">Name</label><input id="st-name" class="input" maxlength="80" value="${escapeHtml(c.name)}" placeholder="What is on this frequency"></div>
+            <div class="form-field full"><label for="st-tags">Tags</label><input id="st-tags" class="input" value="${escapeHtml(c.tags)}" placeholder="amateur, repeater"></div>
+        </div>
+        <div class="checks">
+            <label><input type="checkbox" id="st-fav"${c.favourite ? ' checked' : ''}> Favourite</label>
+            <label><input type="checkbox" id="st-scan"${c.scan ? ' checked' : ''}> In the channel scan</label>
+        </div>`;
+    openModal(existing ? `Update M${chNum(existing.number)}` : 'Store channel', body, [
+        {label: 'Cancel'},
+        {label: existing ? 'Update' : 'Store', cls: 'btn-primary', action: async () => {
+            const data = {
+                number: document.getElementById('st-number').value,
+                name: document.getElementById('st-name').value,
+                band: document.getElementById('st-band').value,
+                tags: document.getElementById('st-tags').value,
+                favourite: document.getElementById('st-fav').checked,
+                scan: document.getElementById('st-scan').checked,
+                frequency: s.frequency, mode: s.mode, bandwidth: s.bandwidth, step: s.step, squelch: s.squelch,
+            };
+            const saved = existing
+                ? await api(`channels/${existing.id}`, {method: 'PUT', json: data})
+                : await api('channels', {method: 'POST', json: data});
+            toast(`Stored as M${chNum(saved.number)}`, 'success');
+            await loadChannels();
+            renderChannelList(true);
+            renderFavourites(true);
+        }},
+    ]);
+}
+
+function editCurrentChannel() {
+    const s = app.state || {};
+    switchTab('channels');
+    if (s.channel) selectChannel(s.channel.id);
+    else newChannel({frequency: s.frequency, mode: s.mode, bandwidth: s.bandwidth});
+}
+
+function openRangeModal() {
+    const r = (app.settings && app.settings.scan_range) || {start: 144e6, stop: 146e6, step: 12500, mode: 'nfm'};
+    const modes = Object.keys(app.modes).map(m => `<option value="${m}"${m === r.mode ? ' selected' : ''}>${modeLabel(m)}</option>`).join('');
+    openModal('Scan range', `
+        <div class="form-grid">
+            <div class="form-field"><label for="rg-start">From (MHz)</label><input id="rg-start" class="input mono" value="${fmtMHz(r.start)}"></div>
+            <div class="form-field"><label for="rg-stop">To (MHz)</label><input id="rg-stop" class="input mono" value="${fmtMHz(r.stop)}"></div>
+            <div class="form-field"><label for="rg-step">Step (kHz)</label><input id="rg-step" class="input mono" value="${r.step / 1000}"></div>
+            <div class="form-field"><label for="rg-mode">Mode</label><select id="rg-mode" class="input">${modes}</select></div>
+        </div>
+        <p class="panel-sub">SCAN then steps through this range and stops on every signal above the squelch.</p>`, [
+        {label: 'Cancel'},
+        {label: 'Save', cls: 'btn-primary', action: async () => {
+            const value = {
+                start: Math.round(parseFloat(document.getElementById('rg-start').value.replace(',', '.')) * 1e6),
+                stop: Math.round(parseFloat(document.getElementById('rg-stop').value.replace(',', '.')) * 1e6),
+                step: Math.round(parseFloat(document.getElementById('rg-step').value.replace(',', '.')) * 1000),
+                mode: document.getElementById('rg-mode').value,
+            };
+            await saveSetting('scan_range', value, true);
+        }},
+    ]);
+}
+
+onTab('radio', async () => {
+    renderLcd();
+    renderControls();
+    renderChannelList(true);
+    renderFavourites(true);
+    requestAnimationFrame(redrawSpectrum);
+});
