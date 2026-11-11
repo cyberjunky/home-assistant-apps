@@ -152,6 +152,37 @@ class Library:
             return crcs
         raise ValueError("not a zip or 7z file")
 
+    def why_unknown(self, crcs: set[str], file: str) -> str:
+        """Why an archive isn't recognised, in one line: what it holds and what comes closest."""
+        if not crcs:
+            return "the archive lists no files (empty or damaged)"
+        known_bios = {r["crc"] for b in self.bios.values() for r in b["roms"]}
+        unmatched = sum(1 for c in crcs if c not in self.by_crc and c not in known_bios)
+        parts = [f"{len(crcs)} files, {unmatched} of them match no game of this MAME build"]
+        best, best_hits = None, 0
+        counts: dict[str, int] = {}
+        for crc in crcs:
+            for name in self.by_crc.get(crc, ()):
+                counts[name] = counts.get(name, 0) + 1
+        for name, hits in counts.items():
+            if hits > best_hits:
+                best, best_hits = name, hits
+        stem = (split_name(file) or (file, ""))[0].lower()
+        if stem in self.games and stem != best:
+            own = {r["crc"] for r in self.games[stem]["roms"]}
+            parts.append(
+                f"named like {self.games[stem]['description']} ({stem}), but {len(crcs & own)} of its"
+                f" {len(own)} files match: a different version of the game, or a damaged file?"
+            )
+        if best:
+            own = {r["crc"] for r in self.games[best]["roms"]}
+            missing = sorted(r["name"] for r in self.games[best]["roms"] if r["crc"] not in crcs)
+            line = f"closest: {self.games[best]['description']} ({best}), {best_hits} of {len(own)} files match"
+            if missing:
+                line += f", missing {', '.join(missing[:6])}" + (" …" if len(missing) > 6 else "")
+            parts.append(line)
+        return "; ".join(parts)
+
     def identify(self, crcs: set[str]) -> str | None:
         """The game whose own ROM set this archive covers best (a parent wins a tie with its clones)."""
         candidates: dict[str, int] = {}
@@ -183,7 +214,9 @@ class Library:
             if not info.game:
                 info.bios = self.identify_bios(info.crcs)
             if not info.game and not info.bios:
-                info.error = "not a game this app's MAME can run"
+                why = self.why_unknown(info.crcs, path.name)
+                info.error = f"not a game this app's MAME can run ({why})"
+                logger.warning(f"Not recognised: {path.name} ({st.st_size} bytes): {why}")
         except (OSError, ValueError) as e:
             info.error = f"not readable: {e}"
         self._cache[path.name] = (st.st_mtime, st.st_size, info)
@@ -338,7 +371,9 @@ class Library:
         game = self.identify(crcs)
         bios = None if game else self.identify_bios(crcs)
         if not game and not bios:
-            raise ValueError(f"{original_name} is not a game this app's MAME build can run")
+            why = self.why_unknown(crcs, original_name)
+            logger.warning(f"Upload not recognised: {original_name} ({kind}, {upload.stat().st_size} bytes): {why}")
+            raise ValueError(f"{original_name} is not a game this app's MAME build can run ({why})")
         if bios:
             # A BIOS set is stored under its own name too (neogeo.zip), where MAME looks for it
             game = bios

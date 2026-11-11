@@ -188,6 +188,7 @@ class WebUI:
                         if size > MAX_UPLOAD:
                             raise ValueError(f"{name} is larger than {MAX_UPLOAD // 1024 // 1024} MB")
                         f.write(chunk)
+                logger.info(f"Received {name}: {size} bytes")
                 info = self.library.add(tmp, name)
                 logger.info(
                     f"Added {name} as {info['file']} ({info['description']})"
