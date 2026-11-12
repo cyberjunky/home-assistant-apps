@@ -57,6 +57,7 @@ class HomeAssistant:
         self._last_sent = now
         channel = state.get("channel") or {}
         scan = state.get("scan")
+        rds = state.get("rds") or {}
         sensors = {
             "sensor.sdradio_frequency": (
                 f"{state['frequency'] / 1e6:.4f}",
@@ -68,6 +69,11 @@ class HomeAssistant:
                     "band": state.get("band"),
                     "channel": channel.get("name"),
                     "channel_number": channel.get("number"),
+                    "station": rds.get("ps") or None,
+                    "radio_text": rds.get("rt") or None,
+                    "artist": rds.get("artist") or None,
+                    "title": rds.get("title") or None,
+                    "programme_type": rds.get("pty") or None,
                 },
             ),
             "sensor.sdradio_signal": (

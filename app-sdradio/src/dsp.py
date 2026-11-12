@@ -128,7 +128,11 @@ class Demodulator:
         self._last = np.complex64(0)
         self._dc = 0.0
         half = self.bandwidth / 2
+        self.rds = None
         if self.mode == "wfm":
+            from .rds import RdsDecoder  # here: rds.py uses this module's filters
+
+            self.rds = RdsDecoder(self.if_rate)
             self.audio_factor = max(1, round(self.if_rate / AUDIO_RATE))
             self.audio_rate = self.if_rate / self.audio_factor
             self.channel = None
@@ -194,8 +198,11 @@ class Demodulator:
 
     def _demodulate(self, x: np.ndarray) -> np.ndarray:
         if self.mode == "wfm":
-            audio = self._fm(x) * (self.if_rate / (2 * math.pi * 75_000))
-            audio = self.deemphasis(audio).astype(np.float32)
+            # The multiplex: mono audio, the 19 kHz pilot, stereo and the 57 kHz RDS
+            mpx = self._fm(x) * (self.if_rate / (2 * math.pi * 75_000))
+            if self.rds is not None:
+                self.rds.process(mpx)
+            audio = self.deemphasis(mpx).astype(np.float32)
             return self.audio_decimate(audio) * 0.8
         if self.mode == "nfm":
             deviation = max(self.bandwidth / 4, 1_500)

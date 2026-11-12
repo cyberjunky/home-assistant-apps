@@ -1,13 +1,15 @@
 """A simulated receiver for the tests and for running the page without an SDR (tests/devserver.py).
 
 Not part of the app image. It makes noise plus a few transmissions that come and go:
-NFM voices on 2 m, APRS bursts, an AM airband carrier and an FM broadcast station.
+NFM voices on 2 m, APRS bursts, an AM airband carrier and an FM broadcast station with RDS.
 """
 
 import math
 import time
 
 import numpy as np
+
+from tests import rds_signal
 
 # frequency, mode, level (amplitude), on seconds, off seconds, tone Hz
 SIGNALS = [
@@ -35,6 +37,10 @@ class SimulatedDevice:
         self.rng = np.random.default_rng(1)
         self._next_time = 0.0
         self.tunes: list[float] = []
+        # The FM station's RDS: station name, radio text with RadioText+ artist and title
+        rt = "Now playing: Simulated Artist - Simulated Title"
+        self.rds_bits = rds_signal.bits(rds_signal.groups(0x8204, "SIM FM", rt, "Simulated Artist", "Simulated Title"))
+        self.rds_phase = 0.0
 
     def open(self, center: float) -> dict:
         self.center = float(center)
@@ -79,6 +85,14 @@ class SimulatedDevice:
             else:
                 deviation = 75_000 if mode == "wfm" else 2_500
                 phase = 2 * math.pi * offset * t - deviation / tone * np.cos(2 * math.pi * tone * t)
+                if mode == "wfm":
+                    # RDS at 3 % of the deviation
+                    rds = rds_signal.subcarrier(self.rds_bits, rate, start, count) * (
+                        0.03 * 2 * math.pi * 75_000 / rate
+                    )
+                    integral = np.cumsum(rds, dtype=np.float64) + self.rds_phase
+                    self.rds_phase = float(integral[-1])
+                    phase = phase + integral
                 s = level * np.exp(1j * phase)
             x += s.astype(np.complex64)
         self.sample_index += count

@@ -35,6 +35,12 @@ signal-to-noise ratio. Along the top: SCAN, HOLD and PRI light up while they are
 (automatic gain for AM, SSB and CW), **NB** (noise blanker) and **MUTE** switch with a click;
 **L/O** shows that this channel is locked out of scans.
 
+**RDS** (WFM): an FM broadcast station's name shows where the channel name goes when the
+frequency isn't stored, and a line below it shows the artist and title (when the station marks
+them with RadioText+) or else its radio text, with the programme type on the right. It is read
+from the 57 kHz RDS signal and takes a second or two after tuning; a weak station may not get
+that far.
+
 **Tuning**
 - Scroll over a digit of the frequency to change that digit.
 - Type a frequency in MHz on the keypad or keyboard and press **MHz** or Enter (CLR or Esc cancels).
@@ -102,7 +108,7 @@ Home Assistant backups include them.
 ## Home Assistant
 
 On the Settings page:
-- **Sensors**: `sensor.sdradio_frequency` (MHz, with the mode, band and channel), `sensor.sdradio_signal` (dBFS) and `sensor.sdradio_scan` (`off`, `scanning` or `holding`), updated at most every 5 seconds.
+- **Sensors**: `sensor.sdradio_frequency` (MHz, with the mode, band and channel, and on FM the RDS `station`, `radio_text`, `artist`, `title` and `programme_type`), `sensor.sdradio_signal` (dBFS) and `sensor.sdradio_scan` (`off`, `scanning` or `holding`), updated at most every 5 seconds.
 - **Events**: `sdradio_signal` for every transmission on a stored channel, with `frequency`, `frequency_mhz`, `mode`, `channel`, `channel_number`, `favourite`, `duration` and `peak`.
 
 ## How it works
