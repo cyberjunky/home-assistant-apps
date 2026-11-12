@@ -1,0 +1,3 @@
+# Toon root crontab: the Wi-Fi watchdog every 5 minutes, instead of the daily reboot
+#0 13 * * * /sbin/shutdown -r now
+*/5 * * * * /root/wifi-watchdog.sh
