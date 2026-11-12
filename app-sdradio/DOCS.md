@@ -103,7 +103,7 @@ after a few hits (the number is on the Settings page).
 
 ## Modes
 
-Next to Listen in the top bar, **Mode** sets the radio up for one kind of signal and decodes
+The **mode buttons** under the tune dial set the radio up for one kind of signal and decode
 what it hears. The radio tunes to the mode's frequency (set on the Settings page, under Modes);
 you can still tune elsewhere and listen. In place of the favourites and the stored channels the
 page shows what the mode decodes. The modes only show up when your receiver can use them.
@@ -145,6 +145,12 @@ the filter and the scan speed. Mode → Radio brings them back.
   multimon-ng with the packets read by SDRadio (plain, compressed and Mic-E positions, weather
   reports). Stations with a position are on the map with their symbol, moving ones with their
   trail; **Packets** lists everything heard.
+
+- **SSTV**: pictures sent as sound (slow-scan television), decoded by SDRadio itself: PD50 to
+  PD290 (the ISS sends PD120 and PD180), Martin M1 and M2, and Robot 36. 145.800 MHz is the ISS
+  during its SSTV events, 144.500 MHz radio amateurs on 2 m, 14.230 MHz on HF (upper sideband,
+  HackRF). A picture grows line by line while it comes in and then goes into the gallery; the
+  pictures are kept in the app's data folder as long as the other decoded data.
 
 **The map** (Aircraft, Ships, APRS) shows OpenStreetMap through Home Assistant's own map tile service (which
 needs Home Assistant 2026.9 or later), centred on Home Assistant's home location; the distances

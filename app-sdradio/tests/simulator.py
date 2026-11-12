@@ -10,7 +10,7 @@ import time
 
 import numpy as np
 
-from tests import acars_signal, adsb_signal, ais_signal, aprs_signal, pocsag_signal, rds_signal
+from tests import acars_signal, adsb_signal, ais_signal, aprs_signal, pocsag_signal, rds_signal, sstv_signal
 
 # frequency, mode, level (amplitude), on seconds, off seconds, tone Hz
 SIGNALS = [
@@ -26,6 +26,8 @@ SIGNALS = [
     (169_650_000, "pocsag", 0.08, 0, 8, 0),
     # Aircraft sending ADS-B (the Aircraft mode)
     (1_090_000_000, "adsb", 0.3, 0, 0, 0),
+    # An SSTV picture (Robot 36) every minute on the ISS's frequency (the SSTV mode)
+    (145_800_000, "sstv", 0.05, 0, 0, 0),
     # ACARS on the three European channels (the ACARS mode, tuned to the middle one)
     (131_725_000, "acars", 0.05, 0, 0, 0),
     # Ships sending AIS on both channels (the Ships mode, tuned between them)
@@ -136,6 +138,9 @@ class SimulatedDevice:
             if mode == "acars":
                 x += self._acars(start, rate, offset, level, count)
                 continue
+            if mode == "sstv":
+                x += self._sstv(start, rate, offset, level, count)
+                continue
             period = on + off
             if off and (start % period) > on:
                 continue
@@ -240,6 +245,24 @@ class SimulatedDevice:
             )
             k += 1
         return self._play_bursts("acars", count)
+
+    def _sstv(self, start: float, rate: float, offset: float, level: float, count: int) -> np.ndarray:
+        """Robot 36 (38 s) at the start of every minute, as FM: the audio made once, sent block by block."""
+        if not hasattr(self, "sstv_audio"):
+            k = sstv_signal.kind("Robot 36")
+            self.sstv_audio = sstv_signal.encode("Robot 36", sstv_signal.test_picture(k.width, k.height), lead_ms=100)
+            self.sstv_phase = 0.0
+        into = start % 60.0
+        first = int(into * 48_000)
+        n_audio = int(np.ceil(count * 48_000 / rate)) + 1
+        audio = self.sstv_audio[first : first + n_audio]
+        if not len(audio):
+            return np.zeros(count, np.complex64)
+        audio = np.concatenate([audio, np.zeros(max(0, n_audio - len(audio)), np.float32)])
+        a = audio[(np.arange(count) * 48_000 / rate).astype(int)].astype(np.float64)
+        phase = self.sstv_phase + 2 * math.pi * np.cumsum(offset + 3_000 * 2 * a) / rate
+        self.sstv_phase = float(phase[-1] % (2 * math.pi))
+        return (level * np.exp(1j * phase)).astype(np.complex64)
 
     def _queue_burst(self, name: str, at: int, samples: np.ndarray) -> None:
         self.__dict__.setdefault(f"{name}_bursts", []).append([at, samples])

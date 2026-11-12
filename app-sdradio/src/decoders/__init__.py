@@ -41,6 +41,8 @@ class Decoder:
         self.count = 0
         # Where the receiver is (latitude, longitude), when Home Assistant knows it
         self.location: tuple[float, float] | None = None
+        # A folder of its own for what it saves (pictures, recordings), in the app's data folder
+        self.folder = None
 
     @property
     def frequency(self) -> int:
@@ -95,5 +97,6 @@ def registry() -> dict[str, type[Decoder]]:
     from .pager import Pager
     from .sensors import Sensors
     from .ships import Ships
+    from .sstv import Sstv
 
-    return {cls.key: cls for cls in (Pager, Sensors, Aircraft, Acars, Ships, Aprs)}
+    return {cls.key: cls for cls in (Pager, Sensors, Aircraft, Acars, Ships, Aprs, Sstv)}

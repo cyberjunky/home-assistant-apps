@@ -82,7 +82,7 @@ function initRadio() {
     k.speed = new Knob(row, {label: 'Scan speed', min: 1, max: 20, step: 1, value: 10, defaultValue: 10,
         format: v => `${v} ch/s`, onChange: v => saveSetting('scan_speed', v, true)});
 
-    radio.dial = new TuneDial(document.getElementById('tune-dial'), {size: 160,
+    radio.dial = new TuneDial(document.getElementById('tune-dial'), {size: 140,
         onSteps: n => radioCommand('step_tune', {steps: n})});
 
     buildKeypad();

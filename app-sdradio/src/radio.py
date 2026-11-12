@@ -11,6 +11,7 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 
@@ -134,6 +135,8 @@ class Radio:
         self.decoder: Decoder | None = None
         # Where the receiver is (latitude, longitude): Home Assistant's home, for the maps
         self.location: tuple[float, float] | None = None
+        # Where the modes keep their pictures and recordings (a folder per mode)
+        self.files_dir: Path | None = None
         self.decoder_key = state.get("decoder") if state.get("decoder") in registry() else "radio"
         self.spectrum = Spectrum(int(self.settings["fft_size"]))
         # The spectrum averaged over the last second or so (linear), for autotune
@@ -319,6 +322,7 @@ class Radio:
             lambda data: self.emit("live", {"mode": key, **data}),
         )
         decoder.location = self.location
+        decoder.folder = self.files_dir / key if self.files_dir else None
         self.decoder = decoder
         if tune:
             mode, bandwidth = decoder.demod

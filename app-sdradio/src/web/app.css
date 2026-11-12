@@ -363,7 +363,13 @@ table.data .ent small { display: block; font-family: var(--mono); font-size: 11p
 }
 .front-lcd { grid-area: lcd; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .front .knob-row { grid-area: knobs; }
-.front-dial { grid-area: dial; display: flex; flex-direction: column; align-items: center; }
+.front-dial { grid-area: dial; align-self: start; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+/* The modes as toggle buttons under the tune dial */
+.mode-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; width: 100%; }
+.mode-btn { height: 26px; padding: 0 4px; border: 1px solid var(--key-edge); border-radius: 5px; background: linear-gradient(var(--key-top), var(--key-bottom));
+    color: var(--primary-text-color); font: 600 11.5px var(--mono); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mode-btn:hover { border-color: var(--primary-color); }
+.mode-btn.on { background: var(--primary-color); border-color: var(--primary-color); color: #fff; }
 .front > .keypad { grid-area: keys; align-self: start; }
 .scan-keys { grid-area: scan; align-self: end; display: flex; flex-direction: column; gap: 6px; }
 .scan-keys .tabs { display: flex; }
@@ -496,8 +502,6 @@ button.ind.on:hover { opacity: 1; }
 /* A mode replaces the favourites and the stored channels with its own view */
 #tab-radio:not([data-mode="radio"]) .favbar, #tab-radio:not([data-mode="radio"]) .chlist { display: none; }
 #tab-radio[data-mode="radio"] .mode-panel { display: none; }
-.mode-pick { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--secondary-text-color); }
-.mode-pick .select { min-width: 110px; }
 .mode-panel { flex: 1.4 1 520px; min-width: 0; display: flex; flex-direction: column; overflow: hidden; min-height: 260px; }
 .mode-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 12px 8px; border-bottom: 1px solid var(--divider-color); }
 .mode-head .section-title { margin: 0; }
@@ -508,6 +512,12 @@ button.ind.on:hover { opacity: 1; }
 .msg-time { font-size: 12px; color: var(--secondary-text-color); white-space: nowrap; }
 .msg-addr { font-size: 12px; white-space: nowrap; }
 .msg-text { overflow-wrap: anywhere; }
+.sstv-live { margin: 10px 12px; }
+.sstv-live img { display: block; max-width: 100%; image-rendering: pixelated; border: 1px solid var(--divider-color); border-radius: 4px; }
+.sstv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; padding: 10px 12px; }
+.sstv-grid figure, .sstv-live { margin: 0; }
+.sstv-grid img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 4px; border: 1px solid var(--divider-color); }
+.sstv-grid figcaption, .sstv-live figcaption { font-size: 11.5px; color: var(--secondary-text-color); margin-top: 4px; }
 .msg.acars .msg-text { white-space: pre-wrap; font-family: var(--mono); font-size: 12px; }
 table.sensors td small { display: block; font-size: 11px; }
 table.sensors td:last-child, table.sensors th:last-child { text-align: center; }

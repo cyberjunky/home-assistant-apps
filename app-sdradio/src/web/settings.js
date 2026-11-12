@@ -228,7 +228,7 @@ const PAGER_NETWORKS = [
 
 function modeSettingsHtml(ha) {
     const pager = app.settings.mode_pager || {}, sensors = app.settings.mode_sensors || {}, aprs = app.settings.mode_aprs || {};
-    const acars = app.settings.mode_acars || {};
+    const acars = app.settings.mode_acars || {}, sstv = app.settings.mode_sstv || {};
     const mhz = hz => +(hz / 1e6).toFixed(6);
     return `
         ${setRow('Pager network', 'sets the frequency and the protocols; or type your own below',
@@ -247,7 +247,10 @@ function modeSettingsHtml(ha) {
             `<input class="input mono" id="mode-aprs-frequency" list="aprs-frequencies" value="${mhz(aprs.frequency)}" inputmode="decimal">
              <datalist id="aprs-frequencies"><option value="144.8"><option value="144.39"><option value="145.825"></datalist>`, 'mode-aprs-frequency')}
         ${setRow('ACARS channels', 'MHz, comma separated: 131.525, 131.725 and 131.825 in Europe; they must lie within 370 kHz of each other (one receiver)',
-            `<input class="input mono" id="mode-acars-channels" value="${(acars.channels || []).map(mhz).join(', ')}">`, 'mode-acars-channels')}`;
+            `<input class="input mono" id="mode-acars-channels" value="${(acars.channels || []).map(mhz).join(', ')}">`, 'mode-acars-channels')}
+        ${setRow('SSTV frequency', 'MHz; 145.8 the ISS, 144.5 on 2 m, 14.23 on HF (upper sideband, HackRF)',
+            `<input class="input mono" id="mode-sstv-frequency" list="sstv-frequencies" value="${mhz(sstv.frequency)}" inputmode="decimal">
+             <datalist id="sstv-frequencies"><option value="145.8"><option value="144.5"><option value="14.23"><option value="433.4"></datalist>`, 'mode-sstv-frequency')}`;
 }
 
 function saveMode(key, patch) {
@@ -274,6 +277,7 @@ function bindModeSettings() {
     });
     frequency('mode-sensors-frequency', 'sensors');
     frequency('mode-aprs-frequency', 'aprs');
+    frequency('mode-sstv-frequency', 'sstv');
     const acars = document.getElementById('mode-acars-channels');
     if (acars) acars.addEventListener('change', () => {
         const channels = acars.value.split(/[,; ]+/).map(v => parseFloat(v.replace(',', '.'))).filter(v => v > 0).map(v => Math.round(v * 1e6));

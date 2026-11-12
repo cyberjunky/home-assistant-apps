@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import re
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -70,7 +71,20 @@ class Backups:
         return items[0] if items else None
 
 
-async def nightly(backups: Backups, database: Database) -> None:
+def prune_files(folder: Path, keep_days: int) -> int:
+    """The modes' pictures and recordings older than the days decoded data is kept."""
+    if keep_days <= 0 or not folder.is_dir():
+        return 0
+    cutoff = time.time() - keep_days * 86400
+    removed = 0
+    for path in folder.glob("*/*"):
+        if path.is_file() and path.stat().st_mtime < cutoff:
+            path.unlink(missing_ok=True)
+            removed += 1
+    return removed
+
+
+async def nightly(backups: Backups, database: Database, files_dir: Path | None = None) -> None:
     """Makes the nightly backup and removes old hits, at the time set on the Settings page."""
     while True:
         settings = database.settings()
@@ -93,6 +107,12 @@ async def nightly(backups: Backups, database: Database) -> None:
             removed = await asyncio.to_thread(database.prune_decoded, int(settings["decoded_keep_days"]))
             if removed:
                 logger.info(f"Removed {removed} decoded messages older than {settings['decoded_keep_days']} days")
+            if files_dir is not None:
+                removed = await asyncio.to_thread(prune_files, files_dir, int(settings["decoded_keep_days"]))
+                if removed:
+                    logger.info(
+                        f"Removed {removed} pictures and recordings older than {settings['decoded_keep_days']} days"
+                    )
         except Exception:
             logger.exception("The nightly backup failed")
         await asyncio.sleep(61)

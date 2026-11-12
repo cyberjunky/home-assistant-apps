@@ -16,19 +16,34 @@ const SENSOR_FIELDS = {
 
 function currentMode() { return (app.state && app.state.decoder && app.state.decoder.key) || 'radio'; }
 
-// ---------------------------------------------------------------- the mode picker in the top bar
+// ---------------------------------------------------------------- the mode buttons under the tune dial
+
+const MODE_TITLES = {
+    radio: 'The radio: tune, listen and scan', pager: 'Pager messages (P2000, POCSAG)', sensors: 'Weather stations and sensors on 433 and 868 MHz',
+    aircraft: 'Aircraft on a map (ADS-B)', acars: 'Text messages of aircraft (ACARS)', ships: 'Ships on a map (AIS)',
+    aprs: 'Radio amateur stations on a map (APRS)', sstv: 'Pictures sent as sound (SSTV)', satellites: 'Satellite passes',
+    video: 'Analog video (FPV)',
+};
 
 function renderModePicker() {
     const s = app.state;
-    const select = document.getElementById('mode-select');
-    if (!s || !select) return;
+    const box = document.getElementById('mode-buttons');
+    if (!s || !box) return;
     const modes = [{key: 'radio', name: 'Radio'}, ...(s.modes || [])];
     const signature = modes.map(m => m.key).join();
-    if (select.dataset.signature !== signature) {
-        select.innerHTML = modes.map(m => `<option value="${m.key}">${escapeHtml(m.name)}</option>`).join('');
-        select.dataset.signature = signature;
+    if (box.dataset.signature !== signature) {
+        box.innerHTML = modes.map(m => `<button type="button" class="mode-btn" data-mode="${m.key}" title="${escapeHtml(MODE_TITLES[m.key] || m.name)}">${escapeHtml(m.name)}</button>`).join('');
+        box.dataset.signature = signature;
+        box.onclick = (e) => {
+            const b = e.target.closest('[data-mode]');
+            if (b && b.dataset.mode !== currentMode()) chooseMode(b.dataset.mode);
+        };
     }
-    if (select.value !== currentMode() && document.activeElement !== select) select.value = currentMode();
+    box.querySelectorAll('.mode-btn').forEach(b => {
+        const on = b.dataset.mode === currentMode();
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
 }
 
 function chooseMode(key) {
@@ -71,7 +86,7 @@ function renderModeHead() {
 
 function key2placeholder(key) {
     return {sensors: 'Search devices…', aircraft: 'Search callsign, registration, type…', ships: 'Search name, MMSI, destination…',
-        aprs: 'Search call sign, text…', acars: 'Search flight, registration, text…'}[key] || 'Search messages, capcodes…';
+        aprs: 'Search call sign, text…', acars: 'Search flight, registration, text…', sstv: 'Search kind (PD120, Robot 36)…'}[key] || 'Search messages, capcodes…';
 }
 
 async function loadModeData() {
@@ -108,6 +123,10 @@ async function loadModeData() {
 }
 
 onSocket('live', (m) => {
+    if (m.mode === 'sstv' && modeView.key === 'sstv') {
+        modeView.receiving = m.receiving;
+        return queueModeRender();
+    }
     if (m.mode !== modeView.key || !TRACKED[m.mode]) return;
     modeView.messages = m.messages;
     for (const o of m[TRACKED[m.mode].listKey] || []) applyTracked(o);
@@ -141,6 +160,7 @@ function renderModeBody() {
     if (TRACKED[modeView.key]) return renderTracked(body);
     if (modeView.key === 'pager') body.innerHTML = pagerHtml();
     else if (modeView.key === 'acars') body.innerHTML = acarsHtml();
+    else if (modeView.key === 'sstv') body.innerHTML = sstvHtml();
     else if (modeView.key === 'sensors') body.innerHTML = sensorsHtml();
     else body.innerHTML = '';
 }
@@ -168,6 +188,26 @@ function pagerHtml() {
         <span class="msg-addr mono" title="Capcode / address">${escapeHtml(m.key)}</span>
         <span class="msg-text${m.text ? '' : ' muted'}">${m.text ? escapeHtml(m.text) : escapeHtml(m.type || 'tone')}</span>
     </div>`).join('');
+}
+
+// ---------------------------------------------------------------- SSTV
+
+const fileUrl = (mode, name) => `${basePath}api/files/${mode}/${encodeURIComponent(name)}`;
+
+function sstvHtml() {
+    const r = modeView.receiving;
+    const live = r ? `<figure class="sstv-live">
+        <img src="${fileUrl('sstv', r.file)}?t=${r.t}" alt="The picture coming in">
+        <figcaption><span class="badge warn">receiving</span> ${escapeHtml(r.kind)} · ${Math.min(r.rows, r.height)} of ${r.height} lines</figcaption>
+    </figure>` : '';
+    const pictures = modeView.items.filter(i => i.file);
+    if (!pictures.length && !r) {
+        return emptyHtml(modeView.search ? 'No pictures match.' : 'No pictures yet. The ISS sends SSTV on 145.800 MHz during its SSTV events; radio amateurs on 14.230 MHz (HF, HackRF) and 144.500 MHz.');
+    }
+    return `${live}<div class="sstv-grid">${pictures.map(i => `<figure>
+        <a href="${fileUrl('sstv', i.file)}" target="_blank" rel="noopener"><img src="${fileUrl('sstv', i.file)}" alt="${escapeHtml(i.kind)} picture" loading="lazy"></a>
+        <figcaption>${timeOf(i.ts)} · ${escapeHtml(i.kind)}${i.complete ? '' : ` · ${i.rows} of ${i.height} lines`}</figcaption>
+    </figure>`).join('')}</div>`;
 }
 
 // ---------------------------------------------------------------- ACARS
@@ -512,7 +552,6 @@ function initModes() {
         clearTimeout(timer);
         timer = setTimeout(loadModeData, 300);
     });
-    document.getElementById('mode-select').addEventListener('change', (e) => chooseMode(e.target.value));
     // Keep "heard … ago" current
     setInterval(() => { if (activeTab === 'radio' && modeView.key === 'sensors') renderModeBody(); }, 15000);
     setInterval(() => { if (activeTab === 'radio' && TRACKED[modeView.key]) renderModeBody(); }, 5000);

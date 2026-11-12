@@ -5,6 +5,7 @@ import contextlib
 import json
 import logging
 import os
+import shutil
 import struct
 import time
 from datetime import date, timedelta
@@ -76,6 +77,9 @@ class WebUI:
         self.clients: set[Client] = set()
         self.loop: asyncio.AbstractEventLoop | None = None
         self.radio = Radio(config, database, device_factory, self._emit_threadsafe)
+        # The modes' pictures and recordings, a folder per mode
+        self.files_dir = Path(data_dir) / "files"
+        self.radio.files_dir = self.files_dir
         self.state: dict = self.radio.snapshot()
         self.ingress_only = bool(os.environ.get("SUPERVISOR_TOKEN"))
         self.app = web.Application(middlewares=[self._ingress_only, self._errors], client_max_size=MAX_UPLOAD)
@@ -109,6 +113,7 @@ class WebUI:
         r.add_get("/api/decoded", self._handle_decoded)
         r.add_get("/api/decoded/keys", self._handle_decoded_keys)
         r.add_get("/api/decoded/live", self._handle_decoded_live)
+        r.add_get("/api/files/{mode:[a-z0-9]+}/{name:[A-Za-z0-9._-]+}", self._handle_file)
         r.add_get("/api/map-tiles/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.png", self._handle_map_tile)
         r.add_delete("/api/decoded", self._handle_decoded_delete)
         r.add_get("/api/settings", self._handle_settings)
@@ -131,7 +136,7 @@ class WebUI:
         self.radio.start()
         from .backups import nightly
 
-        self._tasks.append(asyncio.create_task(nightly(self.backups, self.db), name="nightly"))
+        self._tasks.append(asyncio.create_task(nightly(self.backups, self.db, self.files_dir), name="nightly"))
         self._tasks.append(asyncio.create_task(self._count_listening(), name="listening"))
         self._tasks.append(asyncio.create_task(self._find_home(), name="home"))
 
@@ -453,8 +458,23 @@ class WebUI:
 
     async def _handle_decoded_delete(self, request: web.Request) -> web.Response:
         q = request.query
-        removed = await asyncio.to_thread(self.db.delete_decoded, q.get("mode", ""), q.get("key") or None)
+        mode = q.get("mode", "")
+        removed = await asyncio.to_thread(self.db.delete_decoded, mode, q.get("key") or None)
+        # Clearing a mode clears its pictures and recordings too
+        if mode.isalnum() and not q.get("key"):
+            await asyncio.to_thread(shutil.rmtree, self.files_dir / mode, True)
         return _json({"removed": removed})
+
+    async def _handle_file(self, request: web.Request) -> web.Response:
+        """A picture or recording a mode saved (SSTV pictures, satellite recordings)."""
+        path = self.files_dir / request.match_info["mode"] / request.match_info["name"]
+        if not path.is_file():
+            return _error("Not found", 404)
+        name = request.match_info["name"]
+        headers = {"Cache-Control": "no-store" if name.startswith("live") else "max-age=86400"}
+        if not name.endswith((".png", ".jpg")):
+            headers["Content-Disposition"] = f'attachment; filename="{name}"'
+        return web.FileResponse(path, headers=headers)
 
     async def _handle_hits(self, request: web.Request) -> web.Response:
         try:
