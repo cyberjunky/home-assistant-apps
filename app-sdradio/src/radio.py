@@ -18,7 +18,7 @@ from .bands import MODES, STEPS, band_for, default_bandwidth
 from .config import Config
 from .database import Database
 from .device import DeviceError
-from .dsp import Demodulator, Spectrum, noise_floor, quantize, to_pcm16
+from .dsp import DB_FLOOR, Demodulator, Spectrum, noise_floor, quantize, to_pcm16
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,14 @@ MIN_HIT_SECONDS = 0.3
 SQUELCH_AUTO_MARGIN = 10.0
 SCAN_MIN_SNR = 6.0
 LISTEN_HANG_SECONDS = 1.0
+# The band view: the receiver steps across the band, using the middle of each capture
+# (its edges roll off), at most this wide
+SWEEP_USE = 0.8
+SWEEP_MAX = 60_000_000
+# Around the tuned frequency when it is in no band (or a band narrower than one capture)
+SWEEP_DEFAULT = 10_000_000
+# Bins of the receiver's DC spike in the middle of a capture, filled in from beside it
+DC_BINS = 3
 
 
 @dataclass
@@ -74,6 +82,9 @@ class Radio:
         self._thread: threading.Thread | None = None
         self.listeners = 0
         self.spectrum_listeners = 0
+        # A page shows the band view: sweep the receiver across the band (silent meanwhile)
+        self.sweep_wanted = False
+        self.sweep: dict | None = None
 
         self.bands = self.db.bands()
         self.settings = self.db.settings()
@@ -304,11 +315,15 @@ class Radio:
 
     def _cmd_band(self, name=None, direction=1) -> None:
         """Go to a band: by name, or the next band with a button."""
-        bands = [b for b in self.bands if b["button"]] or self.bands
+        # The bands this receiver can tune to
+        bands = [b for b in self.bands if b["button"] and self._in_range(b["start"], b["stop"])]
         if not bands:
             return
         if name:
             band = next((b for b in self.bands if b["name"] == name), None)
+            if band is not None and not self._in_range(band["start"], band["stop"]):
+                self._out_of_range(band["name"])
+                return
         else:
             current = band_for(self.bands, self.frequency)
             names = [b["name"] for b in bands]
@@ -377,6 +392,22 @@ class Radio:
 
     # ================================================================ tuning
 
+    def _in_range(self, start: float, stop: float | None = None) -> bool:
+        """Whether the receiver can tune here (any part of start..stop)."""
+        if not self.device:
+            return True
+        low, high = self.device.frequency_range
+        return (start if stop is None else stop) >= low and start <= high
+
+    def _out_of_range(self, what: str) -> None:
+        low, high = self.device.frequency_range
+        self.emit(
+            "notice",
+            {
+                "message": f"{what} is out of range: the {self.config.receiver.name} tunes {low / 1e6:g} to {high / 1e6:g} MHz"
+            },
+        )
+
     def _centre_for(self, frequency: int) -> float:
         low, high = self.device.frequency_range if self.device else (0, 1e10)
         centre = frequency + RECENTRE_OFFSET * self.rate
@@ -384,6 +415,9 @@ class Radio:
 
     def _tune(self, frequency: int, mode: str | None = None, bandwidth: int | None = None) -> None:
         frequency = max(10_000, min(6_000_000_000, int(frequency)))
+        if not self._in_range(frequency):
+            self._out_of_range(f"{frequency / 1e6:g} MHz")
+            return
         if mode in MODES and mode != self.mode:
             self.mode = mode
             self.bandwidth = int(bandwidth or default_bandwidth(mode))
@@ -435,6 +469,17 @@ class Radio:
     def _process(self, block: np.ndarray) -> None:
         self._block += 1
         now = self._clock()
+        if self.sweep_wanted != (self.sweep is not None):
+            if self.sweep_wanted:
+                self._start_sweep()
+            else:
+                self._stop_sweep()
+        if self.sweep is not None:
+            self._sweep_step(block)
+            if self._save_due and time.monotonic() >= self._save_due:
+                self._save_state()
+            self._emit_state()
+            return
         if self.settle > 0:
             self.settle -= 1
             return
@@ -496,6 +541,93 @@ class Radio:
                 return noise + SQUELCH_AUTO_MARGIN
             return max(squelch, noise + SCAN_MIN_SNR)
         return squelch
+
+    # ================================================================ band view (sweep)
+
+    def _start_sweep(self) -> None:
+        """Steps the receiver across the band the radio is in, one capture at a time."""
+        if not self.device:
+            self.sweep_wanted = False
+            return
+        self._stop_scan()
+        self._priority_return = None
+        self._end_signal(self._clock())
+        low, high = self.device.frequency_range
+        width = self.rate * SWEEP_USE
+        band = band_for(self.bands, self.frequency)
+        if band and band["stop"] - band["start"] > width:
+            start, stop, label = band["start"], band["stop"], band["name"]
+        else:
+            start, stop = self.frequency - SWEEP_DEFAULT / 2, self.frequency + SWEEP_DEFAULT / 2
+            label = f"{start / 1e6:g} to {stop / 1e6:g} MHz"
+        start, stop = max(start, low), min(stop, high)
+        if stop - start > SWEEP_MAX:
+            start = max(start, min(self.frequency - SWEEP_MAX / 2, stop - SWEEP_MAX))
+            stop = start + SWEEP_MAX
+            label = f"{start / 1e6:g} to {stop / 1e6:g} MHz"
+        count = max(1, math.ceil((stop - start) / width))
+        span = count * width
+        self.sweep = {
+            "start": (start + stop) / 2 - span / 2,
+            "span": span,
+            "width": width,
+            "count": count,
+            "index": 0,
+            "label": label,
+            "bins": None,
+        }
+        logger.info(f"Band view: sweeping {label} in {count} steps")
+        self._sweep_go(0)
+        self._state_dirty = True
+
+    def _sweep_go(self, index: int) -> None:
+        sweep = self.sweep
+        sweep["index"] = index
+        low, high = self.device.frequency_range
+        self.center = max(low, min(high, sweep["start"] + (index + 0.5) * sweep["width"]))
+        self.device.set_center(self.center)
+        self.settle = SETTLE_BLOCKS
+
+    def _sweep_step(self, block: np.ndarray) -> None:
+        if self.settle > 0:
+            self.settle -= 1
+            return
+        sweep = self.sweep
+        db = self.spectrum(block)
+        size = len(db)
+        mid = size // 2
+        beside = np.r_[db[mid - 3 * DC_BINS : mid - DC_BINS], db[mid + DC_BINS + 1 : mid + 3 * DC_BINS + 1]]
+        db[mid - DC_BINS : mid + DC_BINS + 1] = np.median(beside)
+        keep = round(size * SWEEP_USE)
+        first = (size - keep) // 2
+        if sweep["bins"] is None or len(sweep["bins"]) != keep * sweep["count"]:
+            sweep["bins"] = np.full(keep * sweep["count"], DB_FLOOR, np.float32)
+        index = sweep["index"]
+        sweep["bins"][index * keep : (index + 1) * keep] = db[first : first + keep]
+        following = index + 1
+        if following == sweep["count"]:
+            bins = sweep["bins"]
+            # At most 16k bins a frame: the strongest of neighbouring bins
+            factor = math.ceil(len(bins) / 16384)
+            if factor > 1:
+                bins = np.max(bins[: len(bins) // factor * factor].reshape(-1, factor), axis=1)
+            if self.spectrum_listeners:
+                self.emit(
+                    "spectrum",
+                    {"center": sweep["start"] + sweep["span"] / 2, "rate": sweep["span"], "bins": quantize(bins)},
+                )
+            following = 0
+        if sweep["count"] > 1:
+            self._sweep_go(following)
+
+    def _stop_sweep(self) -> None:
+        self.sweep = None
+        self._state_dirty = True
+        if self.device:
+            self.center = self._centre_for(self.frequency)
+            self.device.set_center(self.center)
+            self.settle = SETTLE_BLOCKS
+            self._apply_demod()
 
     # ================================================================ hits
 
@@ -593,8 +725,16 @@ class Radio:
             self.scan.targets = [
                 {"frequency": start + i * step, "mode": mode, "bandwidth": bandwidth}
                 for i in range(count)
-                if start + i * step not in skip
+                if start + i * step not in skip and self._in_range(start + i * step)
             ]
+            if not self.scan.targets:
+                label = self.scan.label
+                self.scan = ScanState()
+                if self._in_range(start, stop):
+                    self.emit("notice", {"message": f"Nothing to scan in {label}: every step is ignored or locked out"})
+                else:
+                    self._out_of_range(label)
+                return
         else:
             self.scan = ScanState()
             return
@@ -606,7 +746,8 @@ class Radio:
         self._next_target()
 
     def _rebuild_scan_targets(self) -> None:
-        channels = self.db.scan_channels(self.scan.label or None)
+        # Channels the receiver can't tune to are left out
+        channels = [c for c in self.db.scan_channels(self.scan.label or None) if self._in_range(c["frequency"])]
         priority = [c for c in channels if c["priority"]]
         targets = []
         for c in channels:
@@ -746,6 +887,9 @@ class Radio:
             if self.scan.kind
             else None,
             "priority": self.priority,
+            "sweep": {"start": self.sweep["start"], "span": self.sweep["span"], "label": self.sweep["label"]}
+            if self.sweep
+            else None,
             "audio_rate": self.demod.audio_rate if self.demod else None,
             "rds": self.demod.rds.snapshot() if self.demod and self.demod.rds else None,
             "device": {"ok": self.device is not None, "error": self.device_error, **self.device_info},

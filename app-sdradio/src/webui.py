@@ -48,6 +48,7 @@ class Client:
         self.ws = ws
         self.listen = False
         self.spectrum = False
+        self.sweep = False
         self.queue: asyncio.Queue = asyncio.Queue(maxsize=60)
 
     def send(self, item) -> None:
@@ -211,6 +212,8 @@ class WebUI:
     def _update_listeners(self) -> None:
         self.radio.listeners = sum(1 for c in self.clients if c.listen)
         self.radio.spectrum_listeners = sum(1 for c in self.clients if c.spectrum)
+        # The band view sweeps the receiver: only while a page shows it
+        self.radio.sweep_wanted = any(c.sweep and c.spectrum for c in self.clients)
 
     async def _count_listening(self) -> None:
         """Keeps the listening time per day for the Stats page."""
@@ -258,6 +261,9 @@ class WebUI:
             self._update_listeners()
         elif cmd == "spectrum":
             client.spectrum = bool(data.get("on"))
+            self._update_listeners()
+        elif cmd == "sweep":
+            client.sweep = bool(data.get("on"))
             self._update_listeners()
         elif cmd in COMMANDS:
             self.radio.command(cmd, **{k: v for k, v in data.items() if isinstance(k, str)})

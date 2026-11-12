@@ -121,9 +121,9 @@ function renderSettings() {
             <div class="chart-title"><span>Bands</span>
                 <span class="detail-actions"><button type="button" class="btn btn-small" onclick="resetBands()">Reset to defaults</button>
                 <button type="button" class="btn btn-small btn-primary" onclick="editBand()">+ Band</button></span></div>
-            <p class="panel-sub" style="margin-bottom:8px">BAND steps through the bands with a button; a band sets the mode, step and filter when you go to it, and is what a band scan covers.</p>
+            <p class="panel-sub" style="margin-bottom:8px">BAND steps through the bands with a button that the receiver can tune to; a band sets the mode, step and filter when you go to it, and is what a band scan and the band view cover.</p>
             <div class="table-wrap"><table class="data"><thead><tr><th>Band</th><th>From</th><th>To</th><th>Mode</th><th>Step</th><th>Filter</th><th>Button</th><th></th></tr></thead><tbody>
-            ${app.bands.map(b => `<tr><td>${escapeHtml(b.name)}</td><td class="mono">${fmtMHz(b.start)}</td><td class="mono">${fmtMHz(b.stop)}</td>
+            ${app.bands.map(b => `<tr${outOfRange(b) ? ' class="muted" title="Out of the receiver\'s range: BAND skips it"' : ''}><td>${escapeHtml(b.name)}${outOfRange(b) ? ' <span class="badge warn">out of range</span>' : ''}</td><td class="mono">${fmtMHz(b.start)}</td><td class="mono">${fmtMHz(b.stop)}</td>
                 <td class="mono">${modeLabel(b.mode)}</td><td class="mono">${fmtKHz(b.step)}</td><td class="mono">${fmtKHz(b.bandwidth)}</td>
                 <td>${b.button ? '<span class="state ok">yes</span>' : '<span class="muted">no</span>'}</td>
                 <td style="text-align:right"><button type="button" class="btn btn-small" onclick="editBand(${b.id})">Edit</button></td></tr>`).join('')}
@@ -187,3 +187,9 @@ onTab('settings', async () => {
     await loadSettings();
     renderSettings();
 });
+
+// A band the receiver can't tune to (an RTL-SDR takes 24 to 1766 MHz)
+function outOfRange(band) {
+    const range = app.state && app.state.device && app.state.device.frequency_range;
+    return !!range && (band.stop < range[0] || band.start > range[1]);
+}

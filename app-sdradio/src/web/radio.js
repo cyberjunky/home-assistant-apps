@@ -375,6 +375,12 @@ function renderControls() {
             : key === 'lo' ? (s.channel && !s.channel.scan) || s.ignored : false;
         b.classList.toggle('on', !!on);
     });
+    const hint = document.getElementById('spectrum-hint');
+    const hintText = s.sweep
+        ? `Band view of ${s.sweep.label}: the receiver sweeps the band, so the radio is silent · click a station to listen`
+        : 'click to tune · scroll to step · drag to move';
+    if (hint.textContent !== hintText) hint.textContent = hintText;
+    hint.classList.toggle('warn-text', !!s.sweep);
     const badge = document.getElementById('scan-badge');
     badge.hidden = !s.scan;
     if (s.scan) badge.textContent = `${s.scan.hold ? 'HOLD' : 'SCANNING'} · ${s.scan.label || (s.scan.kind === 'channels' ? 'all channels' : s.scan.kind)}`;

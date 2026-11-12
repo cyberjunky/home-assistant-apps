@@ -218,7 +218,7 @@ function buildChips(el, options, current, onChange) {
 // The live connection to the radio
 // =====================================================================
 let socket = null;
-let socketWanted = {spectrum: false, listen: false};
+let socketWanted = {spectrum: false, listen: false, sweep: false};
 let reconnectDelay = 1000;
 const socketHandlers = {state: [], spectrum: [], audio: [], hit: [], changed: [], notice: []};
 
@@ -232,6 +232,7 @@ function connectSocket() {
         reconnectDelay = 1000;
         sendSocket({cmd: 'spectrum', on: socketWanted.spectrum});
         sendSocket({cmd: 'listen', on: socketWanted.listen});
+        sendSocket({cmd: 'sweep', on: socketWanted.sweep});
         renderStatusbar();
     };
     socket.onmessage = (event) => {
@@ -273,6 +274,12 @@ function sendSocket(message) {
     if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
 }
 function radioCommand(cmd, args) { sendSocket(Object.assign({cmd}, args || {})); }
+// The band view: the radio sweeps the receiver across the band while a page shows it
+function wantSweep(on) {
+    if (socketWanted.sweep === on) return;
+    socketWanted.sweep = on;
+    sendSocket({cmd: 'sweep', on});
+}
 function wantSpectrum(on) {
     if (socketWanted.spectrum === on) return;
     socketWanted.spectrum = on;
