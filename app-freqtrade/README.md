@@ -26,6 +26,40 @@ servers, and the bots keep running where they run.
 **It can change one thing: your bots**, from a bot's page: start, stop, pause entries, reload
 the configuration, and exit an open trade. Each asks first. Set `read_only` to turn them off.
 
+![Overview: every bot's balance, profit, today and open trades, the balance of all bots over a week, allocation, profit per day, live activity and all open trades (dark theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-freqtrade/screenshots/overview-dark.webp)
+
+<details>
+<summary>More screenshots</summary>
+
+**A bot's summary** — tiles, cumulative profit, balance, profit per day, the last 100 trades, open trades with an Exit button, and its events
+![A bot's summary](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-freqtrade/screenshots/summary-dark.webp)
+
+**Chart** — a pair's candles as the strategy analysed them, with its plot_config indicators, entry and exit signals, and the trades
+![Candle chart with indicators, signals and trades](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-freqtrade/screenshots/chart-dark.webp)
+
+**Chart, light theme**
+![Candle chart in the light theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-freqtrade/screenshots/chart-light.webp)
+
+**Performance** — all profit metrics, split into long and short, the profit distribution, per week, month, pair, entry tag and exit reason
+![Performance](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-freqtrade/screenshots/performance-light.webp)
+
+**Trades** — every closed trade, to search and filter
+![Trades](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-freqtrade/screenshots/trades-dark.webp)
+
+**Balance** — per currency and position, the breakdown, and the bot's share of the account
+![Balance](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-freqtrade/screenshots/balance-light.webp)
+
+**Bot** — its configuration, connections, locks, pairlist, events and log
+![Bot](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-freqtrade/screenshots/bot-light.webp)
+
+**Info** — the configured bots and their connections, the options, MQTT and the app's data
+![Info](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-freqtrade/screenshots/info-light.webp)
+
+**Overview, light theme** — follows Home Assistant's light/dark mode
+![Overview in the light theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-freqtrade/screenshots/overview-light.webp)
+
+</details>
+
 ## Supported Features
 
 - 🤖 **All bots at a glance** — Balance, profit, today, open trades and win rate of every bot, and of all together
