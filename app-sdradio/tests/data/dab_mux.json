@@ -1,0 +1,249 @@
+{
+ "demodulator": {
+  "fic": {
+   "numcrcerrors": 134
+  },
+  "frequencycorrection": 146.0,
+  "snr": 18.0,
+  "time_last_fct0_frame": 1794509242888
+ },
+ "ensemble": {
+  "ecc": "0xe0",
+  "id": "0x10a5",
+  "label": {
+   "fig2charset": "Undefined",
+   "fig2label": "",
+   "fig2rfu": false,
+   "label": "Bayern          ",
+   "shortlabel": "Bayern"
+  }
+ },
+ "receiver": {
+  "hardware": {
+   "gain": 0.0,
+   "name": "rawfile (/d/dab11d.u8.iq)"
+  },
+  "software": {
+   "coarsecorrectorenabled": true,
+   "fftwindowplacement": "ThresholdBeforePeak",
+   "freqsyncmethod": "PatternOfZeros",
+   "lastchannelchange": 1794509215438,
+   "name": "welle.io",
+   "version": "v2.7-0-g512558d"
+  }
+ },
+ "services": [
+  {
+   "audiolevel": {
+    "left": -1,
+    "right": -1,
+    "time": 0
+   },
+   "channels": 2,
+   "components": [
+    {
+     "ascty": null,
+     "caflag": false,
+     "componentnr": 0,
+     "dscty": null,
+     "label": {
+      "fig2charset": "Undefined",
+      "fig2label": "",
+      "fig2rfu": false,
+      "label": "",
+      "shortlabel": ""
+     },
+     "primary": true,
+     "scid": 0,
+     "subchannel": {
+      "bitrate": 16,
+      "cu": 12,
+      "language": 0,
+      "languagestring": "",
+      "protection": "EEP 3-A",
+      "sad": 774,
+      "subchid": 19
+     },
+     "transportmode": "packetdata"
+    }
+   ],
+   "dls": {
+    "label": "",
+    "lastchange": 0,
+    "time": 0
+   },
+   "errorcounters": {
+    "aacerrors": 0,
+    "frameerrors": 0,
+    "rserrors": 0,
+    "time": 0
+   },
+   "label": {
+    "fig2charset": "Undefined",
+    "fig2label": "",
+    "fig2rfu": false,
+    "label": "BR EPG          ",
+    "shortlabel": "BR EPG"
+   },
+   "language": 0,
+   "languagestring": "",
+   "mode": "",
+   "mot": {
+    "lastchange": 0,
+    "time": 0
+   },
+   "programType": 0,
+   "ptystring": "",
+   "samplerate": 0,
+   "sid": "0xe0d020a5",
+   "url_mp3": null,
+   "xpaderror": {
+    "haserror": false
+   }
+  },
+  {
+   "audiolevel": {
+    "left": -1,
+    "right": -1,
+    "time": 0
+   },
+   "channels": 2,
+   "components": [
+    {
+     "ascty": "DAB+",
+     "caflag": false,
+     "componentnr": 0,
+     "dscty": null,
+     "label": {
+      "fig2charset": "Undefined",
+      "fig2label": "",
+      "fig2rfu": false,
+      "label": "",
+      "shortlabel": ""
+     },
+     "primary": true,
+     "scid": null,
+     "subchannel": {
+      "bitrate": 144,
+      "cu": 108,
+      "language": 0,
+      "languagestring": "",
+      "protection": "EEP 3-A",
+      "sad": 360,
+      "subchid": 9
+     },
+     "transportmode": "audio"
+    }
+   ],
+   "dls": {
+    "label": "",
+    "lastchange": 0,
+    "time": 0
+   },
+   "errorcounters": {
+    "aacerrors": 0,
+    "frameerrors": 0,
+    "rserrors": 0,
+    "time": 0
+   },
+   "label": {
+    "fig2charset": "Undefined",
+    "fig2label": "",
+    "fig2rfu": false,
+    "label": "BR-KLASSIK      ",
+    "shortlabel": "BR-KLASS"
+   },
+   "language": 0,
+   "languagestring": "",
+   "mode": "",
+   "mot": {
+    "lastchange": 0,
+    "time": 0
+   },
+   "programType": 14,
+   "ptystring": "Classical Music",
+   "samplerate": 0,
+   "sid": "0xd314",
+   "url_mp3": "/mp3/0xd314",
+   "xpaderror": {
+    "haserror": false
+   }
+  },
+  {
+   "audiolevel": {
+    "left": -1,
+    "right": -1,
+    "time": 0
+   },
+   "channels": 2,
+   "components": [
+    {
+     "ascty": "DAB+",
+     "caflag": false,
+     "componentnr": 0,
+     "dscty": null,
+     "label": {
+      "fig2charset": "Undefined",
+      "fig2label": "",
+      "fig2rfu": false,
+      "label": "",
+      "shortlabel": ""
+     },
+     "primary": true,
+     "scid": null,
+     "subchannel": {
+      "bitrate": 96,
+      "cu": 72,
+      "language": 0,
+      "languagestring": "",
+      "protection": "EEP 3-A",
+      "sad": 288,
+      "subchid": 8
+     },
+     "transportmode": "audio"
+    }
+   ],
+   "dls": {
+    "label": "",
+    "lastchange": 0,
+    "time": 0
+   },
+   "errorcounters": {
+    "aacerrors": 0,
+    "frameerrors": 0,
+    "rserrors": 0,
+    "time": 0
+   },
+   "label": {
+    "fig2charset": "Undefined",
+    "fig2label": "",
+    "fig2rfu": false,
+    "label": "BAYERN 3        ",
+    "shortlabel": "BAYERN 3"
+   },
+   "language": 0,
+   "languagestring": "",
+   "mode": "",
+   "mot": {
+    "lastchange": 0,
+    "time": 0
+   },
+   "programType": 10,
+   "ptystring": "Pop Music",
+   "samplerate": 0,
+   "sid": "0xd313",
+   "url_mp3": "/mp3/0xd313",
+   "xpaderror": {
+    "haserror": false
+   }
+  }
+ ],
+ "utctime": {
+  "day": 11,
+  "hour": 16,
+  "lto": 2.0,
+  "minutes": 49,
+  "month": 10,
+  "year": 2024
+ }
+}

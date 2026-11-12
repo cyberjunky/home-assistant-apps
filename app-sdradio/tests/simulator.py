@@ -6,6 +6,7 @@ bursts, and aircraft flying round Utrecht on 1090 MHz.
 """
 
 import math
+import os
 import time
 
 import numpy as np
@@ -76,6 +77,14 @@ AIRCRAFT = [
 ]
 ADSB_HOME = (52.09, 5.12)
 PAGER_TEXTS = ["SDRadio simulated page", "Test alarm 112 Teststraat", "Coffee is ready"]
+
+
+# A DAB+ recording to play (8-bit IQ at 2.048 MS/s, as DAB-Radio's raw IQ data): SDRADIO_SIM_DAB=<file>,
+# on SDRADIO_SIM_DAB_MHZ (222.064, block 11D, for the Bavarian one); heard in the DAB+ mode
+DAB_FILE = os.environ.get("SDRADIO_SIM_DAB")
+DAB_FREQUENCY = float(os.environ.get("SDRADIO_SIM_DAB_MHZ", "222.064")) * 1e6
+if DAB_FILE:
+    SIGNALS = [*SIGNALS, (round(DAB_FREQUENCY), "dab", 1.0, 0, 0, 0)]
 
 
 class SimulatedDevice:
@@ -160,6 +169,9 @@ class SimulatedDevice:
                 continue
             if mode == "video":
                 x += self._video(rate, offset, level, count)
+                continue
+            if mode == "dab":
+                x += self._dab(rate, offset, count)
                 continue
             period = on + off
             if off and (start % period) > on:
@@ -299,6 +311,20 @@ class SimulatedDevice:
         if offset:
             t = (np.arange(count) + self.sample_index) / rate
             x = x * np.exp(2j * math.pi * offset * t).astype(np.complex64)
+        return x.astype(np.complex64)
+
+    def _dab(self, rate: float, offset: float, count: int) -> np.ndarray:
+        """The DAB+ recording, round and round; only at its own rate, centred (the DAB+ mode)."""
+        if rate != 2_048_000 or abs(offset) > 1000:
+            return np.zeros(count, np.complex64)
+        if not hasattr(self, "dab_raw"):
+            self.dab_raw = np.memmap(DAB_FILE, dtype=np.uint8, mode="r")
+            self.dab_pos = 0
+        n = len(self.dab_raw) // 2
+        idx = (self.dab_pos + np.arange(count)) % n
+        self.dab_pos = (self.dab_pos + count) % n
+        raw = self.dab_raw
+        x = ((raw[2 * idx].astype(np.float32) - 127.5) + 1j * (raw[2 * idx + 1].astype(np.float32) - 127.5)) / 128
         return x.astype(np.complex64)
 
     def _queue_burst(self, name: str, at: int, samples: np.ndarray) -> None:

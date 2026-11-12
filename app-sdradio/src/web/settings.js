@@ -218,6 +218,14 @@ function toggleAllBands(e) {
 const PAGER_PROTOCOLS = ['FLEX', 'POCSAG512', 'POCSAG1200', 'POCSAG2400'];
 const SENSOR_FREQUENCIES = [433.92, 868.3, 868.95, 915, 315, 345];
 // Pager networks (as SDR Studio has them): a network sets the frequency and the protocols
+// DAB's Band III blocks (as src/decoders/dab.py has them), with what is on them in the Netherlands
+const DAB_BLOCKS = [['5A', 174.928], ['5B', 176.640], ['5C', 178.352], ['5D', 180.064], ['6A', 181.936], ['6B', 183.648],
+    ['6C', 185.360], ['6D', 187.072], ['7A', 188.928], ['7B', 190.640], ['7C', 192.352], ['7D', 194.064], ['8A', 195.936],
+    ['8B', 197.648], ['8C', 199.360], ['8D', 201.072], ['9A', 202.928], ['9B', 204.640], ['9C', 206.352], ['9D', 208.064],
+    ['10A', 209.936], ['10B', 211.648], ['10C', 213.360], ['10D', 215.072], ['11A', 216.928], ['11B', 218.640],
+    ['11C', 220.352], ['11D', 222.064], ['12A', 223.936], ['12B', 225.648], ['12C', 227.360], ['12D', 229.072],
+    ['13A', 230.784], ['13B', 232.496], ['13C', 234.208], ['13D', 235.776], ['13E', 237.488], ['13F', 239.200]];
+const DAB_NOTES = {'12C': 'NPO', '11C': 'national commercial', '8A': 'regional (Zuid-Holland, Amsterdam)'};
 // The satellites the Satellites mode can follow (as src/decoders/satellites.py has them)
 const SATELLITES = [
     {id: 'iss', name: 'ISS', frequency: 145_800_000, what: 'voice and SSTV pictures'},
@@ -237,7 +245,7 @@ const PAGER_NETWORKS = [
 function modeSettingsHtml(ha) {
     const pager = app.settings.mode_pager || {}, sensors = app.settings.mode_sensors || {}, aprs = app.settings.mode_aprs || {};
     const acars = app.settings.mode_acars || {}, sstv = app.settings.mode_sstv || {}, sats = app.settings.mode_satellites || {};
-    const video = app.settings.mode_video || {};
+    const video = app.settings.mode_video || {}, dabSettings = app.settings.mode_dab || {};
     const mhz = hz => +(hz / 1e6).toFixed(6);
     return `
         ${setRow('Pager network', 'sets the frequency and the protocols; or type your own below',
@@ -263,6 +271,8 @@ function modeSettingsHtml(ha) {
         ${setRow('Satellites', 'followed during their passes; the frequency (MHz) as heard without Doppler, the Meteor ones change now and then',
             `<div class="sat-settings">${SATELLITES.map(s => `<label><input type="checkbox" data-sat-follow="${s.id}"${(sats.follow || []).includes(s.id) ? ' checked' : ''}> <b>${escapeHtml(s.name)}</b> <small class="muted">${escapeHtml(s.what)}</small></label>
                 <input class="input mono" data-sat-frequency="${s.id}" value="${mhz((sats.frequencies || {})[s.id] || s.frequency)}" inputmode="decimal" aria-label="${escapeHtml(s.name)} frequency">`).join('')}</div>`)}
+        ${setRow('DAB+ block', 'the block of DAB+ stations; in the Netherlands 12C (NPO), 11C (national commercial), and regional ones (8A, 8B, 5C …)',
+            `<select class="select" id="mode-dab-block">${DAB_BLOCKS.map(([b, f]) => `<option value="${f}"${Math.round(f * 1e6) === dabSettings.frequency ? ' selected' : ''}>${b} · ${f.toFixed(3)} MHz${DAB_NOTES[b] ? ` · ${DAB_NOTES[b]}` : ''}</option>`).join('')}</select>`, 'mode-dab-block')}
         ${setRow('Video frequency', 'MHz (HackRF only); 5.8 GHz FPV (Raceband R1–R8, F4 5800), 1.2 GHz and 2.4 GHz cameras. Only video meant to be seen: drones, your own cameras',
             `<input class="input mono" id="mode-video-frequency" list="video-frequencies" value="${mhz(video.frequency)}" inputmode="decimal">
              <datalist id="video-frequencies">${[5800, 5658, 5695, 5732, 5769, 5806, 5843, 5880, 5917, 5865, 5845, 5825, 5805, 5785, 5765, 5745, 5725, 1080, 1120, 1160, 1200, 1240, 1280, 1320, 2414, 2432, 2450, 2468].map(f => `<option value="${f}">`).join('')}</datalist>`, 'mode-video-frequency')}
@@ -298,6 +308,8 @@ function bindModeSettings() {
     frequency('mode-aprs-frequency', 'aprs');
     frequency('mode-sstv-frequency', 'sstv');
     frequency('mode-video-frequency', 'video');
+    const dabBlock = document.getElementById('mode-dab-block');
+    if (dabBlock) dabBlock.addEventListener('change', () => saveMode('dab', {frequency: Math.round(+dabBlock.value * 1e6)}));
     const sats = () => ({...(app.settings.mode_satellites || {})});
     document.querySelectorAll('[data-sat-follow]').forEach(el => el.addEventListener('change', () => {
         const follow = Array.from(document.querySelectorAll('[data-sat-follow]:checked')).map(x => x.dataset.satFollow);
