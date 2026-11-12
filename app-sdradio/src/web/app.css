@@ -525,8 +525,12 @@ table.sensors td:last-child, table.sensors th:last-child { text-align: center; }
 
 /* The map of the modes with positions (aircraft): the map above, the list below */
 /* A mode with a map takes more of the width than the spectrum */
-#tab-radio:is([data-mode="aircraft"], [data-mode="ships"], [data-mode="aprs"]) .spectrum-panel { flex: 1 1 420px; }
-#tab-radio:is([data-mode="aircraft"], [data-mode="ships"], [data-mode="aprs"]) .mode-panel { flex: 1.7 1 620px; }
+#tab-radio:is([data-mode="aircraft"], [data-mode="ships"], [data-mode="aprs"], [data-mode="satellites"]) .spectrum-panel { flex: 1 1 420px; }
+#tab-radio:is([data-mode="aircraft"], [data-mode="ships"], [data-mode="aprs"], [data-mode="satellites"]) .mode-panel { flex: 1.7 1 620px; }
+.sat-settings { display: grid; grid-template-columns: minmax(0, 1fr) 110px; gap: 6px 10px; align-items: center; }
+.sat-settings label { font-size: 13px; }
+.sat-now { padding: 8px 12px; font-size: 12.5px; background: var(--hover-bg); border-bottom: 1px solid var(--divider-color); }
+.sat-thumb { height: 40px; vertical-align: middle; margin-left: 6px; border-radius: 3px; border: 1px solid var(--divider-color); }
 .mode-split { display: flex; flex-direction: column; height: 100%; min-height: 420px; }
 .map-slot { flex: 3 1 0; min-height: 240px; position: relative; background: var(--map-bg, #aad3df); }
 .map-slot .map { position: absolute; inset: 0; }

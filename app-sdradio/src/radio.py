@@ -323,6 +323,10 @@ class Radio:
         )
         decoder.location = self.location
         decoder.folder = self.files_dir / key if self.files_dir else None
+        # A mode that follows something (a satellite's Doppler shift) tunes the radio itself
+        decoder.retune = lambda frequency, mode, bandwidth: self.command(
+            "track", frequency=frequency, mode=mode, bandwidth=bandwidth
+        )
         self.decoder = decoder
         if tune:
             mode, bandwidth = decoder.demod
@@ -357,6 +361,12 @@ class Radio:
             return
         self.emit("decoded", {"mode": key, "item": {"id": item_id, "ts": ts, "mode": key, "key": item_key,
                                                     "frequency": frequency, **item}})  # fmt: skip
+
+    def _cmd_track(self, frequency, mode=None, bandwidth=None) -> None:
+        """A mode tuning the radio itself (a satellite pass); not a command of the page."""
+        if self.decoder is None:
+            return
+        self._tune(int(frequency), mode, int(bandwidth) if bandwidth else None)
 
     def _cmd_autotune(self) -> None:
         """AUTO: to the middle of the strongest signal near the frequency (done once the spectrum
@@ -699,9 +709,9 @@ class Radio:
 
         # The mode's decoder reads every block, squelch or not
         if self.decoder is not None:
-            if self.decoder.input == "audio":
+            if self.decoder.input in ("audio", "both"):
                 self.decoder.feed_audio(audio, self.demod.audio_rate)
-            else:
+            if self.decoder.input in ("iq", "both"):
                 self.decoder.feed_iq(block, self.rate, self.frequency - self.center)
 
         if self._save_due and time.monotonic() >= self._save_due:

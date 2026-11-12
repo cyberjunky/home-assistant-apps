@@ -218,6 +218,14 @@ function toggleAllBands(e) {
 const PAGER_PROTOCOLS = ['FLEX', 'POCSAG512', 'POCSAG1200', 'POCSAG2400'];
 const SENSOR_FREQUENCIES = [433.92, 868.3, 868.95, 915, 315, 345];
 // Pager networks (as SDR Studio has them): a network sets the frequency and the protocols
+// The satellites the Satellites mode can follow (as src/decoders/satellites.py has them)
+const SATELLITES = [
+    {id: 'iss', name: 'ISS', frequency: 145_800_000, what: 'voice and SSTV pictures'},
+    {id: 'iss-aprs', name: 'ISS APRS', frequency: 145_825_000, what: 'APRS digipeater'},
+    {id: 'so50', name: 'SO-50', frequency: 436_795_000, what: 'FM repeater'},
+    {id: 'meteor-m2-3', name: 'Meteor-M2-3', frequency: 137_100_000, what: 'weather pictures, recorded'},
+    {id: 'meteor-m2-4', name: 'Meteor-M2-4', frequency: 137_900_000, what: 'weather pictures, recorded'},
+];
 const PAGER_NETWORKS = [
     {name: 'P2000 (emergency services, NL)', frequency: 169_650_000, protocols: ['FLEX']},
     {name: 'KPN Nationaal 1', frequency: 154_987_500, protocols: ['POCSAG512', 'POCSAG1200', 'POCSAG2400']},
@@ -228,7 +236,7 @@ const PAGER_NETWORKS = [
 
 function modeSettingsHtml(ha) {
     const pager = app.settings.mode_pager || {}, sensors = app.settings.mode_sensors || {}, aprs = app.settings.mode_aprs || {};
-    const acars = app.settings.mode_acars || {}, sstv = app.settings.mode_sstv || {};
+    const acars = app.settings.mode_acars || {}, sstv = app.settings.mode_sstv || {}, sats = app.settings.mode_satellites || {};
     const mhz = hz => +(hz / 1e6).toFixed(6);
     return `
         ${setRow('Pager network', 'sets the frequency and the protocols; or type your own below',
@@ -250,7 +258,14 @@ function modeSettingsHtml(ha) {
             `<input class="input mono" id="mode-acars-channels" value="${(acars.channels || []).map(mhz).join(', ')}">`, 'mode-acars-channels')}
         ${setRow('SSTV frequency', 'MHz; 145.8 the ISS, 144.5 on 2 m, 14.23 on HF (upper sideband, HackRF)',
             `<input class="input mono" id="mode-sstv-frequency" list="sstv-frequencies" value="${mhz(sstv.frequency)}" inputmode="decimal">
-             <datalist id="sstv-frequencies"><option value="145.8"><option value="144.5"><option value="14.23"><option value="433.4"></datalist>`, 'mode-sstv-frequency')}`;
+             <datalist id="sstv-frequencies"><option value="145.8"><option value="144.5"><option value="14.23"><option value="433.4"></datalist>`, 'mode-sstv-frequency')}
+        ${setRow('Satellites', 'followed during their passes; the frequency (MHz) as heard without Doppler, the Meteor ones change now and then',
+            `<div class="sat-settings">${SATELLITES.map(s => `<label><input type="checkbox" data-sat-follow="${s.id}"${(sats.follow || []).includes(s.id) ? ' checked' : ''}> <b>${escapeHtml(s.name)}</b> <small class="muted">${escapeHtml(s.what)}</small></label>
+                <input class="input mono" data-sat-frequency="${s.id}" value="${mhz((sats.frequencies || {})[s.id] || s.frequency)}" inputmode="decimal" aria-label="${escapeHtml(s.name)} frequency">`).join('')}</div>`)}
+        ${setRow('Satellite passes from', 'degrees above the horizon: lower passes are short and far away',
+            `<input class="input mono" id="mode-sat-elevation" type="number" min="0" max="60" value="${sats.min_elevation ?? 10}">`, 'mode-sat-elevation')}
+        ${setRow('Record Meteor passes', 'as 8-bit IQ at 200 kHz (about 300 MB a pass), to make weather pictures from with SatDump',
+            `<input type="checkbox" id="mode-sat-record"${sats.record ? ' checked' : ''}> keep the last <input class="input mono" id="mode-sat-keep" type="number" min="1" max="50" value="${sats.keep_recordings ?? 3}" style="width:60px">`, 'mode-sat-record')}`;
 }
 
 function saveMode(key, patch) {
@@ -278,6 +293,22 @@ function bindModeSettings() {
     frequency('mode-sensors-frequency', 'sensors');
     frequency('mode-aprs-frequency', 'aprs');
     frequency('mode-sstv-frequency', 'sstv');
+    const sats = () => ({...(app.settings.mode_satellites || {})});
+    document.querySelectorAll('[data-sat-follow]').forEach(el => el.addEventListener('change', () => {
+        const follow = Array.from(document.querySelectorAll('[data-sat-follow]:checked')).map(x => x.dataset.satFollow);
+        saveMode('satellites', {follow});
+    }));
+    document.querySelectorAll('[data-sat-frequency]').forEach(el => el.addEventListener('change', () => {
+        const mhz = parseFloat(el.value.replace(',', '.'));
+        if (!(mhz > 0)) return toast('Type a frequency in MHz', 'error');
+        saveMode('satellites', {frequencies: {...(sats().frequencies || {}), [el.dataset.satFrequency]: Math.round(mhz * 1e6)}});
+    }));
+    const elevation = document.getElementById('mode-sat-elevation');
+    if (elevation) elevation.addEventListener('change', () => saveMode('satellites', {min_elevation: +elevation.value}));
+    const record = document.getElementById('mode-sat-record');
+    if (record) record.addEventListener('change', () => saveMode('satellites', {record: record.checked}));
+    const keep = document.getElementById('mode-sat-keep');
+    if (keep) keep.addEventListener('change', () => saveMode('satellites', {keep_recordings: +keep.value}));
     const acars = document.getElementById('mode-acars-channels');
     if (acars) acars.addEventListener('change', () => {
         const channels = acars.value.split(/[,; ]+/).map(v => parseFloat(v.replace(',', '.'))).filter(v => v > 0).map(v => Math.round(v * 1e6));

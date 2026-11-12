@@ -152,7 +152,24 @@ the filter and the scan speed. Mode → Radio brings them back.
   HackRF). A picture grows line by line while it comes in and then goes into the gallery; the
   pictures are kept in the app's data folder as long as the other decoded data.
 
-**The map** (Aircraft, Ships, APRS) shows OpenStreetMap through Home Assistant's own map tile service (which
+- **Satellites**: the passes over Home Assistant's home of the satellites you follow (Settings →
+  Modes), worked out from their orbits (fetched from Celestrak once a day). During a pass the
+  radio follows the satellite with the Doppler shift taken out (up to ±3.5 kHz on 2 m, ±10 kHz on
+  70 cm) and keeps what it brings:
+  - **ISS** on 145.800 MHz: its voice, and during its SSTV events the pictures (as the SSTV mode);
+  - **ISS APRS** on 145.825 MHz: the packets its digipeater relays;
+  - **SO-50** on 436.795 MHz: an FM repeater to listen to;
+  - **Meteor-M2-3 and M2-4** on 137.1 / 137.9 MHz (their frequencies change now and then: set them
+    under Modes): with *Record Meteor passes* on, a pass is recorded as 8-bit IQ at 200 kHz (about
+    300 MB, the last few kept) to download and turn into weather pictures with SatDump on a
+    computer. Decoding the pictures themselves needs far more computing than fits in the app.
+
+  The map shows where they are, their tracks for the next orbit and the area each one can be heard
+  in; **Passes** lists the coming day's (when, how high, from where to where), **Heard** the
+  passes that are over, with their pictures, packets and recordings. The NOAA weather satellites
+  were switched off in 2025.
+
+**The map** (Aircraft, Ships, APRS, Satellites) shows OpenStreetMap through Home Assistant's own map tile service (which
 needs Home Assistant 2026.9 or later), centred on Home Assistant's home location; the distances
 are from there. The map is darkened only with the dark theme.
 

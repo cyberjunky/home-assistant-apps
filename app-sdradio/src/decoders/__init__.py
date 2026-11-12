@@ -43,6 +43,8 @@ class Decoder:
         self.location: tuple[float, float] | None = None
         # A folder of its own for what it saves (pictures, recordings), in the app's data folder
         self.folder = None
+        # Set by the radio: tunes it (frequency, mode, bandwidth), for a mode that follows something
+        self.retune = None
 
     @property
     def frequency(self) -> int:
@@ -95,8 +97,9 @@ def registry() -> dict[str, type[Decoder]]:
     from .aircraft import Aircraft
     from .aprs import Aprs
     from .pager import Pager
+    from .satellites import Satellites
     from .sensors import Sensors
     from .ships import Ships
     from .sstv import Sstv
 
-    return {cls.key: cls for cls in (Pager, Sensors, Aircraft, Acars, Ships, Aprs, Sstv)}
+    return {cls.key: cls for cls in (Pager, Sensors, Aircraft, Acars, Ships, Aprs, Sstv, Satellites)}

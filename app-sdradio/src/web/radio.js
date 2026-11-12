@@ -295,7 +295,7 @@ function renderLcd() {
     // In a mode: what decodes it (the mode and filter shown are only how it sounds with Listen)
     const d = s.decoder || {};
     document.getElementById('lcd-bw').textContent = d.key && d.key !== 'radio' && d.decoded_by
-        ? `decoded by ${d.decoded_by} from the ${d.input === 'iq' ? 'samples' : `${modeLabel(s.mode)} audio`} · listen as ${modeLabel(s.mode)}`
+        ? `decoded by ${d.decoded_by} · listen as ${modeLabel(s.mode)}`
         : `BW ${fmtKHz(s.bandwidth)} · STEP ${fmtKHz(s.step)}`;
     const set = (id, on) => document.getElementById(id).classList.toggle('on', !!on);
     set('ind-scan', s.scan);

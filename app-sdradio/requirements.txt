@@ -1,4 +1,5 @@
 # Python dependencies for SDRadio installed with pip (installed in the Dockerfile).
-# numpy, scipy and the SoapySDR bindings come from Alpine's packages: built for musl, nothing to compile.
+# numpy, scipy, ephem (satellite passes) and the SoapySDR bindings come from Alpine's packages: built for musl,
+# nothing to compile.
 # aiohttp - web server behind Home Assistant ingress, and the WebSocket for the live radio
 aiohttp>=3.14.5,<4

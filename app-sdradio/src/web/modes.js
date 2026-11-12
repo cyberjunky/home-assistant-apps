@@ -64,6 +64,7 @@ function renderModeLayout() {
         modeView.items = [];
         modeView.keys = new Map();
         clearPlanes();
+        clearSatellites();
         modeView.search = '';
         document.getElementById('mode-search').value = '';
         if (key !== 'radio') loadModeData();
@@ -78,6 +79,7 @@ function renderModeHead() {
     const status = document.getElementById('mode-status');
     const text = d.error ? d.error
         : TRACKED[d.key] ? `${fmtMHz(s.frequency)} MHz · ${modeView.planes.size} in view · ${d.count || 0} heard since the mode started`
+        : d.key === 'satellites' ? `${fmtMHz(s.frequency)} MHz · ${d.count || 0} passes heard since the mode started`
         : `${fmtMHz(s.frequency)} MHz · ${d.count || 0} decoded since the mode started`;
     if (status.textContent !== text) status.textContent = text;
     status.classList.toggle('warn-text', !!d.error);
@@ -86,7 +88,8 @@ function renderModeHead() {
 
 function key2placeholder(key) {
     return {sensors: 'Search devices…', aircraft: 'Search callsign, registration, type…', ships: 'Search name, MMSI, destination…',
-        aprs: 'Search call sign, text…', acars: 'Search flight, registration, text…', sstv: 'Search kind (PD120, Robot 36)…'}[key] || 'Search messages, capcodes…';
+        aprs: 'Search call sign, text…', acars: 'Search flight, registration, text…', sstv: 'Search kind (PD120, Robot 36)…',
+        satellites: 'Search satellite…'}[key] || 'Search messages, capcodes…';
 }
 
 async function loadModeData() {
@@ -94,7 +97,9 @@ async function loadModeData() {
     if (!key || key === 'radio') return;
     modeView.loading = true;
     try {
-        if (key === 'sensors') {
+        if (key === 'satellites') {
+            await loadSatellites();
+        } else if (key === 'sensors') {
             const data = await api(`decoded/keys?mode=${key}`);
             if (modeView.key !== key) return;
             modeView.keys = new Map(data.keys.map(k => [k.key, k]));
@@ -123,6 +128,7 @@ async function loadModeData() {
 }
 
 onSocket('live', (m) => {
+    if (m.mode === 'satellites' && modeView.key === 'satellites') return onSatelliteLive(m);
     if (m.mode === 'sstv' && modeView.key === 'sstv') {
         modeView.receiving = m.receiving;
         return queueModeRender();
@@ -158,6 +164,7 @@ onSocket('decoded', (m) => {
 function renderModeBody() {
     const body = document.getElementById('mode-body');
     if (TRACKED[modeView.key]) return renderTracked(body);
+    if (modeView.key === 'satellites') return renderSatellites(body);
     if (modeView.key === 'pager') body.innerHTML = pagerHtml();
     else if (modeView.key === 'acars') body.innerHTML = acarsHtml();
     else if (modeView.key === 'sstv') body.innerHTML = sstvHtml();
@@ -400,7 +407,7 @@ function renderTracked(body) {
             </div></div>`;
         buildChips(document.getElementById('tracked-tabs'), [{key: 'live', label: 'In view'}, {key: 'history', label: cfg.historyLabel || 'History'}],
             modeView.list, (key) => { modeView.list = key; lsSet('tracked_list', key); renderModeBody(); });
-        ensureMap(document.getElementById('map-slot'));
+        ensureMap(document.getElementById('map-slot'), modeView.key);
         for (const o of modeView.planes.values()) drawTracked(o);
     }
     setMapHome(modeView.location);
