@@ -300,7 +300,7 @@ class MockBot:
 
     def config(self) -> dict:
         return {
-            "version": "2026.9-mock",
+            "version": "2026.9",
             "strategy_version": None,
             "api_version": 2.51,
             "dry_run": self.dry_run,
@@ -399,6 +399,14 @@ class MockBot:
                     None,
                 ]
             )
+        # End at the open trade's price, so the trade sits on the candles
+        trade = next((t for t in self.open if t["pair"] == pair), None)
+        if trade:
+            factor = trade["current_rate"] / rows[-1][4]
+            for row in rows:
+                for i in (1, 2, 3, 4, 6, 7, 8, 9, 11, 12, 13, 22, 23, 24):
+                    if row[i] is not None:
+                        row[i] *= factor
         columns = [
             "date",
             "open",
