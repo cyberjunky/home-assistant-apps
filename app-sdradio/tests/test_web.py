@@ -93,3 +93,20 @@ async def test_websocket_streams_and_commands(client):
     assert kinds >= {1, 2}
     assert frequency == 145_600_000
     await ws.close()
+
+
+async def test_the_page_escapes_quotes(client):
+    """Values go into attributes and inline handlers (a sensor's key, an APRS call): escapeHtml must
+    escape quotes too, or the handler is cut off (a Home Assistant tick that never saved)."""
+    js = await (await client.get("/web/core.js")).text()
+    body = js.split("function escapeHtml(text) {", 1)[1].split("\n}", 1)[0]
+    assert "&quot;" in body and "&#39;" in body
+
+
+def test_mp3_frame_start():
+    from src.webui import mp3_frame_start
+
+    frame = b"\xff\xfb\x94\x44" + b"\x00" * 10
+    assert mp3_frame_start(frame) == 0
+    assert mp3_frame_start(b"gwu\xff\x12DB2" + frame) == 8  # a stray 0xFF is not a frame
+    assert mp3_frame_start(b"no sync here") is None

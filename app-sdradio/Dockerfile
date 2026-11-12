@@ -12,11 +12,13 @@ ENV S6_SERVICES_GRACETIME=8000
 RUN apk add --no-cache python3 py3-pip py3-numpy py3-scipy py3-ephem soapy-sdr py3-soapy-sdr libusb fftw
 
 # The modes' decoder programs from Alpine: rtl_433 (Sensors), dump1090 (Aircraft), and sox
-# (resampling for multimon-ng)
-RUN apk add --no-cache rtl_433 dump1090 sox
+# (resampling for multimon-ng); and the libraries welle-cli (DAB+, built below) runs with
+RUN apk add --no-cache rtl_433 dump1090 sox faad2-libs mpg123-libs lame-libs
 
-# SoapySDR drivers, built against Alpine's SoapySDR: RTL-SDR, HackRF and rtl_tcp; and multimon-ng (Pager)
-RUN apk add --no-cache --virtual build-deps alpine-sdk cmake git libusb-dev soapy-sdr-dev fftw-dev && \
+# SoapySDR drivers, built against Alpine's SoapySDR: RTL-SDR, HackRF and rtl_tcp; multimon-ng (Pager); and
+# welle-cli (DAB+), linked with a bigger thread stack: musl's default (128 KB) is too small for FFTW in its threads
+RUN apk add --no-cache --virtual build-deps alpine-sdk cmake git libusb-dev soapy-sdr-dev fftw-dev faad2-dev \
+        mpg123-dev lame-dev xxd && \
     cd /tmp && \
     git clone --depth 1 https://gitea.osmocom.org/sdr/rtl-sdr.git && \
     cd rtl-sdr && mkdir build && cd build && \
@@ -37,6 +39,12 @@ RUN apk add --no-cache --virtual build-deps alpine-sdk cmake git libusb-dev soap
     cd /tmp && \
     git clone --depth 1 https://github.com/EliasOenal/multimon-ng.git && \
     cd multimon-ng && mkdir build && cd build && cmake .. && make && make install && \
+    cd /tmp && \
+    git clone --depth 1 https://github.com/AlbrechtL/welle.io.git && \
+    cd welle.io && mkdir build && cd build && \
+    cmake .. -DBUILD_WELLE_IO=OFF -DBUILD_WELLE_CLI=ON -DRTLSDR=OFF -DSOAPYSDR=OFF -DAIRSPY=OFF \
+        -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXE_LINKER_FLAGS="-Wl,-z,stack-size=8388608" && \
+    make welle-cli && install -m 755 welle-cli /usr/local/bin/ && \
     cd / && rm -rf /tmp/* && \
     apk del build-deps
 

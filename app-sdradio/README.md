@@ -19,7 +19,7 @@ spectrum and waterfall to click on, and your stored channels beside it. Listen i
 scan your channels or a band, and keep every channel and every transmission heard in a
 database, with CSV import and export, statistics and nightly backups. The mode buttons under the
 tune dial turn it into a decoder: pagers, weather sensors, aircraft and ships on a map, ACARS,
-APRS, SSTV pictures, satellite passes, and analog FPV video with a HackRF.
+APRS, SSTV pictures, DAB+ digital radio, satellite passes, and analog FPV video with a HackRF.
 
 ![The radio: display, band scale, knobs, tune dial with the mode buttons and keypad, favourites, the spectrum and waterfall, and the stored channels (light theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/screenshots/radio-light.webp)
 
@@ -58,6 +58,9 @@ APRS, SSTV pictures, satellite passes, and analog FPV video with a HackRF.
 **SSTV** — pictures sent as sound, from the ISS and radio amateurs
 ![SSTV mode](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/screenshots/mode-sstv-light.webp)
 
+**DAB+** — the stations of a DAB+ block with what's playing; click one to listen
+![DAB+ mode](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/screenshots/mode-dab-light.webp)
+
 **Satellites** — the passes over your home, followed with the Doppler shift taken out
 ![Satellites mode](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/screenshots/mode-satellites-light.webp)
 
@@ -74,7 +77,7 @@ APRS, SSTV pictures, satellite passes, and analog FPV video with a HackRF.
 - 📻 **Receiver front panel** — Frequency display (scroll a digit to change it), mode, filter and step, indicators, channel name and a signal meter in dBFS with SNR; a band scale like an old radio dial; knobs for volume, squelch, RF gain, filter and scan speed; a tune dial and a keypad
 - 🌊 **Spectrum and waterfall** — Live, with your stored channels labelled; click to tune, drag to move, scroll to step; zoom from the whole band (swept) to 50 kHz
 - 🎧 **Listen in the browser** — AM, NFM, WFM, USB, LSB, CW and DSB, demodulated in the app; AGC and noise blanker
-- 📟 **Modes** — The radio set up for pagers (POCSAG and FLEX, with multimon-ng), sensors on 433/868 MHz (weather stations, thermometers, meters, with rtl_433) aircraft (ADS-B with dump1090), ships (AIS) and APRS stations on a map, ACARS messages, SSTV pictures, satellite passes followed with Doppler correction (ISS, SO-50, Meteor), and analog FPV video with the HackRF, each with its own view and Home Assistant events or sensors
+- 📟 **Modes** — The radio set up for pagers (POCSAG and FLEX, with multimon-ng), sensors on 433/868 MHz (weather stations, thermometers, meters, with rtl_433), aircraft (ADS-B with dump1090), ships (AIS) and APRS stations on a map, ACARS messages, SSTV pictures, DAB+ digital radio (welle-cli), satellite passes followed with Doppler correction (ISS, SO-50, Meteor), and analog FPV video with the HackRF, each with its own view and Home Assistant events or sensors
 - 📝 **RDS** — On FM broadcast: the station's name, its radio text, and the artist and title when the station sends them
 - 🔍 **Scanning** — The stored channels, a band or a range; HOLD, lock-out and priority channels; every transmission logged, and unknown signals listed as new finds
 - 🗂️ **Channels** — Name, frequency, mode, filter, step, squelch, gain, band, tags, notes, favourite, scan and priority; favourites one click away on the radio

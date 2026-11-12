@@ -124,7 +124,8 @@ function renderEditor() {
             <div class="form-field"><label for="ed-sq">Squelch (dB)</label><input id="ed-sq" class="input mono" value="${c.squelch ?? ''}" placeholder="off"></div>
             <div class="form-field"><label for="ed-gain">RF gain (dB)</label><input id="ed-gain" class="input mono" value="${c.gain ?? ''}" placeholder="as it is"></div>
             <div class="form-field"><label for="ed-band">Band</label><select id="ed-band" class="input">${bandOptions(c.band)}</select></div>
-            <div class="form-field full"><label for="ed-tags">Tags</label><input id="ed-tags" class="input" value="${escapeHtml(c.tags || '')}"></div>
+            <div class="form-field full"><label for="ed-decoder">Mode</label><select id="ed-decoder" class="input" title="Picking this channel switches the radio to this mode">${modeOptions(channelMode(c))}</select></div>
+            <div class="form-field full"><label for="ed-tags">Tags</label><input id="ed-tags" class="input" value="${escapeHtml(tagsWithMode(c.tags, null))}"></div>
             <div class="form-field full"><label for="ed-notes">Notes</label><textarea id="ed-notes" class="input">${escapeHtml(c.notes || '')}</textarea></div>
         </div>
         <div class="checks">
@@ -157,7 +158,7 @@ function readEditor() {
         mode: v('ed-mode'), bandwidth: v('ed-bw') ? Number(v('ed-bw')) : null, step: v('ed-step') || null,
         squelch: v('ed-sq').trim() === '' || v('ed-sq').trim() === 'off' ? null : v('ed-sq').replace(',', '.'),
         gain: v('ed-gain').trim() === '' ? null : v('ed-gain').replace(',', '.'),
-        band: v('ed-band'), tags: v('ed-tags'), notes: v('ed-notes'),
+        band: v('ed-band'), tags: tagsWithMode(v('ed-tags'), v('ed-decoder')), notes: v('ed-notes'),
         favourite: document.getElementById('ed-fav').checked, scan: document.getElementById('ed-scan').checked,
         priority: document.getElementById('ed-pri').checked,
     };

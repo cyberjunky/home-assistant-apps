@@ -58,6 +58,8 @@ class Sensors(Decoder):
     signal = "OOK/FSK"
     decoded_by = "rtl_433"
     input = "iq"
+    # The decoder reads the samples; there is no voice to hear (and no audio to demodulate)
+    listen = False
     defaults = {"frequency": 433_920_000, "ha_devices": []}
     # Heard as AM (most of these devices switch their carrier on and off)
     demod = ("am", 15_000)

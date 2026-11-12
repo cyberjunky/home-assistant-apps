@@ -22,6 +22,7 @@ const MODE_TITLES = {
     radio: 'The radio: tune, listen and scan', pager: 'Pager messages (P2000, POCSAG)', sensors: 'Weather stations and sensors on 433 and 868 MHz',
     aircraft: 'Aircraft on a map (ADS-B)', acars: 'Text messages of aircraft (ACARS)', ships: 'Ships on a map (AIS)',
     aprs: 'Radio amateur stations on a map (APRS)', sstv: 'Pictures sent as sound (SSTV)', satellites: 'Satellite passes',
+    dab: 'Digital radio: the stations of a DAB+ block',
     video: 'Analog video (FPV)',
 };
 
@@ -69,6 +70,7 @@ function renderModeLayout() {
         modeView.keys = new Map();
         clearPlanes();
         clearSatellites();
+        if (typeof dabStop === 'function' && dab.playing) dabStop();
         modeView.search = '';
         document.getElementById('mode-search').value = '';
         if (key !== 'radio') loadModeData();
@@ -94,7 +96,7 @@ function renderModeHead() {
 function key2placeholder(key) {
     return {sensors: 'Search devices…', aircraft: 'Search callsign, registration, type…', ships: 'Search name, MMSI, destination…',
         aprs: 'Search call sign, text…', acars: 'Search flight, registration, text…', sstv: 'Search kind (PD120, Robot 36)…',
-        satellites: 'Search satellite…', video: 'Search snapshots…'}[key] || 'Search messages, capcodes…';
+        satellites: 'Search satellite…', video: 'Search snapshots…', dab: 'Search station, music…'}[key] || 'Search messages, capcodes…';
 }
 
 async function loadModeData() {
@@ -102,7 +104,11 @@ async function loadModeData() {
     if (!key || key === 'radio') return;
     modeView.loading = true;
     try {
-        if (key === 'satellites') {
+        if (key === 'dab') {
+            const live = await api('decoded/live?mode=dab');
+            if (modeView.key !== key) return;
+            modeView.dab = live.live && live.live.dab;
+        } else if (key === 'satellites') {
             await loadSatellites();
         } else if (key === 'sensors') {
             const data = await api(`decoded/keys?mode=${key}`);
@@ -134,6 +140,10 @@ async function loadModeData() {
 
 onSocket('live', (m) => {
     if (m.mode === 'satellites' && modeView.key === 'satellites') return onSatelliteLive(m);
+    if (m.mode === 'dab' && modeView.key === 'dab') {
+        modeView.dab = m.dab;
+        return queueModeRender();
+    }
     if (m.mode === 'video' && modeView.key === 'video') {
         modeView.frame = m.frame;
         return renderVideoFrame();
@@ -178,6 +188,7 @@ function renderModeBody() {
     else if (modeView.key === 'acars') body.innerHTML = acarsHtml();
     else if (modeView.key === 'sstv') body.innerHTML = sstvHtml();
     else if (modeView.key === 'video') renderVideo(body);
+    else if (modeView.key === 'dab') renderDab(body);
     else if (modeView.key === 'sensors') body.innerHTML = sensorsHtml();
     else body.innerHTML = '';
 }
@@ -225,6 +236,77 @@ function sstvHtml() {
         <a href="${fileUrl('sstv', i.file)}" target="_blank" rel="noopener"><img src="${fileUrl('sstv', i.file)}" alt="${escapeHtml(i.kind)} picture" loading="lazy"></a>
         <figcaption>${timeOf(i.ts)} · ${escapeHtml(i.kind)}${i.complete ? '' : ` · ${i.rows} of ${i.height} lines`}</figcaption>
     </figure>`).join('')}</div>`;
+}
+
+// ---------------------------------------------------------------- DAB+
+
+const dab = {playing: null};
+
+function renderDab(body) {
+    if (!body.querySelector('.dab-view')) {
+        body.innerHTML = `<div class="dab-view">
+            <div class="dab-now" id="dab-now" hidden>
+                <img id="dab-slide" alt="" hidden>
+                <div class="dab-now-text"><b id="dab-now-name"></b><span id="dab-now-dls" class="muted"></span>
+                    <audio id="dab-audio" controls preload="none"></audio></div>
+                <button type="button" class="btn btn-small" onclick="dabStop()">Stop</button>
+            </div>
+            <div id="dab-list"></div></div>`;
+    }
+    const m = modeView.dab;
+    const search = modeView.search.toLowerCase();
+    const services = m ? m.services.filter(s => !search || [s.label, s.pty, s.dls].some(v => v && v.toLowerCase().includes(search))) : [];
+    const list = document.getElementById('dab-list');
+    if (!m || !m.services.length) {
+        list.innerHTML = emptyHtml('Looking for the ensemble… DAB+ takes a few seconds to find the block and read its stations. Is there DAB+ on this block where you are? (Settings → Modes)');
+    } else {
+        list.innerHTML = `<div class="dab-head"><b>${escapeHtml(m.ensemble || '')}</b> <span class="muted mono">${escapeHtml(m.block || '')} · SNR ${num(m.snr, 0)} dB · ${m.services.length} stations</span></div>
+        <table class="data aircraft"><thead><tr><th>Station</th><th>Now</th><th>Kind</th></tr></thead><tbody>
+        ${services.map(s => `<tr class="link${dab.playing === s.sid ? ' on' : ''}" data-sid="${escapeHtml(s.sid)}" onclick="dabPlay(this.dataset.sid)">
+            <td><b>${dab.playing === s.sid ? '▶ ' : ''}${escapeHtml(s.label)}</b><small class="muted">${escapeHtml(s.pty)}</small></td>
+            <td>${escapeHtml(s.dls)}</td>
+            <td class="mono">${escapeHtml(s.kind)}${s.bitrate ? ` · ${s.bitrate} kbit/s` : ''}</td>
+        </tr>`).join('')}</tbody></table>`;
+    }
+    renderDabNow();
+}
+
+function renderDabNow() {
+    const box = document.getElementById('dab-now');
+    if (!box) return;
+    const s = dab.playing && modeView.dab && modeView.dab.services.find(x => x.sid === dab.playing);
+    box.hidden = !dab.playing;
+    if (!dab.playing) return;
+    document.getElementById('dab-now-name').textContent = s ? s.label : '';
+    document.getElementById('dab-now-dls').textContent = s && s.dls ? s.dls : '';
+    const slide = document.getElementById('dab-slide');
+    if (s && s.slide) {
+        const src = `${basePath}api/dab/slide/${s.sid}?t=${s.slide}`;
+        if (slide.dataset.src !== src) { slide.dataset.src = src; slide.src = src; }
+        slide.hidden = false;
+    } else {
+        slide.hidden = true;
+    }
+}
+
+// The station's audio, as MP3 from welle-cli through the app, in the page's own player
+function dabPlay(sid, retry = 0) {
+    const audio = document.getElementById('dab-audio');
+    dab.playing = sid;
+    audio.src = `${basePath}api/dab/audio/${sid}?n=${Date.now()}`;
+    // A station that is just starting, or a hiccup: try again a few times
+    audio.onerror = () => {
+        if (dab.playing === sid && retry < 3) setTimeout(() => dab.playing === sid && dabPlay(sid, retry + 1), 1500);
+    };
+    audio.play().catch(() => { if (!retry) toast('Press play to listen (the browser wants a click first)', 'error'); });
+    renderModeBody();
+}
+
+function dabStop() {
+    const audio = document.getElementById('dab-audio');
+    if (audio) { audio.pause(); audio.removeAttribute('src'); audio.load(); }
+    dab.playing = null;
+    renderModeBody();
 }
 
 // ---------------------------------------------------------------- video (HackRF)

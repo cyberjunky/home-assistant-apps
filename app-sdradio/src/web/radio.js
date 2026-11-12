@@ -505,7 +505,8 @@ function renderChannelList(force) {
     if (!force && key === radio.listKey) return;
     radio.listKey = key;
     let rows = app.channels;
-    if (filter === 'band') rows = rows.filter(c => c.band === s.band);
+    // This band; outside every band (a DAB block, 1090 MHz) all of them
+    if (filter === 'band' && s.band) rows = rows.filter(c => c.band === s.band);
     else if (filter === 'fav') rows = rows.filter(c => c.favourite);
     if (search) {
         rows = rows.filter(c => (c.name || '').toLowerCase().includes(search) || fmtMHz(c.frequency).includes(search)
@@ -516,7 +517,7 @@ function renderChannelList(force) {
     el.innerHTML = rows.length ? rows.map(c => `
         <button type="button" class="ch-item${c.id === current ? ' on' : ''}${c.scan ? '' : ' locked'}" data-id="${c.id}">
             <span class="num">${chNum(c.number)}</span>
-            <span class="body"><b>${escapeHtml(c.name || 'Unnamed')}${c.favourite ? ' ★' : ''}</b><small>${fmtMHz(c.frequency)} · ${modeLabel(c.mode)}</small></span>
+            <span class="body"><b>${escapeHtml(c.name || 'Unnamed')}${c.favourite ? ' ★' : ''}</b><small>${fmtMHz(c.frequency)} · ${modeLabel(c.mode)}${channelMode(c) ? ` · <span class="ch-mode">${escapeHtml(modeName(channelMode(c)))}</span>` : ''}</small></span>
             <span class="seen" title="last heard">${c.last_heard ? fmtAgo(c.last_heard) : '—'}</span>
         </button>`).join('')
         : `<div class="empty-state">${app.channels.length ? 'No channel matches' : 'No channels stored yet. Tune to something and press Store current, or import a CSV on the Channels page.'}</div>`;
@@ -546,7 +547,8 @@ function openStore(preset) {
             <div class="form-field"><label for="st-number">Number</label><input id="st-number" class="input mono" type="number" min="0" max="99999" value="${c.number ?? ''}"></div>
             <div class="form-field"><label for="st-band">Band</label><select id="st-band" class="input">${bandOptions(c.band)}</select></div>
             <div class="form-field full"><label for="st-name">Name</label><input id="st-name" class="input" maxlength="80" value="${escapeHtml(c.name)}" placeholder="What is on this frequency"></div>
-            <div class="form-field full"><label for="st-tags">Tags</label><input id="st-tags" class="input" value="${escapeHtml(c.tags)}" placeholder="amateur, repeater"></div>
+            <div class="form-field full"><label for="st-mode">Mode</label><select id="st-mode" class="input" title="Picking this channel switches the radio to this mode">${modeOptions(existing ? channelMode(c) : (s.decoder && s.decoder.key))}</select></div>
+            <div class="form-field full"><label for="st-tags">Tags</label><input id="st-tags" class="input" value="${escapeHtml(tagsWithMode(c.tags, null))}" placeholder="amateur, repeater"></div>
         </div>
         <div class="checks">
             <label><input type="checkbox" id="st-fav"${c.favourite ? ' checked' : ''}> Favourite</label>
@@ -559,7 +561,7 @@ function openStore(preset) {
                 number: document.getElementById('st-number').value,
                 name: document.getElementById('st-name').value,
                 band: document.getElementById('st-band').value,
-                tags: document.getElementById('st-tags').value,
+                tags: tagsWithMode(document.getElementById('st-tags').value, document.getElementById('st-mode').value),
                 favourite: document.getElementById('st-fav').checked,
                 scan: document.getElementById('st-scan').checked,
                 frequency: s.frequency, mode: s.mode, bandwidth: s.bandwidth, step: s.step, squelch: s.squelch,

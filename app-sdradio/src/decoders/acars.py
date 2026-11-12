@@ -205,6 +205,8 @@ class Acars(Decoder):
     name = "ACARS"
     signal = "AM-MSK"
     input = "iq"
+    # The decoder reads the samples; there is no voice to hear (and no audio to demodulate)
+    listen = False
     defaults = {"frequency": 131_725_000, "channels": EUROPE}
     demod = ("am", 8_333)
 

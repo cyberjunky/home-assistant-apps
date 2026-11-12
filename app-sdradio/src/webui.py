@@ -11,6 +11,7 @@ import time
 from datetime import date, timedelta
 from pathlib import Path
 
+import aiohttp
 from aiohttp import WSMsgType, web
 
 from .backups import Backups
@@ -36,6 +37,24 @@ MAP_MAX_ZOOM = 19
 MAP_TILE_MAX_AGE = 7 * 24 * 60 * 60
 SPECTRUM_FRAME = 1
 AUDIO_FRAME = 2
+
+
+def mp3_frame_start(data: bytes) -> int | None:
+    """Where the first MPEG audio frame starts (its sync and a valid header), or None."""
+    i = data.find(b"\xff")
+    while 0 <= i < len(data) - 3:
+        b1, b2 = data[i + 1], data[i + 2]
+        # 11 sync bits, a version and layer that exist, a bitrate and sample rate that exist
+        if (
+            b1 & 0xE0 == 0xE0
+            and (b1 >> 3) & 3 != 1
+            and (b1 >> 1) & 3 != 0
+            and b2 >> 4 not in (0, 15)
+            and (b2 >> 2) & 3 != 3
+        ):
+            return i
+        i = data.find(b"\xff", i + 1)
+    return None
 
 
 def _json(data, status: int = 200) -> web.Response:
@@ -114,6 +133,8 @@ class WebUI:
         r.add_get("/api/decoded/keys", self._handle_decoded_keys)
         r.add_get("/api/decoded/live", self._handle_decoded_live)
         r.add_post("/api/decoded/snapshot", self._handle_snapshot)
+        r.add_get("/api/dab/audio/{sid:0x[0-9a-fA-F]+}", self._handle_dab_audio)
+        r.add_get("/api/dab/slide/{sid:0x[0-9a-fA-F]+}", self._handle_dab_slide)
         r.add_get("/api/files/{mode:[a-z0-9]+}/{name:[A-Za-z0-9._-]+}", self._handle_file)
         r.add_get("/api/map-tiles/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.png", self._handle_map_tile)
         r.add_delete("/api/decoded", self._handle_decoded_delete)
@@ -465,6 +486,59 @@ class WebUI:
         if mode.isalnum() and not q.get("key"):
             await asyncio.to_thread(shutil.rmtree, self.files_dir / mode, True)
         return _json({"removed": removed})
+
+    def _dab_url(self, path: str) -> str | None:
+        decoder = self.radio.decoder
+        return decoder.url(path) if decoder is not None and decoder.key == "dab" else None
+
+    async def _handle_dab_audio(self, request: web.Request) -> web.StreamResponse:
+        """A DAB+ station's audio, as the MP3 welle-cli makes of it, passed on while the page listens."""
+        url = self._dab_url(f"/mp3/{request.match_info['sid']}")
+        if url is None:
+            return _error("Not in the DAB+ mode", 409)
+        response = web.StreamResponse(headers={"Content-Type": "audio/mpeg", "Cache-Control": "no-store"})
+        timeout = aiohttp.ClientTimeout(total=None, sock_connect=5)
+        try:
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                # welle-cli starts decoding a station when it is first asked for it, and turns the
+                # request away until it can: ask again for a while
+                for _ in range(10):
+                    async with session.get(url) as upstream:
+                        if upstream.status == 200:
+                            await response.prepare(request)
+                            # welle-cli's stream starts wherever its encoder is: from the first frame
+                            # on, or a browser may not take it for MP3 at all
+                            pending = b""
+                            async for chunk in upstream.content.iter_chunked(8192):
+                                if pending is not None:
+                                    pending += chunk
+                                    start = mp3_frame_start(pending)
+                                    if start is None:
+                                        pending = pending[-4:]
+                                        continue
+                                    chunk, pending = pending[start:], None
+                                await response.write(chunk)
+                            return response
+                    await asyncio.sleep(1)
+        except (aiohttp.ClientError, ConnectionResetError, asyncio.CancelledError):
+            return response  # the page stopped listening, or the mode changed
+        return _error("welle-cli has no audio for that station", 502)
+
+    async def _handle_dab_slide(self, request: web.Request) -> web.Response:
+        """A station's slide (album art, logo), from welle-cli."""
+        url = self._dab_url(f"/slide/{request.match_info['sid']}")
+        if url is None:
+            return _error("Not in the DAB+ mode", 409)
+        try:
+            timeout = aiohttp.ClientTimeout(total=5)
+            async with aiohttp.ClientSession(timeout=timeout) as session, session.get(url) as upstream:
+                if upstream.status != 200:
+                    return web.Response(status=404)
+                body = await upstream.read()
+                kind = upstream.headers.get("Content-Type", "image/jpeg")
+        except (aiohttp.ClientError, TimeoutError):
+            return web.Response(status=404)
+        return web.Response(body=body, content_type=kind.split(";")[0], headers={"Cache-Control": "no-store"})
 
     async def _handle_snapshot(self, request: web.Request) -> web.Response:
         """Keep what a picture mode shows now (Video)."""

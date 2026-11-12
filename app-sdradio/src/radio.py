@@ -62,6 +62,15 @@ class Signal:
     channel: dict | None = None
 
 
+def channel_mode(channel: dict) -> str | None:
+    """The mode a stored channel belongs to: its tag mode:<mode> (mode:dab, mode:pager …), if any."""
+    for tag in str(channel.get("tags") or "").split(","):
+        tag = tag.strip().lower()
+        if tag.startswith("mode:") and tag[5:] in registry():
+            return tag[5:]
+    return None
+
+
 @dataclass
 class ScanState:
     kind: str = ""  # channels or band
@@ -290,30 +299,42 @@ class Radio:
         if self.scan.kind == "channels":
             self._rebuild_scan_targets()
         # The mode's settings changed: start its decoder again with them
-        if self.decoder and self.settings.get(f"mode_{self.decoder_key}") != self.decoder.settings:
-            old = self.decoder.frequency
+        if self.decoder and self.settings.get(f"mode_{self.decoder_key}") != self.decoder.saved_settings:
+            old, channel = self.decoder.frequency, self.decoder.channel_frequency
             self.decoder.stop()
             self.decoder = None
-            self._start_decoder(self.decoder_key, tune=self.settings[f"mode_{self.decoder_key}"]["frequency"] != old)
+            new = channel or self.settings[f"mode_{self.decoder_key}"]["frequency"]
+            self._start_decoder(self.decoder_key, tune=new != old, frequency=channel)
 
-    def _cmd_decoder(self, key) -> None:
-        """Switch mode: the radio, or a decoder mode that tunes to its own frequency."""
+    def _cmd_decoder(self, key, frequency=None) -> None:
+        """Switch mode: the radio, or a decoder mode that tunes to its own frequency (or to the
+        frequency of the stored channel it was picked with)."""
         if key != "radio" and key not in registry():
             raise ValueError(f"Unknown mode {key}")
         if self.decoder:
             self.decoder.stop()
             self.decoder = None
-        # Back to the usual rate after a mode that needed another
-        if self.device and self.rate != float(self.config.receiver.sample_rate):
+        # The rate the next mode needs: back to the usual after a mode that needed another
+        wanted = (registry()[key].sample_rate if key != "radio" else None) or float(self.config.receiver.sample_rate)
+        if self.device and self.rate != wanted and (key == "radio" or not registry()[key].sample_rate):
             self._set_rate(float(self.config.receiver.sample_rate))
         self.decoder_key = key
         if key != "radio":
             self._stop_scan()
             self.priority = False
-            self._start_decoder(key, tune=True)
+            self._start_decoder(key, tune=True, frequency=frequency)
         self._save_soon()
 
-    def _start_decoder(self, key: str, tune: bool) -> None:
+    def _go_channel(self, channel: dict) -> None:
+        """A stored channel picked (the list, ◀ ▶, a favourite): its mode too. A channel tagged
+        mode:<mode> switches to that mode on its frequency; any other switches back to the radio."""
+        wanted = channel_mode(channel) or "radio"
+        if wanted != self.decoder_key or (self.decoder is not None and self.decoder.frequency != channel["frequency"]):
+            self._cmd_decoder(wanted, frequency=channel["frequency"] if wanted != "radio" else None)
+        self._stop_scan()
+        self._tune_channel(channel)
+
+    def _start_decoder(self, key: str, tune: bool, frequency: int | None = None) -> None:
         cls = registry()[key]
         if not cls.usable(self.config.receiver.type, self.device.frequency_range if self.device else None):
             self.emit("notice", {"message": f"The {self.config.receiver.name} can't receive {cls.name}"})
@@ -323,12 +344,19 @@ class Radio:
         if cls.sample_rate and self.device and self.rate != cls.sample_rate and not self._set_rate(cls.sample_rate):
             self.decoder_key = "radio"
             return
+        saved = self.settings.get(f"mode_{key}") or {}
+        settings = dict(saved)
+        if frequency:
+            settings["frequency"] = int(frequency)  # the stored channel's, for now
         decoder = cls(
-            self.settings.get(f"mode_{key}") or {},
+            settings,
             lambda item: self._publish(key, item),
             lambda data: self.emit("live", {"mode": key, **data}),
         )
         decoder.location = self.location
+        # What it was started with: its saved settings, and a stored channel's frequency if any
+        decoder.saved_settings = saved
+        decoder.channel_frequency = int(frequency) if frequency else None
         decoder.folder = self.files_dir / key if self.files_dir else None
         # A mode that follows something (a satellite's Doppler shift) tunes the radio itself
         decoder.retune = lambda frequency, mode, bandwidth: self.command(
@@ -468,8 +496,7 @@ class Radio:
         channel = self.db.channel(int(id))
         if channel is None:
             return
-        self._stop_scan()
-        self._tune_channel(channel)
+        self._go_channel(channel)
 
     def _cmd_step_tune(self, steps) -> None:
         """The tune dial: move a number of steps. A step that fits a whole MHz (12.5 kHz, 25 kHz)
@@ -607,8 +634,7 @@ class Radio:
                 target = min(ahead, key=lambda c: abs(c["frequency"] - self.frequency))
             else:
                 target = channels[0] if direction > 0 else channels[-1]
-        self._stop_scan()
-        self._tune_channel(target)
+        self._go_channel(target)
 
     # ================================================================ tuning
 
@@ -713,9 +739,9 @@ class Radio:
             self.settle -= 1
             return
         if self.decoder is not None and not self.decoder.listen:
-            # Nothing to hear (a picture mode): only the signal level, from a part of the block
-            part = block[::64]
-            audio, level = None, 10 * math.log10(float(np.mean(np.abs(part) ** 2)) + 1e-20)
+            # Nothing to hear (the mode's decoder reads the samples): only the channel's level,
+            # from the spectrum (the bins within the filter round the tuned frequency)
+            audio, level = None, self._channel_level(block)
         else:
             audio, level = self.demod.process(block)
         self.level = level
@@ -756,6 +782,14 @@ class Radio:
         if self._save_due and time.monotonic() >= self._save_due:
             self._save_state()
         self._emit_state()
+
+    def _channel_level(self, block: np.ndarray) -> float:
+        db = self.spectrum(block)
+        n = len(db)
+        freqs = (np.arange(n) - n // 2) * (self.rate / n)
+        inside = np.abs(freqs - (self.frequency - self.center)) <= max(self.bandwidth, self.rate / n) / 2
+        power = float(np.sum(np.power(10.0, db[inside] / 10.0)))
+        return 10 * math.log10(power + 1e-20)
 
     def _clock(self) -> float:
         """The time of this block by the samples received: exact durations, even if the thread falls behind.

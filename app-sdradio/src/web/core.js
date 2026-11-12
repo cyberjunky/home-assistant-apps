@@ -90,10 +90,29 @@ function fmtBytes(bytes) {
 const modeLabel = m => (app.modes[m] && app.modes[m].label) || String(m || '').toUpperCase();
 const chNum = n => String(n).padStart(3, '0');
 
+// A stored channel's mode (Pager, DAB+ …) is its tag mode:<mode>; picking the channel switches to it
+function channelMode(c) {
+    const tag = String((c && c.tags) || '').split(',').map(t => t.trim().toLowerCase()).find(t => t.startsWith('mode:'));
+    return tag ? tag.slice(5) : null;
+}
+function tagsWithMode(tags, mode) {
+    const kept = String(tags || '').split(',').map(t => t.trim()).filter(t => t && !t.toLowerCase().startsWith('mode:'));
+    if (mode && mode !== 'radio') kept.push(`mode:${mode}`);
+    return kept.join(', ');
+}
+function modeName(key) {
+    const m = ((app.state && app.state.modes) || []).find(x => x.key === key);
+    return m ? m.name : key;
+}
+function modeOptions(selected) {
+    const modes = [{key: 'radio', name: 'Radio (no mode)'}, ...((app.state && app.state.modes) || [])];
+    return modes.map(m => `<option value="${m.key}"${(selected || 'radio') === m.key ? ' selected' : ''}>${escapeHtml(m.name)}${m.why_not ? ` (${escapeHtml(m.why_not)})` : ''}</option>`).join('');
+}
+
+// Safe in text and in attributes (quotes too: a value may go in an attribute or an inline handler)
 function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text === null || text === undefined ? '' : String(text);
-    return div.innerHTML;
+    return (text === null || text === undefined ? '' : String(text))
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 

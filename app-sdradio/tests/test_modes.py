@@ -247,3 +247,42 @@ def test_sensors_count_the_bursts_rtl433_saw():
         json.dumps({"time": "@20s", "enabled": 238, "frames": {"count": 2, "fsk": 1, "events": 2}, "stats": []})
     )
     assert decoder.status()["bursts"] == 5 and decoder.status()["count"] == 0
+
+
+def test_modes_without_sound_measure_their_channel(radio, monkeypatch):
+    """A mode whose decoder reads the samples has no audio; the meter shows the channel, not the band."""
+    import src.radio
+
+    class Silent(FakeDecoder):
+        key = "silent"
+        listen = False
+
+    monkeypatch.setattr(src.radio, "registry", lambda: {"silent": Silent})
+    radio.listeners = 1
+    radio.command("decoder", key="silent")
+    run(radio, 6)
+    assert not any(k == "audio" for k, _ in radio.events[-20:])
+    quiet = radio.level
+    assert quiet < -50  # noise in a 15 kHz channel, not the whole 2.4 MHz
+
+
+def test_a_channel_brings_its_mode(radio):
+    """A stored channel tagged mode:<mode> switches to that mode on its frequency; another goes back to the radio."""
+    db = radio.db
+    weather = db.save_channel({"name": "Weather", "frequency": 434_000_000, "mode": "am", "tags": "ism,mode:fake"})
+    calling = db.save_channel({"name": "Calling", "frequency": 145_500_000, "mode": "nfm"})
+    radio.command("channel", id=weather["id"])
+    run(radio, 3)
+    assert radio.decoder_key == "fake" and radio.frequency == 434_000_000 and radio.decoder.frequency == 434_000_000
+    # A settings change restarts the mode, still on the channel's frequency
+    radio.db.update_settings({"decoded_keep_days": 7})
+    radio.reload()
+    run(radio, 2)
+    assert radio.decoder.frequency == 434_000_000
+    radio.command("channel", id=calling["id"])
+    run(radio, 2)
+    assert radio.decoder is None and radio.decoder_key == "radio" and radio.frequency == 145_500_000
+    # ◀ ▶ too
+    radio.command("memory", direction=-1)
+    run(radio, 3)
+    assert radio.decoder_key == "fake" and radio.frequency == 434_000_000

@@ -120,6 +120,7 @@ def registry() -> dict[str, type[Decoder]]:
     from .acars import Acars
     from .aircraft import Aircraft
     from .aprs import Aprs
+    from .dab import Dab
     from .pager import Pager
     from .satellites import Satellites
     from .sensors import Sensors
@@ -127,4 +128,4 @@ def registry() -> dict[str, type[Decoder]]:
     from .sstv import Sstv
     from .video import Video
 
-    return {cls.key: cls for cls in (Pager, Sensors, Aircraft, Acars, Ships, Aprs, Sstv, Satellites, Video)}
+    return {cls.key: cls for cls in (Pager, Sensors, Aircraft, Acars, Ships, Aprs, Sstv, Dab, Satellites, Video)}
