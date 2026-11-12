@@ -49,6 +49,16 @@ def parse(line: str) -> dict | None:
     return None
 
 
+def multimon_command(rate: float, demods: list[str], options: str = "") -> list[str]:
+    """sox (the radio's audio to the 22 050 Hz multimon-ng reads) into multimon-ng."""
+    sox = (
+        f"sox -q -t raw -e signed-integer -b 16 -c 1 -r {int(rate)} - "
+        f"-t raw -e signed-integer -b 16 -c 1 -r {MULTIMON_RATE} -"
+    )
+    adds = " ".join(f"-a {d}" for d in demods)
+    return ["sh", "-c", f"{sox} | multimon-ng -t raw {options} {adds} -".replace("  ", " ")]
+
+
 class Pager(Decoder):
     key = "pager"
     name = "Pager"
@@ -73,13 +83,8 @@ class Pager(Decoder):
         self.rate = 0.0
 
     def _command(self, rate: float) -> list[str]:
-        sox = (
-            f"sox -q -t raw -e signed-integer -b 16 -c 1 -r {int(rate)} - "
-            f"-t raw -e signed-integer -b 16 -c 1 -r {MULTIMON_RATE} -"
-        )
-        demods = " ".join(f"-a {p}" for p in self.settings["protocols"])
         # The function code tells numeric from alpha, as the standard has it (no -f)
-        return ["sh", "-c", f"{sox} | multimon-ng -t raw -e {demods} -"]
+        return multimon_command(rate, self.settings["protocols"], "-e")
 
     def feed_audio(self, audio: np.ndarray, rate: float) -> None:
         if self.program is None or rate != self.rate:

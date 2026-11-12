@@ -511,8 +511,8 @@ table.sensors td:last-child, table.sensors th:last-child { text-align: center; }
 
 /* The map of the modes with positions (aircraft): the map above, the list below */
 /* A mode with a map takes more of the width than the spectrum */
-#tab-radio:is([data-mode="aircraft"], [data-mode="ships"]) .spectrum-panel { flex: 1 1 420px; }
-#tab-radio:is([data-mode="aircraft"], [data-mode="ships"]) .mode-panel { flex: 1.7 1 620px; }
+#tab-radio:is([data-mode="aircraft"], [data-mode="ships"], [data-mode="aprs"]) .spectrum-panel { flex: 1 1 420px; }
+#tab-radio:is([data-mode="aircraft"], [data-mode="ships"], [data-mode="aprs"]) .mode-panel { flex: 1.7 1 620px; }
 .mode-split { display: flex; flex-direction: column; height: 100%; min-height: 420px; }
 .map-slot { flex: 3 1 0; min-height: 240px; position: relative; background: var(--map-bg, #aad3df); }
 .map-slot .map { position: absolute; inset: 0; }
@@ -533,6 +533,10 @@ table.data tbody tr.on td { background: var(--hover-bg); }
 .plane-icon.selected svg { stroke: #fff; stroke-width: 1.6; stroke-opacity: 1; filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.6)); }
 .leaflet-tooltip.plane-label { background: rgba(0, 0, 0, 0.55); color: #fff; border: 0; box-shadow: none; padding: 0 4px; font: 600 10.5px var(--mono); }
 .leaflet-tooltip.plane-label::before { display: none; }
+.aprs-icon span { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%;
+    background: #fff; border: 2px solid; font-size: 13px; line-height: 1; box-sizing: border-box; }
+.aprs-icon.selected span { box-shadow: 0 0 0 3px rgba(3, 169, 244, 0.6); }
+.aprs-symbol { display: inline-block; width: 18px; margin-right: 4px; text-align: center; }
 .chlist { flex: 1 1 300px; max-width: 100%; display: flex; flex-direction: column; overflow: hidden; min-height: 260px; }
 .chlist-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 6px; }
 .chlist-head .section-title { margin: 0; }

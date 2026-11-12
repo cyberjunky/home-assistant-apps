@@ -219,7 +219,7 @@ const PAGER_PROTOCOLS = ['FLEX', 'POCSAG512', 'POCSAG1200', 'POCSAG2400'];
 const SENSOR_FREQUENCIES = [433.92, 868.3, 868.95, 915, 315, 345];
 
 function modeSettingsHtml(ha) {
-    const pager = app.settings.mode_pager || {}, sensors = app.settings.mode_sensors || {};
+    const pager = app.settings.mode_pager || {}, sensors = app.settings.mode_sensors || {}, aprs = app.settings.mode_aprs || {};
     const mhz = hz => +(hz / 1e6).toFixed(6);
     return `
         ${setRow('Pager frequency', 'MHz; 169.65 is P2000, the Dutch emergency services (FLEX)',
@@ -230,7 +230,10 @@ function modeSettingsHtml(ha) {
             `<input type="checkbox" id="mode-pager-ha"${pager.ha_events ? ' checked' : ''}${ha ? '' : ' disabled'}>`, 'mode-pager-ha')}
         ${setRow('Sensors frequency', 'MHz; 433.92 for most, 868.3 for many weather stations, 868.95 for wM-Bus meters',
             `<input class="input mono" id="mode-sensors-frequency" list="sensor-frequencies" value="${mhz(sensors.frequency)}" inputmode="decimal">
-             <datalist id="sensor-frequencies">${SENSOR_FREQUENCIES.map(f => `<option value="${f}">`).join('')}</datalist>`, 'mode-sensors-frequency')}`;
+             <datalist id="sensor-frequencies">${SENSOR_FREQUENCIES.map(f => `<option value="${f}">`).join('')}</datalist>`, 'mode-sensors-frequency')}
+        ${setRow('APRS frequency', 'MHz; 144.8 in Europe, 144.39 in North America, 145.825 for the ISS',
+            `<input class="input mono" id="mode-aprs-frequency" list="aprs-frequencies" value="${mhz(aprs.frequency)}" inputmode="decimal">
+             <datalist id="aprs-frequencies"><option value="144.8"><option value="144.39"><option value="145.825"></datalist>`, 'mode-aprs-frequency')}`;
 }
 
 function saveMode(key, patch) {
@@ -249,6 +252,7 @@ function bindModeSettings() {
     };
     frequency('mode-pager-frequency', 'pager');
     frequency('mode-sensors-frequency', 'sensors');
+    frequency('mode-aprs-frequency', 'aprs');
     document.querySelectorAll('[data-pager-protocol]').forEach(el => el.addEventListener('change', () => {
         const protocols = Array.from(document.querySelectorAll('[data-pager-protocol]:checked')).map(x => x.dataset.pagerProtocol);
         saveMode('pager', {protocols});

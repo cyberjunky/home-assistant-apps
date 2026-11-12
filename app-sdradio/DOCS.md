@@ -132,7 +132,13 @@ page shows what the mode decodes. The modes only show up when your receiver can 
   pleasure craft purple), and lie as a dot when moored. A ship goes into the **History** when it
   has not been heard for a quarter of an hour.
 
-**The map** (Aircraft, Ships) shows OpenStreetMap through Home Assistant's own map tile service (which
+- **APRS**: amateur radio positions, weather stations, objects, status texts and messages on
+  144.800 MHz (144.390 in North America, 145.825 for the ISS; set under Modes), decoded by
+  multimon-ng with the packets read by SDRadio (plain, compressed and Mic-E positions, weather
+  reports). Stations with a position are on the map with their symbol, moving ones with their
+  trail; **Packets** lists everything heard.
+
+**The map** (Aircraft, Ships, APRS) shows OpenStreetMap through Home Assistant's own map tile service (which
 needs Home Assistant 2026.9 or later), centred on Home Assistant's home location; the distances
 are from there. The map is darkened only with the dark theme.
 

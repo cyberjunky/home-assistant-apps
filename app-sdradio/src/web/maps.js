@@ -101,3 +101,28 @@ function shipIcon(s, colour, selected) {
         iconSize: [22, 22], iconAnchor: [11, 11],
     });
 }
+
+// APRS: the station's symbol (the common ones of the primary table) on a disc
+const APRS_SYMBOLS = {'>': '🚗', '-': '🏠', '#': '📡', '&': '📡', '_': '🌤', 'k': '🚚', 'v': '🚐', '[': '🚶', 'b': '🚲',
+    'Y': '⛵', 's': '🚤', 'O': '🎈', '<': '🏍', 'j': '🚙', 'R': '🚐', 'U': '🚌', 'X': '🚁', '^': '✈', "'": '✈', 'y': '📡',
+    'r': '📡', 'a': '🚑', 'f': '🚒', 'u': '🚚', 'n': '📡', 'l': '💻', '$': '📱'};
+
+function aprsSymbol(s) {
+    const symbol = s.symbol || '';
+    return (symbol[0] === '/' && APRS_SYMBOLS[symbol[1]]) || '•';
+}
+
+function aprsColour(s) {
+    if (s.weather) return '#00acc1';
+    if (s.speed) return '#4caf50';
+    if ((s.symbol || '').match(/[#&ry n]$/)) return '#ab47bc';
+    return '#ff9800';
+}
+
+function aprsIcon(s, colour, selected) {
+    return L.divIcon({
+        className: 'aprs-icon' + (selected ? ' selected' : ''),
+        html: `<span style="border-color: ${colour}">${aprsSymbol(s)}</span>`,
+        iconSize: [24, 24], iconAnchor: [12, 12],
+    });
+}

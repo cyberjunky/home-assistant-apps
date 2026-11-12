@@ -10,12 +10,13 @@ import time
 
 import numpy as np
 
-from tests import adsb_signal, ais_signal, pocsag_signal, rds_signal
+from tests import adsb_signal, ais_signal, aprs_signal, pocsag_signal, rds_signal
 
 # frequency, mode, level (amplitude), on seconds, off seconds, tone Hz
 SIGNALS = [
     (145_500_000, "nfm", 0.05, 6, 9, 800),
-    (144_800_000, "nfm", 0.08, 1, 6, 1200),
+    # APRS packets from a few stations (the APRS mode)
+    (144_800_000, "aprs", 0.08, 0, 0, 0),
     (145_612_500, "nfm", 0.03, 4, 11, 600),
     (145_287_500, "nfm", 0.02, 5, 6, 1000),
     (121_500_000, "am", 0.04, 5, 5, 700),
@@ -27,6 +28,13 @@ SIGNALS = [
     (1_090_000_000, "adsb", 0.3, 0, 0, 0),
     # Ships sending AIS on both channels (the Ships mode, tuned between them)
     (162_000_000, "ais", 0.05, 0, 0, 0),
+]
+# Call sign, path, info (a moving car sends its position, which the simulator moves along)
+APRS_STATIONS = [
+    ("PI1UTR-10", ["WIDE2-2"], "=5206.10N/00508.50E#PHG5130 Utrecht digipeater"),
+    ("PD0ABC-9", ["WIDE1-1", "WIDE2-1"], "car"),
+    ("PA3WX", ["WIDE2-1"], "@121200z5203.20N/00512.40E_090/005g010t054r000p000P000h85b10132 weather"),
+    ("PE1XYZ-7", ["WIDE1-1"], ">On my way to the radio club"),
 ]
 # MMSI, name, call sign, ship type, destination, start latitude and longitude, heading, knots, class
 SHIPS = [
@@ -112,6 +120,9 @@ class SimulatedDevice:
             if mode == "ais":
                 x += self._ships(start, rate, offset, level, count)
                 continue
+            if mode == "aprs":
+                x += self._aprs(start, rate, offset, level, count)
+                continue
             period = on + off
             if off and (start % period) > on:
                 continue
@@ -188,11 +199,42 @@ class SimulatedDevice:
         t = (np.arange(count) + self.sample_index) / rate
         return (level * envelope * np.exp(2j * math.pi * offset * t)).astype(np.complex64)
 
+    def _aprs(self, start: float, rate: float, offset: float, level: float, count: int) -> np.ndarray:
+        """A packet every 6 seconds from the stations in turn; the car drives east along the A12."""
+        end = start + count / rate
+        k = math.ceil((start - 0.3) / 6.0)
+        while 0.3 + k * 6.0 < end:
+            t = 0.3 + k * 6.0
+            call, path, info = APRS_STATIONS[k % len(APRS_STATIONS)]
+            if info == "car":
+                lon = 4.95 + (t % 1800) * 0.00025
+                info = f"!5204.80N/{int(lon):03d}{(lon % 1) * 60:05.2f}E>090/050Mobile in the simulator"
+            audio = aprs_signal.afsk(aprs_signal.frame(call, "APSDR1", path, info))
+            self._queue_burst("aprs", int(t * rate), aprs_signal.fm_iq(audio, rate, offset, level=level))
+            k += 1
+        return self._play_bursts("aprs", count)
+
+    def _queue_burst(self, name: str, at: int, samples: np.ndarray) -> None:
+        self.__dict__.setdefault(f"{name}_bursts", []).append([at, samples])
+
+    def _play_bursts(self, name: str, count: int) -> np.ndarray:
+        """The queued bursts' samples that fall in this block; the ones not finished stay queued."""
+        out = np.zeros(count, np.complex64)
+        first = self.sample_index
+        keep = []
+        for burst in self.__dict__.get(f"{name}_bursts", []):
+            at, samples = burst
+            lo, hi = max(at, first), min(at + len(samples), first + count)
+            if lo < hi:
+                out[lo - first : hi - first] += samples[lo - at : hi - at]
+            if at + len(samples) > first + count:
+                keep.append(burst)
+        self.__dict__[f"{name}_bursts"] = keep
+        return out
+
     def _ships(self, start: float, rate: float, offset: float, level: float, count: int) -> np.ndarray:
         """The ships' AIS bursts: a position every 3 seconds (on channel A and B in turn) and the
         name and destination every fourth time. They sail straight for half an hour, then start over."""
-        if not hasattr(self, "ais_bursts"):
-            self.ais_bursts = []  # (first sample, samples)
         end = start + count / rate
         for i, (mmsi, name, callsign, kind, destination, lat, lon, heading, knots, cls) in enumerate(SHIPS):
             phase = 0.41 * (i + 1)
@@ -212,20 +254,9 @@ class SimulatedDevice:
                     bits = ais_signal.position(mmsi, la, lo, knots, heading, heading)
                 channel = -25_000 if k % 2 else 25_000
                 samples = ais_signal.gmsk_iq(bits, rate, offset + channel, level, lead=0.0)
-                self.ais_bursts.append([int(t * rate), samples])
+                self._queue_burst("ais", int(t * rate), samples)
                 k += 1
-        out = np.zeros(count, np.complex64)
-        first = self.sample_index
-        keep = []
-        for burst in self.ais_bursts:
-            at, samples = burst
-            lo_i, hi_i = max(at, first), min(at + len(samples), first + count)
-            if lo_i < hi_i:
-                out[lo_i - first : hi_i - first] += samples[lo_i - at : hi_i - at]
-            if at + len(samples) > first + count:
-                keep.append(burst)
-        self.ais_bursts = keep
-        return out
+        return self._play_bursts("ais", count)
 
     def close(self) -> None:
         self.closed = True

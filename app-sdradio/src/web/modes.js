@@ -70,7 +70,8 @@ function renderModeHead() {
 }
 
 function key2placeholder(key) {
-    return {sensors: 'Search devices…', aircraft: 'Search callsign, registration, type…', ships: 'Search name, MMSI, destination…'}[key] || 'Search messages, capcodes…';
+    return {sensors: 'Search devices…', aircraft: 'Search callsign, registration, type…', ships: 'Search name, MMSI, destination…',
+        aprs: 'Search call sign, text…'}[key] || 'Search messages, capcodes…';
 }
 
 async function loadModeData() {
@@ -241,6 +242,18 @@ const TRACKED = {
         empty: 'No ships heard yet. Near a waterway or the coast they come in within a few minutes; inland ships send every few seconds while sailing.',
         gone: 'Ships are listed here when they have not been heard for a quarter of an hour.',
     },
+    aprs: {
+        listKey: 'stations', noun: 'stations', historyLabel: 'Packets',
+        id: s => s.call,
+        label: s => s.call,
+        colour: s => aprsColour(s),
+        icon: (s, colour, selected) => aprsIcon(s, colour, selected),
+        look: s => s.symbol || '',
+        search: s => [s.call, s.comment, s.kind, s.by, s.status_text, s.source, s.text, s.to],
+        liveHtml: aprsRows, historyHtml: aprsPacketRows,
+        empty: 'No stations with a position yet. Digipeaters and weather stations send every 10 to 30 minutes; cars every minute or so while driving.',
+        gone: 'No packets yet.',
+    },
 };
 const tracked = () => TRACKED[modeView.key];
 const trackLayers = new Map();  // id → {marker, trail, look}
@@ -322,14 +335,15 @@ function selectTracked(id, pan) {
 
 function renderTracked(body) {
     const cfg = tracked();
-    if (!body.querySelector('.mode-split')) {
-        body.innerHTML = `<div class="mode-split">
+    const split = body.querySelector('.mode-split');
+    if (!split || split.dataset.mode !== modeView.key) {
+        body.innerHTML = `<div class="mode-split" data-mode="${modeView.key}">
             <div class="map-slot" id="map-slot"></div>
             <div class="mode-list">
                 <div class="tabs inline-tabs list-tabs" id="tracked-tabs" role="group" aria-label="Which"></div>
                 <div class="mode-list-body" id="mode-list"></div>
             </div></div>`;
-        buildChips(document.getElementById('tracked-tabs'), [{key: 'live', label: 'In view'}, {key: 'history', label: 'History'}],
+        buildChips(document.getElementById('tracked-tabs'), [{key: 'live', label: 'In view'}, {key: 'history', label: cfg.historyLabel || 'History'}],
             modeView.list, (key) => { modeView.list = key; lsSet('tracked_list', key); renderModeBody(); });
         ensureMap(document.getElementById('map-slot'));
         for (const o of modeView.planes.values()) drawTracked(o);
@@ -429,6 +443,47 @@ function shipHistoryRows(items) {
             <td class="mono">${num(i.positions || 0)}</td>
         </tr>`).join('')}
     </tbody></table>`;
+}
+
+// ---------------------------------------------------------------- APRS
+
+function weatherText(w) {
+    if (!w) return '';
+    return [w.temperature !== undefined ? `${num(w.temperature, 1)} °C` : '', w.humidity !== undefined ? `${w.humidity} %` : '',
+        w.wind !== undefined ? `wind ${num(w.wind)} km/h${w.wind_direction !== undefined ? ` from ${w.wind_direction}°` : ''}` : '',
+        w.pressure !== undefined ? `${num(w.pressure, 1)} hPa` : ''].filter(Boolean).join(' · ');
+}
+
+function aprsRows(stations) {
+    const has = withDistance(stations);
+    sortByDistance(stations, s => s.call);
+    return `<table class="data aircraft"><thead><tr><th>Station</th><th>Moving · weather</th>${has ? '<th>Distance</th>' : ''}<th>Path</th><th>Seen</th></tr></thead><tbody>
+        ${stations.map(s => `<tr class="link${modeView.selected === s.call ? ' on' : ''}" onclick="selectTracked(${escapeHtml(JSON.stringify(s.call))}, true)">
+            <td><span class="aprs-symbol">${aprsSymbol(s)}</span><b>${escapeHtml(s.call)}</b>
+                <small class="muted">${escapeHtml([s.kind, s.by ? `object of ${s.by}` : null, s.comment || s.status_text].filter(Boolean).join(' · '))}</small></td>
+            <td class="mono">${s.weather ? escapeHtml(weatherText(s.weather)) : s.speed ? speedCourse(s.speed, s.course, 'km/h') : ''}${s.altitude ? ` · ${num(s.altitude)} m` : ''}</td>
+            ${distanceCell(s, has)}
+            <td class="mono"><small>${escapeHtml((s.path || []).join(','))}</small></td>
+            <td class="mono" title="${num(s.packets)} packets">${fmtAgo(s.seen)}</td>
+        </tr>`).join('')}
+    </tbody></table>`;
+}
+
+function aprsPacketText(p) {
+    if (p.type === 'message') return `to ${p.to}: ${p.text}`;
+    if (p.text) return p.text;
+    const where = p.lat !== undefined ? `${num(p.lat, 4)}, ${num(p.lon, 4)}` : '';
+    return [p.name ? `${p.name}:` : null, where, p.weather ? weatherText(p.weather) : p.speed ? speedCourse(p.speed, p.course, 'km/h') : null,
+        p.comment].filter(Boolean).join(' · ') || p.raw || '';
+}
+
+function aprsPacketRows(packets) {
+    return packets.map(p => `<div class="msg">
+        <span class="msg-time mono">${timeOf(p.ts)}</span>
+        <span class="badge">${escapeHtml(p.type || 'packet')}</span>
+        <span class="msg-addr mono" title="${escapeHtml(['via', ...(p.path || [])].join(' '))}">${escapeHtml(p.source || p.key)}</span>
+        <span class="msg-text">${escapeHtml(aprsPacketText(p))}</span>
+    </div>`).join('');
 }
 
 // ---------------------------------------------------------------- search and clear
