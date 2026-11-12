@@ -125,7 +125,14 @@ page shows what the mode decodes. The modes only show up when your receiver can 
   on 1090 MHz, as ADS-B is 2 MHz wide. The stock RTL-SDR antenna works best high up and outside;
   a 1090 MHz antenna reaches 200 km and more.
 
-**The map** (Aircraft) shows OpenStreetMap through Home Assistant's own map tile service (which
+- **Ships**: AIS on 161.975 and 162.025 MHz (both channels at once: the radio tunes between them),
+  decoded by SDRadio itself. Ships on rivers, canals and the sea send their position every few
+  seconds while under way and their name, call sign, kind and destination every few minutes; on
+  the map they point where they sail, coloured by kind (cargo green, tanker red, passenger blue,
+  pleasure craft purple), and lie as a dot when moored. A ship goes into the **History** when it
+  has not been heard for a quarter of an hour.
+
+**The map** (Aircraft, Ships) shows OpenStreetMap through Home Assistant's own map tile service (which
 needs Home Assistant 2026.9 or later), centred on Home Assistant's home location; the distances
 are from there. The map is darkened only with the dark theme.
 

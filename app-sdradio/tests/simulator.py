@@ -10,7 +10,7 @@ import time
 
 import numpy as np
 
-from tests import adsb_signal, pocsag_signal, rds_signal
+from tests import adsb_signal, ais_signal, pocsag_signal, rds_signal
 
 # frequency, mode, level (amplitude), on seconds, off seconds, tone Hz
 SIGNALS = [
@@ -25,6 +25,15 @@ SIGNALS = [
     (169_650_000, "pocsag", 0.08, 0, 8, 0),
     # Aircraft sending ADS-B (the Aircraft mode)
     (1_090_000_000, "adsb", 0.3, 0, 0, 0),
+    # Ships sending AIS on both channels (the Ships mode, tuned between them)
+    (162_000_000, "ais", 0.05, 0, 0, 0),
+]
+# MMSI, name, call sign, ship type, destination, start latitude and longitude, heading, knots, class
+SHIPS = [
+    (244660001, "RHINE STAR", "PE2345", 80, "BASEL", 52.20, 5.03, 165, 7, "A"),
+    (244660002, "VERA", "PD7788", 79, "AMSTERDAM", 52.00, 5.08, 345, 8, "A"),
+    (211234567, "MAINZ", "DA4567", 70, "ROTTERDAM", 51.985, 5.25, 262, 9, "A"),
+    (244999001, "WATERRAT", "", 37, "", 52.06, 5.06, 10, 4, "B"),
 ]
 # ICAO address, callsign, start latitude and longitude, feet, heading, knots, climb ft/min
 AIRCRAFT = [
@@ -99,6 +108,9 @@ class SimulatedDevice:
                 continue
             if mode == "adsb":
                 x += self._aircraft(start, rate, offset, level, count)
+                continue
+            if mode == "ais":
+                x += self._ships(start, rate, offset, level, count)
                 continue
             period = on + off
             if off and (start % period) > on:
@@ -175,6 +187,45 @@ class SimulatedDevice:
                 k += 1
         t = (np.arange(count) + self.sample_index) / rate
         return (level * envelope * np.exp(2j * math.pi * offset * t)).astype(np.complex64)
+
+    def _ships(self, start: float, rate: float, offset: float, level: float, count: int) -> np.ndarray:
+        """The ships' AIS bursts: a position every 3 seconds (on channel A and B in turn) and the
+        name and destination every fourth time. They sail straight for half an hour, then start over."""
+        if not hasattr(self, "ais_bursts"):
+            self.ais_bursts = []  # (first sample, samples)
+        end = start + count / rate
+        for i, (mmsi, name, callsign, kind, destination, lat, lon, heading, knots, cls) in enumerate(SHIPS):
+            phase = 0.41 * (i + 1)
+            k = math.ceil((start - phase) / 3.0)
+            while phase + k * 3.0 < end:
+                t = phase + k * 3.0
+                sailed = knots * 0.5144 * (t % 1800)
+                la = lat + sailed * math.cos(math.radians(heading)) / 111_320
+                lo = lon + sailed * math.sin(math.radians(heading)) / (111_320 * math.cos(math.radians(lat)))
+                if k % 4 == 0 and cls == "A":
+                    bits = ais_signal.static(mmsi, name, callsign, kind, destination)
+                elif k % 4 == 0:
+                    bits = ais_signal.name_b(mmsi, name)
+                elif cls == "B":
+                    bits = ais_signal.class_b(mmsi, la, lo, knots, heading)
+                else:
+                    bits = ais_signal.position(mmsi, la, lo, knots, heading, heading)
+                channel = -25_000 if k % 2 else 25_000
+                samples = ais_signal.gmsk_iq(bits, rate, offset + channel, level, lead=0.0)
+                self.ais_bursts.append([int(t * rate), samples])
+                k += 1
+        out = np.zeros(count, np.complex64)
+        first = self.sample_index
+        keep = []
+        for burst in self.ais_bursts:
+            at, samples = burst
+            lo_i, hi_i = max(at, first), min(at + len(samples), first + count)
+            if lo_i < hi_i:
+                out[lo_i - first : hi_i - first] += samples[lo_i - at : hi_i - at]
+            if at + len(samples) > first + count:
+                keep.append(burst)
+        self.ais_bursts = keep
+        return out
 
     def close(self) -> None:
         self.closed = True

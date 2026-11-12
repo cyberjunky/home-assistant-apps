@@ -89,5 +89,6 @@ def registry() -> dict[str, type[Decoder]]:
     from .aircraft import Aircraft
     from .pager import Pager
     from .sensors import Sensors
+    from .ships import Ships
 
-    return {cls.key: cls for cls in (Pager, Sensors, Aircraft)}
+    return {cls.key: cls for cls in (Pager, Sensors, Aircraft, Ships)}

@@ -2,7 +2,7 @@
 // what they decode in place of the favourites and the stored channels.
 
 const modeView = {key: null, items: [], keys: new Map(), search: '', loading: false, renderQueued: false,
-    planes: new Map(), selected: null, list: lsGet('aircraft_list', 'live'), messages: 0};
+    planes: new Map(), selected: null, list: lsGet('tracked_list', 'live'), messages: 0};
 const MODE_LIMIT = 500;
 
 // What the readings of rtl_433 mean, for the sensors table
@@ -62,7 +62,7 @@ function renderModeHead() {
     document.getElementById('mode-title').textContent = d.name || '';
     const status = document.getElementById('mode-status');
     const text = d.error ? d.error
-        : d.key === 'aircraft' ? `${fmtMHz(s.frequency)} MHz · ${modeView.planes.size} in view · ${d.count || 0} seen since the mode started`
+        : TRACKED[d.key] ? `${fmtMHz(s.frequency)} MHz · ${modeView.planes.size} in view · ${d.count || 0} heard since the mode started`
         : `${fmtMHz(s.frequency)} MHz · ${d.count || 0} decoded since the mode started`;
     if (status.textContent !== text) status.textContent = text;
     status.classList.toggle('warn-text', !!d.error);
@@ -70,7 +70,7 @@ function renderModeHead() {
 }
 
 function key2placeholder(key) {
-    return {sensors: 'Search devices…', aircraft: 'Search callsign, registration, type…'}[key] || 'Search messages, capcodes…';
+    return {sensors: 'Search devices…', aircraft: 'Search callsign, registration, type…', ships: 'Search name, MMSI, destination…'}[key] || 'Search messages, capcodes…';
 }
 
 async function loadModeData() {
@@ -82,14 +82,14 @@ async function loadModeData() {
             const data = await api(`decoded/keys?mode=${key}`);
             if (modeView.key !== key) return;
             modeView.keys = new Map(data.keys.map(k => [k.key, k]));
-        } else if (key === 'aircraft') {
+        } else if (TRACKED[key]) {
             const [live, history] = await Promise.all([api(`decoded/live?mode=${key}`),
                 api(`decoded?${new URLSearchParams({mode: key, limit: 300, search: modeView.search})}`)]);
             if (modeView.key !== key) return;
             modeView.location = live.location;
             if (live.live) {
                 modeView.messages = live.live.messages;
-                for (const plane of live.live.aircraft) applyPlane(plane);
+                for (const o of live.live[TRACKED[key].listKey]) applyTracked(o);
             }
             modeView.items = history.items;
         } else {
@@ -107,10 +107,10 @@ async function loadModeData() {
 }
 
 onSocket('live', (m) => {
-    if (m.mode !== modeView.key || m.mode !== 'aircraft') return;
+    if (m.mode !== modeView.key || !TRACKED[m.mode]) return;
     modeView.messages = m.messages;
-    for (const plane of m.aircraft || []) applyPlane(plane);
-    for (const icao of m.gone || []) removePlane(icao);
+    for (const o of m[TRACKED[m.mode].listKey] || []) applyTracked(o);
+    for (const id of m.gone || []) removeTracked(String(id));
     queueModeRender();
 });
 
@@ -137,7 +137,7 @@ onSocket('decoded', (m) => {
 
 function renderModeBody() {
     const body = document.getElementById('mode-body');
-    if (modeView.key === 'aircraft') return renderAircraft(body);
+    if (TRACKED[modeView.key]) return renderTracked(body);
     if (modeView.key === 'pager') body.innerHTML = pagerHtml();
     else if (modeView.key === 'sensors') body.innerHTML = sensorsHtml();
     else body.innerHTML = '';
@@ -213,104 +213,158 @@ async function toggleSensorHa(key, on) {
     toast(on ? `${key}: sensors in Home Assistant from its next reading` : `${key}: no longer sent to Home Assistant`, 'success');
 }
 
-// ---------------------------------------------------------------- aircraft
+// ---------------------------------------------------------------- aircraft and ships on the map
 
-const planeLayers = new Map();  // ICAO address → {marker, trail}
+// What differs between the modes that put things on the map
+const TRACKED = {
+    aircraft: {
+        listKey: 'aircraft', noun: 'aircraft',
+        id: p => p.icao,
+        label: p => p.flight || p.registration || p.icao.toUpperCase(),
+        colour: p => altitudeColour(p.ground ? 0 : p.altitude),
+        icon: (p, colour, selected) => planeIcon(p.track, colour, selected),
+        look: p => Math.round(p.track || 0),
+        search: p => [p.flight, p.registration, p.type, p.icao, p.squawk],
+        liveHtml: aircraftRows, historyHtml: aircraftHistoryRows,
+        empty: 'No aircraft in view yet. With a 1090 MHz antenna (or the stock one high and outside) they come in within a minute.',
+        gone: 'Aircraft are listed here when they have gone out of reach.',
+    },
+    ships: {
+        listKey: 'ships', noun: 'ships',
+        id: s => String(s.mmsi),
+        label: s => s.name || s.callsign || String(s.mmsi),
+        colour: s => shipColour(s),
+        icon: (s, colour, selected) => shipIcon(s, colour, selected),
+        look: s => `${Math.round(s.heading ?? s.course ?? 0)}|${(s.speed || 0) < 0.5}`,
+        search: s => [s.name, s.callsign, s.mmsi, s.destination, s.kind],
+        liveHtml: shipRows, historyHtml: shipHistoryRows,
+        empty: 'No ships heard yet. Near a waterway or the coast they come in within a few minutes; inland ships send every few seconds while sailing.',
+        gone: 'Ships are listed here when they have not been heard for a quarter of an hour.',
+    },
+};
+const tracked = () => TRACKED[modeView.key];
+const trackLayers = new Map();  // id → {marker, trail, look}
 
-function applyPlane(p) {
-    const known = modeView.planes.get(p.icao);
-    const plane = {...(known || {}), ...p};
-    if (p.trail) plane.trail = p.trail;
+function applyTracked(o) {
+    const cfg = tracked();
+    const id = cfg.id(o);
+    const known = modeView.planes.get(id);
+    const thing = {...(known || {}), ...o};
+    if (o.trail) thing.trail = o.trail;
     else {
-        plane.trail = known ? known.trail || [] : [];
-        if (p.point) {
-            const last = plane.trail[plane.trail.length - 1];
-            if (!last || last[0] !== p.point[0] || last[1] !== p.point[1]) plane.trail = [...plane.trail, p.point].slice(-400);
+        thing.trail = known ? known.trail || [] : [];
+        if (o.point) {
+            const last = thing.trail[thing.trail.length - 1];
+            if (!last || last[0] !== o.point[0] || last[1] !== o.point[1]) thing.trail = [...thing.trail, o.point].slice(-400);
         }
     }
-    delete plane.point;
-    modeView.planes.set(p.icao, plane);
-    drawPlane(plane);
+    delete thing.point;
+    modeView.planes.set(id, thing);
+    drawTracked(thing);
 }
 
-function planeLabel(p) { return p.flight || p.registration || p.icao.toUpperCase(); }
-
-function drawPlane(p) {
-    const map = modeMap.map;
-    if (!map || p.lat === undefined) return;
-    const colour = altitudeColour(p.ground ? 0 : p.altitude);
-    let layers = planeLayers.get(p.icao);
+function drawTracked(o) {
+    const map = modeMap.map, cfg = tracked();
+    if (!map || !cfg || o.lat === undefined) return;
+    const id = cfg.id(o);
+    const colour = cfg.colour(o);
+    const selected = modeView.selected === id;
+    let layers = trackLayers.get(id);
     if (!layers) {
         layers = {
-            marker: L.marker([p.lat, p.lon], {icon: planeIcon(p.track, colour, false), keyboard: false})
+            marker: L.marker([o.lat, o.lon], {icon: cfg.icon(o, colour, false), keyboard: false})
                 .bindTooltip('', {permanent: true, direction: 'right', offset: [10, 0], className: 'plane-label'})
-                .on('click', () => selectPlane(p.icao, false)).addTo(map),
+                .on('click', () => selectTracked(id, false)).addTo(map),
             trail: L.polyline([], {weight: 2, opacity: 0.75, interactive: false}).addTo(map),
             look: '',
         };
-        planeLayers.set(p.icao, layers);
+        trackLayers.set(id, layers);
     }
-    layers.marker.setLatLng([p.lat, p.lon]);
-    const look = `${Math.round(p.track || 0)}|${colour}|${modeView.selected === p.icao}`;
+    layers.marker.setLatLng([o.lat, o.lon]);
+    const look = `${cfg.look(o)}|${colour}|${selected}`;
     if (layers.look !== look) {
-        layers.marker.setIcon(planeIcon(p.track, colour, modeView.selected === p.icao));
+        layers.marker.setIcon(cfg.icon(o, colour, selected));
         layers.look = look;
     }
-    layers.marker.setTooltipContent(escapeHtml(planeLabel(p)));
-    layers.trail.setLatLngs(p.trail.map(t => [t[0], t[1]]));
+    layers.marker.setTooltipContent(escapeHtml(cfg.label(o)));
+    layers.trail.setLatLngs(o.trail.map(t => [t[0], t[1]]));
     layers.trail.setStyle({color: colour});
 }
 
-function removePlane(icao) {
-    const layers = planeLayers.get(icao);
-    if (layers) { layers.marker.remove(); layers.trail.remove(); planeLayers.delete(icao); }
-    modeView.planes.delete(icao);
-    if (modeView.selected === icao) modeView.selected = null;
+function removeTracked(id) {
+    const layers = trackLayers.get(id);
+    if (layers) { layers.marker.remove(); layers.trail.remove(); trackLayers.delete(id); }
+    modeView.planes.delete(id);
+    if (modeView.selected === id) modeView.selected = null;
 }
 
 function clearPlanes() {
-    for (const icao of Array.from(planeLayers.keys())) removePlane(icao);
+    for (const id of Array.from(trackLayers.keys())) {
+        const layers = trackLayers.get(id);
+        layers.marker.remove(); layers.trail.remove();
+    }
+    trackLayers.clear();
     modeView.planes = new Map();
     modeView.selected = null;
 }
 
-function selectPlane(icao, pan) {
+function selectTracked(id, pan) {
     const before = modeView.selected;
-    modeView.selected = modeView.selected === icao ? null : icao;
-    for (const id of [before, modeView.selected]) {
-        const p = id && modeView.planes.get(id);
-        if (p) drawPlane(p);
+    modeView.selected = modeView.selected === id ? null : id;
+    for (const other of [before, modeView.selected]) {
+        const o = other && modeView.planes.get(other);
+        if (o) drawTracked(o);
     }
-    const p = modeView.planes.get(icao);
-    if (pan && p && p.lat !== undefined && modeView.selected) modeMap.map.panTo([p.lat, p.lon]);
+    const o = modeView.planes.get(id);
+    if (pan && o && o.lat !== undefined && modeView.selected) modeMap.map.panTo([o.lat, o.lon]);
     renderModeBody();
 }
 
-function renderAircraft(body) {
+function renderTracked(body) {
+    const cfg = tracked();
     if (!body.querySelector('.mode-split')) {
         body.innerHTML = `<div class="mode-split">
             <div class="map-slot" id="map-slot"></div>
             <div class="mode-list">
-                <div class="tabs inline-tabs list-tabs" id="aircraft-tabs" role="group" aria-label="Which aircraft"></div>
+                <div class="tabs inline-tabs list-tabs" id="tracked-tabs" role="group" aria-label="Which"></div>
                 <div class="mode-list-body" id="mode-list"></div>
             </div></div>`;
-        buildChips(document.getElementById('aircraft-tabs'), [{key: 'live', label: 'In view'}, {key: 'history', label: 'History'}],
-            modeView.list, (key) => { modeView.list = key; lsSet('aircraft_list', key); renderModeBody(); });
+        buildChips(document.getElementById('tracked-tabs'), [{key: 'live', label: 'In view'}, {key: 'history', label: 'History'}],
+            modeView.list, (key) => { modeView.list = key; lsSet('tracked_list', key); renderModeBody(); });
         ensureMap(document.getElementById('map-slot'));
-        for (const p of modeView.planes.values()) drawPlane(p);
+        for (const o of modeView.planes.values()) drawTracked(o);
     }
     setMapHome(modeView.location);
-    const tabs = document.getElementById('aircraft-tabs');
-    const live = tabs.querySelector('[data-key="live"]');
+    const live = document.querySelector('#tracked-tabs [data-key="live"]');
     if (live) live.textContent = `In view · ${modeView.planes.size}`;
-    document.getElementById('mode-list').innerHTML = modeView.list === 'history' ? aircraftHistoryHtml() : aircraftLiveHtml();
+    let html;
+    if (modeView.list === 'history') {
+        const items = modeView.items.filter(matchesSearch);
+        html = items.length ? cfg.historyHtml(items) : emptyHtml(modeView.search ? `No ${cfg.noun} match.` : cfg.gone);
+    } else {
+        const things = Array.from(modeView.planes.values()).filter(matchesSearch);
+        html = things.length ? cfg.liveHtml(things) : emptyHtml(modeView.search ? `No ${cfg.noun} match.` : cfg.empty);
+    }
+    document.getElementById('mode-list').innerHTML = html;
     renderModeHead();
 }
 
-function matchesSearch(p) {
+function matchesSearch(o) {
     const search = modeView.search.toLowerCase();
-    return !search || [p.flight, p.registration, p.type, p.icao, p.key, p.squawk].some(v => v && String(v).toLowerCase().includes(search));
+    const cfg = tracked();
+    return !search || [...cfg.search(o), o.key].some(v => v !== null && v !== undefined && String(v).toLowerCase().includes(search));
 }
+
+const withDistance = things => things.some(o => o.distance !== undefined);
+function sortByDistance(things, label) {
+    const has = withDistance(things);
+    return things.sort((a, b) => has ? (a.distance ?? 1e9) - (b.distance ?? 1e9) : label(a).localeCompare(label(b)));
+}
+const distanceCell = (o, has) => has ? `<td class="mono">${o.distance !== undefined ? `${num(o.distance, 0)} km` : ''}</td>` : '';
+const speedCourse = (speed, course, unit) => [speed !== undefined && speed !== null ? `${num(speed, unit === 'kn' && speed < 20 ? 1 : 0)} ${unit}` : '',
+    course !== undefined && course !== null ? `${num(course)}°` : ''].filter(Boolean).join(' · ');
+
+// ---------------------------------------------------------------- aircraft
 
 function squawkHtml(squawk) {
     if (!squawk) return '';
@@ -318,29 +372,23 @@ function squawkHtml(squawk) {
     return emergency ? `<span class="badge warn" title="${emergency}">${escapeHtml(squawk)}</span>` : escapeHtml(squawk);
 }
 
-function aircraftLiveHtml() {
-    let planes = Array.from(modeView.planes.values()).filter(matchesSearch);
-    if (!planes.length) {
-        return emptyHtml(modeView.search ? 'No aircraft match.' : 'No aircraft in view yet. With a 1090 MHz antenna (or the stock one high and outside) they come in within a minute.');
-    }
-    const hasDistance = planes.some(p => p.distance !== undefined);
-    planes.sort((a, b) => hasDistance ? (a.distance ?? 1e9) - (b.distance ?? 1e9) : planeLabel(a).localeCompare(planeLabel(b)));
-    return `<table class="data aircraft"><thead><tr><th>Flight</th><th>Altitude</th><th>Speed · track</th>${hasDistance ? '<th>Distance</th>' : ''}<th>Squawk</th><th>Seen</th></tr></thead><tbody>
-        ${planes.map(p => `<tr class="link${modeView.selected === p.icao ? ' on' : ''}" onclick="selectPlane('${p.icao}', true)">
-            <td><span class="plane-dot" style="background:${altitudeColour(p.ground ? 0 : p.altitude)}"></span><b>${escapeHtml(planeLabel(p))}</b>
-                <small class="muted mono">${escapeHtml([p.registration && p.registration !== planeLabel(p) ? p.registration : null, p.type, p.icao.toUpperCase()].filter(Boolean).join(' · '))}</small></td>
+function aircraftRows(planes) {
+    const label = TRACKED.aircraft.label, has = withDistance(planes);
+    sortByDistance(planes, label);
+    return `<table class="data aircraft"><thead><tr><th>Flight</th><th>Altitude</th><th>Speed · track</th>${has ? '<th>Distance</th>' : ''}<th>Squawk</th><th>Seen</th></tr></thead><tbody>
+        ${planes.map(p => `<tr class="link${modeView.selected === p.icao ? ' on' : ''}" onclick="selectTracked('${p.icao}', true)">
+            <td><span class="plane-dot" style="background:${TRACKED.aircraft.colour(p)}"></span><b>${escapeHtml(label(p))}</b>
+                <small class="muted mono">${escapeHtml([p.registration && p.registration !== label(p) ? p.registration : null, p.type, p.icao.toUpperCase()].filter(Boolean).join(' · '))}</small></td>
             <td class="mono">${p.ground ? 'ground' : p.altitude !== undefined && p.altitude !== null ? `${num(p.altitude)} ft${p.climb > 300 ? ' ↑' : p.climb < -300 ? ' ↓' : ''}` : ''}</td>
-            <td class="mono">${[p.speed !== undefined && p.speed !== null ? `${num(p.speed)} kt` : '', p.track !== undefined && p.track !== null ? `${num(p.track)}°` : ''].filter(Boolean).join(' · ')}</td>
-            ${hasDistance ? `<td class="mono">${p.distance !== undefined ? `${num(p.distance, 0)} km` : ''}</td>` : ''}
+            <td class="mono">${speedCourse(p.speed, p.track, 'kt')}</td>
+            ${distanceCell(p, has)}
             <td class="mono">${squawkHtml(p.squawk)}</td>
             <td class="mono" title="${p.lat === undefined ? 'No position heard yet' : `signal ${num(p.rssi, 0)} dBFS · ${num(p.messages)} messages`}">${fmtAgo(p.seen)}${p.lat === undefined ? ' · no position' : ''}</td>
         </tr>`).join('')}
     </tbody></table>`;
 }
 
-function aircraftHistoryHtml() {
-    const items = modeView.items.filter(matchesSearch);
-    if (!items.length) return emptyHtml(modeView.search ? 'No aircraft match.' : 'Aircraft are listed here when they have gone out of reach.');
+function aircraftHistoryRows(items) {
     const altitudes = i => i.alt_min === null || i.alt_min === undefined ? '' : i.alt_min === i.alt_max ? `${num(i.alt_min)} ft` : `${num(i.alt_min)}–${num(i.alt_max)} ft`;
     return `<table class="data aircraft"><thead><tr><th>Heard</th><th>Flight</th><th>Altitude</th><th>Positions</th><th>Squawk</th></tr></thead><tbody>
         ${items.map(i => `<tr>
@@ -354,6 +402,35 @@ function aircraftHistoryHtml() {
     </tbody></table>`;
 }
 
+// ---------------------------------------------------------------- ships
+
+function shipRows(ships) {
+    const label = TRACKED.ships.label, has = withDistance(ships);
+    sortByDistance(ships, label);
+    return `<table class="data aircraft"><thead><tr><th>Ship</th><th>Speed · course</th><th>Destination</th>${has ? '<th>Distance</th>' : ''}<th>Seen</th></tr></thead><tbody>
+        ${ships.map(s => `<tr class="link${modeView.selected === String(s.mmsi) ? ' on' : ''}" onclick="selectTracked('${s.mmsi}', true)">
+            <td><span class="plane-dot" style="background:${shipColour(s)}"></span><b>${escapeHtml(label(s))}</b>
+                <small class="muted mono">${escapeHtml([s.kind || (s.base_station ? 'base station' : s.aid !== undefined ? 'aid to navigation' : null), s.callsign, s.length ? `${s.length} m` : null, s.mmsi].filter(Boolean).join(' · '))}</small></td>
+            <td class="mono">${(s.speed || 0) < 0.5 && s.status ? escapeHtml(s.status) : speedCourse(s.speed, s.course, 'kn')}</td>
+            <td>${escapeHtml(s.destination || '')}</td>
+            ${distanceCell(s, has)}
+            <td class="mono" title="${s.lat === undefined ? 'No position heard yet' : `${num(s.messages)} messages${s.class === 'B' ? ' · class B' : ''}`}">${fmtAgo(s.seen)}${s.lat === undefined ? ' · no position' : ''}</td>
+        </tr>`).join('')}
+    </tbody></table>`;
+}
+
+function shipHistoryRows(items) {
+    return `<table class="data aircraft"><thead><tr><th>Heard</th><th>Ship</th><th>Destination</th><th>Positions</th></tr></thead><tbody>
+        ${items.map(i => `<tr>
+            <td class="mono">${i.first ? `${timeOf(i.first)} – ${fmtTime(i.seen)}` : timeOf(i.ts)}</td>
+            <td><b>${escapeHtml(i.name || i.callsign || i.key)}</b>
+                <small class="muted mono">${escapeHtml([i.kind, i.callsign, i.key].filter(Boolean).join(' · '))}</small></td>
+            <td>${escapeHtml(i.destination || '')}</td>
+            <td class="mono">${num(i.positions || 0)}</td>
+        </tr>`).join('')}
+    </tbody></table>`;
+}
+
 // ---------------------------------------------------------------- search and clear
 
 function initModes() {
@@ -361,19 +438,19 @@ function initModes() {
     let timer = null;
     search.addEventListener('input', () => {
         modeView.search = search.value.trim();
-        if (modeView.key === 'sensors' || (modeView.key === 'aircraft' && modeView.list === 'live')) return renderModeBody();
+        if (modeView.key === 'sensors' || (TRACKED[modeView.key] && modeView.list === 'live')) return renderModeBody();
         clearTimeout(timer);
         timer = setTimeout(loadModeData, 300);
     });
     document.getElementById('mode-select').addEventListener('change', (e) => chooseMode(e.target.value));
     // Keep "heard … ago" current
     setInterval(() => { if (activeTab === 'radio' && modeView.key === 'sensors') renderModeBody(); }, 15000);
-    setInterval(() => { if (activeTab === 'radio' && modeView.key === 'aircraft') renderModeBody(); }, 5000);
+    setInterval(() => { if (activeTab === 'radio' && TRACKED[modeView.key]) renderModeBody(); }, 5000);
 }
 
 function clearModeData() {
     const key = modeView.key;
-    const what = key === 'sensors' ? 'every reading of every device' : key === 'aircraft' ? 'the history of the aircraft' : 'every message';
+    const what = key === 'sensors' ? 'every reading of every device' : TRACKED[key] ? `the history of the ${TRACKED[key].noun}` : 'every message';
     confirmModal('Clear', `Delete ${what} of this mode from the database?`, 'Delete', async () => {
         await api(`decoded?mode=${key}`, {method: 'DELETE'});
         modeView.items = [];

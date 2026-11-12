@@ -73,3 +73,31 @@ function planeIcon(track, colour, selected) {
         iconSize: [26, 26], iconAnchor: [13, 13],
     });
 }
+
+// A ship's colour by its kind, as ship trackers colour them
+function shipColour(s) {
+    const code = s.ship_type || 0, tens = Math.floor(code / 10);
+    if (s.base_station || s.aid !== undefined) return '#607d8b';
+    if (tens === 7) return '#4caf50';           // cargo
+    if (tens === 8) return '#e53935';           // tanker
+    if (tens === 6) return '#1e88e5';           // passenger
+    if (code === 30) return '#ff9800';          // fishing
+    if (code === 36 || code === 37) return '#ab47bc';  // sailing, pleasure craft
+    if ([31, 32, 50, 51, 52, 53, 55, 58].includes(code)) return '#00acc1';  // tugs, pilots, rescue, authorities
+    if (tens === 4) return '#fdd835';           // high speed craft
+    return '#9e9e9e';
+}
+
+const SHIP_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l5 7.5v11.5H7V10z"/></svg>';
+const MOORED_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5.5"/></svg>';
+
+// Pointing where it sails (heading, else course); a circle when it lies still
+function shipIcon(s, colour, selected) {
+    const still = (s.speed || 0) < 0.5;
+    const angle = Math.round(s.heading ?? s.course ?? 0);
+    return L.divIcon({
+        className: 'plane-icon ship-icon' + (selected ? ' selected' : ''),
+        html: `<span style="transform: rotate(${still ? 0 : angle}deg); color: ${colour}">${still ? MOORED_SVG : SHIP_SVG}</span>`,
+        iconSize: [22, 22], iconAnchor: [11, 11],
+    });
+}
