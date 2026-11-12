@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+**After updating:** nothing to do.
+
+- **Theme:** the separate light and dark buttons are one button that cycles **auto** (follows Home Assistant's light or dark mode), **light** and **dark**, as in the other apps. SDRadio still starts light; a choice made before stays.
+
 ## 0.2.0
 
 **Modes:** next to Listen in the top bar, **Mode** sets the radio up for one kind of signal and decodes what it hears, with its own view in place of the favourites and stored channels. Only the modes your receiver can use show up; the radio stays usable meanwhile.
