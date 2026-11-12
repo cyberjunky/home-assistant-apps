@@ -93,6 +93,29 @@ def test_channel_scan_stops_on_the_busy_channel(radio):
     assert radio.scan.kind == ""
 
 
+def test_skip_goes_on_past_the_busy_channel(radio):
+    db = radio.db
+    db.save_channel({"name": "Quiet", "frequency": 145_300_000, "mode": "nfm"})
+    db.save_channel({"name": "Busy", "frequency": 145_500_000, "mode": "nfm"})
+    db.save_channel({"name": "Quiet 2", "frequency": 145_400_000, "mode": "nfm"})
+    radio.command("tune", frequency=145_250_000)
+    radio.command("set", squelch=-60)
+    radio.command("scan", action="start", kind="channels")
+    run(radio, 60)
+    assert radio.frequency == 145_500_000 and radio.signal is not None
+    radio.command("scan", action="skip")
+    run(radio, 1)
+    assert radio.scan.kind == "channels" and radio.frequency != 145_500_000
+    assert [p for k, p in radio.events if k == "hit"]  # the transmission it left is logged
+    # A held channel goes on too, and the hold is off
+    radio.command("scan", action="hold")
+    run(radio, 1)
+    held = radio.frequency
+    radio.command("scan", action="skip")
+    run(radio, 1)
+    assert not radio.scan.hold and radio.frequency != held
+
+
 def test_band_scan_skips_ignored_and_finds_signal(radio):
     radio.command("set", squelch=-60)
     radio.db.ignore(145_487_500)

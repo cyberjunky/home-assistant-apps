@@ -80,14 +80,15 @@ Channels page. Under the list, **M+** stores and **◀ ▶** step through the st
 Pick what to scan under the keypad, then press **SCAN**:
 - **Channels**: the stored channels that are in the scan, of this band when the list shows *This band*, otherwise all.
 - **Band**: every step of the band you are in (from the band plan on the Settings page).
-- **Range…**: a range of your own, with its step and mode.
+- **Range…**: a range of your own, with its step and mode. *Fill in* puts the band you are in there, to narrow down from.
 
 The scan stops on every signal above the squelch and stays while it lasts; after the
 **Resume after** time of quiet it moves on. With the squelch off, it stops on a signal 10 dB
 above the noise, and it never stops on a signal less than 6 dB above the noise, so a squelch
 set too low doesn't stop it on every channel.
 
-- **HOLD** stays on the current channel until you press it again.
+- **SCAN** on a signal (the key then reads *NEXT*) goes on to the next channel without waiting; pressed while the scan is stepping, it stops the scan. Tuning anywhere stops it too.
+- **HOLD** stays on the current channel until you press it again, or until SCAN goes on.
 - **L/O** (lock out) takes a stored channel out of the scans, or ignores a frequency that isn't stored in band and range scans; press it again to undo.
 - **PRI** (priority): channels marked *Priority* on the Channels page are checked every few seconds while you listen elsewhere, and between the other channels while scanning. When one is busy, the radio goes there and comes back after.
 

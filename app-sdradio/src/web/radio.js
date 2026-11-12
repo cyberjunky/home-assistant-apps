@@ -145,7 +145,7 @@ const SCAN_KEYS = [
 ];
 const KEY_TITLES = {
     MODE: 'Next mode', BAND: 'Next band', STEP: 'Next tuning step', CLR: 'Clear the entry', MHz: 'Tune to the frequency typed',
-    SCAN: 'Start or stop scanning', HOLD: 'Stay on this channel while scanning', PRI: 'Priority: check the priority channels every few seconds',
+    SCAN: 'Start or stop scanning; on a signal it goes on to the next channel', HOLD: 'Stay on this channel while scanning', PRI: 'Priority: check the priority channels every few seconds',
     'L/O': 'Lock this channel out of scans (or ignore this frequency)',
 };
 
@@ -219,8 +219,11 @@ function radioKeys(e) {
     else if (e.key === 'PageDown') { radioCommand('step_tune', {steps: -10}); e.preventDefault(); }
 }
 
+// SCAN starts, goes on past the signal it stopped on (or the held channel), and stops a scan that is stepping
+function scanWouldSkip(s) { return !!(s.scan && (s.busy || s.scan.hold)); }
 function toggleScan() {
     const s = app.state || {};
+    if (scanWouldSkip(s)) return radioCommand('scan', {action: 'skip'});
     if (s.scan) return radioCommand('scan', {action: 'stop'});
     startScan();
 }
@@ -244,7 +247,11 @@ function restartScan() {
 }
 function renderScanKey() {
     const key = document.querySelector('#scan-keys [data-key="scan"]');
-    if (key) key.innerHTML = `SCAN<small>${{channels: 'CH', band: 'BAND', range: 'RANGE'}[radio.scanSource] || 'CH'}</small>`;
+    if (!key) return;
+    const next = scanWouldSkip(app.state || {});
+    const html = `SCAN<small>${next ? 'NEXT' : {channels: 'CH', band: 'BAND', range: 'RANGE'}[radio.scanSource] || 'CH'}</small>`;
+    if (key.innerHTML !== html) key.innerHTML = html;
+    key.title = next ? 'Go on to the next channel (stop the scan by tuning anywhere)' : KEY_TITLES.SCAN;
 }
 
 function toggleSetting(key) {
@@ -375,6 +382,7 @@ function renderControls() {
             : key === 'lo' ? (s.channel && !s.channel.scan) || s.ignored : false;
         b.classList.toggle('on', !!on);
     });
+    renderScanKey();
     const hint = document.getElementById('spectrum-hint');
     const hintText = s.sweep
         ? `Band view of ${s.sweep.label}: the receiver sweeps the band, so the radio is silent · click a station to listen`
@@ -540,6 +548,7 @@ function editCurrentChannel() {
 
 function openRangeModal() {
     const r = (app.settings && app.settings.scan_range) || {start: 144e6, stop: 146e6, step: 12500, mode: 'nfm'};
+    const band = currentBand();
     const modes = Object.keys(app.modes).map(m => `<option value="${m}"${m === r.mode ? ' selected' : ''}>${modeLabel(m)}</option>`).join('');
     openModal('Scan range', `
         <div class="form-grid">
@@ -548,7 +557,8 @@ function openRangeModal() {
             <div class="form-field"><label for="rg-step">Step (kHz)</label><input id="rg-step" class="input mono" value="${r.step / 1000}"></div>
             <div class="form-field"><label for="rg-mode">Mode</label><select id="rg-mode" class="input">${modes}</select></div>
         </div>
-        <p class="panel-sub">SCAN then steps through this range and stops on every signal above the squelch.</p>`, [
+        <p class="panel-sub">SCAN then steps through this range and stops on every signal above the squelch.${band
+            ? ` <button type="button" class="btn btn-small" onclick="fillRangeFromBand()">Fill in ${escapeHtml(band.name)}</button>` : ''}</p>`, [
         {label: 'Cancel'},
         {label: 'Save', cls: 'btn-primary', action: async () => {
             const value = {
@@ -561,6 +571,20 @@ function openRangeModal() {
             restartScan();
         }},
     ]);
+}
+
+function currentBand() {
+    const s = app.state || {};
+    return (app.bands || []).find(b => b.name === s.band) || null;
+}
+// The band the radio is in, as the range (to narrow down from there)
+function fillRangeFromBand() {
+    const band = currentBand();
+    if (!band) return;
+    document.getElementById('rg-start').value = fmtMHz(band.start);
+    document.getElementById('rg-stop').value = fmtMHz(band.stop);
+    document.getElementById('rg-step').value = band.step / 1000;
+    document.getElementById('rg-mode').value = band.mode;
 }
 
 // The waterfall fills the screen below it, so the whole radio fits without scrolling

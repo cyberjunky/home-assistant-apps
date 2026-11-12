@@ -347,7 +347,10 @@ class Radio:
         elif action == "hold":
             self.scan.hold = not self.scan.hold
         elif action == "skip" and self.scan.kind:
-            self._end_signal(self._clock())
+            # Go on past a signal (or a held channel) to the next one
+            self.scan.hold = False
+            if self.signal is not None:
+                self._end_signal(self._clock())
             self._next_target()
 
     def _cmd_priority(self, on=None) -> None:
