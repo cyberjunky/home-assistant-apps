@@ -11,7 +11,7 @@ ENV S6_SERVICES_GRACETIME=8000
 # Python with numpy, scipy and the SoapySDR bindings, from Alpine (built for musl)
 RUN apk add --no-cache python3 py3-pip py3-numpy py3-scipy soapy-sdr py3-soapy-sdr libusb fftw
 
-# SoapySDR drivers, built against Alpine's SoapySDR: RTL-SDR, HackRF and rtl_tcp (as in the Meldkamer app)
+# SoapySDR drivers, built against Alpine's SoapySDR: RTL-SDR, HackRF and rtl_tcp
 RUN apk add --no-cache --virtual build-deps alpine-sdk cmake git libusb-dev soapy-sdr-dev fftw-dev && \
     cd /tmp && \
     git clone --depth 1 https://gitea.osmocom.org/sdr/rtl-sdr.git && \

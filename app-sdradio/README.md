@@ -76,8 +76,8 @@ Alternatively:
 
 All options, and how scanning, channels and backups work: [DOCS.md](DOCS.md).
 
-One receiver serves one app at a time: SDRadio and Meldkamer can't share a dongle, unless one of
-them uses it through `rtl_tcp`.
+One receiver serves one app at a time: two apps can't share a dongle, unless one of them uses it
+through `rtl_tcp`.
 
 ### 🌟 Ways to Support
 

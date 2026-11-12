@@ -8,25 +8,25 @@ from src.config import Config
 def test_defaults():
     config = Config.from_dict({"receiver": {"type": "rtl-sdr"}, "tune": {"frequency": 145.5, "mode": "nfm"}})
     assert config.tune.frequency == 145_500_000
-    assert config.receiver.device_args() == {"driver": "rtlsdr"}
+    assert config.receiver.device_args() == "driver=rtlsdr"
     assert config.public()["tune"]["frequency"] == 145.5
 
 
 def test_device_args():
     hackrf = Config.from_dict({"receiver": {"type": "hackrf"}, "tune": {"frequency": 1, "mode": "am"}})
-    assert hackrf.receiver.device_args() == {"driver": "hackrf"}
+    assert hackrf.receiver.device_args() == "driver=hackrf"
     network = Config.from_dict(
         {
             "receiver": {"type": "network", "network_host": "10.0.0.2", "network_port": 1235},
             "tune": {"frequency": 1, "mode": "am"},
         }
     )
-    assert network.receiver.device_args() == {"driver": "rtltcp", "rtltcp": "10.0.0.2:1235"}
+    assert network.receiver.device_args() == "driver=rtltcp,rtltcp=10.0.0.2:1235"
     assert (
         Config.from_dict(
             {"receiver": {"type": "soapysdr"}, "tune": {"frequency": 1, "mode": "am"}}
         ).receiver.device_args()
-        == {}
+        == ""
     )
 
 
