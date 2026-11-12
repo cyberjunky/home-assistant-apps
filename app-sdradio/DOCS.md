@@ -114,7 +114,7 @@ frequency or change how it listens is off meanwhile: SCAN, HOLD, PRI, L/O, MODE,
 the filter and the scan speed. Mode → Radio brings them back.
 
 - **Pager**: POCSAG (512, 1200 and 2400 baud) and FLEX messages, decoded by multimon-ng from
-  the radio's own NFM audio. 169.65 MHz is P2000, the Dutch emergency services. Search the
+  the radio's own NFM audio. 169.65 MHz is P2000, the Dutch emergency services; Settings → Modes has the other networks to pick (KPN Nationaal 1 and 2, KPN Benelux, DAPNET), which set the frequency and protocols. Search the
   messages by text or capcode. With **Pager events** on, every message is an `sdradio_pager`
   event in Home Assistant.
 - **Sensors**: weather stations, thermometers, doorbells, remotes and meters, decoded by rtl_433

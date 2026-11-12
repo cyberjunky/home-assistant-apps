@@ -217,13 +217,24 @@ function toggleAllBands(e) {
 
 const PAGER_PROTOCOLS = ['FLEX', 'POCSAG512', 'POCSAG1200', 'POCSAG2400'];
 const SENSOR_FREQUENCIES = [433.92, 868.3, 868.95, 915, 315, 345];
+// Pager networks (as SDR Studio has them): a network sets the frequency and the protocols
+const PAGER_NETWORKS = [
+    {name: 'P2000 (emergency services, NL)', frequency: 169_650_000, protocols: ['FLEX']},
+    {name: 'KPN Nationaal 1', frequency: 154_987_500, protocols: ['POCSAG512', 'POCSAG1200', 'POCSAG2400']},
+    {name: 'KPN Nationaal 2', frequency: 159_990_000, protocols: ['POCSAG512', 'POCSAG1200', 'POCSAG2400']},
+    {name: 'KPN Benelux / Entropia', frequency: 164_350_000, protocols: ['POCSAG512', 'POCSAG1200', 'POCSAG2400']},
+    {name: 'DAPNET (radio amateurs)', frequency: 439_987_500, protocols: ['POCSAG1200']},
+];
 
 function modeSettingsHtml(ha) {
     const pager = app.settings.mode_pager || {}, sensors = app.settings.mode_sensors || {}, aprs = app.settings.mode_aprs || {};
     const acars = app.settings.mode_acars || {};
     const mhz = hz => +(hz / 1e6).toFixed(6);
     return `
-        ${setRow('Pager frequency', 'MHz; 169.65 is P2000, the Dutch emergency services (FLEX)',
+        ${setRow('Pager network', 'sets the frequency and the protocols; or type your own below',
+            `<select class="select" id="mode-pager-network">${PAGER_NETWORKS.map((n, i) => `<option value="${i}"${n.frequency === pager.frequency ? ' selected' : ''}>${escapeHtml(n.name)} · ${mhz(n.frequency)}</option>`).join('')}
+             ${PAGER_NETWORKS.some(n => n.frequency === pager.frequency) ? '' : '<option value="" selected>Other</option>'}</select>`, 'mode-pager-network')}
+        ${setRow('Pager frequency', 'MHz; any frequency, also one not in the list',
             `<input class="input mono" id="mode-pager-frequency" value="${mhz(pager.frequency)}" inputmode="decimal">`, 'mode-pager-frequency')}
         ${setRow('Pager protocols', 'FLEX, and POCSAG at 512, 1200 and 2400 baud',
             `<span class="checks" style="margin:0">${PAGER_PROTOCOLS.map(p => `<label><input type="checkbox" data-pager-protocol="${p}"${(pager.protocols || []).includes(p) ? ' checked' : ''}> ${p.replace('POCSAG', '')}</label>`).join('')}</span>`)}
@@ -254,6 +265,13 @@ function bindModeSettings() {
         });
     };
     frequency('mode-pager-frequency', 'pager');
+    const network = document.getElementById('mode-pager-network');
+    if (network) network.addEventListener('change', async () => {
+        const n = PAGER_NETWORKS[+network.value];
+        if (!n) return;
+        await saveMode('pager', {frequency: n.frequency, protocols: n.protocols});
+        renderSettings();
+    });
     frequency('mode-sensors-frequency', 'sensors');
     frequency('mode-aprs-frequency', 'aprs');
     const acars = document.getElementById('mode-acars-channels');
