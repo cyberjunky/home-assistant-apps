@@ -59,6 +59,12 @@ Toon needs the SSH details of your Toon; the other options cover the history imp
 samples are kept and the MQTT broker. See [DOCS.md](DOCS.md) for every option, how it works
 and what the dashboard shows.
 
+## Toon tweaks
+
+Optional changes on the Toon itself, so that its Wi-Fi comes back by itself after a drop: a
+Wi-Fi watchdog in place of the daily reboot, and Wi-Fi driver options. See
+[toontweaks](toontweaks/README.md) for what they do and how to install them.
+
 ## Disclaimer
 
 This app is an independent project. It is not affiliated with, endorsed by or sponsored by
