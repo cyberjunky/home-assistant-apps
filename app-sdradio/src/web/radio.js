@@ -88,11 +88,17 @@ function initRadio() {
     buildKeypad();
     const sources = [{key: 'channels', label: 'Channels'}, {key: 'band', label: 'Band'}, {key: 'range', label: 'Range…'}];
     radio.scanSource = lsGet('scan_source', 'channels');
+    const sourceTitles = {channels: 'SCAN steps through the stored channels', band: 'SCAN steps through the current band',
+        range: 'SCAN steps through a range of your own (click to set it)'};
     buildChips(document.getElementById('scan-source'), sources, radio.scanSource, (key) => {
         radio.scanSource = key;
         lsSet('scan_source', key);
+        renderScanKey();
         if (key === 'range') openRangeModal();
+        else restartScan();
     });
+    document.querySelectorAll('#scan-source [data-key]').forEach(b => { b.title = sourceTitles[b.dataset.key]; });
+    renderScanKey();
 
     const freq = document.getElementById('lcd-freq');
     freq.addEventListener('wheel', (e) => {
@@ -102,7 +108,10 @@ function initRadio() {
         const delta = Math.pow(10, Number(digit.dataset.p)) * (e.deltaY < 0 ? 1 : -1);
         radioCommand('tune', {frequency: Math.max(10000, app.state.frequency + delta)});
     }, {passive: false});
-    freq.addEventListener('click', () => { if (radio.entry === null) startEntry(''); });
+    freq.addEventListener('click', () => { if (radio.entry === null) startEntry(''); else if (radio.entry === '') cancelEntry(); });
+    document.addEventListener('pointerdown', (e) => {
+        if (radio.entry !== null && !e.target.closest('#lcd-freq, #keypad')) cancelEntry();
+    });
 
     document.getElementById('chlist-search').addEventListener('input', () => renderChannelList(true));
     const filter = document.getElementById('chlist-filter');
@@ -160,22 +169,36 @@ function buildKeys(pad, keys) {
 }
 
 // Typing a frequency: on the keypad or the keyboard, in MHz
+const ENTRY_TIMEOUT = 10000;
 function startEntry(text) {
     radio.entry = text;
+    radio.entryFrequency = app.state ? app.state.frequency : null;
+    entryTimer();
     renderLcd();
 }
 function typeDigit(d) {
-    if (radio.entry === null) radio.entry = '';
+    if (radio.entry === null) return startEntry(d === '.' ? '0.' : d);
     if (d === '.' && radio.entry.includes('.')) return;
     if (radio.entry.length >= 11) return;
     radio.entry += d;
+    entryTimer();
     renderLcd();
 }
-function cancelEntry() { radio.entry = null; renderLcd(); }
+// An entry left alone is dropped, as on a scanner
+function entryTimer() {
+    clearTimeout(radio.entryTimeout);
+    radio.entryTimeout = setTimeout(cancelEntry, ENTRY_TIMEOUT);
+}
+function cancelEntry() {
+    clearTimeout(radio.entryTimeout);
+    if (radio.entry === null) return;
+    radio.entry = null;
+    renderLcd();
+}
 function commitEntry() {
     if (radio.entry === null || radio.entry === '' || radio.entry === '.') return cancelEntry();
     const mhz = parseFloat(radio.entry);
-    radio.entry = null;
+    cancelEntry();
     if (!(mhz > 0) || mhz > 6000) { toast('Type a frequency in MHz, 0.01 to 6000', 'error'); return renderLcd(); }
     radioCommand('tune', {frequency: Math.round(mhz * 1e6)});
     renderLcd();
@@ -188,7 +211,7 @@ function radioKeys(e) {
     else if (e.key === '.' || e.key === ',') { typeDigit('.'); e.preventDefault(); }
     else if (e.key === 'Enter' && radio.entry !== null) { commitEntry(); e.preventDefault(); }
     else if (e.key === 'Escape' && radio.entry !== null) { cancelEntry(); e.preventDefault(); }
-    else if (e.key === 'Backspace' && radio.entry) { radio.entry = radio.entry.slice(0, -1); renderLcd(); e.preventDefault(); }
+    else if (e.key === 'Backspace' && radio.entry) { radio.entry = radio.entry.slice(0, -1); entryTimer(); renderLcd(); e.preventDefault(); }
     else if (e.target.closest('.knob')) { /* the knob handles its own keys */ }
     else if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { radioCommand('step_tune', {steps: 1}); e.preventDefault(); }
     else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { radioCommand('step_tune', {steps: -1}); e.preventDefault(); }
@@ -199,6 +222,11 @@ function radioKeys(e) {
 function toggleScan() {
     const s = app.state || {};
     if (s.scan) return radioCommand('scan', {action: 'stop'});
+    startScan();
+}
+// Starting replaces a scan that is running
+function startScan() {
+    const s = app.state || {};
     const source = radio.scanSource || 'channels';
     if (source === 'channels') {
         const filter = document.getElementById('chlist-filter').value;
@@ -208,6 +236,15 @@ function toggleScan() {
     } else {
         radioCommand('scan', {action: 'start', kind: 'range'});
     }
+}
+
+// Choosing what to scan while scanning switches the scan over
+function restartScan() {
+    if (app.state && app.state.scan) startScan();
+}
+function renderScanKey() {
+    const key = document.querySelector('#scan-keys [data-key="scan"]');
+    if (key) key.innerHTML = `SCAN<small>${{channels: 'CH', band: 'BAND', range: 'RANGE'}[radio.scanSource] || 'CH'}</small>`;
 }
 
 function toggleSetting(key) {
@@ -235,6 +272,8 @@ function renderLcd() {
     const s = app.state;
     if (!s) return;
     const freq = document.getElementById('lcd-freq');
+    // Tuned some other way (waterfall, dial, scan): the display follows the radio again
+    if (radio.entry !== null && s.frequency !== radio.entryFrequency) { radio.entry = null; clearTimeout(radio.entryTimeout); }
     if (radio.entry !== null) {
         freq.classList.add('entry');
         freq.textContent = radio.entry;
@@ -467,6 +506,7 @@ function openRangeModal() {
                 mode: document.getElementById('rg-mode').value,
             };
             await saveSetting('scan_range', value, true);
+            restartScan();
         }},
     ]);
 }

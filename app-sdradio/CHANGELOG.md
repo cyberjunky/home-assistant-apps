@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3
+
+- **The display follows the radio:** after typing (part of) a frequency, tuning another way (the waterfall, the dial, a scan) showed the typed digits with a blinking cursor instead of the new frequency. Typing now ends when the radio tunes elsewhere, when you click outside the display and keypad, or after 10 seconds without a key; clicking the display a second time closes it too.
+- **What to scan shows:** the SCAN key says what it scans (CH, BAND or RANGE), the Channels, Band and Range… buttons explain themselves on hover, and choosing one while scanning switches the scan over.
+
 ## 0.1.2
 
 - **The RTL-SDR and HackRF open again:** 0.1.1 couldn't open a receiver it had found and said it was busy (`Device::make() no match`). The receiver was never busy: the app passed its settings to SoapySDR in a form the Alpine version doesn't read.
