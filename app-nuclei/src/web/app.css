@@ -1,4 +1,4 @@
-/* Light by default; the theme button cycles auto (follows Home Assistant), light and dark, and remembers it */
+/* Follows Home Assistant's light or dark mode by default; the theme button cycles auto, light and dark, and remembers it */
 :root {
   color-scheme: light;
   --bg: #f3f5f7; --card: #ffffff; --line: #e1e5ea; --grid: #eef1f4;

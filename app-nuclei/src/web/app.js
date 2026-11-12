@@ -26,8 +26,8 @@ function sevBadge(s) { return `<span class="sev ${s}">${s}</span>`; }
 const THEME_ICONS = {auto: '🌓', light: '☀️', dark: '🌙'};
 let themeChoice = new URLSearchParams(window.location.search).get('theme');
 try { themeChoice = themeChoice || localStorage.getItem('nuclei_theme'); } catch (e) { /* only a convenience */ }
-// Nuclei starts in the light theme; auto and dark are a click away
-if (!THEME_ICONS[themeChoice]) themeChoice = 'light';
+// Like the other apps, it follows Home Assistant until another choice is made
+if (!THEME_ICONS[themeChoice]) themeChoice = 'auto';
 function haDarkMode() {
   try {
     const ha = window.parent !== window && window.parent.document.querySelector('home-assistant');
