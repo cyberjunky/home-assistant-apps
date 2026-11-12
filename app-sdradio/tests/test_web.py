@@ -93,3 +93,11 @@ async def test_websocket_streams_and_commands(client):
     assert kinds >= {1, 2}
     assert frequency == 145_600_000
     await ws.close()
+
+
+async def test_the_page_escapes_quotes(client):
+    """Values go into attributes and inline handlers (a sensor's key, an APRS call): escapeHtml must
+    escape quotes too, or the handler is cut off (a Home Assistant tick that never saved)."""
+    js = await (await client.get("/web/core.js")).text()
+    body = js.split("function escapeHtml(text) {", 1)[1].split("\n}", 1)[0]
+    assert "&quot;" in body and "&#39;" in body

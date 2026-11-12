@@ -277,6 +277,8 @@ class Ships(Decoder):
     name = "Ships"
     signal = "GMSK"
     input = "iq"
+    # The decoder reads the samples; there is no voice to hear (and no audio to demodulate)
+    listen = False
     # Between the two AIS channels, which are 25 kHz either side
     defaults = {"frequency": CENTRE}
     demod = ("nfm", 25_000)

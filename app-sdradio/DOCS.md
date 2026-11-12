@@ -109,7 +109,10 @@ you can still tune elsewhere and listen. In place of the favourites and the stor
 page shows what the mode decodes. The modes only show up when your receiver can use them.
 In a mode the display shows how its signal is modulated (FSK for pagers, OOK/FSK for sensors,
 PPM for ADS-B, MSK on AM for ACARS, GMSK for AIS, AFSK for APRS) and what decodes it; the
-demodulation beside it is only how it sounds with Listen. What would take the mode off its
+demodulation beside it is only how it sounds with Listen. The modes whose decoder reads the
+receiver's samples and that carry no voice (Sensors, Aircraft, ACARS, Ships, Video) have no sound:
+the radio doesn't demodulate audio for them, and the meter shows the level in the channel.
+Pager, APRS, SSTV and Satellites decode from the audio and can be listened to. What would take the mode off its
 frequency or change how it listens is off meanwhile: SCAN, HOLD, PRI, L/O, MODE, BAND, AUTO,
 the filter and the scan speed. Mode → Radio brings them back.
 

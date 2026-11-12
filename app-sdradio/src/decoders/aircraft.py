@@ -77,6 +77,8 @@ class Aircraft(Decoder):
     signal = "PPM"
     decoded_by = "dump1090"
     input = "iq"
+    # The decoder reads the samples; there is no voice to hear (and no audio to demodulate)
+    listen = False
     defaults = {"frequency": 1_090_000_000}
     # Heard as AM: pulses, a buzz
     demod = ("am", 15_000)

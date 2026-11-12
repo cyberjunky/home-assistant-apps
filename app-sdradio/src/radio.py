@@ -713,9 +713,9 @@ class Radio:
             self.settle -= 1
             return
         if self.decoder is not None and not self.decoder.listen:
-            # Nothing to hear (a picture mode): only the signal level, from a part of the block
-            part = block[::64]
-            audio, level = None, 10 * math.log10(float(np.mean(np.abs(part) ** 2)) + 1e-20)
+            # Nothing to hear (the mode's decoder reads the samples): only the channel's level,
+            # from the spectrum (the bins within the filter round the tuned frequency)
+            audio, level = None, self._channel_level(block)
         else:
             audio, level = self.demod.process(block)
         self.level = level
@@ -756,6 +756,14 @@ class Radio:
         if self._save_due and time.monotonic() >= self._save_due:
             self._save_state()
         self._emit_state()
+
+    def _channel_level(self, block: np.ndarray) -> float:
+        db = self.spectrum(block)
+        n = len(db)
+        freqs = (np.arange(n) - n // 2) * (self.rate / n)
+        inside = np.abs(freqs - (self.frequency - self.center)) <= max(self.bandwidth, self.rate / n) / 2
+        power = float(np.sum(np.power(10.0, db[inside] / 10.0)))
+        return 10 * math.log10(power + 1e-20)
 
     def _clock(self) -> float:
         """The time of this block by the samples received: exact durations, even if the thread falls behind.

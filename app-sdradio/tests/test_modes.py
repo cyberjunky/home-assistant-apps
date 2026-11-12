@@ -247,3 +247,20 @@ def test_sensors_count_the_bursts_rtl433_saw():
         json.dumps({"time": "@20s", "enabled": 238, "frames": {"count": 2, "fsk": 1, "events": 2}, "stats": []})
     )
     assert decoder.status()["bursts"] == 5 and decoder.status()["count"] == 0
+
+
+def test_modes_without_sound_measure_their_channel(radio, monkeypatch):
+    """A mode whose decoder reads the samples has no audio; the meter shows the channel, not the band."""
+    import src.radio
+
+    class Silent(FakeDecoder):
+        key = "silent"
+        listen = False
+
+    monkeypatch.setattr(src.radio, "registry", lambda: {"silent": Silent})
+    radio.listeners = 1
+    radio.command("decoder", key="silent")
+    run(radio, 6)
+    assert not any(k == "audio" for k, _ in radio.events[-20:])
+    quiet = radio.level
+    assert quiet < -50  # noise in a 15 kHz channel, not the whole 2.4 MHz

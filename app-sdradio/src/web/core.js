@@ -90,10 +90,10 @@ function fmtBytes(bytes) {
 const modeLabel = m => (app.modes[m] && app.modes[m].label) || String(m || '').toUpperCase();
 const chNum = n => String(n).padStart(3, '0');
 
+// Safe in text and in attributes (quotes too: a value may go in an attribute or an inline handler)
 function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text === null || text === undefined ? '' : String(text);
-    return div.innerHTML;
+    return (text === null || text === undefined ? '' : String(text))
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
