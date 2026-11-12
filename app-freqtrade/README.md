@@ -26,7 +26,7 @@ servers, and the bots keep running where they run.
 **It can change one thing: your bots**, from a bot's page: start, stop, pause entries, reload
 the configuration, and exit an open trade. Each asks first. Set `read_only` to turn them off.
 
-![Overview: every bot's balance, profit, today and open trades, the balance of all bots over a week, allocation, profit per day, live activity and all open trades (dark theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-freqtrade/screenshots/overview-dark.webp)
+![Overview: every bot's balance, profit, today and open trades, the balance of all bots over a week, allocation, profit per day, live activity and all open trades (light theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-freqtrade/screenshots/overview-light.webp)
 
 <details>
 <summary>More screenshots</summary>
@@ -55,8 +55,8 @@ the configuration, and exit an open trade. Each asks first. Set `read_only` to t
 **Info** — the configured bots and their connections, the options, MQTT and the app's data
 ![Info](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-freqtrade/screenshots/info-light.webp)
 
-**Overview, light theme** — follows Home Assistant's light/dark mode
-![Overview in the light theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-freqtrade/screenshots/overview-light.webp)
+**Overview, dark theme** — follows Home Assistant's light/dark mode
+![Overview in the dark theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-freqtrade/screenshots/overview-dark.webp)
 
 </details>
 
