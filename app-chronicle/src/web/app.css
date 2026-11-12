@@ -233,6 +233,31 @@ body.has-fullscreen-chart::after { content: ''; position: fixed; inset: 0; z-ind
 .legend i.line { height: 2px; width: 14px; vertical-align: 3px; }
 .legend i.band { opacity: 0.35; }
 
+/* ---------- Overview ---------- */
+/* The integration's writer: one line above the tiles */
+.recorder-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin-bottom: 12px; padding: 8px 14px;
+    background: var(--ha-card-background); border: var(--card-border); border-radius: 6px; font-size: 12.5px; }
+.rec-state { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.rec-state i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted-text-color); }
+.rec-state.ok i { background: var(--success-color); box-shadow: 0 0 0 0 color-mix(in srgb, var(--success-color) 60%, transparent); animation: rec-pulse 2.4s ease-out infinite; }
+.rec-state.warn i { background: var(--warning-color); }
+.rec-state.down { color: var(--danger-color); }
+.rec-state.down i { background: var(--danger-color); }
+@keyframes rec-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--success-color) 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 7px transparent; } }
+@media (prefers-reduced-motion: reduce) { .rec-state.ok i { animation: none; } }
+.rec-item { display: inline-flex; align-items: baseline; gap: 6px; color: var(--secondary-text-color); }
+.rec-item b { font-family: var(--mono); font-weight: 500; color: var(--primary-text-color); }
+.rec-item.warn b { color: var(--warning-color); }
+.rec-item.down b { color: var(--danger-color); }
+/* Rows written: a summary line over a low area chart */
+.rows-panel { padding-bottom: 10px; }
+.rows-panel .chart-title { margin-bottom: 4px; }
+.rows-summary { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-bottom: 6px; font-size: 12.5px; color: var(--secondary-text-color); }
+.rows-summary b { font-family: var(--mono); font-size: 15px; font-weight: 600; color: var(--primary-text-color); margin-right: 2px; }
+.rows-summary span:first-child b { font-size: 20px; }
+.rows-summary:empty { display: none; }
+.rows-panel .chart-legend:empty { display: none; }
+
 /* ---------- Pages ---------- */
 .panel { background: var(--ha-card-background); border: var(--card-border); border-radius: 6px; }
 .panel-sub { color: var(--secondary-text-color); font-size: 12px; }

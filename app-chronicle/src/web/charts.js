@@ -284,7 +284,7 @@ async function chartImage(el, title, legendItems, draw) {
 // Time chart (uPlot).
 // cfg: {
 //   x: [t, ...] epoch seconds,
-//   series: [{name, color, values: [n|null|undefined], unit, kind: 'line'|'step'|'bars',
+//   series: [{name, color, values: [n|null|undefined], unit, kind: 'line'|'step'|'bars'|'area',
 //             band: {lo: [...], hi: [...]}, width, dash}],
 //   xRange: [from, to]   the full x range (the data may start later)
 //   height, title, filename, empty,
@@ -293,6 +293,7 @@ async function chartImage(el, title, legendItems, draw) {
 //   onReset()            with onZoom: back to the whole range
 //   csv()                the CSV of what is shown (defaults to the series)
 //   barSize              bars: width in px at most
+//   compact              a small chart: fewer y labels, dashed lines across, none down
 //   format(v)            a value as text in the tooltip (default: the number and its unit)
 //   formatAxis(v)        a value as text on the y axis
 //   tipTitle(t)          the tooltip's title for a time
@@ -345,14 +346,15 @@ function buildTimeChart(el, cfg) {
             label: s.name,
             scale: scaleOf(s),
             stroke: s.color,
-            width: s.width || (kind === 'bars' ? 0 : 1.8),
-            fill: kind === 'bars' ? colorAlpha(s.color, 0.85) : undefined,
+            width: s.width || (kind === 'bars' ? 0 : kind === 'area' ? 2 : 1.8),
+            fill: kind === 'bars' ? colorAlpha(s.color, 0.85) : kind === 'area' ? areaFill(s.color) : undefined,
             dash: s.dash,
             spanGaps: false,
             show: !hidden.has(i),
             paths: kind === 'bars' ? uPlot.paths.bars({size: [0.7, cfg.barSize || 28], gap: 1})
-                : kind === 'step' ? uPlot.paths.stepped({align: 1}) : undefined,
-            points: {show: kind !== 'bars' && (few || single), size: single ? 7 : 4, fill: s.color, stroke: s.color},
+                : kind === 'step' ? uPlot.paths.stepped({align: 1})
+                : kind === 'area' ? uPlot.paths.spline() : undefined,
+            points: {show: kind !== 'bars' && (single || (few && kind !== 'area')), size: single ? 7 : 4, fill: s.color, stroke: s.color},
         });
         owner.push(i);
     });
@@ -362,7 +364,7 @@ function buildTimeChart(el, cfg) {
         const values = cfg.series.filter(s => (s.unit || '') === u).flatMap(s => [
             ...s.values, ...(s.band ? s.band.lo.concat(s.band.hi) : []),
         ]).filter(v => !missing(v));
-        const bars = cfg.series.some(s => (s.unit || '') === u && s.kind === 'bars');
+        const bars = cfg.series.some(s => (s.unit || '') === u && (s.kind === 'bars' || s.kind === 'area'));
         yScales[`y${k}`] = {
             range: (_u, min, max) => {
                 if (missing(min) || missing(max)) return [0, 1];
@@ -375,14 +377,16 @@ function buildTimeChart(el, cfg) {
         };
         if (!values.length) yScales[`y${k}`].range = [0, 1];
     });
+    const compact = Boolean(cfg.compact);
     const axes = [{
-        stroke: muted, font: CHART_FONT, grid: {stroke: grid, width: 1}, ticks: {stroke: grid, width: 1, size: 4},
-        values: timeAxisValues, space: 70,
+        stroke: muted, font: CHART_FONT, grid: {stroke: grid, width: 1, show: !compact}, ticks: {stroke: grid, width: 1, size: compact ? 0 : 4},
+        values: timeAxisValues, space: 70, size: compact ? 26 : undefined,
     }];
     units.forEach((u, k) => {
         axes.push({
             scale: `y${k}`, side: k === 0 ? 3 : 1, stroke: muted, font: CHART_FONT,
-            grid: {stroke: grid, width: 1, show: k === 0}, ticks: {show: false},
+            grid: {stroke: grid, width: 1, show: k === 0, dash: compact ? [3, 4] : undefined}, ticks: {show: false},
+            space: compact ? 26 : 30,
             values: (_u, splits) => splits.map(cfg.formatAxis || axisNumber),
             size: (_u, values) => Math.max(36, 10 + Math.max(...(values || ['']).map(v => String(v).length)) * 6.5),
             label: u || undefined, labelFont: CHART_FONT, labelSize: u ? 16 : 0, labelGap: 0,
@@ -399,7 +403,7 @@ function buildTimeChart(el, cfg) {
         width: Math.max(200, plot.clientWidth || el.clientWidth || 600),
         height,
         legend: {show: false},
-        padding: [10, units.length > 1 ? 4 : 14, 0, 4],
+        padding: [compact ? 6 : 10, units.length > 1 ? 4 : 14, 0, compact ? 0 : 4],
         scales: {x: xScale, ...yScales},
         axes,
         series: useries,
@@ -512,6 +516,16 @@ function seriesCsv(cfg, from, to) {
 }
 
 // A colour with transparency, from a CSS colour (hex or rgb)
+// An area's fill: the line's colour, fading out towards the bottom
+function areaFill(color) {
+    return u => {
+        const g = u.ctx.createLinearGradient(0, u.bbox.top, 0, u.bbox.top + u.bbox.height);
+        g.addColorStop(0, colorAlpha(color, 0.32));
+        g.addColorStop(1, colorAlpha(color, 0.02));
+        return g;
+    };
+}
+
 function colorAlpha(color, alpha) {
     const c = color.trim();
     if (c.startsWith('#')) {

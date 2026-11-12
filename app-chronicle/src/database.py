@@ -239,7 +239,7 @@ class Database:
         bucket = "1 hour"
         per_hour = await self.fetch(
             f"""SELECT time_bucket(INTERVAL '{bucket}', time) AS bucket, count(*) AS rows
-                FROM {SCHEMA}.states WHERE time > now() - make_interval(hours => $1)
+                FROM {SCHEMA}.states WHERE time >= date_trunc('hour', now()) - make_interval(hours => $1)
                 GROUP BY 1 ORDER BY 1""",
             hours,
         )

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.5
+
+**After updating:** nothing to do.
+
+- **Overview: is it recording?** A line at the top shows what the Chronicle integration in Home Assistant says about its writing: *Recording* (or *Not connected*, or *Not writing* when nothing was written for 5 minutes), when it last wrote, how long that took, the queue and the states it had to drop. It reads the integration's own sensors and is left out when the app can't reach them.
+- **Rows written** is a low area chart with a summary above it: the rows in the period, the rows per hour, the busiest hour and the hour in progress. That hour isn't drawn any more, so the chart doesn't end in a dip, and the first hour of the period is counted whole.
+
 ## 0.1.4
 
 **After updating:** nothing to do.
