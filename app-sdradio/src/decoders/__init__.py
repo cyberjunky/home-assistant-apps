@@ -24,12 +24,20 @@ class Decoder:
     defaults: dict = {}
     # How the radio is set up for this mode (mode and filter); the frequency comes from the settings
     demod = ("nfm", 12_500)
+    # The receiver centred on the frequency (a mode that needs all of the receiver's bandwidth)
+    centred = False
 
-    def __init__(self, settings: dict, publish: Callable[[dict], None]):
+    def __init__(self, settings: dict, publish: Callable[[dict], None],
+                 update: Callable[[dict], None] | None = None):  # fmt: skip
         self.settings = {**self.defaults, **(settings or {})}
+        # publish: something decoded, stored and sent to the pages; update: the live view
+        # changed (positions on a map), only sent
         self.publish = publish
+        self.update = update
         self.error: str | None = None
         self.count = 0
+        # Where the receiver is (latitude, longitude), when Home Assistant knows it
+        self.location: tuple[float, float] | None = None
 
     @property
     def frequency(self) -> int:
@@ -72,9 +80,14 @@ class Decoder:
     def status(self) -> dict:
         return {"error": self.error, "count": self.count}
 
+    def live(self) -> dict | None:
+        """What the page shows live (aircraft on the map), for a page that opens; None if nothing."""
+        return None
+
 
 def registry() -> dict[str, type[Decoder]]:
+    from .aircraft import Aircraft
     from .pager import Pager
     from .sensors import Sensors
 
-    return {cls.key: cls for cls in (Pager, Sensors)}
+    return {cls.key: cls for cls in (Pager, Sensors, Aircraft)}

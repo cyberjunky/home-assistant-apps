@@ -508,6 +508,30 @@ button.ind.on:hover { opacity: 1; }
 table.sensors td small { display: block; font-size: 11px; }
 table.sensors td:last-child, table.sensors th:last-child { text-align: center; }
 .warn-text { color: var(--warning-color); }
+
+/* The map of the modes with positions (aircraft): the map above, the list below */
+/* A mode with a map takes more of the width than the spectrum */
+#tab-radio[data-mode="aircraft"] .spectrum-panel { flex: 1 1 420px; }
+#tab-radio[data-mode="aircraft"] .mode-panel { flex: 1.7 1 620px; }
+.mode-split { display: flex; flex-direction: column; height: 100%; min-height: 420px; }
+.map-slot { flex: 3 1 0; min-height: 240px; position: relative; background: var(--map-bg, #aad3df); }
+.map-slot .map { position: absolute; inset: 0; }
+.mode-list { flex: 2 1 0; min-height: 140px; display: flex; flex-direction: column; border-top: 1px solid var(--divider-color); }
+.list-tabs { padding: 6px 10px; }
+.mode-list-body { flex: 1 1 0; min-height: 0; overflow: auto; }
+table.aircraft td small { display: block; font-size: 11px; }
+table.aircraft th, table.aircraft td { padding: 5px 10px; }
+table.data tbody tr.on td { background: var(--hover-bg); }
+.plane-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.leaflet-container { font-family: inherit; }
+/* The tiles darkened only when the dark theme is chosen (as Meldkamer does) */
+:root[data-theme="dark"] .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9); }
+:root[data-theme="dark"] .map-slot { background: #1d2733; }
+.plane-icon span { display: block; width: 26px; height: 26px; transform-origin: 50% 50%; }
+.plane-icon svg { width: 26px; height: 26px; fill: currentColor; stroke: #000; stroke-width: 0.8; stroke-opacity: 0.6; }
+.plane-icon.selected svg { stroke: #fff; stroke-width: 1.6; stroke-opacity: 1; filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.6)); }
+.leaflet-tooltip.plane-label { background: rgba(0, 0, 0, 0.55); color: #fff; border: 0; box-shadow: none; padding: 0 4px; font: 600 10.5px var(--mono); }
+.leaflet-tooltip.plane-label::before { display: none; }
 .chlist { flex: 1 1 300px; max-width: 100%; display: flex; flex-direction: column; overflow: hidden; min-height: 260px; }
 .chlist-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 6px; }
 .chlist-head .section-title { margin: 0; }

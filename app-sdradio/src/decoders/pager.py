@@ -67,8 +67,8 @@ class Pager(Decoder):
         clean["ha_events"] = bool(value.get("ha_events", False))
         return clean
 
-    def __init__(self, settings, publish):
-        super().__init__(settings, publish)
+    def __init__(self, settings, publish, update=None):
+        super().__init__(settings, publish, update)
         self.program: Program | None = None
         self.rate = 0.0
 

@@ -57,15 +57,47 @@ class HomeAssistant:
     def available(self) -> bool:
         return bool(self.token)
 
-    async def _post(self, path: str, payload: dict) -> bool:
-        if not self.token:
-            return False
+    def _client(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession(
                 headers={"Authorization": f"Bearer {self.token}"}, timeout=aiohttp.ClientTimeout(total=10)
             )
+        return self._session
+
+    async def home_location(self) -> tuple[float, float] | None:
+        """Home Assistant's home (latitude, longitude): where the receiver is, for the maps."""
+        if not self.token:
+            return None
         try:
-            async with self._session.post(f"{CORE_API_URL}/{path}", json=payload) as response:
+            async with self._client().get(f"{CORE_API_URL}/config") as response:
+                if response.status != 200:
+                    return None
+                config = await response.json()
+        except (aiohttp.ClientError, TimeoutError, ValueError):
+            return None
+        lat, lon = config.get("latitude"), config.get("longitude")
+        if isinstance(lat, int | float) and isinstance(lon, int | float) and (lat or lon):
+            return float(lat), float(lon)
+        return None
+
+    async def map_tile(self, z: int, x: int, y: int) -> bytes | None:
+        """An OpenStreetMap tile through Home Assistant's map tile proxy (2026.9 and later): a
+        browser asking OpenStreetMap itself from inside Home Assistant is turned away."""
+        if not self.token:
+            return None
+        try:
+            async with self._client().get(f"{CORE_API_URL}/map_tiles/raster/{z}/{x}/{y}.png") as response:
+                if response.status != 200:
+                    return None
+                return await response.read()
+        except (aiohttp.ClientError, TimeoutError):
+            return None
+
+    async def _post(self, path: str, payload: dict) -> bool:
+        if not self.token:
+            return False
+        try:
+            async with self._client().post(f"{CORE_API_URL}/{path}", json=payload) as response:
                 if response.status >= 300:
                     raise aiohttp.ClientResponseError(
                         response.request_info, (), status=response.status, message=await response.text()

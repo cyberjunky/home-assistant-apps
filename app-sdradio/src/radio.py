@@ -132,6 +132,8 @@ class Radio:
         self._rds_frequency = 0
         # The mode: "radio", or a decoder mode (pager, sensors) that reads what the radio receives
         self.decoder: Decoder | None = None
+        # Where the receiver is (latitude, longitude): Home Assistant's home, for the maps
+        self.location: tuple[float, float] | None = None
         self.decoder_key = state.get("decoder") if state.get("decoder") in registry() else "radio"
         self.spectrum = Spectrum(int(self.settings["fft_size"]))
         # The spectrum averaged over the last second or so (linear), for autotune
@@ -311,11 +313,18 @@ class Radio:
             self.emit("notice", {"message": f"The {self.config.receiver.name} can't receive {cls.name}"})
             self.decoder_key = "radio"
             return
-        decoder = cls(self.settings.get(f"mode_{key}") or {}, lambda item: self._publish(key, item))
+        decoder = cls(
+            self.settings.get(f"mode_{key}") or {},
+            lambda item: self._publish(key, item),
+            lambda data: self.emit("live", {"mode": key, **data}),
+        )
+        decoder.location = self.location
+        self.decoder = decoder
         if tune:
             mode, bandwidth = decoder.demod
             self._tune(decoder.frequency, mode, bandwidth)
-        self.decoder = decoder
+        elif decoder.centred and self.device and self.center != self.frequency:
+            self._retune_centre()
         decoder.start()
         logger.info(f"Mode {decoder.name} on {self.frequency / 1e6:.4f} MHz")
 
@@ -554,8 +563,16 @@ class Radio:
 
     def _centre_for(self, frequency: int) -> float:
         low, high = self.device.frequency_range if self.device else (0, 1e10)
-        centre = frequency + RECENTRE_OFFSET * self.rate
+        # A mode that needs the receiver's whole bandwidth (ADS-B) has it centred on its frequency
+        centred = self.decoder is not None and self.decoder.centred and frequency == self.decoder.frequency
+        centre = frequency if centred else frequency + RECENTRE_OFFSET * self.rate
         return max(low, min(high, centre))
+
+    def _retune_centre(self) -> None:
+        self.center = self._centre_for(self.frequency)
+        self.device.set_center(self.center)
+        self.settle = SETTLE_BLOCKS
+        self._apply_demod()
 
     def _tune(self, frequency: int, mode: str | None = None, bandwidth: int | None = None) -> None:
         frequency = max(10_000, min(6_000_000_000, int(frequency)))
@@ -570,7 +587,8 @@ class Radio:
         if frequency != self.frequency:
             self._end_signal(self._clock())
         self.frequency = frequency
-        if self.device and abs(frequency - self.center) > EDGE * self.rate:
+        centred = self.decoder is not None and self.decoder.centred and frequency == self.decoder.frequency
+        if self.device and (abs(frequency - self.center) > EDGE * self.rate or (centred and self.center != frequency)):
             self.center = self._centre_for(frequency)
             self.device.set_center(self.center)
             self.settle = SETTLE_BLOCKS

@@ -117,6 +117,17 @@ page shows what the mode decodes. The modes only show up when your receiver can 
   (some 250 kinds of device). 433.92 MHz for most, 868.3 MHz for many weather stations,
   868.95 MHz for wireless M-Bus meters. Each device shows its last reading; tick **HA** to get
   its readings as Home Assistant sensors (`sensor.sdradio_<device>_temperature_c` and so on).
+- **Aircraft**: ADS-B on 1090 MHz, decoded by dump1090. The aircraft in view are on a map with
+  the trail each one leaves, coloured by altitude, and in a list with their callsign,
+  registration and type (from dump1090's aircraft database), altitude, speed, distance and
+  squawk; an emergency squawk (7500, 7600, 7700) is marked. An aircraft goes into the
+  **History** when it has been out of reach for a minute. For this mode the receiver is centred
+  on 1090 MHz, as ADS-B is 2 MHz wide. The stock RTL-SDR antenna works best high up and outside;
+  a 1090 MHz antenna reaches 200 km and more.
+
+**The map** (Aircraft) shows OpenStreetMap through Home Assistant's own map tile service (which
+needs Home Assistant 2026.9 or later), centred on Home Assistant's home location; the distances
+are from there. The map is darkened only with the dark theme.
 
 What the modes decode is kept in the database (30 days by default, set under Modes).
 

@@ -1,7 +1,8 @@
 """A simulated receiver for the tests and for running the page without an SDR (tests/devserver.py).
 
 Not part of the app image. It makes noise plus a few transmissions that come and go:
-NFM voices on 2 m, APRS bursts, an AM airband carrier and an FM broadcast station with RDS.
+NFM voices on 2 m, APRS bursts, an AM airband carrier, an FM broadcast station with RDS, pager
+bursts, and aircraft flying round Utrecht on 1090 MHz.
 """
 
 import math
@@ -9,7 +10,7 @@ import time
 
 import numpy as np
 
-from tests import pocsag_signal, rds_signal
+from tests import adsb_signal, pocsag_signal, rds_signal
 
 # frequency, mode, level (amplitude), on seconds, off seconds, tone Hz
 SIGNALS = [
@@ -22,7 +23,18 @@ SIGNALS = [
     (156_800_000, "nfm", 0.04, 3, 8, 900),
     # A POCSAG pager burst every 8 seconds (the Pager mode's default frequency)
     (169_650_000, "pocsag", 0.08, 0, 8, 0),
+    # Aircraft sending ADS-B (the Aircraft mode)
+    (1_090_000_000, "adsb", 0.3, 0, 0, 0),
 ]
+# ICAO address, callsign, start latitude and longitude, feet, heading, knots, climb ft/min
+AIRCRAFT = [
+    (0x484506, "KLM1234", 52.31, 4.76, 3000, 100, 210, 1500),
+    (0x3C6444, "DLH4AB", 52.40, 6.20, 36000, 255, 450, 0),
+    (0x4CA7B3, "RYR8QK", 51.70, 5.10, 24000, 10, 380, -1200),
+    (0x400F1E, "EZY45TJ", 52.00, 3.90, 33000, 75, 430, 0),
+    (0x484C51, "PHLAB", 52.12, 5.35, 1500, 300, 95, 0),
+]
+ADSB_HOME = (52.09, 5.12)
 PAGER_TEXTS = ["SDRadio simulated page", "Test alarm 112 Teststraat", "Coffee is ready"]
 
 
@@ -85,6 +97,9 @@ class SimulatedDevice:
             if mode == "pocsag":
                 x += self._pager(start, rate, offset, level, off, count)
                 continue
+            if mode == "adsb":
+                x += self._aircraft(start, rate, offset, level, count)
+                continue
             period = on + off
             if off and (start % period) > on:
                 continue
@@ -129,6 +144,37 @@ class SimulatedDevice:
         part = np.concatenate([part, np.zeros(count - len(part), np.complex64)])
         t = (np.arange(count) + self.sample_index) / rate
         return (part * np.exp(2j * math.pi * offset * t)).astype(np.complex64)
+
+    def _aircraft(self, start: float, rate: float, offset: float, level: float, count: int) -> np.ndarray:
+        """The aircraft's ADS-B messages in this block: positions four times a second, callsign and
+        velocity every second. They fly straight for ten minutes, then start over."""
+        end = start + count / rate
+        envelope = np.zeros(count, dtype=np.float32)
+        for i, (icao, callsign, lat, lon, feet, heading, knots, climb) in enumerate(AIRCRAFT):
+            phase = 0.037 * (i + 1)
+            k = math.ceil((start - phase) / 0.25)
+            while phase + k * 0.25 < end:
+                t = phase + k * 0.25
+                flown = t % 600
+                metres = knots * 0.5144 * flown
+                la = lat + metres * math.cos(math.radians(heading)) / 111_320
+                lo = lon + metres * math.sin(math.radians(heading)) / (111_320 * math.cos(math.radians(lat)))
+                altitude = max(0, round((feet + climb * flown / 60) / 25) * 25)
+                if k % 4 == 1:
+                    text = adsb_signal.identity(icao, callsign)
+                elif k % 4 == 3:
+                    east = knots * math.sin(math.radians(heading))
+                    north = knots * math.cos(math.radians(heading))
+                    text = adsb_signal.velocity(icao, east, north, climb)
+                else:
+                    text = adsb_signal.position(icao, la, lo, altitude, (k // 2) % 2)
+                p = adsb_signal.pulses(text, rate)
+                at = int((t - start) * rate)
+                if at >= 0 and at + len(p) <= count:
+                    envelope[at : at + len(p)] += p
+                k += 1
+        t = (np.arange(count) + self.sample_index) / rate
+        return (level * envelope * np.exp(2j * math.pi * offset * t)).astype(np.complex64)
 
     def close(self) -> None:
         self.closed = True

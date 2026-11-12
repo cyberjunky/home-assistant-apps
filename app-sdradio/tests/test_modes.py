@@ -199,3 +199,21 @@ def test_sensors_decode_recordings(name):
     assert items, f"rtl_433 found nothing ({decoder.error})"
     assert items[0]["model"] == expected["model"] and items[0]["id"] == expected["id"]
     assert items[0]["values"]["temperature_C"] == expected["temperature_C"]
+
+
+class CentredDecoder(FakeDecoder):
+    key = "centred"
+    centred = True
+    defaults = {"frequency": 1_090_000_000}
+
+
+def test_a_centred_mode_has_the_receiver_on_its_frequency(radio, monkeypatch):
+    import src.radio
+
+    monkeypatch.setattr(src.radio, "registry", lambda: {"fake": FakeDecoder, "centred": CentredDecoder})
+    radio.command("decoder", key="centred")
+    run(radio, 3)
+    assert radio.frequency == 1_090_000_000 and radio.center == 1_090_000_000
+    radio.command("decoder", key="fake")
+    run(radio, 3)
+    assert radio.center != radio.frequency  # the usual offset, away from the receiver's DC spike

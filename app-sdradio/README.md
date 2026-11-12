@@ -46,7 +46,7 @@ database, with CSV import and export, statistics and nightly backups.
 - 📻 **Receiver front panel** — Frequency display (scroll a digit to change it), mode, filter and step, indicators, channel name and a signal meter in dBFS with SNR; a band scale like an old radio dial; knobs for volume, squelch, RF gain, filter and scan speed; a tune dial and a keypad
 - 🌊 **Spectrum and waterfall** — Live, with your stored channels labelled; click to tune, drag to move, scroll to step; zoom from the whole band (swept) to 50 kHz
 - 🎧 **Listen in the browser** — AM, NFM, WFM, USB, LSB, CW and DSB, demodulated in the app; AGC and noise blanker
-- 📟 **Modes** — The radio set up for pagers (POCSAG and FLEX, with multimon-ng) or sensors on 433/868 MHz (weather stations, thermometers, meters, with rtl_433), each with its own view and Home Assistant events or sensors
+- 📟 **Modes** — The radio set up for pagers (POCSAG and FLEX, with multimon-ng), sensors on 433/868 MHz (weather stations, thermometers, meters, with rtl_433) or aircraft (ADS-B with dump1090, on a map), each with its own view and Home Assistant events or sensors
 - 📝 **RDS** — On FM broadcast: the station's name, its radio text, and the artist and title when the station sends them
 - 🔍 **Scanning** — The stored channels, a band or a range; HOLD, lock-out and priority channels; every transmission logged, and unknown signals listed as new finds
 - 🗂️ **Channels** — Name, frequency, mode, filter, step, squelch, gain, band, tags, notes, favourite, scan and priority; favourites one click away on the radio

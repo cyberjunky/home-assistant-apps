@@ -67,8 +67,8 @@ class Sensors(Decoder):
         clean["ha_devices"] = sorted(set(devices))
         return clean
 
-    def __init__(self, settings, publish):
-        super().__init__(settings, publish)
+    def __init__(self, settings, publish, update=None):
+        super().__init__(settings, publish, update)
         self.program: Program | None = None
         self.mixer: Mixer | None = None
         self.decimate: Decimator | None = None
