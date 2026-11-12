@@ -323,12 +323,35 @@ function renderRds(wfm, rds) {
     else if (rds && rds.title) value = `♪ ${rds.title}`;
     else if (rds && rds.rt) value = rds.rt;
     const shown = value || (rds && rds.synced ? 'RDS…' : 'No RDS');
-    if (text.textContent !== shown) {
-        text.textContent = shown;
+    // Laid out again when the text or the line's width changes (window resized, back from another tab)
+    if (radio.rdsShown !== shown || radio.rdsWidth !== text.clientWidth) {
+        radio.rdsShown = shown;
         text.title = rds && rds.rt ? rds.rt : '';
+        layoutRdsText();
     }
     text.classList.toggle('dim', !value);
     document.getElementById('rds-pty').textContent = rds ? [rds.pty, rds.tp ? 'TP' : '', rds.ta ? 'TA' : ''].filter(Boolean).join(' · ') : '';
+}
+
+// A text longer than the line scrolls round, as on a car radio
+const RDS_SCROLL_SPEED = 40; // px per second
+function layoutRdsText() {
+    const text = document.getElementById('rds-text');
+    const shown = radio.rdsShown || '';
+    text.innerHTML = `<span class="rds-run">${escapeHtml(shown)}</span>`;
+    radio.rdsWidth = text.clientWidth;
+    const run = text.firstChild;
+    const width = run.getBoundingClientRect().width;
+    if (!text.clientWidth || width <= text.clientWidth) {
+        text.classList.remove('scrolling');
+        return;
+    }
+    const distance = width + 48;
+    text.classList.add('scrolling');
+    run.classList.add('scroll');
+    run.style.setProperty('--distance', `-${distance}px`);
+    run.style.setProperty('--duration', `${(distance / RDS_SCROLL_SPEED).toFixed(1)}s`);
+    run.innerHTML = `${escapeHtml(shown)}<span class="rds-gap"></span>${escapeHtml(shown)}`;
 }
 
 function renderControls() {

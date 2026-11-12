@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4
+
+- **RDS on FM broadcast (WFM):** the station's name shows on the display when the frequency isn't stored (next to your own name when it is), and a line below it shows the artist and title when the station marks them (RadioText+), or else its radio text, with the programme type. A text longer than the line scrolls round. RDS takes a second or two after tuning; a weak station may not get that far.
+- **Home Assistant:** `sensor.sdradio_frequency` has the RDS `station`, `radio_text`, `artist`, `title` and `programme_type` as attributes.
+
 ## 0.1.3
 
 - **The display follows the radio:** after typing (part of) a frequency, tuning another way (the waterfall, the dial, a scan) showed the typed digits with a blinking cursor instead of the new frequency. Typing now ends when the radio tunes elsewhere, when you click outside the display and keypad, or after 10 seconds without a key; clicking the display a second time closes it too.
