@@ -2,10 +2,11 @@
 # Wi-Fi watchdog, version 3 (2026-11-12): when the router can't be reached, bring the Wi-Fi back.
 # Version 2 (never rebooted): /root/backup_files/wifi-watchdog.sh.v2, version 1: .v1 next to it.
 #
-# Why version 3: on 2026-11-11 at 23:30 wpa_supplicant hung inside the Wi-Fi driver. It survived
-# 7 hours of wlan0 restarts and driver reloads (the same process every time, kill -9 did nothing),
-# and version 2 didn't notice because it threw the commands' output away. After the reboot it
-# restarted wlan0 every 5 minutes, which also broke off every attempt that was still connecting.
+# cron starts jobs with PATH=/usr/bin:/bin, without ifup, ifdown, rmmod, modprobe (/sbin) and
+# wpa_cli (/usr/sbin). Versions 1 and 2 threw the errors away, so none of their steps ever ran;
+# the first version 3 logged "not found", and after killing wpa_supplicant couldn't start it again.
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+export PATH
 #
 # Steps, each only when the one before didn't help:
 #   1. associated but no network: renew the DHCP lease

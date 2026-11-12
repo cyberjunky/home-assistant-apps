@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.3
+
+**After updating:** nothing to do.
+
+- **Connection errors in plain words.** "[Errno 113] Connect call failed ('192.168.2.106', 22)" now reads "nothing answers at 192.168.2.106. Check that the Toon is on and connected to Wi-Fi, and that this is still its address". A refused connection, a timeout, an address that can't be found and a connection the Toon closed each say what happened and what to check. The original error is in the app's log at debug level. Outages from before keep their old text.
+
 ## 0.5.2
 
 **After updating:** nothing to do.
