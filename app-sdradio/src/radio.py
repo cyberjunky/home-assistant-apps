@@ -224,6 +224,10 @@ class Radio:
         self._stop_scan()
         self.sweep = None
         self._end_signal(self._clock())
+        # The mode stays chosen; its decoder starts again when the receiver opens
+        if self.decoder:
+            self.decoder.stop()
+            self.decoder = None
         if self.device:
             self.device.close()
             logger.info("Switched off: the receiver is closed")
@@ -314,6 +318,14 @@ class Radio:
         self.decoder = decoder
         decoder.start()
         logger.info(f"Mode {decoder.name} on {self.frequency / 1e6:.4f} MHz")
+
+    def _decoder_snapshot(self) -> dict:
+        if self.decoder:
+            return {"key": self.decoder_key, "name": self.decoder.name, **self.decoder.status()}
+        if self.decoder_key != "radio":
+            # Chosen, but not running (switched off, or the receiver isn't open)
+            return {"key": self.decoder_key, "name": registry()[self.decoder_key].name, "error": None, "count": 0}
+        return {"key": "radio"}
 
     def _publish(self, key: str, item: dict) -> None:
         """A decoder found something (called from its own thread): store it and tell the pages."""
@@ -1034,9 +1046,7 @@ class Radio:
             if self.scan.kind
             else None,
             "priority": self.priority,
-            "decoder": {"key": self.decoder_key, "name": self.decoder.name, **self.decoder.status()}
-            if self.decoder
-            else {"key": "radio"},
+            "decoder": self._decoder_snapshot(),
             "modes": [
                 {"key": k, "name": cls.name}
                 for k, cls in registry().items()
