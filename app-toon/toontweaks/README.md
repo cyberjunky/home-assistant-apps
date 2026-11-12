@@ -16,9 +16,9 @@ basename $(readlink /sys/class/net/wlan0/device/driver/module)   # should print 
 
 ## Why
 
-The Toon's Wi-Fi sometimes drops and doesn't come back. During one outage wpa_supplicant (the Wi-Fi client) hung inside the driver for 7 hours. Restarting wlan0 and reloading the driver did nothing, and even `kill -9` couldn't end it. Only a reboot cleared it.
+The Toon's Wi-Fi sometimes drops and doesn't come back: wpa_supplicant (the Wi-Fi client) keeps searching for the access point without reconnecting, for hours. Toons are often rebooted daily for this reason. The watchdog replaces that with a check every 5 minutes, which reboots only when nothing else helps.
 
-Toons are often rebooted daily for this reason. The watchdog replaces that with a check every 5 minutes, which reboots only when nothing else helps.
+Note for scripts on the Toon: cron starts jobs with `PATH=/usr/bin:/bin`. That leaves out `ifup`, `ifdown`, `rmmod` and `modprobe` (in `/sbin`) and `wpa_cli` (in `/usr/sbin`). The watchdog sets its own `PATH`. Earlier versions didn't, and none of their recovery steps ever ran.
 
 ## The watchdog
 
@@ -28,7 +28,7 @@ The watchdog pings the router. When the router answers, it does nothing, apart f
 2. **Still connecting:** it leaves wpa_supplicant alone, because a restart would only start it over.
 3. **Restart wlan0:** this stops and starts wpa_supplicant and DHCP, at most every 10 minutes.
 4. **Reload the Wi-Fi driver:** at most once an hour.
-5. **wpa_supplicant can't be stopped (it hangs in the driver):** it disconnects the Wi-Fi module from the internal USB bus and connects it again. If wpa_supplicant still hangs, it reboots, but only after 20 minutes without network and at most once every 6 hours.
+5. **wpa_supplicant can't be stopped (if it ever hangs in the driver):** it disconnects the Wi-Fi module from the internal USB bus and connects it again. If wpa_supplicant still hangs, it reboots, but only after 20 minutes without network and at most once every 6 hours.
 
 Everything goes to `/root/wifi-watchdog.log`, which is kept under 200 kB. That includes every command that fails or prints something, the state of wpa_supplicant, the signal, and how the network came back ("back after restarting wlan0, 12 min without network"). Its settings are at the top of the script: the router address `GW` (default `192.168.2.254`) and the time limits.
 
