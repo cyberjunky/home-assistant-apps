@@ -39,11 +39,12 @@ class SoapyDevice:
         try:
             self.dev = SoapySDR.Device(args)
         except Exception as e:
+            logger.warning("Opening %s (%s) failed: %s", self.config.name, args, e)
             if found and self.config.type != "network":
                 # Found but not opened: almost always another program holds it
                 raise DeviceError(
-                    f"The {self.config.name} is there but busy: stop the other app that uses it "
-                    f"(such as Meldkamer), or share it through rtl_tcp. ({e})"
+                    f"The {self.config.name} is found but can't be opened: another app or program is "
+                    "probably using it. Stop that one, or share the receiver through rtl_tcp."
                 ) from e
             raise DeviceError(f"Cannot open the {self.config.name}: {e}") from e
 

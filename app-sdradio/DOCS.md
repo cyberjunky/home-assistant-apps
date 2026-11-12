@@ -9,8 +9,7 @@ After installing, plug in the receiver, check the **Configuration** tab, start t
 
 ## Options
 
-The receiver options are the same as the Meldkamer app's; where the radio starts is an app
-option too. Everything else is on the app's **Settings** page. The radio receives 2.4 MHz at a
+The receiver is set with the app options below; where the radio starts is an app option too. Everything else is on the app's **Settings** page. The radio receives 2.4 MHz at a
 time (2.4 MS/s), the same for every receiver.
 
 | Option | Default | |
@@ -25,8 +24,8 @@ time (2.4 MS/s), the same for every receiver.
 | `tune.restore_last` | `true` | Start where you left off instead |
 | `log_level` | `info` | `debug`, `info`, `warning` or `error` |
 
-One receiver can only be used by one app at a time. To share a dongle with the Meldkamer app,
-run `rtl_tcp` for it on another machine and use type `network` in one of them.
+One receiver can only be used by one app at a time. To share a dongle with another app, run
+`rtl_tcp` for it on another machine and use type `network` in one of them.
 
 ## The radio
 

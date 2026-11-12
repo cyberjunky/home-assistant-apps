@@ -72,8 +72,12 @@ class ReceiverConfig:
     def name(self) -> str:
         return RECEIVER_NAMES.get(self.type, self.type)
 
-    def device_args(self) -> dict:
-        """The SoapySDR device arguments for this receiver: the first one found of its kind."""
+    def device_args(self) -> str:
+        """The SoapySDR device arguments for this receiver ("driver=rtlsdr"): the first one found of its kind.
+
+        A string, not a dict: Alpine's SoapySDR 0.8.1 Python binding drops the keys of a dict
+        passed to Device(), which then fails with "Device::make() no match".
+        """
         args: dict = {}
         if self.type == "rtl-sdr":
             args["driver"] = "rtlsdr"
@@ -82,7 +86,7 @@ class ReceiverConfig:
         elif self.type == "network":
             args["driver"] = "rtltcp"
             args["rtltcp"] = f"{self.network_host}:{self.network_port}"
-        return args
+        return ",".join(f"{key}={value}" for key, value in args.items())
 
 
 @dataclass
