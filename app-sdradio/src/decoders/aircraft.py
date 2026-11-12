@@ -86,7 +86,8 @@ class Aircraft(Decoder):
     def __init__(self, settings, publish, update=None):
         super().__init__(settings, publish, update)
         self.program: Program | None = None
-        self.folder: Path | None = None
+        # dump1090's own list, in a temporary folder of its own (not the mode's data folder)
+        self.json_dir: Path | None = None
         self.rate = 0.0
         self.mixer: Mixer | None = None
         self.resample: tuple[int, int] | None = None
@@ -99,7 +100,7 @@ class Aircraft(Decoder):
     # ---------------------------------------------------------------- samples in
 
     def _command(self) -> list[str]:
-        command = ["dump1090", "--ifile", "-", "--iformat", "SC16", "--quiet", "--write-json", str(self.folder),
+        command = ["dump1090", "--ifile", "-", "--iformat", "SC16", "--quiet", "--write-json", str(self.json_dir),
                    "--write-json-every", "1", "--json-location-accuracy", "2"]  # fmt: skip
         if self.location:
             command += ["--lat", f"{self.location[0]:.5f}", "--lon", f"{self.location[1]:.5f}"]
@@ -127,8 +128,8 @@ class Aircraft(Decoder):
         self.mixer = Mixer(rate)
         ratio = Fraction(RATE / rate).limit_denominator(100)
         self.resample = None if ratio == 1 else (ratio.numerator, ratio.denominator)
-        if self.folder is None:
-            self.folder = Path(tempfile.mkdtemp(prefix="sdradio-aircraft-"))
+        if self.json_dir is None:
+            self.json_dir = Path(tempfile.mkdtemp(prefix="sdradio-aircraft-"))
         self.program = Program("dump1090", self._command(), lambda line: None)
         if self._poller is None:
             self._poller = threading.Thread(target=self._poll, name="aircraft", daemon=True)
@@ -139,7 +140,7 @@ class Aircraft(Decoder):
     def _poll(self) -> None:
         while not self._stopping.wait(1.0):
             try:
-                data = json.loads((self.folder / "aircraft.json").read_text())
+                data = json.loads((self.json_dir / "aircraft.json").read_text())
             except (OSError, ValueError):
                 continue
             try:
@@ -249,9 +250,9 @@ class Aircraft(Decoder):
             self.planes.clear()
         for plane in lost:
             self._store(plane)
-        if self.folder:
-            shutil.rmtree(self.folder, ignore_errors=True)
-            self.folder = None
+        if self.json_dir:
+            shutil.rmtree(self.json_dir, ignore_errors=True)
+            self.json_dir = None
         with contextlib.suppress(Exception):
             if self._poller:
                 self._poller.join(timeout=2)

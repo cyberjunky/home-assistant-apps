@@ -77,3 +77,16 @@ def test_dump1090_follows_two_aircraft():
     assert abs(planes["3c6444"]["lat"] - 52.0) < 0.01 and planes["3c6444"]["lon"] < 5.5
     assert len(stored) == 2  # stopping stores what was in view
     json.dumps(stored)
+
+
+def test_stopping_leaves_the_modes_folder_alone(tmp_path):
+    """dump1090's list goes in a temporary folder of its own, removed on stop; the mode's folder stays."""
+    folder = tmp_path / "aircraft"
+    folder.mkdir()
+    (folder / "keep.txt").write_text("x")
+    decoder = Aircraft({}, print)
+    decoder.folder = folder
+    decoder.json_dir = tmp_path / "dump1090"
+    decoder.json_dir.mkdir()
+    decoder.stop()
+    assert (folder / "keep.txt").is_file() and not (tmp_path / "dump1090").exists()
