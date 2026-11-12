@@ -41,9 +41,11 @@
 
                 <!-- Overview: how much is recorded, and what writes the most -->
                 <div id="tab-overview" class="tab-content">
+                    <div id="recorder-strip" class="recorder-strip" hidden></div>
                     <div id="overview-tiles" class="tiles kpi-tiles"></div>
-                    <div class="panel"><div class="panel-body">
+                    <div class="panel"><div class="panel-body rows-panel">
                         <div class="chart-title"><span>Rows written</span><span class="hint"><span class="tabs inline-tabs" role="group" aria-label="Period" id="overview-range"></span></span></div>
+                        <div id="rows-summary" class="rows-summary"></div>
                         <div id="chart-rows" class="chart"></div>
                     </div></div>
                     <div class="stats-grid" style="margin-top:14px">

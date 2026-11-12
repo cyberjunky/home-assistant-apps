@@ -22,7 +22,7 @@ The app only reads. It connects to the same database as the integration, and eve
 runs is read-only: it can't change or delete the history itself. *Exclude* and *Delete history*
 on an entity ask the Chronicle integration to do that, through Home Assistant.
 
-![Overview: entities, rows, sizes and compression, rows written per hour, the most active entities and domains (light theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-chronicle/screenshots/overview-light.webp)
+![Overview: whether the integration is recording, entities, rows, sizes and compression, rows written per hour, the most active entities and domains (light theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-chronicle/screenshots/overview-light.webp)
 
 <details>
 <summary>More screenshots</summary>

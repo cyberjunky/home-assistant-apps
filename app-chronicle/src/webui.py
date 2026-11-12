@@ -29,6 +29,58 @@ OVERVIEW_HOURS = (24, 168)
 MAX_QUERY_LENGTH = 100_000
 
 
+# The Chronicle integration's sensors, by the end of their entity id (Home Assistant names them
+# after the device and the sensor: binary_sensor.chronicle_connected, sensor.chronicle_queue)
+RECORDER_TTL = 10
+RECORDER_SENSORS = {
+    "connected": "_connected",
+    "queue": "_queue",
+    "dropped": "_dropped_states",
+    "last_write": "_last_write",
+    "write_duration": "_write_duration",
+}
+RECORDER_TEMPLATE = (
+    "{% set ns = namespace(out=[]) %}"
+    "{% for e in integration_entities('chronicle') %}"
+    "{% set ns.out = ns.out + [[e, states(e)]] %}"
+    "{% endfor %}{{ ns.out | tojson }}"
+)
+
+
+def recorder_status(states: dict[str, str]) -> dict:
+    """The writer's state from the integration's entities ({entity_id: state})."""
+    found: dict[str, str] = {}
+    for key, suffix in RECORDER_SENSORS.items():
+        for entity_id in sorted(states):
+            if entity_id.endswith(suffix) and entity_id.split(".", 1)[0] in ("sensor", "binary_sensor"):
+                found[key] = states[entity_id]
+                break
+    if not found:
+        return {"available": False}
+
+    def number(key: str) -> float | None:
+        try:
+            return float(found[key])
+        except (KeyError, ValueError):
+            return None
+
+    last_write = None
+    if found.get("last_write") not in (None, "unknown", "unavailable"):
+        try:
+            last_write = datetime.fromisoformat(found["last_write"]).timestamp()
+        except ValueError:
+            last_write = None
+    connected = found.get("connected")
+    return {
+        "available": True,
+        "connected": None if connected in (None, "unknown", "unavailable") else connected == "on",
+        "queue": number("queue"),
+        "dropped": number("dropped"),
+        "last_write": last_write,
+        "write_duration": number("write_duration"),
+    }
+
+
 def _json(data, status: int = 200) -> web.Response:
     return web.Response(text=json.dumps(data, default=str), content_type="application/json", status=status)
 
@@ -48,6 +100,7 @@ class WebUI:
         self.app = web.Application(middlewares=[self._ingress_only, self._database_errors])
         self._runner: web.AppRunner | None = None
         self._schema: dict | None = None
+        self._recorder: tuple[float, dict] | None = None
         self._setup_routes()
 
     def _setup_routes(self) -> None:
@@ -60,6 +113,7 @@ class WebUI:
         get("/api/entities", self._handle_entities)
         get("/api/entity", self._handle_entity)
         get("/api/storage", self._handle_storage)
+        get("/api/recorder", self._handle_recorder)
         self.app.router.add_post("/api/query", self._handle_query)
         self.app.router.add_post("/api/exclude", self._handle_exclude)
         self.app.router.add_post("/api/purge", self._handle_purge)
@@ -202,6 +256,33 @@ class WebUI:
         if not await self._require_schema():
             return _error("The Chronicle tables are not in this database", 409)
         return _json(await self.database.storage())
+
+    # ------------------------------------------------------------------ the integration's own state
+
+    async def _handle_recorder(self, _request: web.Request) -> web.Response:
+        """What the Chronicle integration in Home Assistant says about its writing, from its sensors."""
+        now = asyncio.get_running_loop().time()
+        if self._recorder is None or now - self._recorder[0] > RECORDER_TTL:
+            self._recorder = (now, await self._read_recorder())
+        return _json(self._recorder[1])
+
+    async def _read_recorder(self) -> dict:
+        token = os.environ.get("SUPERVISOR_TOKEN")
+        if not token:
+            return {"available": False}
+        timeout = aiohttp.ClientTimeout(total=10)
+        try:
+            async with (
+                aiohttp.ClientSession(headers={"Authorization": f"Bearer {token}"}, timeout=timeout) as session,
+                session.post(f"{CORE_API_URL}/template", json={"template": RECORDER_TEMPLATE}) as response,
+            ):
+                if response.status >= 300:
+                    return {"available": False}
+                states = dict(json.loads(await response.text()))
+        except (aiohttp.ClientError, TimeoutError, ValueError, TypeError) as e:
+            logger.debug(f"Cannot read the Chronicle integration's sensors: {e}")
+            return {"available": False}
+        return recorder_status(states)
 
     # ------------------------------------------------------------------ the integration's actions
 

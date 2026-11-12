@@ -43,17 +43,23 @@ Then enter `chronicle_reader` and its password on the app's Configuration tab.
 
 ### Overview
 
+- **Recording:** what the Chronicle integration in Home Assistant says about its writing, from
+  its own sensors: *Recording*, *Not connected* (to the database) or *Not writing* (nothing
+  written for 5 minutes), when it last wrote and how long that took, the states waiting in its
+  queue, and the states it dropped because the queue was full. Not shown when the app can't
+  read those sensors, for example outside Home Assistant.
 - **Tiles:** the number of entities and the rows of the last 24 hours, the rows in the history
   (TimescaleDB's estimate, which costs nothing to ask), the size of the history with its
   chunks, the compression ratio (size before and after, of the compressed chunks), the date of
   the oldest history and the size of the whole database.
-- **Rows written** per hour, over 24 hours or 7 days.
+- **Rows written** per hour, over 24 hours or 7 days, with the total, the rows per hour, the
+  busiest hour and the hour in progress (which the chart leaves out until it is complete).
 - **Most active:** the 15 entities that wrote the most rows in the last 24 hours, with the rows
   per hour. A click opens the entity. Busy entities that you don't need are the first to
   exclude in the integration's options.
 - **Domains:** entities and rows per domain. A click shows the domain's entities.
 
-The page refreshes every minute while it is open.
+The page refreshes while it is open: the recording line every 15 seconds, the rest every minute.
 
 ### Entities
 

@@ -1,5 +1,5 @@
 name: Chronicle
-version: "0.1.4"
+version: "0.1.5"
 slug: app-chronicle
 description: "Browse the long-term history the Chronicle integration keeps in TimescaleDB - entities, charts, storage and compression"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-chronicle"

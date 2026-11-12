@@ -1,4 +1,5 @@
-// Chronicle dashboard - Overview: totals, rows written per hour, the most active entities and domains.
+// Chronicle dashboard - Overview: the integration's writer, totals, rows written per hour, the most
+// active entities and domains.
 
 let overviewHours = Number(localStorage.getItem(LS + 'overview_hours')) || 24;
 let overviewTimer = null;
@@ -9,10 +10,38 @@ async function showOverview() {
         try { localStorage.setItem(LS + 'overview_hours', key); } catch (e) { /* only a convenience */ }
         loadOverview();
     });
-    await loadOverview();
+    await Promise.all([loadOverview(), loadRecorder()]);
     clearInterval(overviewTimer);
-    // Keeps counting while the page is open
-    overviewTimer = setInterval(() => { if (activeTab === 'overview' && document.visibilityState === 'visible') loadOverview(); }, 60000);
+    // Keeps counting while the page is open: the writer every 15 s, the totals every minute
+    let ticks = 0;
+    overviewTimer = setInterval(() => {
+        if (activeTab !== 'overview' || document.visibilityState !== 'visible') return;
+        loadRecorder();
+        if (++ticks % 4 === 0) loadOverview();
+    }, 15000);
+}
+
+// The Chronicle integration's writer, from its sensors in Home Assistant. Hidden when the app
+// can't read them (not running as an app, or an integration without those sensors).
+async function loadRecorder() {
+    const el = document.getElementById('recorder-strip');
+    let r;
+    try {
+        r = await api('recorder');
+    } catch (e) {
+        r = {available: false};
+    }
+    el.hidden = !r.available;
+    if (!r.available) return;
+    const stale = r.last_write && Date.now() / 1000 - r.last_write > 300;
+    const state = r.connected === false ? ['down', 'Not connected to the database']
+        : stale ? ['warn', 'Not writing'] : r.connected ? ['ok', 'Recording'] : ['warn', 'Unknown'];
+    const part = (label, value, cls) => `<span class="rec-item${cls ? ' ' + cls : ''}"><span>${label}</span><b>${value}</b></span>`;
+    el.innerHTML = `<span class="rec-state ${state[0]}"><i></i>${state[1]}</span>`
+        + part('last write', r.last_write ? `<span title="${escapeHtml(fmtDateTime(r.last_write))}">${escapeHtml(fmtAgo(r.last_write))}</span>` : '–')
+        + part('took', missing(r.write_duration) ? '–' : `${num(r.write_duration)} ms`)
+        + part('queue', missing(r.queue) ? '–' : num(r.queue), r.queue > 1000 ? 'warn' : '')
+        + part('dropped', missing(r.dropped) ? '–' : num(r.dropped), r.dropped > 0 ? 'down' : '');
 }
 
 async function loadOverview() {
@@ -29,6 +58,7 @@ async function loadOverview() {
 function renderOverviewEmpty() {
     document.getElementById('overview-tiles').innerHTML = '';
     emptyChart(document.getElementById('chart-rows'), 'Nothing recorded yet');
+    document.getElementById('rows-summary').innerHTML = '';
     document.getElementById('top-entities').innerHTML = '<div class="empty-state">Nothing recorded yet</div>';
     document.getElementById('domains').innerHTML = '';
 }
@@ -54,29 +84,41 @@ function renderOverview(data) {
     ].join('');
 
     // Rows per hour, the hours without rows included. A history younger than the period starts
-    // at its first hour, so an hour of history isn't a sliver at the edge of 24 hours.
+    // at its first hour, so an hour of history isn't a sliver at the edge of 24 hours. The hour in
+    // progress isn't drawn (it would always dip): the summary has it.
     const el = document.getElementById('chart-rows');
-    const now = Math.floor(Date.now() / 3600000) * 3600;
-    let first = now - (overviewHours - 1) * 3600;
+    const current = Math.floor(Date.now() / 3600000) * 3600;
+    let first = current - overviewHours * 3600;
     if (t.oldest) first = Math.max(first, Math.floor(t.oldest / 3600) * 3600);
     const byHour = new Map(data.per_hour.map(p => [p.t, p.rows]));
     const xs = [], rows = [];
-    for (let t0 = first; t0 <= now; t0 += 3600) {
+    for (let t0 = first; t0 < current; t0 += 3600) {
         xs.push(t0 + 1800);  // drawn in the middle of its hour
         rows.push(byHour.get(t0) || 0);
     }
+    const thisHour = byHour.get(current) || 0;
+    const total = rows.reduce((a, b) => a + b, 0) + thisHour;
+    const peak = rows.length ? rows.indexOf(Math.max(...rows)) : -1;
+    const summary = [
+        `<span><b>${fmtCount(total)}</b> rows</span>`,
+        rows.length ? `<span><b>${fmtCount(Math.round((total - thisHour) / rows.length))}</b> per hour</span>` : '',
+        peak >= 0 && rows[peak] ? `<span>peak <b>${fmtCount(rows[peak])}</b> at ${escapeHtml((overviewHours > 24 ? fmtDay(xs[peak] - 1800) + ' ' : '') + fmtTime(xs[peak] - 1800))}</span>` : '',
+        `<span>this hour <b>${fmtCount(thisHour)}</b></span>`,
+    ].filter(Boolean).join('');
+    document.getElementById('rows-summary').innerHTML = summary;
     timeChart(el, {
         x: xs,
-        series: [{name: 'rows', unit: 'rows', color: cssVar('--series-1'), values: rows, kind: 'bars'}],
-        xRange: [first, now + 3600],
-        height: 200,
-        barSize: 34,
+        series: [{name: 'rows', color: cssVar('--series-1'), values: rows, kind: 'area'}],
+        xRange: [first, current],
+        height: 150,
+        compact: true,
         title: 'Rows written per hour',
         filename: 'chronicle-rows-per-hour',
+        format: v => `${num(v)} rows`,
         tipTitle: t => `${fmtDay(t - 1800)} ${fmtTime(t - 1800)} – ${fmtTime(t + 1800)}`,
         csv: (from, to) => csvFrom(['hour_start', 'rows'], xs.map((x, i) => [x - 1800, rows[i]])
             .filter(([x]) => x + 1800 >= from && x + 1800 <= to).map(([x, r]) => [isoTime(x), r])),
-        empty: 'No rows written in this period',
+        empty: rows.length ? 'No rows written in this period' : 'The first hour is still being written',
     });
 
     const top = data.top;
