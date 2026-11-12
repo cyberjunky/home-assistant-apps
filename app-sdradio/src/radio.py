@@ -113,6 +113,7 @@ class Radio:
         self.noise_blanker = bool(state.get("nb", False))
         self.band_last: dict = state.get("band_last") or {}
         self.demod: Demodulator | None = None
+        self._rds_frequency = 0
         self.spectrum = Spectrum(int(self.settings["fft_size"]))
 
     # ================================================================ lifecycle
@@ -422,6 +423,10 @@ class Radio:
             return
         self.demod.configure(self.mode, self.bandwidth)
         self.demod.set_offset(self.frequency - self.center)
+        # RDS belongs to one station: start over on another frequency
+        if self.demod.rds is not None and self.frequency != self._rds_frequency:
+            self.demod.rds.reset()
+        self._rds_frequency = self.frequency
         self.demod.agc_enabled = self.agc
         self.demod.noise_blanker = self.noise_blanker
 
@@ -742,6 +747,7 @@ class Radio:
             else None,
             "priority": self.priority,
             "audio_rate": self.demod.audio_rate if self.demod else None,
+            "rds": self.demod.rds.snapshot() if self.demod and self.demod.rds else None,
             "device": {"ok": self.device is not None, "error": self.device_error, **self.device_info},
         }
 

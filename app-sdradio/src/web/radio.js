@@ -296,9 +296,13 @@ function renderLcd() {
     if (s.scan) info.push(`${s.scan.kind === 'channels' ? 'CH' : 'STEP'} ${s.scan.position}/${s.scan.count}`);
     document.getElementById('lcd-info').textContent = info.join(' · ');
     const name = document.getElementById('lcd-name');
+    const rds = s.mode === 'wfm' ? s.rds : null;
+    const ps = rds && rds.ps;
     name.innerHTML = s.channel
-        ? `${escapeHtml(s.channel.name || 'Unnamed')}<small>M${chNum(s.channel.number)}${s.channel.favourite ? ' ★' : ''}</small>`
+        ? `${escapeHtml(s.channel.name || 'Unnamed')}<small>M${chNum(s.channel.number)}${s.channel.favourite ? ' ★' : ''}${ps && ps !== s.channel.name ? ` · ${escapeHtml(ps)}` : ''}</small>`
+        : ps ? `${escapeHtml(ps)}<small>RDS · not stored</small>`
         : `<span style="opacity:.6">${s.busy ? 'Signal · not stored' : 'Not stored'}</span>`;
+    renderRds(s.mode === 'wfm', rds);
     // S-meter: -120 to -20 dBFS over 24 segments
     const meter = document.getElementById('smeter');
     if (meter.children.length !== 24) meter.innerHTML = Array.from({length: 24}, (_, i) => `<i class="${i >= 18 ? 'hot' : ''}" style="height:${6 + i * 0.5}px"></i>`).join('');
@@ -306,6 +310,48 @@ function renderLcd() {
     Array.from(meter.children).forEach((seg, i) => seg.classList.toggle('lit', i < lit));
     const snr = s.noise > -140 ? Math.max(0, s.level - s.noise) : null;
     document.getElementById('lcd-level').textContent = `${num(s.level, 0)} dBFS${snr !== null ? ` · SNR ${num(snr, 0)} dB` : ''}`;
+}
+
+// The RDS line: artist and title when the station marks them (RadioText+), else its radio text
+function renderRds(wfm, rds) {
+    const line = document.getElementById('lcd-rds');
+    if (line.hidden === wfm) { line.hidden = !wfm; fitWaterfall(); }
+    if (!wfm) return;
+    const text = document.getElementById('rds-text');
+    let value = '';
+    if (rds && rds.artist && rds.title) value = `♪ ${rds.artist} – ${rds.title}`;
+    else if (rds && rds.title) value = `♪ ${rds.title}`;
+    else if (rds && rds.rt) value = rds.rt;
+    const shown = value || (rds && rds.synced ? 'RDS…' : 'No RDS');
+    // Laid out again when the text or the line's width changes (window resized, back from another tab)
+    if (radio.rdsShown !== shown || radio.rdsWidth !== text.clientWidth) {
+        radio.rdsShown = shown;
+        text.title = rds && rds.rt ? rds.rt : '';
+        layoutRdsText();
+    }
+    text.classList.toggle('dim', !value);
+    document.getElementById('rds-pty').textContent = rds ? [rds.pty, rds.tp ? 'TP' : '', rds.ta ? 'TA' : ''].filter(Boolean).join(' · ') : '';
+}
+
+// A text longer than the line scrolls round, as on a car radio
+const RDS_SCROLL_SPEED = 40; // px per second
+function layoutRdsText() {
+    const text = document.getElementById('rds-text');
+    const shown = radio.rdsShown || '';
+    text.innerHTML = `<span class="rds-run">${escapeHtml(shown)}</span>`;
+    radio.rdsWidth = text.clientWidth;
+    const run = text.firstChild;
+    const width = run.getBoundingClientRect().width;
+    if (!text.clientWidth || width <= text.clientWidth) {
+        text.classList.remove('scrolling');
+        return;
+    }
+    const distance = width + 48;
+    text.classList.add('scrolling');
+    run.classList.add('scroll');
+    run.style.setProperty('--distance', `-${distance}px`);
+    run.style.setProperty('--duration', `${(distance / RDS_SCROLL_SPEED).toFixed(1)}s`);
+    run.innerHTML = `${escapeHtml(shown)}<span class="rds-gap"></span>${escapeHtml(shown)}`;
 }
 
 function renderControls() {
