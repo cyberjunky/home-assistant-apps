@@ -90,6 +90,21 @@ class SoapyDevice:
     def set_center(self, frequency: float) -> None:
         self.dev.setFrequency(self._rx, 0, float(frequency))
 
+    def set_sample_rate(self, rate: float) -> float:
+        """Another sample rate on the open receiver (the stream stopped meanwhile); the rate it got."""
+        dev, rx = self.dev, self._rx
+        try:
+            dev.deactivateStream(self.stream)
+            dev.setSampleRate(rx, 0, float(rate))
+            # The HackRF's baseband filter follows the rate (about three quarters of it)
+            if self.config.type == "hackrf":
+                dev.setBandwidth(rx, 0, float(rate) * 0.75)
+            dev.activateStream(self.stream)
+        except Exception as e:
+            raise DeviceError(f"The {self.config.name} can't run at {rate / 1e6:g} MS/s: {e}") from e
+        self.info["sample_rate"] = dev.getSampleRate(rx, 0)
+        return self.sample_rate
+
     def set_gain(self, gain: float | None) -> None:
         """None = automatic gain (when the receiver has it)."""
         dev, rx = self.dev, self._rx

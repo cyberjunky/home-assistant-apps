@@ -217,3 +217,33 @@ def test_a_centred_mode_has_the_receiver_on_its_frequency(radio, monkeypatch):
     radio.command("decoder", key="fake")
     run(radio, 3)
     assert radio.center != radio.frequency  # the usual offset, away from the receiver's DC spike
+
+
+def test_a_mode_keeps_to_its_frequency(radio):
+    radio.command("decoder", key="fake")
+    run(radio, 3)
+    radio.command("scan", action="start", kind="band")
+    radio.command("priority", on=True)
+    radio.command("band", direction=1)
+    radio.command("cycle", what="mode")
+    run(radio, 3)
+    assert not radio.scan.kind and not radio.priority
+    assert radio.frequency == 433_920_000 and radio.mode == "am"
+    assert any(k == "notice" and "No scanning" in p["message"] for k, p in radio.events)
+    d = radio.snapshot()["decoder"]
+    assert d["decoded_by"] == "SDRadio" and d["input"] == "iq"
+    radio.command("decoder", key="radio")
+    radio.command("scan", action="start", kind="band")
+    run(radio, 2)
+    assert radio.scan.kind == "band"
+
+
+def test_sensors_count_the_bursts_rtl433_saw():
+    decoder = sensors.Sensors({}, lambda item: None)
+    decoder._line(
+        json.dumps({"time": "@10s", "enabled": 238, "frames": {"count": 3, "fsk": 0, "events": 3}, "stats": []})
+    )
+    decoder._line(
+        json.dumps({"time": "@20s", "enabled": 238, "frames": {"count": 2, "fsk": 1, "events": 2}, "stats": []})
+    )
+    assert decoder.status()["bursts"] == 5 and decoder.status()["count"] == 0

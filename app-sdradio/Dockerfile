@@ -9,7 +9,7 @@ ARG CMAKE_POLICY_VERSION_MINIMUM=3.5
 ENV S6_SERVICES_GRACETIME=8000
 
 # Python with numpy, scipy and the SoapySDR bindings, from Alpine (built for musl)
-RUN apk add --no-cache python3 py3-pip py3-numpy py3-scipy soapy-sdr py3-soapy-sdr libusb fftw
+RUN apk add --no-cache python3 py3-pip py3-numpy py3-scipy py3-ephem soapy-sdr py3-soapy-sdr libusb fftw
 
 # The modes' decoder programs from Alpine: rtl_433 (Sensors), dump1090 (Aircraft), and sox
 # (resampling for multimon-ng)

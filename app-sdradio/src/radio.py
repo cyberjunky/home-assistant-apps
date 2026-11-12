@@ -11,6 +11,7 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 
@@ -63,7 +64,7 @@ class Signal:
 
 @dataclass
 class ScanState:
-    kind: str = ""  # channels, band or range
+    kind: str = ""  # channels or band
     targets: list = field(default_factory=list)
     index: int = -1
     hold: bool = False  # the HOLD key: stay here
@@ -134,6 +135,8 @@ class Radio:
         self.decoder: Decoder | None = None
         # Where the receiver is (latitude, longitude): Home Assistant's home, for the maps
         self.location: tuple[float, float] | None = None
+        # Where the modes keep their pictures and recordings (a folder per mode)
+        self.files_dir: Path | None = None
         self.decoder_key = state.get("decoder") if state.get("decoder") in registry() else "radio"
         self.spectrum = Spectrum(int(self.settings["fft_size"]))
         # The spectrum averaged over the last second or so (linear), for autotune
@@ -300,6 +303,9 @@ class Radio:
         if self.decoder:
             self.decoder.stop()
             self.decoder = None
+        # Back to the usual rate after a mode that needed another
+        if self.device and self.rate != float(self.config.receiver.sample_rate):
+            self._set_rate(float(self.config.receiver.sample_rate))
         self.decoder_key = key
         if key != "radio":
             self._stop_scan()
@@ -309,8 +315,12 @@ class Radio:
 
     def _start_decoder(self, key: str, tune: bool) -> None:
         cls = registry()[key]
-        if self.device and not cls.available(self.device.frequency_range):
+        if not cls.usable(self.config.receiver.type, self.device.frequency_range if self.device else None):
             self.emit("notice", {"message": f"The {self.config.receiver.name} can't receive {cls.name}"})
+            self.decoder_key = "radio"
+            return
+        # A mode that needs a faster (wider) receiver has it while it runs
+        if cls.sample_rate and self.device and self.rate != cls.sample_rate and not self._set_rate(cls.sample_rate):
             self.decoder_key = "radio"
             return
         decoder = cls(
@@ -319,6 +329,11 @@ class Radio:
             lambda data: self.emit("live", {"mode": key, **data}),
         )
         decoder.location = self.location
+        decoder.folder = self.files_dir / key if self.files_dir else None
+        # A mode that follows something (a satellite's Doppler shift) tunes the radio itself
+        decoder.retune = lambda frequency, mode, bandwidth: self.command(
+            "track", frequency=frequency, mode=mode, bandwidth=bandwidth
+        )
         self.decoder = decoder
         if tune:
             mode, bandwidth = decoder.demod
@@ -328,12 +343,24 @@ class Radio:
         decoder.start()
         logger.info(f"Mode {decoder.name} on {self.frequency / 1e6:.4f} MHz")
 
+    def _modes(self) -> list[dict]:
+        receiver = self.config.receiver
+        span = self.device.frequency_range if self.device else None
+        return [
+            {"key": k, "name": cls.name, "why_not": cls.why_not(receiver.type, span, receiver.name)}
+            for k, cls in registry().items()
+        ]
+
+    def _decoder_kind(self, cls) -> dict:
+        return {"key": self.decoder_key, "name": cls.name, "decoded_by": cls.decoded_by, "input": cls.input,
+                "signal": cls.signal, "listen": cls.listen}  # fmt: skip
+
     def _decoder_snapshot(self) -> dict:
         if self.decoder:
-            return {"key": self.decoder_key, "name": self.decoder.name, **self.decoder.status()}
+            return {**self._decoder_kind(type(self.decoder)), **self.decoder.status()}
         if self.decoder_key != "radio":
             # Chosen, but not running (switched off, or the receiver isn't open)
-            return {"key": self.decoder_key, "name": registry()[self.decoder_key].name, "error": None, "count": 0}
+            return {**self._decoder_kind(registry()[self.decoder_key]), "error": None, "count": 0}
         return {"key": "radio"}
 
     def _publish(self, key: str, item: dict) -> None:
@@ -350,9 +377,36 @@ class Radio:
         self.emit("decoded", {"mode": key, "item": {"id": item_id, "ts": ts, "mode": key, "key": item_key,
                                                     "frequency": frequency, **item}})  # fmt: skip
 
+    def _set_rate(self, rate: float) -> bool:
+        """Another sample rate: the receiver, the demodulator and the block size follow."""
+        try:
+            self.rate = float(self.device.set_sample_rate(rate))
+        except (DeviceError, AttributeError) as e:
+            self.emit("notice", {"message": str(e)})
+            return False
+        self.block_size = int(self.rate // BLOCKS_PER_SECOND)
+        self.demod = Demodulator(self.rate, self.mode, self.bandwidth)
+        self._apply_demod()
+        self.center = self._centre_for(self.frequency)
+        self.device.set_center(self.center)
+        self.settle = SETTLE_BLOCKS
+        self._avg_power = None
+        self._avg_count = 0
+        logger.info(f"Receiver at {self.rate / 1e6:g} MS/s")
+        self._state_dirty = True
+        return True
+
+    def _cmd_track(self, frequency, mode=None, bandwidth=None) -> None:
+        """A mode tuning the radio itself (a satellite pass); not a command of the page."""
+        if self.decoder is None:
+            return
+        self._tune(int(frequency), mode, int(bandwidth) if bandwidth else None)
+
     def _cmd_autotune(self) -> None:
         """AUTO: to the middle of the strongest signal near the frequency (done once the spectrum
         has been averaged for a moment)."""
+        if self.decoder is not None:
+            return  # a mode stays on its own frequency
         if self.mode in ("usb", "lsb", "cw"):
             self.emit("notice", {"message": "Autotune centres AM, FM and DSB signals: tune SSB and CW by ear"})
             return
@@ -455,6 +509,8 @@ class Radio:
 
     def _cmd_cycle(self, what) -> None:
         """The MODE and STEP keys."""
+        if what == "mode" and self.decoder is not None:
+            return  # a mode listens the way its decoder needs
         if what == "mode":
             modes = list(MODES)
             self._cmd_set(mode=modes[(modes.index(self.mode) + 1) % len(modes)])
@@ -465,6 +521,8 @@ class Radio:
 
     def _cmd_band(self, name=None, direction=1) -> None:
         """Go to a band: by name, or the next band with a button."""
+        if self.decoder is not None:
+            return  # a mode stays on its own frequency
         # The bands this receiver can tune to
         bands = [b for b in self.bands if b["button"] and self._in_range(b["start"], b["stop"])]
         if not bands:
@@ -493,6 +551,12 @@ class Radio:
         if action == "stop":
             self._stop_scan()
         elif action == "start":
+            if self.decoder is not None:
+                # A mode listens on its own frequency
+                self.emit(
+                    "notice", {"message": f"No scanning in the {self.decoder.name} mode: switch Mode to Radio to scan"}
+                )
+                return
             self._start_scan(kind or "channels", band)
         elif action == "hold":
             self.scan.hold = not self.scan.hold
@@ -504,6 +568,9 @@ class Radio:
             self._next_target()
 
     def _cmd_priority(self, on=None) -> None:
+        if self.decoder is not None:
+            self.priority = False
+            return
         self.priority = (not self.priority) if on is None else bool(on)
         self._priority_due = time.monotonic() + float(self.settings["priority_interval"])
 
@@ -645,7 +712,12 @@ class Radio:
         if self.settle > 0:
             self.settle -= 1
             return
-        audio, level = self.demod.process(block)
+        if self.decoder is not None and not self.decoder.listen:
+            # Nothing to hear (a picture mode): only the signal level, from a part of the block
+            part = block[::64]
+            audio, level = None, 10 * math.log10(float(np.mean(np.abs(part) ** 2)) + 1e-20)
+        else:
+            audio, level = self.demod.process(block)
         self.level = level
         every = 1 if int(self.settings["spectrum_rate"]) >= 20 else 2
         if self._block % every == 0 or self.spectrum_listeners == 0:
@@ -671,14 +743,14 @@ class Radio:
         elif self.priority:
             self._priority_step(open_)
 
-        if open_ and self.listeners and not self.settle:
+        if open_ and self.listeners and not self.settle and audio is not None:
             self.emit("audio", {"rate": self.demod.audio_rate, "pcm": to_pcm16(audio)})
 
         # The mode's decoder reads every block, squelch or not
         if self.decoder is not None:
-            if self.decoder.input == "audio":
+            if self.decoder.input in ("audio", "both") and audio is not None:
                 self.decoder.feed_audio(audio, self.demod.audio_rate)
-            else:
+            if self.decoder.input in ("iq", "both"):
                 self.decoder.feed_iq(block, self.rate, self.frequency - self.center)
 
         if self._save_due and time.monotonic() >= self._save_due:
@@ -871,28 +943,21 @@ class Radio:
                     "notice", {"message": "No stored channels to scan" + (f" in {band_name}" if band_name else "")}
                 )
                 return
-        elif kind in ("band", "range"):
-            if kind == "band":
-                band = next((b for b in self.bands if b["name"] == band_name), None) or band_for(
-                    self.bands, self.frequency
-                )
-                if band is None:
-                    self.scan = ScanState()
-                    self.emit("notice", {"message": "This frequency is in none of the bands: pick a band first"})
-                    return
-                start, stop, step, mode, bandwidth = (
-                    band["start"],
-                    band["stop"],
-                    band["step"],
-                    band["mode"],
-                    band["bandwidth"],
-                )
-                self.scan.label = band["name"]
-            else:
-                rng = self.settings["scan_range"]
-                start, stop, step, mode = rng["start"], rng["stop"], rng["step"], rng["mode"]
-                bandwidth = default_bandwidth(mode)
-                self.scan.label = f"{start / 1e6:g} to {stop / 1e6:g} MHz"
+        elif kind == "band":
+            # The band the radio is in, with the band's own mode, filter and step
+            band = next((b for b in self.bands if b["name"] == band_name), None) or band_for(self.bands, self.frequency)
+            if band is None:
+                self.scan = ScanState()
+                self.emit("notice", {"message": "This frequency is in none of the bands: pick a band first"})
+                return
+            start, stop, step, mode, bandwidth = (
+                band["start"],
+                band["stop"],
+                band["step"],
+                band["mode"],
+                band["bandwidth"],
+            )
+            self.scan.label = band["name"]
             stored = {c["frequency"] for c in self.db.channels() if not c["scan"]}
             skip = self.ignored | stored
             count = int((stop - start) // step) + 1
@@ -1065,11 +1130,8 @@ class Radio:
             else None,
             "priority": self.priority,
             "decoder": self._decoder_snapshot(),
-            "modes": [
-                {"key": k, "name": cls.name}
-                for k, cls in registry().items()
-                if not self.device or cls.available(self.device.frequency_range)
-            ],
+            # Every mode; the ones this receiver can't do say why (ghosted on the page)
+            "modes": self._modes(),
             "sweep": {"start": self.sweep["start"], "span": self.sweep["span"], "label": self.sweep["label"]}
             if self.sweep
             else None,

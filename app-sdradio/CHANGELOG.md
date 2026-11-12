@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.0
+
+**After updating:** nothing to do. A range scan you had set up is gone: SCAN does the band you are in, or your stored channels.
+
+- **Mode buttons** under the tune dial, in place of the Mode list in the top bar. A mode your receiver can't do stays there, ghosted; hovering says why ("HackRF only: …").
+- **A mode keeps to its frequency:** SCAN, HOLD, PRI, L/O, MODE, BAND, AUTO, the filter and the scan speed are off in a mode (Mode → Radio brings them back). The display shows how the mode's signal is modulated (FSK, OOK/FSK, PPM, GMSK, AFSK, …) and what decodes it.
+- **No range scan:** SCAN steps through the band you are in (with the band's own step and mode) or through the stored channels.
+- **Pager networks** to pick under Settings → Modes: P2000, KPN Nationaal 1 and 2, KPN Benelux, DAPNET; they set the frequency and the protocols.
+- **Sensors** says how many bursts rtl_433 heard and how many it decoded, and what to try when it heard nothing (the RF gain, the antenna).
+- **SSTV** (new mode): pictures sent as sound, decoded by SDRadio itself: PD50 to PD290 (the ISS sends PD120 and PD180), Martin M1 and M2, Robot 36. A picture grows line by line while it comes in, then goes into the gallery.
+- **Satellites** (new mode): the passes over your home of the ISS, SO-50 and Meteor-M2-3 and M2-4, from their orbits (Celestrak), on a world map with their tracks. During a pass the radio follows the satellite with the Doppler shift taken out and keeps what it brings: ISS voice and SSTV pictures, ISS APRS packets, and Meteor passes recorded as IQ for SatDump (off by default: about 300 MB a pass).
+- **Video** (new mode, HackRF only): analog FPV video (5.8 GHz, and 1.2 and 2.4 GHz cameras) in black and white, a few frames a second, PAL or NTSC; the HackRF runs at 20 MS/s in this mode. **Snapshot** keeps a picture.
+- **Theme:** follows Home Assistant's light or dark mode by default, as the other apps; a choice made before stays.
+- **README** with new screenshots of every mode.
+
 ## 0.2.1
 
 **After updating:** nothing to do.

@@ -86,7 +86,6 @@ Channels page. Under the list, **M+** stores and **◀ ▶** step through the st
 Pick what to scan under the keypad, then press **SCAN**:
 - **Channels**: the stored channels that are in the scan, of this band when the list shows *This band*, otherwise all.
 - **Band**: every step of the band you are in (from the band plan on the Settings page).
-- **Range…**: a range of your own, with its step and mode. *Fill in* puts the band you are in there, to narrow down from.
 
 The scan stops on every signal above the squelch and stays while it lasts; after the
 **Resume after** time of quiet it moves on. With the squelch off, it stops on a signal 10 dB
@@ -95,7 +94,7 @@ set too low doesn't stop it on every channel.
 
 - **SCAN** on a signal (the key then reads *NEXT*) goes on to the next channel without waiting; pressed while the scan is stepping, it stops the scan. Tuning anywhere stops it too.
 - **HOLD** stays on the current channel until you press it again, or until SCAN goes on.
-- **L/O** (lock out) takes a stored channel out of the scans, or ignores a frequency that isn't stored in band and range scans; press it again to undo.
+- **L/O** (lock out) takes a stored channel out of the scans, or ignores a frequency that isn't stored in band scans; press it again to undo.
 - **PRI** (priority): channels marked *Priority* on the Channels page are checked every few seconds while you listen elsewhere, and between the other channels while scanning. When one is busy, the radio goes there and comes back after.
 
 Every transmission the squelch lets through is logged as a hit: while scanning, and while
@@ -104,13 +103,18 @@ after a few hits (the number is on the Settings page).
 
 ## Modes
 
-Next to Listen in the top bar, **Mode** sets the radio up for one kind of signal and decodes
+The **mode buttons** under the tune dial set the radio up for one kind of signal and decode
 what it hears. The radio tunes to the mode's frequency (set on the Settings page, under Modes);
 you can still tune elsewhere and listen. In place of the favourites and the stored channels the
 page shows what the mode decodes. The modes only show up when your receiver can use them.
+In a mode the display shows how its signal is modulated (FSK for pagers, OOK/FSK for sensors,
+PPM for ADS-B, MSK on AM for ACARS, GMSK for AIS, AFSK for APRS) and what decodes it; the
+demodulation beside it is only how it sounds with Listen. What would take the mode off its
+frequency or change how it listens is off meanwhile: SCAN, HOLD, PRI, L/O, MODE, BAND, AUTO,
+the filter and the scan speed. Mode → Radio brings them back.
 
 - **Pager**: POCSAG (512, 1200 and 2400 baud) and FLEX messages, decoded by multimon-ng from
-  the radio's own NFM audio. 169.65 MHz is P2000, the Dutch emergency services. Search the
+  the radio's own NFM audio. 169.65 MHz is P2000, the Dutch emergency services; Settings → Modes has the other networks to pick (KPN Nationaal 1 and 2, KPN Benelux, DAPNET), which set the frequency and protocols. Search the
   messages by text or capcode. With **Pager events** on, every message is an `sdradio_pager`
   event in Home Assistant.
 - **Sensors**: weather stations, thermometers, doorbells, remotes and meters, decoded by rtl_433
@@ -142,7 +146,40 @@ page shows what the mode decodes. The modes only show up when your receiver can 
   reports). Stations with a position are on the map with their symbol, moving ones with their
   trail; **Packets** lists everything heard.
 
-**The map** (Aircraft, Ships, APRS) shows OpenStreetMap through Home Assistant's own map tile service (which
+- **SSTV**: pictures sent as sound (slow-scan television), decoded by SDRadio itself: PD50 to
+  PD290 (the ISS sends PD120 and PD180), Martin M1 and M2, and Robot 36. 145.800 MHz is the ISS
+  during its SSTV events, 144.500 MHz radio amateurs on 2 m, 14.230 MHz on HF (upper sideband,
+  HackRF). A picture grows line by line while it comes in and then goes into the gallery; the
+  pictures are kept in the app's data folder as long as the other decoded data.
+
+- **Satellites**: the passes over Home Assistant's home of the satellites you follow (Settings →
+  Modes), worked out from their orbits (fetched from Celestrak once a day). During a pass the
+  radio follows the satellite with the Doppler shift taken out (up to ±3.5 kHz on 2 m, ±10 kHz on
+  70 cm) and keeps what it brings:
+  - **ISS** on 145.800 MHz: its voice, and during its SSTV events the pictures (as the SSTV mode);
+  - **ISS APRS** on 145.825 MHz: the packets its digipeater relays;
+  - **SO-50** on 436.795 MHz: an FM repeater to listen to;
+  - **Meteor-M2-3 and M2-4** on 137.1 / 137.9 MHz (their frequencies change now and then: set them
+    under Modes): with *Record Meteor passes* on, a pass is recorded as 8-bit IQ at 200 kHz (about
+    300 MB, the last few kept) to download and turn into weather pictures with SatDump on a
+    computer. Decoding the pictures themselves needs far more computing than fits in the app.
+
+  The map shows where they are, their tracks for the next orbit and the area each one can be heard
+  in; **Passes** lists the coming day's (when, how high, from where to where), **Heard** the
+  passes that are over, with their pictures, packets and recordings. The NOAA weather satellites
+  were switched off in 2025.
+
+- **Video** (HackRF only): analog video as FPV drones and wireless cameras send it, in black and
+  white, a few frames a second. Analog video is FM some 16 MHz wide, so in this mode the HackRF
+  runs at 20 MS/s (back to 2.4 when you leave it); the RTL-SDR takes in 2.4 MHz, too little. PAL
+  or NTSC, and video sent upside down, are recognised by themselves. 5.8 GHz FPV (Raceband
+  R1–R8, F4 5800), 1.2 GHz and 2.4 GHz cameras are under Modes. **Snapshot** keeps a picture.
+  Only for video that is meant to be seen: drones (yours, or at a race) and your own cameras;
+  watching other people's camera feeds is not allowed.
+
+A mode your receiver can't do is ghosted: hovering over it says why ("HackRF only: …").
+
+**The map** (Aircraft, Ships, APRS, Satellites) shows OpenStreetMap through Home Assistant's own map tile service (which
 needs Home Assistant 2026.9 or later), centred on Home Assistant's home location; the distances
 are from there. The map is darkened only with the dark theme.
 

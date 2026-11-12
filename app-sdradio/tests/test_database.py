@@ -108,8 +108,6 @@ def test_settings(db):
         db.update_settings({"scan_speed": 99})
     with pytest.raises(ValidationError, match="Unknown"):
         db.update_settings({"nope": 1})
-    rng = db.update_settings({"scan_range": {"start": 1e8, "stop": 1.1e8, "step": 1e5, "mode": "wfm"}})["scan_range"]
-    assert rng == {"start": 100_000_000, "stop": 110_000_000, "step": 100_000, "mode": "wfm"}
 
 
 def test_bands(db):

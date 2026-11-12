@@ -86,7 +86,6 @@ CREATE INDEX IF NOT EXISTS decoded_mode_key ON decoded (mode, key, ts);
 SETTINGS: dict[str, dict] = {
     "scan_speed": {"default": 10, "min": 1, "max": 20},  # channels a second
     "scan_resume": {"default": 2.0, "min": 0.0, "max": 30.0},  # seconds of quiet before moving on
-    "scan_range": {"default": {"start": 144_000_000, "stop": 146_000_000, "step": 12_500, "mode": "nfm"}},
     "priority_interval": {"default": 2.0, "min": 0.5, "max": 30.0},
     "find_min_hits": {"default": 3, "min": 1, "max": 100},
     "fft_size": {"default": 2048, "options": [1024, 2048, 4096, 8192]},
@@ -819,14 +818,4 @@ def _check_setting(key: str, spec: dict, value):
         if len(parts) != 2 or not all(p.isdigit() for p in parts) or int(parts[0]) > 23 or int(parts[1]) > 59:
             raise ValidationError("The backup time must look like 03:00")
         return f"{int(parts[0]):02d}:{int(parts[1]):02d}"
-    if key == "scan_range":
-        if not isinstance(value, dict):
-            raise ValidationError("scan_range must have start, stop, step and mode")
-        start, stop = _hz(value.get("start"), "Start"), _hz(value.get("stop"), "Stop")
-        if stop <= start:
-            raise ValidationError("The range must end above its start")
-        step = _hz(value.get("step"), "Step")
-        if (stop - start) / step > 200_000:
-            raise ValidationError("That range has too many steps; use a bigger step")
-        return {"start": start, "stop": stop, "step": step, "mode": _mode(value.get("mode"))}
     return value

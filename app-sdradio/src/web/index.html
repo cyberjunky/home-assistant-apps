@@ -30,10 +30,6 @@
         </nav>
         <span class="spacer"></span>
         <span class="badge warn" id="scan-badge" hidden></span>
-        <label class="mode-pick" title="Mode: the radio, or the radio set up to decode pagers, sensors, …">
-            <span>Mode</span>
-            <select class="select" id="mode-select" aria-label="Mode"><option value="radio">Radio</option></select>
-        </label>
         <button type="button" class="btn listen-btn" id="listen-btn" onclick="toggleListen()">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
             <span id="listen-label">Listen</span>
@@ -87,7 +83,11 @@
                             <canvas class="scale" id="scale" height="44" aria-label="Band scale: click or drag to tune" role="img"></canvas>
                         </div>
                         <div class="knob-row" id="knob-row"></div>
-                        <div class="front-dial" id="tune-dial"></div>
+                        <div class="front-dial">
+                            <div id="tune-dial"></div>
+                            <!-- The modes: the radio, or the radio set up to decode one kind of signal -->
+                            <div class="mode-buttons" id="mode-buttons" role="group" aria-label="Mode"></div>
+                        </div>
                         <div class="keypad" id="keypad"></div>
                         <div class="scan-keys">
                             <div class="keypad" id="scan-keys"></div>
@@ -244,6 +244,7 @@
     <script src="__BASE__/web/vendor/leaflet/leaflet.js"></script>
     <script src="__BASE__/web/maps.js?v=__ADDON_VERSION__"></script>
     <script src="__BASE__/web/modes.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/satellites.js?v=__ADDON_VERSION__"></script>
     <script src="__BASE__/web/channels.js?v=__ADDON_VERSION__"></script>
     <script src="__BASE__/web/stats.js?v=__ADDON_VERSION__"></script>
     <script src="__BASE__/web/settings.js?v=__ADDON_VERSION__"></script>

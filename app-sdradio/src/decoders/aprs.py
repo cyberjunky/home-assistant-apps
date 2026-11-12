@@ -250,6 +250,8 @@ def parse(line: str) -> dict | None:
 class Aprs(Decoder):
     key = "aprs"
     name = "APRS"
+    signal = "AFSK"
+    decoded_by = "multimon-ng"
     input = "audio"
     # The European APRS frequency (North America: 144.390)
     defaults = {"frequency": 144_800_000}

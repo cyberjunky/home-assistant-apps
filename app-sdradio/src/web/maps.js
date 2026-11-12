@@ -2,10 +2,14 @@
 // ships and APRS stations): Leaflet with OpenStreetMap tiles through Home Assistant's map tile
 // proxy, the same map Meldkamer uses. The tiles are darkened only with the dark theme (app.css).
 
-const modeMap = {map: null, el: null, home: null, homeAt: null};
+const modeMap = {map: null, el: null, home: null, homeAt: null, viewKey: 'map_view'};
+// Where each mode's map opens: satellites see the whole world, the others the neighbourhood
+const MAP_START = {satellites: {zoom: 2, world: true}};
 
-// The map in its slot in the mode's view: made once, moved back in when the view is redrawn
-function ensureMap(slot) {
+// The map in its slot in the mode's view: made once, moved back in when the view is redrawn.
+// Each mode keeps its own view (zoomed in on ships, out on satellites)
+function ensureMap(slot, mode) {
+    const viewKey = `map_view_${mode || 'map'}`;
     if (typeof L === 'undefined') {
         slot.innerHTML = '<div class="empty-state">The map could not be loaded.</div>';
         return null;
@@ -14,22 +18,31 @@ function ensureMap(slot) {
         modeMap.el = document.createElement('div');
         modeMap.el.className = 'map';
         slot.appendChild(modeMap.el);
-        const saved = lsGet('map_view', null);
         const map = L.map(modeMap.el, {zoomControl: true, attributionControl: true, worldCopyJump: true});
-        if (saved && typeof saved.lat === 'number') map.setView([saved.lat, saved.lng], saved.zoom);
-        else map.setView([52.2, 5.3], 7);
         L.tileLayer(basePath + 'api/map-tiles/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
         }).addTo(map);
         map.on('moveend', () => {
+            if (modeMap.restoring) return;
             const c = map.getCenter();
-            lsSet('map_view', {lat: c.lat, lng: c.lng, zoom: map.getZoom()});
+            lsSet(modeMap.viewKey, {lat: c.lat, lng: c.lng, zoom: map.getZoom()});
         });
         modeMap.map = map;
         window.addEventListener('resize', () => modeMap.map && modeMap.map.invalidateSize());
     } else if (modeMap.el.parentNode !== slot) {
         slot.appendChild(modeMap.el);
+    }
+    if (modeMap.viewKey !== viewKey || !modeMap.viewSet) {
+        modeMap.viewKey = viewKey;
+        modeMap.viewSet = true;
+        const saved = lsGet(viewKey, null);
+        const start = MAP_START[mode] || {zoom: 7};
+        const home = modeMap.homeAt ? modeMap.homeAt.split(',').map(Number) : [52.2, 5.3];
+        modeMap.restoring = true;
+        if (saved && typeof saved.lat === 'number') modeMap.map.setView([saved.lat, saved.lng], saved.zoom);
+        else modeMap.map.setView(start.world ? [25, home[1]] : home, start.zoom);
+        modeMap.restoring = false;
     }
     requestAnimationFrame(() => modeMap.map.invalidateSize());
     return modeMap.map;
@@ -45,7 +58,7 @@ function setMapHome(location) {
     if (modeMap.home) modeMap.home.remove();
     modeMap.home = L.circleMarker(location, {radius: 6, color: '#fff', weight: 2, fillColor: '#03a9f4', fillOpacity: 1})
         .bindTooltip('The receiver (Home Assistant\'s home)').addTo(map);
-    if (!lsGet('map_view', null)) map.setView(location, 8);
+    if (!lsGet(modeMap.viewKey, null) && !modeMap.viewKey.endsWith('satellites')) map.setView(location, 8);
 }
 
 // An aircraft's colour by its altitude, low (orange) to high (purple), as flight trackers do

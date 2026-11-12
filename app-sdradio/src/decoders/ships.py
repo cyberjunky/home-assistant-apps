@@ -275,6 +275,7 @@ class Channel:
 class Ships(Decoder):
     key = "ships"
     name = "Ships"
+    signal = "GMSK"
     input = "iq"
     # Between the two AIS channels, which are 25 kHz either side
     defaults = {"frequency": CENTRE}

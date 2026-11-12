@@ -16,19 +16,38 @@ const SENSOR_FIELDS = {
 
 function currentMode() { return (app.state && app.state.decoder && app.state.decoder.key) || 'radio'; }
 
-// ---------------------------------------------------------------- the mode picker in the top bar
+// ---------------------------------------------------------------- the mode buttons under the tune dial
+
+const MODE_TITLES = {
+    radio: 'The radio: tune, listen and scan', pager: 'Pager messages (P2000, POCSAG)', sensors: 'Weather stations and sensors on 433 and 868 MHz',
+    aircraft: 'Aircraft on a map (ADS-B)', acars: 'Text messages of aircraft (ACARS)', ships: 'Ships on a map (AIS)',
+    aprs: 'Radio amateur stations on a map (APRS)', sstv: 'Pictures sent as sound (SSTV)', satellites: 'Satellite passes',
+    video: 'Analog video (FPV)',
+};
 
 function renderModePicker() {
     const s = app.state;
-    const select = document.getElementById('mode-select');
-    if (!s || !select) return;
+    const box = document.getElementById('mode-buttons');
+    if (!s || !box) return;
     const modes = [{key: 'radio', name: 'Radio'}, ...(s.modes || [])];
-    const signature = modes.map(m => m.key).join();
-    if (select.dataset.signature !== signature) {
-        select.innerHTML = modes.map(m => `<option value="${m.key}">${escapeHtml(m.name)}</option>`).join('');
-        select.dataset.signature = signature;
+    const signature = modes.map(m => `${m.key}:${m.why_not || ''}`).join();
+    if (box.dataset.signature !== signature) {
+        // A mode this receiver can't do stays, ghosted, saying why
+        box.innerHTML = modes.map(m => `<button type="button" class="mode-btn${m.why_not ? ' ghost' : ''}" data-mode="${m.key}"
+            title="${escapeHtml(m.why_not ? `${MODE_TITLES[m.key] || m.name}. ${m.why_not}` : (MODE_TITLES[m.key] || m.name))}"${m.why_not ? ' aria-disabled="true"' : ''}>${escapeHtml(m.name)}</button>`).join('');
+        box.dataset.signature = signature;
+        box.onclick = (e) => {
+            const b = e.target.closest('[data-mode]');
+            if (!b || b.dataset.mode === currentMode()) return;
+            if (b.classList.contains('ghost')) return toast(b.title, 'error');
+            chooseMode(b.dataset.mode);
+        };
     }
-    if (select.value !== currentMode() && document.activeElement !== select) select.value = currentMode();
+    box.querySelectorAll('.mode-btn').forEach(b => {
+        const on = b.dataset.mode === currentMode();
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
 }
 
 function chooseMode(key) {
@@ -49,6 +68,7 @@ function renderModeLayout() {
         modeView.items = [];
         modeView.keys = new Map();
         clearPlanes();
+        clearSatellites();
         modeView.search = '';
         document.getElementById('mode-search').value = '';
         if (key !== 'radio') loadModeData();
@@ -63,15 +83,18 @@ function renderModeHead() {
     const status = document.getElementById('mode-status');
     const text = d.error ? d.error
         : TRACKED[d.key] ? `${fmtMHz(s.frequency)} MHz · ${modeView.planes.size} in view · ${d.count || 0} heard since the mode started`
+        : d.key === 'satellites' ? `${fmtMHz(s.frequency)} MHz · ${d.count || 0} passes heard since the mode started`
+        : d.key === 'sensors' ? `${fmtMHz(s.frequency)} MHz · ${d.bursts || 0} bursts heard, ${d.count || 0} decoded since the mode started${d.hint ? ` · ${d.hint}` : ''}`
         : `${fmtMHz(s.frequency)} MHz · ${d.count || 0} decoded since the mode started`;
     if (status.textContent !== text) status.textContent = text;
-    status.classList.toggle('warn-text', !!d.error);
+    status.classList.toggle('warn-text', !!(d.error || d.hint));
     document.getElementById('mode-search').placeholder = key2placeholder(d.key);
 }
 
 function key2placeholder(key) {
     return {sensors: 'Search devices…', aircraft: 'Search callsign, registration, type…', ships: 'Search name, MMSI, destination…',
-        aprs: 'Search call sign, text…', acars: 'Search flight, registration, text…'}[key] || 'Search messages, capcodes…';
+        aprs: 'Search call sign, text…', acars: 'Search flight, registration, text…', sstv: 'Search kind (PD120, Robot 36)…',
+        satellites: 'Search satellite…', video: 'Search snapshots…'}[key] || 'Search messages, capcodes…';
 }
 
 async function loadModeData() {
@@ -79,7 +102,9 @@ async function loadModeData() {
     if (!key || key === 'radio') return;
     modeView.loading = true;
     try {
-        if (key === 'sensors') {
+        if (key === 'satellites') {
+            await loadSatellites();
+        } else if (key === 'sensors') {
             const data = await api(`decoded/keys?mode=${key}`);
             if (modeView.key !== key) return;
             modeView.keys = new Map(data.keys.map(k => [k.key, k]));
@@ -108,6 +133,15 @@ async function loadModeData() {
 }
 
 onSocket('live', (m) => {
+    if (m.mode === 'satellites' && modeView.key === 'satellites') return onSatelliteLive(m);
+    if (m.mode === 'video' && modeView.key === 'video') {
+        modeView.frame = m.frame;
+        return renderVideoFrame();
+    }
+    if (m.mode === 'sstv' && modeView.key === 'sstv') {
+        modeView.receiving = m.receiving;
+        return queueModeRender();
+    }
     if (m.mode !== modeView.key || !TRACKED[m.mode]) return;
     modeView.messages = m.messages;
     for (const o of m[TRACKED[m.mode].listKey] || []) applyTracked(o);
@@ -139,8 +173,11 @@ onSocket('decoded', (m) => {
 function renderModeBody() {
     const body = document.getElementById('mode-body');
     if (TRACKED[modeView.key]) return renderTracked(body);
+    if (modeView.key === 'satellites') return renderSatellites(body);
     if (modeView.key === 'pager') body.innerHTML = pagerHtml();
     else if (modeView.key === 'acars') body.innerHTML = acarsHtml();
+    else if (modeView.key === 'sstv') body.innerHTML = sstvHtml();
+    else if (modeView.key === 'video') renderVideo(body);
     else if (modeView.key === 'sensors') body.innerHTML = sensorsHtml();
     else body.innerHTML = '';
 }
@@ -168,6 +205,75 @@ function pagerHtml() {
         <span class="msg-addr mono" title="Capcode / address">${escapeHtml(m.key)}</span>
         <span class="msg-text${m.text ? '' : ' muted'}">${m.text ? escapeHtml(m.text) : escapeHtml(m.type || 'tone')}</span>
     </div>`).join('');
+}
+
+// ---------------------------------------------------------------- SSTV
+
+const fileUrl = (mode, name) => `${basePath}api/files/${mode}/${encodeURIComponent(name)}`;
+
+function sstvHtml() {
+    const r = modeView.receiving;
+    const live = r ? `<figure class="sstv-live">
+        <img src="${fileUrl('sstv', r.file)}?t=${r.t}" alt="The picture coming in">
+        <figcaption><span class="badge warn">receiving</span> ${escapeHtml(r.kind)} · ${Math.min(r.rows, r.height)} of ${r.height} lines</figcaption>
+    </figure>` : '';
+    const pictures = modeView.items.filter(i => i.file);
+    if (!pictures.length && !r) {
+        return emptyHtml(modeView.search ? 'No pictures match.' : 'No pictures yet. The ISS sends SSTV on 145.800 MHz during its SSTV events; radio amateurs on 14.230 MHz (HF, HackRF) and 144.500 MHz.');
+    }
+    return `${live}<div class="sstv-grid">${pictures.map(i => `<figure>
+        <a href="${fileUrl('sstv', i.file)}" target="_blank" rel="noopener"><img src="${fileUrl('sstv', i.file)}" alt="${escapeHtml(i.kind)} picture" loading="lazy"></a>
+        <figcaption>${timeOf(i.ts)} · ${escapeHtml(i.kind)}${i.complete ? '' : ` · ${i.rows} of ${i.height} lines`}</figcaption>
+    </figure>`).join('')}</div>`;
+}
+
+// ---------------------------------------------------------------- video (HackRF)
+
+function renderVideo(body) {
+    if (!body.querySelector('.video-view')) {
+        body.innerHTML = `<div class="video-view">
+            <div class="video-screen"><img id="video-img" alt="The video"><div class="video-none" id="video-none">No video found on this frequency yet</div></div>
+            <div class="video-bar"><span class="range-text" id="video-info"></span><span class="spacer"></span>
+                <button type="button" class="btn btn-small" onclick="videoSnapshot()">Snapshot</button></div>
+            <div class="sstv-grid" id="video-shots"></div>
+        </div>`;
+    }
+    renderVideoFrame();
+    const shots = modeView.items.filter(i => i.file);
+    document.getElementById('video-shots').innerHTML = shots.map(i => `<figure>
+        <a href="${fileUrl('video', i.file)}" target="_blank" rel="noopener"><img src="${fileUrl('video', i.file)}" alt="Snapshot" loading="lazy"></a>
+        <figcaption>${timeOf(i.ts)} · ${escapeHtml(i.key)}</figcaption></figure>`).join('');
+}
+
+function renderVideoFrame() {
+    const img = document.getElementById('video-img');
+    if (!img) return;
+    const f = modeView.frame;
+    document.getElementById('video-none').hidden = !!f;
+    img.hidden = !f;
+    if (f) {
+        // The next frame only once this one has loaded: no pile-up on a slow connection
+        if (!img.dataset.loading) {
+            img.dataset.loading = '1';
+            img.onload = img.onerror = () => { delete img.dataset.loading; };
+            img.src = `${fileUrl('video', f.file)}?t=${f.t}`;
+        }
+        document.getElementById('video-info').textContent =
+            `${f.standard}${f.inverted ? ' (inverted)' : ''} · ${f.locked ? 'locked' : 'searching for the field sync'} · black and white`;
+    } else {
+        document.getElementById('video-info').textContent = 'no video';
+    }
+}
+
+async function videoSnapshot() {
+    try {
+        const data = await api('decoded/snapshot?mode=video', {method: 'POST'});
+        toast('Snapshot kept', 'success');
+        modeView.items.unshift({...data.item, ts: Date.now() / 1000});
+        renderModeBody();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
 }
 
 // ---------------------------------------------------------------- ACARS
@@ -360,7 +466,7 @@ function renderTracked(body) {
             </div></div>`;
         buildChips(document.getElementById('tracked-tabs'), [{key: 'live', label: 'In view'}, {key: 'history', label: cfg.historyLabel || 'History'}],
             modeView.list, (key) => { modeView.list = key; lsSet('tracked_list', key); renderModeBody(); });
-        ensureMap(document.getElementById('map-slot'));
+        ensureMap(document.getElementById('map-slot'), modeView.key);
         for (const o of modeView.planes.values()) drawTracked(o);
     }
     setMapHome(modeView.location);
@@ -512,7 +618,6 @@ function initModes() {
         clearTimeout(timer);
         timer = setTimeout(loadModeData, 300);
     });
-    document.getElementById('mode-select').addEventListener('change', (e) => chooseMode(e.target.value));
     // Keep "heard … ago" current
     setInterval(() => { if (activeTab === 'radio' && modeView.key === 'sensors') renderModeBody(); }, 15000);
     setInterval(() => { if (activeTab === 'radio' && TRACKED[modeView.key]) renderModeBody(); }, 5000);

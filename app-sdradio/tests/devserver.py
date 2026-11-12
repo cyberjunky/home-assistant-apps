@@ -9,6 +9,7 @@ simulated aircraft fly, and map tiles come from OpenStreetMap directly (a few, c
 
 import asyncio
 import logging
+import os
 
 import aiohttp
 
@@ -23,7 +24,11 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(mes
 async def main() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     db = Database(DATA_DIR / "sdradio.db")
-    webui = WebUI(WEB_PORT, Config(), db, SimulatedDevice, data_dir=DATA_DIR)
+    config = Config()
+    # SDRADIO_SIM_RECEIVER=hackrf: the simulator as a HackRF (1 MHz to 6 GHz, the HackRF-only modes)
+    if os.environ.get("SDRADIO_SIM_RECEIVER"):
+        config.receiver.type = os.environ["SDRADIO_SIM_RECEIVER"]
+    webui = WebUI(WEB_PORT, config, db, SimulatedDevice, data_dir=DATA_DIR)
     webui.radio.location = ADSB_HOME
     tiles: dict = {}
 
