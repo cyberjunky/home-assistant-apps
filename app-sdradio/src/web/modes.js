@@ -80,9 +80,10 @@ function renderModeHead() {
     const text = d.error ? d.error
         : TRACKED[d.key] ? `${fmtMHz(s.frequency)} MHz · ${modeView.planes.size} in view · ${d.count || 0} heard since the mode started`
         : d.key === 'satellites' ? `${fmtMHz(s.frequency)} MHz · ${d.count || 0} passes heard since the mode started`
+        : d.key === 'sensors' ? `${fmtMHz(s.frequency)} MHz · ${d.bursts || 0} bursts heard, ${d.count || 0} decoded since the mode started${d.hint ? ` · ${d.hint}` : ''}`
         : `${fmtMHz(s.frequency)} MHz · ${d.count || 0} decoded since the mode started`;
     if (status.textContent !== text) status.textContent = text;
-    status.classList.toggle('warn-text', !!d.error);
+    status.classList.toggle('warn-text', !!(d.error || d.hint));
     document.getElementById('mode-search').placeholder = key2placeholder(d.key);
 }
 
