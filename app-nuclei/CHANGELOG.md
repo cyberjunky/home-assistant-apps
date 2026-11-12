@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.8
+
+**After updating:** nothing to do.
+
+- The top bar matches the other apps: the tabs in one group with the open one in solid blue, Settings after a separator, and the clock on the right. On a phone the tabs take the whole width.
+- **Theme:** one button cycles **auto** (follows Home Assistant's light or dark mode), **light** and **dark**, as in the other apps. Nuclei still starts light; a choice made before stays.
+
 ## 0.1.7
 
 **After updating:** nothing to do.

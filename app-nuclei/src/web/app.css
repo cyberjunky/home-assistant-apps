@@ -1,9 +1,11 @@
-/* Light by default; the theme button switches to dark and remembers it */
+/* Light by default; the theme button cycles auto (follows Home Assistant), light and dark, and remembers it */
 :root {
   color-scheme: light;
   --bg: #f3f5f7; --card: #ffffff; --line: #e1e5ea; --grid: #eef1f4;
   --text: #1a1f26; --text2: #5b6573; --text3: #828c99;
   --primary: #4c8dff; --selected: rgba(76,141,255,0.12); --hover: rgba(0,0,0,0.04);
+  /* The active tab: the same blue as the other apps' light theme */
+  --tab-active: #2457c5;
   --critical: #ff5b6e; --high: #ff8f4c; --medium: #f5c542; --low: #4c8dff; --info: #7b8594; --ok: #5fd68a;
   --mono: 'IBM Plex Mono', ui-monospace, monospace;
 }
@@ -12,20 +14,41 @@
   --bg: #0b0e12; --card: #12161c; --line: #242b35; --grid: #1c222b;
   --text: #e7ebf0; --text2: #9ba5b3; --text3: #7b8594;
   --selected: rgba(76,141,255,0.14); --hover: rgba(255,255,255,0.05);
+  --tab-active: #4c8dff;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text);
   font-family: 'IBM Plex Sans', Roboto, -apple-system, 'Segoe UI', sans-serif; font-size: 14px; }
 a { color: var(--primary); }
-.topbar { display: flex; align-items: center; gap: 14px; padding: 8px 14px; min-height: var(--ha-header-height, 56px); box-sizing: border-box; background: var(--card);
-  border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
-.brand { display: flex; align-items: center; gap: 8px; font-weight: 600; letter-spacing: 0.04em; }
+/* The top bar: the same as in the other apps (Toon, GoodWe, Tesla, ...) */
+.topbar { display: flex; align-items: center; gap: 14px; padding: 6px 14px; min-height: var(--ha-header-height, 56px); box-sizing: border-box;
+  background: var(--card); border-bottom: 1px solid var(--line); white-space: nowrap; position: sticky; top: 0; z-index: 5; }
+.topbar > * { flex-shrink: 0; }
+.brand { display: flex; align-items: center; gap: 8px; }
 .brand svg { width: 20px; height: 20px; color: var(--primary); }
-.tabs { display: flex; gap: 2px; }
-.tab { padding: 6px 12px; border: 0; background: none; color: var(--text2); border-radius: 6px;
-  font: inherit; cursor: pointer; }
-.tab:hover { background: var(--hover); color: var(--text); }
-.tab.active { background: var(--selected); color: var(--primary); font-weight: 600; }
+.brand-name { font-weight: 600; letter-spacing: 0.04em; }
+.tabs { display: flex; gap: 2px; padding: 2px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line); }
+.tab { height: 28px; padding: 0 12px; border: none; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center;
+  justify-content: center; line-height: 1; white-space: nowrap; background: transparent; color: var(--text2);
+  font-family: inherit; font-size: 12.5px; font-weight: 500; }
+.tab:hover { color: var(--text); }
+.tab.active { background: var(--tab-active); color: #fff; }
+.tab-sep { width: 1px; margin: 4px 4px; background: var(--line); }
+.icon-tab { width: 32px; padding: 0; font-size: 14px; }
+.tab-icon { display: none; }
+.clock { font-family: var(--mono); font-size: 22px; font-weight: 600; letter-spacing: 0.04em; line-height: 1; }
+@media (max-width: 1400px) {
+  .clock { font-size: 18px; }
+}
+@media (max-width: 700px) {
+  .topbar { flex-wrap: wrap; gap: 6px 8px; padding: 6px 8px; }
+  .topbar > .brand, .topbar > .spacer, .clock { display: none; }
+  .topbar > nav.tabs { order: 1; flex: 1 1 100%; overflow-x: auto; scrollbar-width: none; }
+  nav.tabs .tab { flex: 1 0 auto; padding: 0 8px; }
+  nav.tabs .tab[data-tab="settings"] { flex: 0 0 36px; }
+  nav.tabs .tab[data-tab="settings"] .tab-label { display: none; }
+  nav.tabs .tab[data-tab="settings"] .tab-icon { display: inline; font-size: 15px; }
+}
 .spacer { flex: 1; }
 .container { max-width: 1200px; margin: 0 auto; padding: 16px 16px 48px; }
 .tab-content { display: none; } .tab-content.active { display: block; }
