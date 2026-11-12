@@ -22,18 +22,57 @@ function toast(message) {
 }
 function sevBadge(s) { return `<span class="sev ${s}">${s}</span>`; }
 
-// ---- theme ----
-function applyTheme(t) { if (t) document.documentElement.dataset.theme = t; }
-try { applyTheme(localStorage.getItem('nuclei_theme')); } catch (e) {}
-document.getElementById('theme-toggle').onclick = () => {
-  const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-  applyTheme(t); try { localStorage.setItem('nuclei_theme', t); } catch (e) {}
-};
+// ---- theme: the same toggle as the other apps (auto follows Home Assistant, then light, then dark) ----
+const THEME_ICONS = {auto: '🌓', light: '☀️', dark: '🌙'};
+let themeChoice = new URLSearchParams(window.location.search).get('theme');
+try { themeChoice = themeChoice || localStorage.getItem('nuclei_theme'); } catch (e) { /* only a convenience */ }
+// Nuclei starts in the light theme; auto and dark are a click away
+if (!THEME_ICONS[themeChoice]) themeChoice = 'light';
+function haDarkMode() {
+  try {
+    const ha = window.parent !== window && window.parent.document.querySelector('home-assistant');
+    return ha && ha.hass && ha.hass.themes ? Boolean(ha.hass.themes.darkMode) : null;
+  } catch (e) {
+    return null;  // Not inside Home Assistant's frontend
+  }
+}
+function applyTheme() {
+  let dark = themeChoice === 'dark';
+  if (themeChoice === 'auto') {
+    const ha = haDarkMode();
+    dark = ha === null ? window.matchMedia('(prefers-color-scheme: dark)').matches : ha;
+  }
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+}
+function initThemeToggle() {
+  document.getElementById('theme-icon').textContent = THEME_ICONS[themeChoice];
+  document.getElementById('theme-toggle').title = themeChoice === 'auto'
+    ? 'Theme follows Home Assistant - click for light'
+    : `Theme: ${themeChoice} - click to change`;
+}
+function cycleTheme() {
+  themeChoice = {auto: 'light', light: 'dark', dark: 'auto'}[themeChoice];
+  try { localStorage.setItem('nuclei_theme', themeChoice); } catch (e) { /* only a convenience */ }
+  initThemeToggle();
+  applyTheme();
+}
+applyTheme();
+initThemeToggle();
+// Home Assistant doesn't tell the iframe when its theme changes
+setInterval(applyTheme, 2000);
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+
+// ---- clock ----
+function updateClock() {
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+}
+updateClock();
+setInterval(updateClock, 10000);
 
 // ---- tabs ----
-document.querySelectorAll('.tab').forEach(tab => tab.onclick = () => {
+document.querySelectorAll('.tab[data-tab]').forEach(tab => tab.onclick = () => {
   activeTab = tab.dataset.tab;
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
+  document.querySelectorAll('.tab[data-tab]').forEach(t => t.classList.toggle('active', t === tab));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + activeTab));
   loadTab();
 });

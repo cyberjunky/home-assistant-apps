@@ -13,17 +13,24 @@
 </head>
 <body>
 <header class="topbar">
-  <span class="brand"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1 3 5v6c0 5 3.8 9.7 9 11 5.2-1.3 9-6 9-11V5z"/></svg> NUCLEI</span>
-  <nav class="tabs" role="tablist">
-    <button class="tab active" data-tab="dashboard">Dashboard</button>
-    <button class="tab" data-tab="devices">Devices</button>
-    <button class="tab" data-tab="tickets">Tickets</button>
-    <button class="tab" data-tab="objects">Scan objects</button>
-    <button class="tab" data-tab="templates">Templates</button>
-    <button class="tab" data-tab="settings">Settings</button>
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1 3 5v6c0 5 3.8 9.7 9 11 5.2-1.3 9-6 9-11V5z"/></svg>
+    <span class="brand-name">NUCLEI</span>
+  </div>
+  <nav class="tabs" aria-label="Views">
+    <button type="button" class="tab active" data-tab="dashboard">Dashboard</button>
+    <button type="button" class="tab" data-tab="devices">Devices</button>
+    <button type="button" class="tab" data-tab="tickets">Tickets</button>
+    <button type="button" class="tab" data-tab="objects">Scan objects</button>
+    <button type="button" class="tab" data-tab="templates">Templates</button>
+    <span class="tab-sep" aria-hidden="true"></span>
+    <button type="button" class="tab" data-tab="settings" title="Settings"><span class="tab-label">Settings</span><span class="tab-icon" aria-hidden="true">⚙</span></button>
   </nav>
   <span class="spacer"></span>
-  <button class="btn btn-small" id="theme-toggle" title="Theme">◐</button>
+  <div class="tabs" role="group" aria-label="Theme">
+    <button type="button" id="theme-toggle" class="tab icon-tab" onclick="cycleTheme()" title="Theme"><span id="theme-icon" aria-hidden="true">☀️</span></button>
+  </div>
+  <span id="clock" class="clock"></span>
 </header>
 
 <div class="container">
