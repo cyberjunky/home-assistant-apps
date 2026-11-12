@@ -114,8 +114,8 @@ function storedTheme() {
     try { return localStorage.getItem(LS + 'theme'); } catch (e) { return null; }
 }
 let themeChoice = new URLSearchParams(window.location.search).get('theme') || storedTheme();
-// SDRadio starts in the light theme (its front panel was designed light first); auto and dark are a click away
-if (!THEME_ICONS[themeChoice]) themeChoice = 'light';
+// Like the other apps, it follows Home Assistant until another choice is made
+if (!THEME_ICONS[themeChoice]) themeChoice = 'auto';
 
 function haDarkMode() {
     try {
