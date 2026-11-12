@@ -90,6 +90,9 @@ async def nightly(backups: Backups, database: Database) -> None:
             removed = await asyncio.to_thread(database.prune_hits, int(settings["hits_keep_days"]))
             if removed:
                 logger.info(f"Removed {removed} hits older than {settings['hits_keep_days']} days")
+            removed = await asyncio.to_thread(database.prune_decoded, int(settings["decoded_keep_days"]))
+            if removed:
+                logger.info(f"Removed {removed} decoded messages older than {settings['decoded_keep_days']} days")
         except Exception:
             logger.exception("The nightly backup failed")
         await asyncio.sleep(61)

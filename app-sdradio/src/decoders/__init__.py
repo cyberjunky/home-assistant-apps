@@ -10,6 +10,10 @@ from collections.abc import Callable
 
 import numpy as np
 
+from ..errors import ValidationError
+
+__all__ = ["Decoder", "ValidationError", "registry"]
+
 
 class Decoder:
     key = ""
@@ -30,6 +34,28 @@ class Decoder:
     @property
     def frequency(self) -> int:
         return int(self.settings.get("frequency") or 0)
+
+    @classmethod
+    def validate(cls, value: dict) -> dict:
+        """The mode's settings from the Settings page, checked; raises ValidationError."""
+        if not isinstance(value, dict):
+            raise ValidationError(f"{cls.name}: settings must be an object")
+        try:
+            frequency = round(float(value.get("frequency", cls.defaults.get("frequency", 0))))
+        except (TypeError, ValueError):
+            raise ValidationError(f"{cls.name}: the frequency must be a number") from None
+        if not 100_000 <= frequency <= 6_000_000_000:
+            raise ValidationError(f"{cls.name}: the frequency must be between 0.1 and 6000 MHz")
+        return {**cls.defaults, "frequency": frequency}
+
+    @classmethod
+    def available(cls, frequency_range: tuple[float, float] | None) -> bool:
+        """Whether the receiver can be used for this mode (its range holds the mode's frequency)."""
+        if not frequency_range:
+            return True
+        low, high = frequency_range
+        frequency = cls.defaults.get("frequency", 0)
+        return low <= frequency <= high
 
     def start(self) -> None:
         pass
@@ -52,6 +78,3 @@ def registry() -> dict[str, type[Decoder]]:
     from .sensors import Sensors
 
     return {cls.key: cls for cls in (Pager, Sensors)}
-
-
-MODE_KEYS = ("pager", "sensors")

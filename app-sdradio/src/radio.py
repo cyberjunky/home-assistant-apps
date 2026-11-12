@@ -17,6 +17,7 @@ import numpy as np
 from .bands import MODES, STEPS, band_for, default_bandwidth
 from .config import Config
 from .database import Database
+from .decoders import Decoder, registry
 from .device import DeviceError
 from .dsp import DB_FLOOR, Demodulator, Spectrum, find_signal, noise_floor, quantize, to_pcm16
 
@@ -129,6 +130,9 @@ class Radio:
         self.power = bool(state.get("power", True))
         self.demod: Demodulator | None = None
         self._rds_frequency = 0
+        # The mode: "radio", or a decoder mode (pager, sensors) that reads what the radio receives
+        self.decoder: Decoder | None = None
+        self.decoder_key = state.get("decoder") if state.get("decoder") in registry() else "radio"
         self.spectrum = Spectrum(int(self.settings["fft_size"]))
         # The spectrum averaged over the last second or so (linear), for autotune
         self._avg_power: np.ndarray | None = None
@@ -148,6 +152,8 @@ class Radio:
             self._thread.join(timeout=5)
         self._end_signal(self._clock())
         self._save_state()
+        if self.decoder:
+            self.decoder.stop()
         if self.device:
             self.device.close()
 
@@ -204,6 +210,9 @@ class Radio:
         self.demod = Demodulator(self.rate, self.mode, self.bandwidth)
         self._apply_demod()
         self.settle = SETTLE_BLOCKS
+        if self.decoder_key != "radio" and self.decoder is None:
+            # Back in the mode it was in, on the frequency it was on
+            self._start_decoder(self.decoder_key, tune=False)
         logger.info(
             f"Receiver {self.device_info.get('driver')} open at {self.rate / 1e6:g} MS/s, "
             f"tuned to {self.frequency / 1e6:.4f} MHz {self.mode.upper()}"
@@ -271,6 +280,54 @@ class Radio:
         self.channel = self.db.channel_at(self.frequency)
         if self.scan.kind == "channels":
             self._rebuild_scan_targets()
+        # The mode's settings changed: start its decoder again with them
+        if self.decoder and self.settings.get(f"mode_{self.decoder_key}") != self.decoder.settings:
+            old = self.decoder.frequency
+            self.decoder.stop()
+            self.decoder = None
+            self._start_decoder(self.decoder_key, tune=self.settings[f"mode_{self.decoder_key}"]["frequency"] != old)
+
+    def _cmd_decoder(self, key) -> None:
+        """Switch mode: the radio, or a decoder mode that tunes to its own frequency."""
+        if key != "radio" and key not in registry():
+            raise ValueError(f"Unknown mode {key}")
+        if self.decoder:
+            self.decoder.stop()
+            self.decoder = None
+        self.decoder_key = key
+        if key != "radio":
+            self._stop_scan()
+            self.priority = False
+            self._start_decoder(key, tune=True)
+        self._save_soon()
+
+    def _start_decoder(self, key: str, tune: bool) -> None:
+        cls = registry()[key]
+        if self.device and not cls.available(self.device.frequency_range):
+            self.emit("notice", {"message": f"The {self.config.receiver.name} can't receive {cls.name}"})
+            self.decoder_key = "radio"
+            return
+        decoder = cls(self.settings.get(f"mode_{key}") or {}, lambda item: self._publish(key, item))
+        if tune:
+            mode, bandwidth = decoder.demod
+            self._tune(decoder.frequency, mode, bandwidth)
+        self.decoder = decoder
+        decoder.start()
+        logger.info(f"Mode {decoder.name} on {self.frequency / 1e6:.4f} MHz")
+
+    def _publish(self, key: str, item: dict) -> None:
+        """A decoder found something (called from its own thread): store it and tell the pages."""
+        ts = time.time()
+        item = dict(item)
+        item_key = str(item.pop("key", ""))
+        frequency = self.frequency
+        try:
+            item_id = self.db.add_decoded(ts, key, item_key, frequency, item)
+        except Exception as e:
+            logger.warning(f"Could not store a decoded {key} item: {e}")
+            return
+        self.emit("decoded", {"mode": key, "item": {"id": item_id, "ts": ts, "mode": key, "key": item_key,
+                                                    "frequency": frequency, **item}})  # fmt: skip
 
     def _cmd_autotune(self) -> None:
         """AUTO: to the middle of the strongest signal near the frequency (done once the spectrum
@@ -586,6 +643,13 @@ class Radio:
 
         if open_ and self.listeners and not self.settle:
             self.emit("audio", {"rate": self.demod.audio_rate, "pcm": to_pcm16(audio)})
+
+        # The mode's decoder reads every block, squelch or not
+        if self.decoder is not None:
+            if self.decoder.input == "audio":
+                self.decoder.feed_audio(audio, self.demod.audio_rate)
+            else:
+                self.decoder.feed_iq(block, self.rate, self.frequency - self.center)
 
         if self._save_due and time.monotonic() >= self._save_due:
             self._save_state()
@@ -928,6 +992,7 @@ class Radio:
                     "nb": self.noise_blanker,
                     "band_last": self.band_last,
                     "power": self.power,
+                    "decoder": self.decoder_key,
                 }
             )
         except Exception as e:
@@ -969,6 +1034,14 @@ class Radio:
             if self.scan.kind
             else None,
             "priority": self.priority,
+            "decoder": {"key": self.decoder_key, "name": self.decoder.name, **self.decoder.status()}
+            if self.decoder
+            else {"key": "radio"},
+            "modes": [
+                {"key": k, "name": cls.name}
+                for k, cls in registry().items()
+                if not self.device or cls.available(self.device.frequency_range)
+            ],
             "sweep": {"start": self.sweep["start"], "span": self.sweep["span"], "label": self.sweep["label"]}
             if self.sweep
             else None,

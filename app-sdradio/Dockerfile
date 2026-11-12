@@ -11,7 +11,10 @@ ENV S6_SERVICES_GRACETIME=8000
 # Python with numpy, scipy and the SoapySDR bindings, from Alpine (built for musl)
 RUN apk add --no-cache python3 py3-pip py3-numpy py3-scipy soapy-sdr py3-soapy-sdr libusb fftw
 
-# SoapySDR drivers, built against Alpine's SoapySDR: RTL-SDR, HackRF and rtl_tcp
+# The modes' decoder programs: rtl_433 (Sensors) and sox (resampling for multimon-ng) from Alpine
+RUN apk add --no-cache rtl_433 sox
+
+# SoapySDR drivers, built against Alpine's SoapySDR: RTL-SDR, HackRF and rtl_tcp; and multimon-ng (Pager)
 RUN apk add --no-cache --virtual build-deps alpine-sdk cmake git libusb-dev soapy-sdr-dev fftw-dev && \
     cd /tmp && \
     git clone --depth 1 https://gitea.osmocom.org/sdr/rtl-sdr.git && \
@@ -30,6 +33,9 @@ RUN apk add --no-cache --virtual build-deps alpine-sdk cmake git libusb-dev soap
     cd /tmp && \
     git clone --depth 1 https://github.com/pothosware/SoapyRTLTCP.git && \
     cd SoapyRTLTCP && mkdir build && cd build && cmake .. && make && make install && \
+    cd /tmp && \
+    git clone --depth 1 https://github.com/EliasOenal/multimon-ng.git && \
+    cd multimon-ng && mkdir build && cd build && cmake .. && make && make install && \
     cd / && rm -rf /tmp/* && \
     apk del build-deps
 
