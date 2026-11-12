@@ -28,6 +28,7 @@ class SimulatedDevice:
         self.config = config
         self.realtime = realtime
         self.signals = signals
+        self.closed = False
         self.center = 0.0
         self.gain: float | None = None
         self.gain_range = (0.0, 49.6, 0.0)
@@ -106,4 +107,4 @@ class SimulatedDevice:
         return x
 
     def close(self) -> None:
-        pass
+        self.closed = True

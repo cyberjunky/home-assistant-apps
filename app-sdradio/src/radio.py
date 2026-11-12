@@ -18,7 +18,7 @@ from .bands import MODES, STEPS, band_for, default_bandwidth
 from .config import Config
 from .database import Database
 from .device import DeviceError
-from .dsp import DB_FLOOR, Demodulator, Spectrum, noise_floor, quantize, to_pcm16
+from .dsp import DB_FLOOR, Demodulator, Spectrum, find_signal, noise_floor, quantize, to_pcm16
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,8 @@ BLOCKS_PER_SECOND = 20
 SETTLE_BLOCKS = 2
 # Keep the tuned frequency this far inside the edge of the received span
 EDGE = 0.42
+# Blocks of averaged spectrum autotune waits for (after a retune)
+AUTOTUNE_BLOCKS = 6
 # When the receiver has to move, put the tuned frequency this far (of the span) off the centre,
 # away from the receiver's own DC spike in the middle
 RECENTRE_OFFSET = 0.1
@@ -123,9 +125,16 @@ class Radio:
         self.agc = bool(state.get("agc", True))
         self.noise_blanker = bool(state.get("nb", False))
         self.band_last: dict = state.get("band_last") or {}
+        # Off: the receiver is closed and nothing is processed (remembered across a restart)
+        self.power = bool(state.get("power", True))
         self.demod: Demodulator | None = None
         self._rds_frequency = 0
         self.spectrum = Spectrum(int(self.settings["fft_size"]))
+        # The spectrum averaged over the last second or so (linear), for autotune
+        self._avg_power: np.ndarray | None = None
+        self._avg_center = 0.0
+        self._avg_count = 0
+        self._autotune_wanted = False
 
     # ================================================================ lifecycle
 
@@ -151,6 +160,13 @@ class Radio:
 
     def _run(self) -> None:
         while not self._stop.is_set():
+            if not self.power:
+                if self.device is not None or self.device_error:
+                    self._power_down()
+                self._handle_commands()
+                self._emit_state()
+                self._stop.wait(0.1)
+                continue
             if self.device is None:
                 self._open()
                 if self.device is None:
@@ -194,6 +210,23 @@ class Radio:
         )
         self._emit_state(force=True)
 
+    def _power_down(self) -> None:
+        """Off: let go of the receiver, so it uses nothing (and another program may have it)."""
+        self._stop_scan()
+        self.sweep = None
+        self._end_signal(self._clock())
+        if self.device:
+            self.device.close()
+            logger.info("Switched off: the receiver is closed")
+        self.device = None
+        self.device_error = None
+        self.level = -140.0
+        self._bin_noise = -140.0
+        self._avg_power = None
+        self._avg_count = 0
+        self._autotune_wanted = False
+        self._emit_state(force=True)
+
     def _fail(self, message: str) -> None:
         logger.error(message)
         self.device_error = message
@@ -214,6 +247,8 @@ class Radio:
                 return
             try:
                 handler = getattr(self, f"_cmd_{name}", None)
+                if not self.power and name not in ("power", "reload"):
+                    continue  # switched off: only the power button works
                 if handler is None:
                     logger.warning(f"Unknown command {name}")
                 else:
@@ -221,6 +256,11 @@ class Radio:
             except (TypeError, ValueError) as e:
                 logger.warning(f"Command {name} {args}: {e}")
             self._state_dirty = True
+
+    def _cmd_power(self, on=None) -> None:
+        self.power = (not self.power) if on is None else bool(on)
+        logger.info("Switched on" if self.power else "Switching off")
+        self._save_state()
 
     def _cmd_reload(self) -> None:
         self.bands = self.db.bands()
@@ -231,6 +271,38 @@ class Radio:
         self.channel = self.db.channel_at(self.frequency)
         if self.scan.kind == "channels":
             self._rebuild_scan_targets()
+
+    def _cmd_autotune(self) -> None:
+        """AUTO: to the middle of the strongest signal near the frequency (done once the spectrum
+        has been averaged for a moment)."""
+        if self.mode in ("usb", "lsb", "cw"):
+            self.emit("notice", {"message": "Autotune centres AM, FM and DSB signals: tune SSB and CW by ear"})
+            return
+        self._autotune_wanted = True
+
+    def _autotune(self) -> None:
+        offset = self.frequency - self.center
+        search = max(self.bandwidth, self.step)
+        found = find_signal(self._avg_power, self.rate, offset, self.bandwidth, search)
+        if found is None:
+            self.emit("notice", {"message": f"No signal to tune to near {self.frequency / 1e6:.4f} MHz"})
+            return
+        frequency = self.center + found[0]
+        # On the channel grid when it is that close to a channel, else to 100 Hz
+        grid = round(frequency / self.step) * self.step
+        bin_hz = self.rate / len(self._avg_power)
+        frequency = grid if abs(frequency - grid) <= max(self.step / 4, bin_hz) else round(frequency / 100) * 100
+        self._cmd_tune(int(frequency))
+
+    def _average_spectrum(self, db: np.ndarray) -> None:
+        power = np.power(10.0, db / 10.0)
+        if self._avg_power is None or len(self._avg_power) != len(power) or self._avg_center != self.center:
+            self._avg_power = power
+            self._avg_center = self.center
+            self._avg_count = 1
+        else:
+            self._avg_power = self._avg_power * 0.8 + power * 0.2
+            self._avg_count += 1
 
     def _cmd_tune(self, frequency, mode=None, bandwidth=None, step=None, stop_scan=True) -> None:
         if stop_scan:
@@ -347,7 +419,10 @@ class Radio:
         elif action == "hold":
             self.scan.hold = not self.scan.hold
         elif action == "skip" and self.scan.kind:
-            self._end_signal(self._clock())
+            # Go on past a signal (or a held channel) to the next one
+            self.scan.hold = False
+            if self.signal is not None:
+                self._end_signal(self._clock())
             self._next_target()
 
     def _cmd_priority(self, on=None) -> None:
@@ -488,10 +563,15 @@ class Radio:
         every = 1 if int(self.settings["spectrum_rate"]) >= 20 else 2
         if self._block % every == 0 or self.spectrum_listeners == 0:
             db = self.spectrum(block)
+            self._average_spectrum(db)
             floor = noise_floor(db)
             self._bin_noise = self._bin_noise * 0.8 + floor * 0.2 if self._bin_noise > -140 else floor
             if self.spectrum_listeners and self._block % every == 0:
                 self.emit("spectrum", {"center": self.center, "rate": self.rate, "bins": quantize(db)})
+
+        if self._autotune_wanted and self._avg_count >= AUTOTUNE_BLOCKS:
+            self._autotune_wanted = False
+            self._autotune()
 
         threshold = self._threshold()
         open_ = threshold is None or level >= threshold
@@ -847,6 +927,7 @@ class Radio:
                     "agc": self.agc,
                     "nb": self.noise_blanker,
                     "band_last": self.band_last,
+                    "power": self.power,
                 }
             )
         except Exception as e:
@@ -856,6 +937,7 @@ class Radio:
         band = band_for(self.bands, self.frequency)
         channel = self.channel
         return {
+            "power": self.power,
             "frequency": self.frequency,
             "center": self.center,
             "rate": self.rate,

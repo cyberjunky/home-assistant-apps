@@ -8,7 +8,8 @@ async function showInfo() {
     const r = (status.options || {}).receiver || {};
     const details = Object.entries(d.details || {}).map(([k, v]) => infoRow(escapeHtml(k), escapeHtml(v))).join('');
     document.getElementById('info-receiver').innerHTML = [
-        infoRow('Status', d.ok ? '<span class="state ok">receiving</span>' : '<span class="state bad">no receiver</span>'),
+        infoRow('Status', s.power === false ? '<span class="state">switched off</span>'
+            : d.ok ? '<span class="state ok">receiving</span>' : '<span class="state bad">no receiver</span>'),
         d.error ? `<div class="info-error">${escapeHtml(d.error)}</div>` : '',
         infoRow('Type', escapeHtml(status.receiver || r.type || '–')),
         d.driver ? infoRow('Driver', escapeHtml(d.driver)) : '',
@@ -30,9 +31,11 @@ async function showInfo() {
         ['0–9 . Enter', 'type a frequency in MHz, Enter tunes (Esc cancels)'],
         ['↑ ↓ / PgUp PgDn', 'one or ten tuning steps'],
         ['Scroll a digit', 'change that digit of the frequency'],
+        ['AUTO · T', 'centre on the strongest signal nearby'],
         ['Click the waterfall', 'tune there; drag to move, scroll to step'],
         ['Knobs', 'drag up or down, scroll, or arrow keys; double-click for the default'],
-        ['SCAN', 'scans what is picked under the keypad: stored channels, the band, or a range'],
+        ['SCAN', 'scans what is picked under the keypad: stored channels, the band, or a range; on a signal it goes on'],
+        ['Power', 'top left of the display: switch the radio off (the receiver is closed) and on'],
         ['HOLD · L/O', 'stay on this channel · leave it out of scans'],
         ['PRI', 'look at the priority channels every few seconds'],
         ['◀ ▶ · M+', 'under the stored channels: previous and next stored channel, store this one'],

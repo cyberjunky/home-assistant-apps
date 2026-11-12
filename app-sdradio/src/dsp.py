@@ -238,6 +238,39 @@ class Spectrum:
         return np.fft.fftshift(10 * np.log10(power + 1e-20)).astype(np.float32)
 
 
+def find_signal(power: np.ndarray, rate: float, offset: float, bandwidth: float, search: float,
+                min_snr: float = 8.0) -> tuple[float, float] | None:  # fmt: skip
+    """Autotune: the middle of the strongest signal within `search` Hz of `offset`, in an averaged
+    power spectrum (linear, centre in the middle), and how far it is above the noise (dB).
+
+    The spectrum is smoothed over a quarter of the channel width, so a broadcast FM station is one
+    hump rather than its audio's peaks; the middle is halfway between where the hump has dropped
+    10 dB on either side, so a station is centred on its whole width, not on its loudest bin.
+    """
+    size = len(power)
+    bin_hz = rate / size
+    width = max(1, round(bandwidth / 4 / bin_hz))
+    smooth = np.convolve(power, np.ones(width) / width, mode="same")
+    noise = float(np.median(power)) or 1e-20
+    freqs = (np.arange(size) - size // 2) * bin_hz
+    usable = (np.abs(freqs - offset) <= search) & (np.abs(freqs) < 0.45 * rate)
+    if not usable.any():
+        return None
+    peak = int(np.flatnonzero(usable)[np.argmax(smooth[usable])])
+    snr = 10 * math.log10(smooth[peak] / noise)
+    if snr < min_snr:
+        return None
+    level = max(smooth[peak] / 10, noise * 2)
+    reach = max(1, round(bandwidth / bin_hz))
+    low = peak
+    while low > max(0, peak - reach) and smooth[low - 1] >= level:
+        low -= 1
+    high = peak
+    while high < min(size - 1, peak + reach) and smooth[high + 1] >= level:
+        high += 1
+    return float((freqs[low] + freqs[high]) / 2), snr
+
+
 def quantize(db: np.ndarray) -> bytes:
     """dBFS to one byte per bin, DB_FLOOR..DB_CEIL as 0..255."""
     scaled = (np.clip(db, DB_FLOOR, DB_CEIL) - DB_FLOOR) * (255 / (DB_CEIL - DB_FLOOR))

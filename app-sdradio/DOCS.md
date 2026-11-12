@@ -35,6 +35,11 @@ signal-to-noise ratio. Along the top: SCAN, HOLD and PRI light up while they are
 (automatic gain for AM, SSB and CW), **NB** (noise blanker) and **MUTE** switch with a click;
 **L/O** shows that this channel is locked out of scans.
 
+**Power**: the button at the top left of the display switches the radio off and on. Off, the
+receiver is closed and nothing is processed, so SDRadio uses next to no CPU and another program
+can use the receiver meanwhile. It stays off after a restart until you switch it on again; the
+`sensor.sdradio_frequency` attribute `power` shows `on` or `off`.
+
 **RDS** (WFM): an FM broadcast station's name shows where the channel name goes when the
 frequency isn't stored, and a line below it shows the artist and title (when the station marks
 them with RadioText+) or else its radio text, with the programme type on the right. It is read
@@ -45,6 +50,7 @@ that far.
 - Scroll over a digit of the frequency to change that digit.
 - Type a frequency in MHz on the keypad or keyboard and press **MHz** or Enter (CLR or Esc cancels).
 - Turn the **Tune** dial (drag round, scroll, or the arrow keys); ↑ ↓ and PgUp PgDn work anywhere on the page.
+- **AUTO** on the display (or T) centres on the strongest signal within a channel of where you are: a broadcast station on the middle of its width, on the band's channel grid when it is that close to a channel. It works on AM, FM and DSB; SSB and CW are tuned by ear.
 - Click the spectrum or waterfall, drag it to move, or scroll it to step.
 - Click or drag the band scale under the display.
 - **BAND** goes to the next band, **STEP** to the next tuning step, **MODE** to the next mode.
@@ -80,14 +86,15 @@ Channels page. Under the list, **M+** stores and **◀ ▶** step through the st
 Pick what to scan under the keypad, then press **SCAN**:
 - **Channels**: the stored channels that are in the scan, of this band when the list shows *This band*, otherwise all.
 - **Band**: every step of the band you are in (from the band plan on the Settings page).
-- **Range…**: a range of your own, with its step and mode.
+- **Range…**: a range of your own, with its step and mode. *Fill in* puts the band you are in there, to narrow down from.
 
 The scan stops on every signal above the squelch and stays while it lasts; after the
 **Resume after** time of quiet it moves on. With the squelch off, it stops on a signal 10 dB
 above the noise, and it never stops on a signal less than 6 dB above the noise, so a squelch
 set too low doesn't stop it on every channel.
 
-- **HOLD** stays on the current channel until you press it again.
+- **SCAN** on a signal (the key then reads *NEXT*) goes on to the next channel without waiting; pressed while the scan is stepping, it stops the scan. Tuning anywhere stops it too.
+- **HOLD** stays on the current channel until you press it again, or until SCAN goes on.
 - **L/O** (lock out) takes a stored channel out of the scans, or ignores a frequency that isn't stored in band and range scans; press it again to undo.
 - **PRI** (priority): channels marked *Priority* on the Channels page are checked every few seconds while you listen elsewhere, and between the other channels while scanning. When one is busy, the radio goes there and comes back after.
 

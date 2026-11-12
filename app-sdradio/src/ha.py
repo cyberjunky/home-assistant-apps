@@ -74,6 +74,7 @@ class HomeAssistant:
                     "artist": rds.get("artist") or None,
                     "title": rds.get("title") or None,
                     "programme_type": rds.get("pty") or None,
+                    "power": "off" if state.get("power") is False else "on",
                 },
             ),
             "sensor.sdradio_signal": (

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.6
+
+- **Power button:** at the top left of the display. Off closes the receiver and stops all processing, so SDRadio uses next to no CPU and another program can use the receiver meanwhile; on opens it again where it was. It stays off after a restart until you switch it on. `sensor.sdradio_frequency` has a `power` attribute (`on` or `off`).
+- **AUTO (autotune):** the AUTO button on the display (or the T key) centres the radio on the strongest signal within a channel of where you are: a broadcast station on the middle of its width, on the band's channel grid when it is that close to a channel. For AM, FM and DSB; SSB and CW are tuned by ear.
+- **Going on while scanning:** when the scan has stopped on a signal (or is held), the SCAN key reads NEXT and goes on to the next channel at once; while the scan is stepping it still stops it.
+- **Range scan:** the Range… window has a *Fill in* button that puts in the band you are in, to narrow down from.
+
 ## 0.1.5
 
 **After updating:** to get the new band plan, press **Settings → Bands → Reset to defaults** (bands you changed yourself are lost; stored channels stay).
