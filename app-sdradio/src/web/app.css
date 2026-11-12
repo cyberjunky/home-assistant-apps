@@ -447,7 +447,10 @@ button.ind.on:hover { opacity: 1; }
 .knob .k-hub { fill: var(--ha-background); }
 .knob .k-label { font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--secondary-text-color); }
 .knob .k-readout { font: 12px var(--mono); margin-top: -2px; white-space: nowrap; }
-.knob.disabled { opacity: 0.45; }
+.knob.disabled { opacity: 0.45; pointer-events: none; }
+.key:disabled, .tab:disabled, .lcd-auto:disabled { opacity: 0.4; cursor: default; pointer-events: none; }
+/* In a mode the box shows the signal's modulation: information, not a button */
+.lcd-mode:disabled { cursor: default; pointer-events: none; color: inherit; }
 .knob.dial { cursor: grab; }
 .knob.dial:active { cursor: grabbing; }
 

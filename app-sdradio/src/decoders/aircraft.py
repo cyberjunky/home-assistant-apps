@@ -74,6 +74,8 @@ def distance_km(a: tuple[float, float], b: tuple[float, float]) -> float:
 class Aircraft(Decoder):
     key = "aircraft"
     name = "Aircraft"
+    signal = "PPM"
+    decoded_by = "dump1090"
     input = "iq"
     defaults = {"frequency": 1_090_000_000}
     # Heard as AM: pulses, a buzz

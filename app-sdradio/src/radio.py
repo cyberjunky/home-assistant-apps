@@ -63,7 +63,7 @@ class Signal:
 
 @dataclass
 class ScanState:
-    kind: str = ""  # channels, band or range
+    kind: str = ""  # channels or band
     targets: list = field(default_factory=list)
     index: int = -1
     hold: bool = False  # the HOLD key: stay here
@@ -328,12 +328,16 @@ class Radio:
         decoder.start()
         logger.info(f"Mode {decoder.name} on {self.frequency / 1e6:.4f} MHz")
 
+    def _decoder_kind(self, cls) -> dict:
+        return {"key": self.decoder_key, "name": cls.name, "decoded_by": cls.decoded_by, "input": cls.input,
+                "signal": cls.signal}  # fmt: skip
+
     def _decoder_snapshot(self) -> dict:
         if self.decoder:
-            return {"key": self.decoder_key, "name": self.decoder.name, **self.decoder.status()}
+            return {**self._decoder_kind(type(self.decoder)), **self.decoder.status()}
         if self.decoder_key != "radio":
             # Chosen, but not running (switched off, or the receiver isn't open)
-            return {"key": self.decoder_key, "name": registry()[self.decoder_key].name, "error": None, "count": 0}
+            return {**self._decoder_kind(registry()[self.decoder_key]), "error": None, "count": 0}
         return {"key": "radio"}
 
     def _publish(self, key: str, item: dict) -> None:
@@ -353,6 +357,8 @@ class Radio:
     def _cmd_autotune(self) -> None:
         """AUTO: to the middle of the strongest signal near the frequency (done once the spectrum
         has been averaged for a moment)."""
+        if self.decoder is not None:
+            return  # a mode stays on its own frequency
         if self.mode in ("usb", "lsb", "cw"):
             self.emit("notice", {"message": "Autotune centres AM, FM and DSB signals: tune SSB and CW by ear"})
             return
@@ -455,6 +461,8 @@ class Radio:
 
     def _cmd_cycle(self, what) -> None:
         """The MODE and STEP keys."""
+        if what == "mode" and self.decoder is not None:
+            return  # a mode listens the way its decoder needs
         if what == "mode":
             modes = list(MODES)
             self._cmd_set(mode=modes[(modes.index(self.mode) + 1) % len(modes)])
@@ -465,6 +473,8 @@ class Radio:
 
     def _cmd_band(self, name=None, direction=1) -> None:
         """Go to a band: by name, or the next band with a button."""
+        if self.decoder is not None:
+            return  # a mode stays on its own frequency
         # The bands this receiver can tune to
         bands = [b for b in self.bands if b["button"] and self._in_range(b["start"], b["stop"])]
         if not bands:
@@ -493,6 +503,12 @@ class Radio:
         if action == "stop":
             self._stop_scan()
         elif action == "start":
+            if self.decoder is not None:
+                # A mode listens on its own frequency
+                self.emit(
+                    "notice", {"message": f"No scanning in the {self.decoder.name} mode: switch Mode to Radio to scan"}
+                )
+                return
             self._start_scan(kind or "channels", band)
         elif action == "hold":
             self.scan.hold = not self.scan.hold
@@ -504,6 +520,9 @@ class Radio:
             self._next_target()
 
     def _cmd_priority(self, on=None) -> None:
+        if self.decoder is not None:
+            self.priority = False
+            return
         self.priority = (not self.priority) if on is None else bool(on)
         self._priority_due = time.monotonic() + float(self.settings["priority_interval"])
 
@@ -871,28 +890,21 @@ class Radio:
                     "notice", {"message": "No stored channels to scan" + (f" in {band_name}" if band_name else "")}
                 )
                 return
-        elif kind in ("band", "range"):
-            if kind == "band":
-                band = next((b for b in self.bands if b["name"] == band_name), None) or band_for(
-                    self.bands, self.frequency
-                )
-                if band is None:
-                    self.scan = ScanState()
-                    self.emit("notice", {"message": "This frequency is in none of the bands: pick a band first"})
-                    return
-                start, stop, step, mode, bandwidth = (
-                    band["start"],
-                    band["stop"],
-                    band["step"],
-                    band["mode"],
-                    band["bandwidth"],
-                )
-                self.scan.label = band["name"]
-            else:
-                rng = self.settings["scan_range"]
-                start, stop, step, mode = rng["start"], rng["stop"], rng["step"], rng["mode"]
-                bandwidth = default_bandwidth(mode)
-                self.scan.label = f"{start / 1e6:g} to {stop / 1e6:g} MHz"
+        elif kind == "band":
+            # The band the radio is in, with the band's own mode, filter and step
+            band = next((b for b in self.bands if b["name"] == band_name), None) or band_for(self.bands, self.frequency)
+            if band is None:
+                self.scan = ScanState()
+                self.emit("notice", {"message": "This frequency is in none of the bands: pick a band first"})
+                return
+            start, stop, step, mode, bandwidth = (
+                band["start"],
+                band["stop"],
+                band["step"],
+                band["mode"],
+                band["bandwidth"],
+            )
+            self.scan.label = band["name"]
             stored = {c["frequency"] for c in self.db.channels() if not c["scan"]}
             skip = self.ignored | stored
             count = int((stop - start) // step) + 1

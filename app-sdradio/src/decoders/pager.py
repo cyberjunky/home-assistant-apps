@@ -62,6 +62,8 @@ def multimon_command(rate: float, demods: list[str], options: str = "") -> list[
 class Pager(Decoder):
     key = "pager"
     name = "Pager"
+    signal = "FSK"
+    decoded_by = "multimon-ng"
     input = "audio"
     # P2000, the Dutch emergency services' FLEX network
     defaults = {"frequency": 169_650_000, "protocols": PROTOCOLS, "ha_events": False}

@@ -203,6 +203,7 @@ class Channel:
 class Acars(Decoder):
     key = "acars"
     name = "ACARS"
+    signal = "AM-MSK"
     input = "iq"
     defaults = {"frequency": 131_725_000, "channels": EUROPE}
     demod = ("am", 8_333)

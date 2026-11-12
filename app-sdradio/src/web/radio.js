@@ -86,16 +86,15 @@ function initRadio() {
         onSteps: n => radioCommand('step_tune', {steps: n})});
 
     buildKeypad();
-    const sources = [{key: 'channels', label: 'Channels'}, {key: 'band', label: 'Band'}, {key: 'range', label: 'Range…'}];
-    radio.scanSource = lsGet('scan_source', 'channels');
-    const sourceTitles = {channels: 'SCAN steps through the stored channels', band: 'SCAN steps through the current band',
-        range: 'SCAN steps through a range of your own (click to set it)'};
+    const sources = [{key: 'channels', label: 'Channels'}, {key: 'band', label: 'Band'}];
+    radio.scanSource = lsGet('scan_source', 'band');
+    if (!sources.some(s => s.key === radio.scanSource)) radio.scanSource = 'band';
+    const sourceTitles = {channels: 'SCAN steps through the stored channels', band: 'SCAN steps through the band the radio is in, with its own step and mode'};
     buildChips(document.getElementById('scan-source'), sources, radio.scanSource, (key) => {
         radio.scanSource = key;
         lsSet('scan_source', key);
         renderScanKey();
-        if (key === 'range') openRangeModal();
-        else restartScan();
+        restartScan();
     });
     document.querySelectorAll('#scan-source [data-key]').forEach(b => { b.title = sourceTitles[b.dataset.key]; });
     renderScanKey();
@@ -133,8 +132,8 @@ function throttle(fn, ms) {
 }
 
 const KEYS = [
-    ['1'], ['2'], ['3'], ['MODE', '', 'fn', () => radioCommand('cycle', {what: 'mode'})],
-    ['4'], ['5'], ['6'], ['BAND', '', 'fn', () => radioCommand('band', {direction: 1})],
+    ['1'], ['2'], ['3'], ['MODE', '', 'fn', () => radioCommand('cycle', {what: 'mode'}), 'mode'],
+    ['4'], ['5'], ['6'], ['BAND', '', 'fn', () => radioCommand('band', {direction: 1}), 'band'],
     ['7'], ['8'], ['9'], ['STEP', '', 'fn', () => radioCommand('cycle', {what: 'step'})],
     ['.'], ['0'], ['CLR', '', 'fn', () => cancelEntry()], ['MHz', '', 'go', () => commitEntry()],
 ];
@@ -215,7 +214,7 @@ function radioKeys(e) {
     else if (e.target.closest('.knob')) { /* the knob handles its own keys */ }
     else if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { radioCommand('step_tune', {steps: 1}); e.preventDefault(); }
     else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { radioCommand('step_tune', {steps: -1}); e.preventDefault(); }
-    else if (e.key === 't' || e.key === 'T') { radioCommand('autotune'); e.preventDefault(); }
+    else if ((e.key === 't' || e.key === 'T') && !document.getElementById('lcd-auto').disabled) { radioCommand('autotune'); e.preventDefault(); }
     else if (e.key === 'PageUp') { radioCommand('step_tune', {steps: 10}); e.preventDefault(); }
     else if (e.key === 'PageDown') { radioCommand('step_tune', {steps: -10}); e.preventDefault(); }
 }
@@ -235,10 +234,8 @@ function startScan() {
     if (source === 'channels') {
         const filter = document.getElementById('chlist-filter').value;
         radioCommand('scan', {action: 'start', kind: 'channels', band: filter === 'band' ? s.band : null});
-    } else if (source === 'band') {
-        radioCommand('scan', {action: 'start', kind: 'band', band: s.band});
     } else {
-        radioCommand('scan', {action: 'start', kind: 'range'});
+        radioCommand('scan', {action: 'start', kind: 'band', band: s.band});
     }
 }
 
@@ -250,7 +247,7 @@ function renderScanKey() {
     const key = document.querySelector('#scan-keys [data-key="scan"]');
     if (!key) return;
     const next = scanWouldSkip(app.state || {});
-    const html = `SCAN<small>${next ? 'NEXT' : {channels: 'CH', band: 'BAND', range: 'RANGE'}[radio.scanSource] || 'CH'}</small>`;
+    const html = `SCAN<small>${next ? 'NEXT' : {channels: 'CH', band: 'BAND'}[radio.scanSource] || 'BAND'}</small>`;
     if (key.innerHTML !== html) key.innerHTML = html;
     key.title = next ? 'Go on to the next channel (stop the scan by tuning anywhere)' : KEY_TITLES.SCAN;
 }
@@ -289,8 +286,17 @@ function renderLcd() {
         freq.classList.remove('entry');
         freq.innerHTML = freqDigitsHtml(s.frequency);
     }
-    document.getElementById('lcd-mode').textContent = modeLabel(s.mode);
-    document.getElementById('lcd-bw').textContent = `BW ${fmtKHz(s.bandwidth)} · STEP ${fmtKHz(s.step)}`;
+    // In a mode the box shows how the signal is modulated (what you hear with Listen is beside it)
+    const dm = s.decoder || {};
+    const inMode = !!(dm.key && dm.key !== 'radio' && dm.signal);
+    const modeBox = document.getElementById('lcd-mode');
+    modeBox.textContent = inMode ? dm.signal : modeLabel(s.mode);
+    modeBox.title = inMode ? `${dm.name}: the signal is ${dm.signal}; with Listen you hear it as ${modeLabel(s.mode)}` : 'Mode: click for the next one';
+    // In a mode: what decodes it (the mode and filter shown are only how it sounds with Listen)
+    const d = s.decoder || {};
+    document.getElementById('lcd-bw').textContent = d.key && d.key !== 'radio' && d.decoded_by
+        ? `decoded by ${d.decoded_by} from the ${d.input === 'iq' ? 'samples' : `${modeLabel(s.mode)} audio`} · listen as ${modeLabel(s.mode)}`
+        : `BW ${fmtKHz(s.bandwidth)} · STEP ${fmtKHz(s.step)}`;
     const set = (id, on) => document.getElementById(id).classList.toggle('on', !!on);
     set('ind-scan', s.scan);
     set('ind-hold', s.scan && s.scan.hold);
@@ -377,6 +383,19 @@ function renderControls() {
     k.filter.set(s.bandwidth, true);
     if (app.settings && app.settings.scan_speed) k.speed.set(app.settings.scan_speed, true);
     radio.dial.setReadout(`step ${fmtHz(s.step)}`);
+    // A mode stays on its own frequency and demodulation: what would change that is off
+    const locked = !!(s.decoder && s.decoder.key && s.decoder.key !== 'radio');
+    document.querySelectorAll('.front [data-key]').forEach(b => {
+        if (['scan', 'hold', 'pri', 'lo', 'mode', 'band'].includes(b.dataset.key)) {
+            b.disabled = locked;
+            b.title = locked ? `Not in the ${s.decoder.name} mode (Mode → Radio)` : (KEY_TITLES[b.textContent.replace(/(CH|BAND|NEXT)$/, '').trim()] || b.title);
+        }
+    });
+    document.querySelectorAll('#scan-source .tab').forEach(b => { b.disabled = locked; });
+    document.getElementById('lcd-mode').disabled = locked;
+    document.getElementById('lcd-auto').disabled = locked;
+    k.filter.setDisabled(locked);
+    k.speed.setDisabled(locked);
     document.querySelectorAll('.front [data-key]').forEach(b => {
         const key = b.dataset.key;
         const on = key === 'scan' ? s.scan : key === 'hold' ? s.scan && s.scan.hold : key === 'pri' ? s.priority
@@ -560,47 +579,6 @@ function editCurrentChannel() {
     switchTab('channels');
     if (s.channel) selectChannel(s.channel.id);
     else newChannel({frequency: s.frequency, mode: s.mode, bandwidth: s.bandwidth});
-}
-
-function openRangeModal() {
-    const r = (app.settings && app.settings.scan_range) || {start: 144e6, stop: 146e6, step: 12500, mode: 'nfm'};
-    const band = currentBand();
-    const modes = Object.keys(app.modes).map(m => `<option value="${m}"${m === r.mode ? ' selected' : ''}>${modeLabel(m)}</option>`).join('');
-    openModal('Scan range', `
-        <div class="form-grid">
-            <div class="form-field"><label for="rg-start">From (MHz)</label><input id="rg-start" class="input mono" value="${fmtMHz(r.start)}"></div>
-            <div class="form-field"><label for="rg-stop">To (MHz)</label><input id="rg-stop" class="input mono" value="${fmtMHz(r.stop)}"></div>
-            <div class="form-field"><label for="rg-step">Step (kHz)</label><input id="rg-step" class="input mono" value="${r.step / 1000}"></div>
-            <div class="form-field"><label for="rg-mode">Mode</label><select id="rg-mode" class="input">${modes}</select></div>
-        </div>
-        <p class="panel-sub">SCAN then steps through this range and stops on every signal above the squelch.${band
-            ? ` <button type="button" class="btn btn-small" onclick="fillRangeFromBand()">Fill in ${escapeHtml(band.name)}</button>` : ''}</p>`, [
-        {label: 'Cancel'},
-        {label: 'Save', cls: 'btn-primary', action: async () => {
-            const value = {
-                start: Math.round(parseFloat(document.getElementById('rg-start').value.replace(',', '.')) * 1e6),
-                stop: Math.round(parseFloat(document.getElementById('rg-stop').value.replace(',', '.')) * 1e6),
-                step: Math.round(parseFloat(document.getElementById('rg-step').value.replace(',', '.')) * 1000),
-                mode: document.getElementById('rg-mode').value,
-            };
-            await saveSetting('scan_range', value, true);
-            restartScan();
-        }},
-    ]);
-}
-
-function currentBand() {
-    const s = app.state || {};
-    return (app.bands || []).find(b => b.name === s.band) || null;
-}
-// The band the radio is in, as the range (to narrow down from there)
-function fillRangeFromBand() {
-    const band = currentBand();
-    if (!band) return;
-    document.getElementById('rg-start').value = fmtMHz(band.start);
-    document.getElementById('rg-stop').value = fmtMHz(band.stop);
-    document.getElementById('rg-step').value = band.step / 1000;
-    document.getElementById('rg-mode').value = band.mode;
 }
 
 // The waterfall fills the screen below it, so the whole radio fits without scrolling

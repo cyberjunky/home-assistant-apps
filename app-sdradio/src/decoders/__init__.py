@@ -26,6 +26,9 @@ class Decoder:
     demod = ("nfm", 12_500)
     # The receiver centred on the frequency (a mode that needs all of the receiver's bandwidth)
     centred = False
+    # What decodes it, and how the signal is modulated, for the display
+    decoded_by = "SDRadio"
+    signal = ""
 
     def __init__(self, settings: dict, publish: Callable[[dict], None],
                  update: Callable[[dict], None] | None = None):  # fmt: skip

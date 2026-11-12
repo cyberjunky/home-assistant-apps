@@ -53,6 +53,8 @@ def parse(line: str) -> dict | None:
 class Sensors(Decoder):
     key = "sensors"
     name = "Sensors"
+    signal = "OOK/FSK"
+    decoded_by = "rtl_433"
     input = "iq"
     defaults = {"frequency": 433_920_000, "ha_devices": []}
     # Heard as AM (most of these devices switch their carrier on and off)

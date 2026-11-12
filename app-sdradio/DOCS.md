@@ -86,7 +86,6 @@ Channels page. Under the list, **M+** stores and **◀ ▶** step through the st
 Pick what to scan under the keypad, then press **SCAN**:
 - **Channels**: the stored channels that are in the scan, of this band when the list shows *This band*, otherwise all.
 - **Band**: every step of the band you are in (from the band plan on the Settings page).
-- **Range…**: a range of your own, with its step and mode. *Fill in* puts the band you are in there, to narrow down from.
 
 The scan stops on every signal above the squelch and stays while it lasts; after the
 **Resume after** time of quiet it moves on. With the squelch off, it stops on a signal 10 dB
@@ -95,7 +94,7 @@ set too low doesn't stop it on every channel.
 
 - **SCAN** on a signal (the key then reads *NEXT*) goes on to the next channel without waiting; pressed while the scan is stepping, it stops the scan. Tuning anywhere stops it too.
 - **HOLD** stays on the current channel until you press it again, or until SCAN goes on.
-- **L/O** (lock out) takes a stored channel out of the scans, or ignores a frequency that isn't stored in band and range scans; press it again to undo.
+- **L/O** (lock out) takes a stored channel out of the scans, or ignores a frequency that isn't stored in band scans; press it again to undo.
 - **PRI** (priority): channels marked *Priority* on the Channels page are checked every few seconds while you listen elsewhere, and between the other channels while scanning. When one is busy, the radio goes there and comes back after.
 
 Every transmission the squelch lets through is logged as a hit: while scanning, and while
@@ -108,6 +107,11 @@ Next to Listen in the top bar, **Mode** sets the radio up for one kind of signal
 what it hears. The radio tunes to the mode's frequency (set on the Settings page, under Modes);
 you can still tune elsewhere and listen. In place of the favourites and the stored channels the
 page shows what the mode decodes. The modes only show up when your receiver can use them.
+In a mode the display shows how its signal is modulated (FSK for pagers, OOK/FSK for sensors,
+PPM for ADS-B, MSK on AM for ACARS, GMSK for AIS, AFSK for APRS) and what decodes it; the
+demodulation beside it is only how it sounds with Listen. What would take the mode off its
+frequency or change how it listens is off meanwhile: SCAN, HOLD, PRI, L/O, MODE, BAND, AUTO,
+the filter and the scan speed. Mode → Radio brings them back.
 
 - **Pager**: POCSAG (512, 1200 and 2400 baud) and FLEX messages, decoded by multimon-ng from
   the radio's own NFM audio. 169.65 MHz is P2000, the Dutch emergency services. Search the
