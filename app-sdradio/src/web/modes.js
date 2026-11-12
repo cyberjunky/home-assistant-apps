@@ -71,7 +71,7 @@ function renderModeHead() {
 
 function key2placeholder(key) {
     return {sensors: 'Search devices…', aircraft: 'Search callsign, registration, type…', ships: 'Search name, MMSI, destination…',
-        aprs: 'Search call sign, text…'}[key] || 'Search messages, capcodes…';
+        aprs: 'Search call sign, text…', acars: 'Search flight, registration, text…'}[key] || 'Search messages, capcodes…';
 }
 
 async function loadModeData() {
@@ -140,6 +140,7 @@ function renderModeBody() {
     const body = document.getElementById('mode-body');
     if (TRACKED[modeView.key]) return renderTracked(body);
     if (modeView.key === 'pager') body.innerHTML = pagerHtml();
+    else if (modeView.key === 'acars') body.innerHTML = acarsHtml();
     else if (modeView.key === 'sensors') body.innerHTML = sensorsHtml();
     else body.innerHTML = '';
 }
@@ -166,6 +167,20 @@ function pagerHtml() {
         <span class="badge">${escapeHtml(m.protocol || '')}</span>
         <span class="msg-addr mono" title="Capcode / address">${escapeHtml(m.key)}</span>
         <span class="msg-text${m.text ? '' : ' muted'}">${m.text ? escapeHtml(m.text) : escapeHtml(m.type || 'tone')}</span>
+    </div>`).join('');
+}
+
+// ---------------------------------------------------------------- ACARS
+
+function acarsHtml() {
+    if (!modeView.items.length) {
+        return emptyHtml(modeView.search ? 'No messages match.' : 'No messages yet. Aircraft send a few an hour each, more near an airport; the ground stations every few minutes.');
+    }
+    return modeView.items.map(m => `<div class="msg acars">
+        <span class="msg-time mono" title="${fmtMHz(m.frequency)} MHz">${timeOf(m.ts)}</span>
+        <span class="badge" title="${escapeHtml(m.label_name || 'label')}">${escapeHtml(m.label || '')}</span>
+        <span class="msg-addr mono">${escapeHtml([m.flight, m.registration].filter(Boolean).join(' · ') || m.key)}</span>
+        <span class="msg-text${m.text ? '' : ' muted'}">${m.text ? escapeHtml(m.text) : escapeHtml(m.label_name || 'no text')}${m.crc === false ? ' <span class="warn-text" title="The block check did not match">(check failed)</span>' : ''}</span>
     </div>`).join('');
 }
 

@@ -86,10 +86,11 @@ class Decoder:
 
 
 def registry() -> dict[str, type[Decoder]]:
+    from .acars import Acars
     from .aircraft import Aircraft
     from .aprs import Aprs
     from .pager import Pager
     from .sensors import Sensors
     from .ships import Ships
 
-    return {cls.key: cls for cls in (Pager, Sensors, Aircraft, Ships, Aprs)}
+    return {cls.key: cls for cls in (Pager, Sensors, Aircraft, Acars, Ships, Aprs)}

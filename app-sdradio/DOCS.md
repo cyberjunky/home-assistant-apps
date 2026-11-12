@@ -125,6 +125,10 @@ page shows what the mode decodes. The modes only show up when your receiver can 
   on 1090 MHz, as ADS-B is 2 MHz wide. The stock RTL-SDR antenna works best high up and outside;
   a 1090 MHz antenna reaches 200 km and more.
 
+- **ACARS**: the short text messages between aircraft and their airlines (positions, out/off/on/in
+  times, gate and weather requests), on up to three channels at once: 131.525, 131.725 and
+  131.825 MHz in Europe (set under Modes). Decoded by SDRadio itself; each message shows the
+  flight, the registration, its label and the text.
 - **Ships**: AIS on 161.975 and 162.025 MHz (both channels at once: the radio tunes between them),
   decoded by SDRadio itself. Ships on rivers, canals and the sea send their position every few
   seconds while under way and their name, call sign, kind and destination every few minutes; on

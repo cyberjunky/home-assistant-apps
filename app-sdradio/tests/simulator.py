@@ -10,7 +10,7 @@ import time
 
 import numpy as np
 
-from tests import adsb_signal, ais_signal, aprs_signal, pocsag_signal, rds_signal
+from tests import acars_signal, adsb_signal, ais_signal, aprs_signal, pocsag_signal, rds_signal
 
 # frequency, mode, level (amplitude), on seconds, off seconds, tone Hz
 SIGNALS = [
@@ -26,8 +26,18 @@ SIGNALS = [
     (169_650_000, "pocsag", 0.08, 0, 8, 0),
     # Aircraft sending ADS-B (the Aircraft mode)
     (1_090_000_000, "adsb", 0.3, 0, 0, 0),
+    # ACARS on the three European channels (the ACARS mode, tuned to the middle one)
+    (131_725_000, "acars", 0.05, 0, 0, 0),
     # Ships sending AIS on both channels (the Ships mode, tuned between them)
     (162_000_000, "ais", 0.05, 0, 0, 0),
+]
+# Channel offset from 131.725 MHz, mode, registration, label, block, text
+ACARS = [
+    (-200_000, "2", ".PH-BXA", "H1", "3", "M01AKL1234REQUEST GATE INFO AMS"),
+    (0, "2", ".PH-EZM", "_d", "A", ""),
+    (100_000, "2", ".D-AIKB", "15", "5", "M12ALH0987POS N52123E004567,FL350,1210"),
+    (0, "2", ".G-EZTH", "QA", "7", "M33AU25432OUT 1155 FOB 0123"),
+    (-200_000, "2", ".EI-EFX", "SQ", "S", "02XSAMSEHAM15201N00446EV136975/"),
 ]
 # Call sign, path, info (a moving car sends its position, which the simulator moves along)
 APRS_STATIONS = [
@@ -123,6 +133,9 @@ class SimulatedDevice:
             if mode == "aprs":
                 x += self._aprs(start, rate, offset, level, count)
                 continue
+            if mode == "acars":
+                x += self._acars(start, rate, offset, level, count)
+                continue
             period = on + off
             if off and (start % period) > on:
                 continue
@@ -213,6 +226,20 @@ class SimulatedDevice:
             self._queue_burst("aprs", int(t * rate), aprs_signal.fm_iq(audio, rate, offset, level=level))
             k += 1
         return self._play_bursts("aprs", count)
+
+    def _acars(self, start: float, rate: float, offset: float, level: float, count: int) -> np.ndarray:
+        """A message every 4 seconds, on the three channels in turn."""
+        end = start + count / rate
+        k = math.ceil((start - 0.7) / 4.0)
+        while 0.7 + k * 4.0 < end:
+            t = 0.7 + k * 4.0
+            channel, mode, registration, label, block, text = ACARS[k % len(ACARS)]
+            audio = acars_signal.audio(acars_signal.frame(mode, registration, label, block, text))
+            self._queue_burst(
+                "acars", int(t * rate), acars_signal.am_iq(audio, rate, offset + channel, level, lead=0.002)
+            )
+            k += 1
+        return self._play_bursts("acars", count)
 
     def _queue_burst(self, name: str, at: int, samples: np.ndarray) -> None:
         self.__dict__.setdefault(f"{name}_bursts", []).append([at, samples])

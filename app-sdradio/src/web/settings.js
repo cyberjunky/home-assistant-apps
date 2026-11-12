@@ -220,6 +220,7 @@ const SENSOR_FREQUENCIES = [433.92, 868.3, 868.95, 915, 315, 345];
 
 function modeSettingsHtml(ha) {
     const pager = app.settings.mode_pager || {}, sensors = app.settings.mode_sensors || {}, aprs = app.settings.mode_aprs || {};
+    const acars = app.settings.mode_acars || {};
     const mhz = hz => +(hz / 1e6).toFixed(6);
     return `
         ${setRow('Pager frequency', 'MHz; 169.65 is P2000, the Dutch emergency services (FLEX)',
@@ -233,7 +234,9 @@ function modeSettingsHtml(ha) {
              <datalist id="sensor-frequencies">${SENSOR_FREQUENCIES.map(f => `<option value="${f}">`).join('')}</datalist>`, 'mode-sensors-frequency')}
         ${setRow('APRS frequency', 'MHz; 144.8 in Europe, 144.39 in North America, 145.825 for the ISS',
             `<input class="input mono" id="mode-aprs-frequency" list="aprs-frequencies" value="${mhz(aprs.frequency)}" inputmode="decimal">
-             <datalist id="aprs-frequencies"><option value="144.8"><option value="144.39"><option value="145.825"></datalist>`, 'mode-aprs-frequency')}`;
+             <datalist id="aprs-frequencies"><option value="144.8"><option value="144.39"><option value="145.825"></datalist>`, 'mode-aprs-frequency')}
+        ${setRow('ACARS channels', 'MHz, comma separated: 131.525, 131.725 and 131.825 in Europe; they must lie within 370 kHz of each other (one receiver)',
+            `<input class="input mono" id="mode-acars-channels" value="${(acars.channels || []).map(mhz).join(', ')}">`, 'mode-acars-channels')}`;
 }
 
 function saveMode(key, patch) {
@@ -253,6 +256,12 @@ function bindModeSettings() {
     frequency('mode-pager-frequency', 'pager');
     frequency('mode-sensors-frequency', 'sensors');
     frequency('mode-aprs-frequency', 'aprs');
+    const acars = document.getElementById('mode-acars-channels');
+    if (acars) acars.addEventListener('change', () => {
+        const channels = acars.value.split(/[,; ]+/).map(v => parseFloat(v.replace(',', '.'))).filter(v => v > 0).map(v => Math.round(v * 1e6));
+        if (!channels.length) return toast('Type one or more frequencies in MHz', 'error');
+        saveMode('acars', {channels});
+    });
     document.querySelectorAll('[data-pager-protocol]').forEach(el => el.addEventListener('change', () => {
         const protocols = Array.from(document.querySelectorAll('[data-pager-protocol]:checked')).map(x => x.dataset.pagerProtocol);
         saveMode('pager', {protocols});
