@@ -105,19 +105,58 @@ function infoRow(label, valueHtml) {
 }
 
 // =====================================================================
-// Theme: light by default, dark as the second choice
+// Theme: follows Home Assistant's dark mode (this page runs in its ingress
+// iframe, same origin), the system outside Home Assistant, or a manual choice.
+// The same toggle as the other apps: auto, light, dark.
 // =====================================================================
-function setTheme(theme) {
-    document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
-    try { localStorage.setItem(LS + 'theme', document.documentElement.dataset.theme); } catch (e) { /* convenience */ }
-    renderThemeToggle();
-    if (typeof redrawSpectrum === 'function') redrawSpectrum();
+const THEME_ICONS = {auto: '🌓', light: '☀️', dark: '🌙'};
+function storedTheme() {
+    try { return localStorage.getItem(LS + 'theme'); } catch (e) { return null; }
 }
-function renderThemeToggle() {
-    const dark = document.documentElement.dataset.theme === 'dark';
-    document.getElementById('theme-light').classList.toggle('active', !dark);
-    document.getElementById('theme-dark').classList.toggle('active', dark);
+let themeChoice = new URLSearchParams(window.location.search).get('theme') || storedTheme();
+// SDRadio starts in the light theme (its front panel was designed light first); auto and dark are a click away
+if (!THEME_ICONS[themeChoice]) themeChoice = 'light';
+
+function haDarkMode() {
+    try {
+        const ha = window.parent !== window && window.parent.document.querySelector('home-assistant');
+        return ha && ha.hass && ha.hass.themes ? Boolean(ha.hass.themes.darkMode) : null;
+    } catch (e) {
+        return null;  // Not inside Home Assistant's frontend
+    }
 }
+
+function applyTheme() {
+    let dark = themeChoice === 'dark';
+    if (themeChoice === 'auto') {
+        const ha = haDarkMode();
+        dark = ha === null ? window.matchMedia('(prefers-color-scheme: dark)').matches : ha;
+    }
+    const next = dark ? 'dark' : 'light';
+    if (document.documentElement.dataset.theme !== next) {
+        document.documentElement.dataset.theme = next;
+        if (typeof redrawSpectrum === 'function') setTimeout(redrawSpectrum, 0);
+    }
+}
+
+function initThemeToggle() {
+    document.getElementById('theme-icon').textContent = THEME_ICONS[themeChoice];
+    document.getElementById('theme-toggle').title = themeChoice === 'auto'
+        ? 'Theme follows Home Assistant - click for light'
+        : `Theme: ${themeChoice} - click to change`;
+}
+
+function cycleTheme() {
+    themeChoice = {auto: 'light', light: 'dark', dark: 'auto'}[themeChoice];
+    try { localStorage.setItem(LS + 'theme', themeChoice); } catch (e) { /* only a convenience */ }
+    initThemeToggle();
+    applyTheme();
+}
+
+applyTheme();
+// Home Assistant doesn't tell the iframe when its theme changes
+setInterval(applyTheme, 2000);
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 function applyLcdColour(colour) {
     if (colour && colour !== 'lcd') document.documentElement.dataset.lcd = colour;
     else delete document.documentElement.dataset.lcd;

@@ -1,7 +1,7 @@
 // SDRadio dashboard - startup. Loaded last.
 
 (async function start() {
-    renderThemeToggle();
+    initThemeToggle();
     updateClock();
     setInterval(updateClock, 10000);
     initRadio();
