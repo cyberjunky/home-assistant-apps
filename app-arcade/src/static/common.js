@@ -3,8 +3,8 @@ const BASE = document.body.dataset.base || '';
 const api = (path) => BASE + path;
 
 const THEME_ICONS = {auto: '🌓', light: '☀️', dark: '🌙'};
-let themeChoice = 'auto';
-try { themeChoice = localStorage.getItem('arcade_theme') || 'auto'; } catch (e) { /* none */ }
+let themeChoice = new URLSearchParams(window.location.search).get('theme');
+try { themeChoice = themeChoice || localStorage.getItem('arcade_theme') || 'auto'; } catch (e) { /* none */ }
 if (!THEME_ICONS[themeChoice]) themeChoice = 'auto';
 
 function haDarkMode() {
@@ -24,6 +24,10 @@ function applyTheme() {
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
     const icon = document.getElementById('theme-icon');
     if (icon) icon.textContent = THEME_ICONS[themeChoice];
+    const toggle = document.getElementById('theme-toggle');
+    if (toggle) {
+        toggle.title = themeChoice === 'auto' ? 'Theme follows Home Assistant - click for light' : `Theme: ${themeChoice} - click to change`;
+    }
 }
 function cycleTheme() {
     themeChoice = {auto: 'light', light: 'dark', dark: 'auto'}[themeChoice];
@@ -32,6 +36,14 @@ function cycleTheme() {
 }
 applyTheme();
 setInterval(applyTheme, 2000);
+
+// The clock in the library's top bar, as in the other apps
+function updateClock() {
+    const clock = document.getElementById('clock');
+    if (clock) clock.textContent = new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+}
+updateClock();
+setInterval(updateClock, 10000);
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 
 const HTML_ESCAPES = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'};

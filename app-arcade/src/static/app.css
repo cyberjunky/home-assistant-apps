@@ -60,12 +60,17 @@ kbd { font-family: var(--mono); font-size: 11.5px; padding: 1px 5px; border-radi
 .brand-sub { font-family: var(--mono); font-size: 12px; color: var(--secondary-text-color); }
 .tabs { display: flex; gap: 2px; padding: 2px; border-radius: 6px; background: var(--ha-background); border: var(--card-border); }
 .tab { height: 28px; padding: 0 12px; border: none; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center;
-    justify-content: center; gap: 5px; background: transparent; color: var(--secondary-text-color); font: inherit; font-size: 12.5px; font-weight: 500; }
+    justify-content: center; gap: 5px; line-height: 1; white-space: nowrap; background: transparent; color: var(--secondary-text-color);
+    font: inherit; font-size: 12.5px; font-weight: 500; }
 .tab:hover:not(:disabled) { color: var(--primary-text-color); }
 .tab:disabled { opacity: 0.4; cursor: default; }
 .tab.active { background: var(--primary-color); color: #fff; }
 .icon-tab { width: 32px; padding: 0; font-size: 14px; }
+.tab-sep { width: 1px; margin: 4px 4px; background: var(--divider-color); }
+.tab-icon { display: none; }
 .spacer { flex: 1; }
+.clock { font-family: var(--mono); font-size: 22px; font-weight: 600; letter-spacing: 0.04em; line-height: 1; }
+@media (max-width: 1400px) { .clock { font-size: 18px; } }
 .input { height: 30px; padding: 0 10px; border-radius: 4px; border: var(--card-border); background: var(--ha-background);
     color: var(--primary-text-color); font: inherit; width: 220px; }
 
@@ -270,6 +275,7 @@ body.player .topbar { gap: 10px; }
 
 @media (max-width: 700px) {
     .topbar { flex-wrap: wrap; }
+    .clock { display: none; }
     .input { width: 100%; order: 5; }
     .brand-sub { display: none; }
     .info-grid { grid-template-columns: 1fr; }
