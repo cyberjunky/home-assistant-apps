@@ -97,6 +97,13 @@ function renderSettings() {
         </div></div>
 
         <div class="panel"><div class="panel-body">
+            <div class="chart-title"><span>Modes</span></div>
+            <p class="panel-sub" style="margin-bottom:8px">Pick a mode in the top bar: the radio tunes to the mode's frequency and decodes what it hears there. You can still tune elsewhere.</p>
+            ${modeSettingsHtml(ha)}
+            ${setRow('Keep decoded for', 'pager messages and sensor readings; older ones are removed nightly', selectHtml('decoded_keep_days', spec.decoded_keep_days.options, days))}
+        </div></div>
+
+        <div class="panel"><div class="panel-body">
             <div class="chart-title"><span>Database &amp; backups</span></div>
             ${setRow('Keep hits for', 'older hits are removed nightly; channels are always kept', selectHtml('hits_keep_days', spec.hits_keep_days.options, days))}
             ${setRow('Nightly backup at', '', `<input class="input mono" data-setting="backup_time" value="${escapeHtml(app.settings.backup_time)}">`)}
@@ -130,6 +137,7 @@ function renderSettings() {
             </tbody></table></div>
         </div></div>`;
 
+    bindModeSettings();
     document.querySelectorAll('#settings [data-setting]').forEach(el => {
         el.addEventListener('change', async () => {
             const key = el.dataset.setting;
@@ -203,4 +211,48 @@ function toggleAllBands(e) {
     e.preventDefault();
     app.showAllBands = !app.showAllBands;
     renderSettings();
+}
+
+// ---------------------------------------------------------------- modes
+
+const PAGER_PROTOCOLS = ['FLEX', 'POCSAG512', 'POCSAG1200', 'POCSAG2400'];
+const SENSOR_FREQUENCIES = [433.92, 868.3, 868.95, 915, 315, 345];
+
+function modeSettingsHtml(ha) {
+    const pager = app.settings.mode_pager || {}, sensors = app.settings.mode_sensors || {};
+    const mhz = hz => +(hz / 1e6).toFixed(6);
+    return `
+        ${setRow('Pager frequency', 'MHz; 169.65 is P2000, the Dutch emergency services (FLEX)',
+            `<input class="input mono" id="mode-pager-frequency" value="${mhz(pager.frequency)}" inputmode="decimal">`, 'mode-pager-frequency')}
+        ${setRow('Pager protocols', 'FLEX, and POCSAG at 512, 1200 and 2400 baud',
+            `<span class="checks" style="margin:0">${PAGER_PROTOCOLS.map(p => `<label><input type="checkbox" data-pager-protocol="${p}"${(pager.protocols || []).includes(p) ? ' checked' : ''}> ${p.replace('POCSAG', '')}</label>`).join('')}</span>`)}
+        ${setRow('Pager events', 'sdradio_pager in Home Assistant for every message, for automations',
+            `<input type="checkbox" id="mode-pager-ha"${pager.ha_events ? ' checked' : ''}${ha ? '' : ' disabled'}>`, 'mode-pager-ha')}
+        ${setRow('Sensors frequency', 'MHz; 433.92 for most, 868.3 for many weather stations, 868.95 for wM-Bus meters',
+            `<input class="input mono" id="mode-sensors-frequency" list="sensor-frequencies" value="${mhz(sensors.frequency)}" inputmode="decimal">
+             <datalist id="sensor-frequencies">${SENSOR_FREQUENCIES.map(f => `<option value="${f}">`).join('')}</datalist>`, 'mode-sensors-frequency')}`;
+}
+
+function saveMode(key, patch) {
+    return saveSetting(`mode_${key}`, {...(app.settings[`mode_${key}`] || {}), ...patch});
+}
+
+function bindModeSettings() {
+    const frequency = (id, key) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('change', () => {
+            const mhz = parseFloat(el.value.replace(',', '.'));
+            if (!(mhz > 0)) return toast('Type a frequency in MHz', 'error');
+            saveMode(key, {frequency: Math.round(mhz * 1e6)});
+        });
+    };
+    frequency('mode-pager-frequency', 'pager');
+    frequency('mode-sensors-frequency', 'sensors');
+    document.querySelectorAll('[data-pager-protocol]').forEach(el => el.addEventListener('change', () => {
+        const protocols = Array.from(document.querySelectorAll('[data-pager-protocol]:checked')).map(x => x.dataset.pagerProtocol);
+        saveMode('pager', {protocols});
+    }));
+    const ha = document.getElementById('mode-pager-ha');
+    if (ha) ha.addEventListener('change', () => saveMode('pager', {ha_events: ha.checked}));
 }

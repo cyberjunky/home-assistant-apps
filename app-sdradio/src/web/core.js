@@ -220,7 +220,7 @@ function buildChips(el, options, current, onChange) {
 let socket = null;
 let socketWanted = {spectrum: false, listen: false, sweep: false};
 let reconnectDelay = 1000;
-const socketHandlers = {state: [], spectrum: [], audio: [], hit: [], changed: [], notice: []};
+const socketHandlers = {state: [], spectrum: [], audio: [], hit: [], changed: [], notice: [], decoded: []};
 
 function onSocket(kind, fn) { socketHandlers[kind].push(fn); }
 

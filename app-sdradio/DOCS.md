@@ -102,6 +102,24 @@ Every transmission the squelch lets through is logged as a hit: while scanning, 
 listening with a squelch set. A frequency with signals that isn't stored becomes a **new find**
 after a few hits (the number is on the Settings page).
 
+## Modes
+
+Next to Listen in the top bar, **Mode** sets the radio up for one kind of signal and decodes
+what it hears. The radio tunes to the mode's frequency (set on the Settings page, under Modes);
+you can still tune elsewhere and listen. In place of the favourites and the stored channels the
+page shows what the mode decodes. The modes only show up when your receiver can use them.
+
+- **Pager**: POCSAG (512, 1200 and 2400 baud) and FLEX messages, decoded by multimon-ng from
+  the radio's own NFM audio. 169.65 MHz is P2000, the Dutch emergency services. Search the
+  messages by text or capcode. With **Pager events** on, every message is an `sdradio_pager`
+  event in Home Assistant.
+- **Sensors**: weather stations, thermometers, doorbells, remotes and meters, decoded by rtl_433
+  (some 250 kinds of device). 433.92 MHz for most, 868.3 MHz for many weather stations,
+  868.95 MHz for wireless M-Bus meters. Each device shows its last reading; tick **HA** to get
+  its readings as Home Assistant sensors (`sensor.sdradio_<device>_temperature_c` and so on).
+
+What the modes decode is kept in the database (30 days by default, set under Modes).
+
 ## Channels
 
 The Channels page lists every stored channel; click one to edit it on the right. The views at
@@ -124,6 +142,8 @@ downloaded backup to the list. The database and its backups are in the app's dat
 Home Assistant backups include them.
 
 ## Home Assistant
+
+The modes add the `sdradio_pager` event and the sensors of the devices picked in Sensors (see Modes).
 
 On the Settings page:
 - **Sensors**: `sensor.sdradio_frequency` (MHz, with the mode, band and channel, and on FM the RDS `station`, `radio_text`, `artist`, `title` and `programme_type`), `sensor.sdradio_signal` (dBFS) and `sensor.sdradio_scan` (`off`, `scanning` or `holding`), updated at most every 5 seconds.

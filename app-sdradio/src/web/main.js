@@ -5,6 +5,7 @@
     updateClock();
     setInterval(updateClock, 10000);
     initRadio();
+    initModes();
     initChannels();
     initStats();
     await Promise.all([loadStatus(), loadSettings(), loadChannels()]);

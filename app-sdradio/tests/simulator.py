@@ -9,7 +9,7 @@ import time
 
 import numpy as np
 
-from tests import rds_signal
+from tests import pocsag_signal, rds_signal
 
 # frequency, mode, level (amplitude), on seconds, off seconds, tone Hz
 SIGNALS = [
@@ -20,7 +20,10 @@ SIGNALS = [
     (121_500_000, "am", 0.04, 5, 5, 700),
     (98_900_000, "wfm", 0.2, 1000, 0, 440),
     (156_800_000, "nfm", 0.04, 3, 8, 900),
+    # A POCSAG pager burst every 8 seconds (the Pager mode's default frequency)
+    (169_650_000, "pocsag", 0.08, 0, 8, 0),
 ]
+PAGER_TEXTS = ["SDRadio simulated page", "Test alarm 112 Teststraat", "Coffee is ready"]
 
 
 class SimulatedDevice:
@@ -42,6 +45,8 @@ class SimulatedDevice:
         rt = "Now playing: Simulated Artist - Simulated Title"
         self.rds_bits = rds_signal.bits(rds_signal.groups(0x8204, "SIM FM", rt, "Simulated Artist", "Simulated Title"))
         self.rds_phase = 0.0
+        self.pager_burst: np.ndarray | None = None
+        self.pager_count = 0
 
     def open(self, center: float) -> dict:
         self.center = float(center)
@@ -77,6 +82,9 @@ class SimulatedDevice:
             offset = frequency - self.center
             if abs(offset) > rate * 0.48:
                 continue
+            if mode == "pocsag":
+                x += self._pager(start, rate, offset, level, off, count)
+                continue
             period = on + off
             if off and (start % period) > on:
                 continue
@@ -105,6 +113,22 @@ class SimulatedDevice:
             else:
                 self._next_time = time.monotonic()
         return x
+
+    def _pager(self, start: float, rate: float, offset: float, level: float, every: float, count: int) -> np.ndarray:
+        """A POCSAG 1200 message at the start of every `every` seconds."""
+        into = int((start % every) * rate)
+        if into == 0 or self.pager_burst is None:
+            text = PAGER_TEXTS[self.pager_count % len(PAGER_TEXTS)]
+            self.pager_count += 1
+            data = pocsag_signal.bits(1_234_560 + self.pager_count % 3, 3, text)
+            self.pager_burst = pocsag_signal.fm_iq(data, 1200, rate, 0, lead=0.05) * (level / 0.1)
+        burst = self.pager_burst
+        if into >= len(burst):
+            return np.zeros(count, np.complex64)
+        part = burst[into : into + count]
+        part = np.concatenate([part, np.zeros(count - len(part), np.complex64)])
+        t = (np.arange(count) + self.sample_index) / rate
+        return (part * np.exp(2j * math.pi * offset * t)).astype(np.complex64)
 
     def close(self) -> None:
         self.closed = True
