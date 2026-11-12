@@ -2,7 +2,10 @@
 
 import asyncio
 import contextlib
+import errno
 import logging
+import re
+import socket
 import sqlite3
 import time
 from collections.abc import Callable
@@ -221,7 +224,8 @@ class ToonMonitor:
                 await asyncio.sleep(RECONNECT_REFUSED)
                 continue
             except (OSError, TimeoutError, asyncssh.Error) as e:
-                self._down(_describe(e))
+                logger.debug(f"Connecting to the Toon failed: {e!r}")
+                self._down(self._connect_problem(e))
                 await asyncio.sleep(delay)
                 delay = min(delay * 2, RECONNECT_MAX)
                 continue
@@ -236,7 +240,8 @@ class ToonMonitor:
                 await self._serve(session)
                 reason = "the session ended"
             except (OSError, TimeoutError, asyncssh.Error, BoxTalkError) as e:
-                reason = _describe(e)
+                logger.debug(f"The session with the Toon ended: {e!r}")
+                reason = self._connect_problem(e)
             except Exception as e:
                 # A bug must not end the logging: the finish script stops the app on a failed exit
                 logger.exception("Unexpected error during the session with the Toon")
@@ -245,6 +250,9 @@ class ToonMonitor:
                 session.close()
             self._down(reason)
             await asyncio.sleep(RECONNECT_MIN)
+
+    def _connect_problem(self, error: Exception) -> str:
+        return connect_problem(error, self.config.ssh_host, self.config.ssh_port)
 
     def _down(self, reason: str) -> None:
         if self.connected:
@@ -492,4 +500,28 @@ class ToonMonitor:
 
 
 def _describe(error: Exception) -> str:
-    return str(error) or type(error).__name__
+    """An error as one line, without Python's "[Errno 113]" in front."""
+    text = re.sub(r"^\[Errno -?\d+\]\s*", "", str(error))
+    return text or type(error).__name__
+
+
+# What a network error means for someone looking at the Toon: what happened, and what to check
+_UNREACHABLE = (errno.EHOSTUNREACH, errno.ENETUNREACH, errno.EHOSTDOWN)
+
+
+def connect_problem(error: Exception, host: str, port: int) -> str:
+    """Why the Toon can't be reached, in plain words. Shown after "The Toon can't be reached:"."""
+    if isinstance(error, socket.gaierror):
+        return f"the address {host} can't be found. Check ssh.host in the app's configuration"
+    if isinstance(error, TimeoutError) or getattr(error, "errno", None) == errno.ETIMEDOUT:
+        return f"{host} didn't answer in time. The Toon may be restarting, or its Wi-Fi is down"
+    if isinstance(error, OSError) and error.errno in _UNREACHABLE:
+        return (
+            f"nothing answers at {host}. Check that the Toon is on and connected to Wi-Fi,"
+            " and that this is still its address"
+        )
+    if isinstance(error, ConnectionRefusedError) or getattr(error, "errno", None) == errno.ECONNREFUSED:
+        return f"{host} refused the connection on port {port}. Is SSH running on the Toon, and is the port right?"
+    if isinstance(error, (ConnectionResetError, asyncssh.ConnectionLost, BrokenPipeError)):
+        return "the Toon closed the connection. It may be restarting"
+    return _describe(error)

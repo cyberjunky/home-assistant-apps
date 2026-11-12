@@ -291,3 +291,20 @@ def test_mqtt_payload_and_discovery(database):
 def test_gas_flow_is_litres_per_five_minutes():
     """On the Toon, 52 in CurrentGasFlow went with a meter step of 52 litres in 5 minutes."""
     assert convert(METRIC_BY_KEY["gas_flow"], "52.00") == pytest.approx(0.624)
+
+
+def test_connection_problems_in_plain_words():
+    """The Dashboard shows why the Toon can't be reached as a sentence, not as Python's errno text."""
+    import socket
+
+    from src.monitor import connect_problem
+
+    host = "192.168.2.106"
+    unreachable = connect_problem(OSError(113, f"Connect call failed ('{host}', 22)"), host, 22)
+    assert unreachable.startswith(f"nothing answers at {host}") and "Errno" not in unreachable
+    assert "refused the connection on port 2222" in connect_problem(ConnectionRefusedError(111, "x"), host, 2222)
+    assert "didn't answer in time" in connect_problem(TimeoutError(), host, 22)
+    assert "can't be found" in connect_problem(socket.gaierror(-2, "Name or service not known"), host, 22)
+    assert (
+        connect_problem(OSError(99, "Cannot assign requested address"), host, 22) == "Cannot assign requested address"
+    )
