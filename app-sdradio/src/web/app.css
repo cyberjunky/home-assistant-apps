@@ -138,6 +138,7 @@ a { color: var(--primary-color); }
 .statusbar b { color: var(--primary-text-color); font-weight: 500; }
 .sb-ok { color: var(--success-color); }
 .sb-warn { color: var(--warning-color); }
+.hint.warn-text { color: var(--warning-color); opacity: 1; }
 .sb-bad { color: var(--danger-color); }
 
 /* ---------- Views ---------- */

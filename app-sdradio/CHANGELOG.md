@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.5
+
+**After updating:** to get the new band plan, press **Settings → Bands → Reset to defaults** (bands you changed yourself are lost; stored channels stay).
+
+- **Band view:** the spectrum's **Band** button shows the whole band the radio is in, swept by the receiver step by step (about a second and a half for the FM band); the radio is silent meanwhile, and a click on a station tunes there and lets you hear it. The old Full button is now **2.4M**: everything the receiver takes in at once.
+- **Band plan from LW to 6 GHz:** the HF amateur and broadcast bands, 6 m, 4 m, military air, LPD 433, SRD 868, 23 cm, and for a HackRF 13 cm, 2.4 GHz, 9 cm, 6 cm and 5.8 GHz. Less used bands have no BAND button.
+- **Only what your receiver can tune:** BAND skips bands outside the receiver's range (an RTL-SDR 24 to 1766 MHz, a HackRF 1 MHz to 6 GHz), the Settings page hides them, and a frequency out of range is refused with a message instead of the receiver stopping at its lowest frequency. Scans leave out what is out of range.
+
 ## 0.1.4
 
 - **RDS on FM broadcast (WFM):** the station's name shows on the display when the frequency isn't stored (next to your own name when it is), and a line below it shows the artist and title when the station marks them (RadioText+), or else its radio text, with the programme type. A text longer than the line scrolls round. RDS takes a second or two after tuning; a weak station may not get that far.

@@ -5,11 +5,15 @@ const PALETTES = {
     grey: [[0, '#05070a'], [1, '#ffffff']],
     turbo: [[0, '#30123b'], [0.15, '#4662d7'], [0.3, '#36aaf9'], [0.45, '#1ae4b6'], [0.6, '#72fe5e'], [0.75, '#e4cf34'], [0.88, '#fb7e21'], [1, '#7a0403']],
 };
-const ZOOMS = [{key: 'full', label: 'Full'}, {key: '1000000', label: '1M'}, {key: '200000', label: '200k'}, {key: '50000', label: '50k'}];
+// Band: the whole band, swept; 2.4M: everything one capture holds; then zoomed round the tuned frequency
+const ZOOMS = [{key: 'band', label: 'Band'}, {key: 'full', label: '2.4M'}, {key: '1000000', label: '1M'}, {key: '200000', label: '200k'}, {key: '50000', label: '50k'}];
+const ZOOM_TITLES = {band: 'The whole band: the receiver sweeps across it, and the radio is silent meanwhile',
+    full: 'Everything the receiver takes in at once: 2.4 MHz'};
 
 const spec = {
-    frame: null, zoom: lsGet('zoom', 'full'), autoRange: lsGet('auto_range', true),
-    lo: -120, hi: -30, lut: null, palette: null, hoverX: null, dragFrom: null, dragging: false,
+    // The band view isn't remembered: it silences the radio
+    frame: null, zoom: lsGet('zoom', 'full') === 'band' ? 'full' : lsGet('zoom', 'full'), autoRange: lsGet('auto_range', true),
+    lastZoom: null, lo: -120, hi: -30, lut: null, palette: null, hoverX: null, dragFrom: null, dragging: false,
 };
 
 function hexRgb(hex) { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
@@ -33,11 +37,26 @@ function buildLut(name) {
 function viewWindow(frame) {
     const s = app.state || {};
     const full = {start: frame.center - frame.rate / 2, span: frame.rate};
-    if (spec.zoom === 'full') return full;
+    if (spec.zoom === 'full' || spec.zoom === 'band' || isSweepFrame(frame)) return full;
     const span = Math.min(Number(spec.zoom), frame.rate);
     let start = (s.frequency || frame.center) - span / 2;
     start = Math.max(full.start, Math.min(full.start + full.span - span, start));
     return {start, span};
+}
+
+// A frame of the band view: wider than one capture
+function isSweepFrame(frame) {
+    const s = app.state || {};
+    return frame.rate > (s.rate || 2.4e6) * 1.01;
+}
+
+function setZoom(key) {
+    spec.zoom = key;
+    if (key !== 'band') { lsSet('zoom', key); spec.lastZoom = key; }
+    document.querySelectorAll('#zoom .tab').forEach(t => t.classList.toggle('active', t.dataset.key === key));
+    wantSweep(key === 'band');
+    clearWaterfall();
+    redrawSpectrum();
 }
 
 function sizeCanvas(canvas, height) {
@@ -75,6 +94,8 @@ function updateRange(levels) {
 }
 
 onSocket('spectrum', (frame) => {
+    // Between the band view and the normal one the picture changes width: start the waterfall over
+    if (spec.frame && spec.frame.rate !== frame.rate && activeTab === 'radio') clearWaterfall();
     spec.frame = frame;
     if (activeTab !== 'radio') return;
     const wf = document.getElementById('waterfall');
@@ -82,18 +103,19 @@ onSocket('spectrum', (frame) => {
     const view = viewWindow(frame);
     const levels = columns(frame, view, w);
     updateRange(levels);
-    drawWaterfallRow(levels);
+    // A band view pass takes a second or two: a taller row, so the waterfall still moves
+    drawWaterfallRow(levels, isSweepFrame(frame) ? 6 : 1);
     drawSpectrum(levels, view);
 });
 
-function drawWaterfallRow(levels) {
+function drawWaterfallRow(levels, rows = 1) {
     const canvas = document.getElementById('waterfall');
     const ctx = canvas.getContext('2d');
     const w = canvas.width, h = canvas.height;
     const palette = (app.settings && app.settings.waterfall_palette) || 'classic';
     if (spec.palette !== palette) buildLut(palette);
     const dpr = window.devicePixelRatio || 1;
-    const rowHeight = Math.max(1, Math.round(dpr));
+    const rowHeight = Math.max(1, Math.round(dpr)) * rows;
     ctx.drawImage(canvas, 0, 0, w, h - rowHeight, 0, rowHeight, w, h - rowHeight);
     const row = ctx.createImageData(w, rowHeight);
     const range = (spec.hi - spec.lo) || 1;
@@ -239,12 +261,8 @@ function snapToStep(f) {
 }
 
 function initSpectrum() {
-    buildChips(document.getElementById('zoom'), ZOOMS, spec.zoom, (key) => {
-        spec.zoom = key;
-        lsSet('zoom', key);
-        clearWaterfall();
-        redrawSpectrum();
-    });
+    buildChips(document.getElementById('zoom'), ZOOMS, spec.zoom, setZoom);
+    document.querySelectorAll('#zoom .tab').forEach(t => { if (ZOOM_TITLES[t.dataset.key]) t.title = ZOOM_TITLES[t.dataset.key]; });
     renderAutoRange();
     const wrap = document.getElementById('spectrum-wrap');
     const freqAt = (clientX) => {
@@ -261,7 +279,8 @@ function initSpectrum() {
     wrap.addEventListener('pointermove', (e) => {
         const r = wrap.getBoundingClientRect();
         spec.hoverX = e.clientX - r.left;
-        if (spec.dragFrom && Math.abs(e.clientX - spec.dragFrom.x) > 4) spec.dragging = true;
+        // No dragging in the band view: the receiver is sweeping
+        if (spec.dragFrom && spec.zoom !== 'band' && Math.abs(e.clientX - spec.dragFrom.x) > 4) spec.dragging = true;
         if (!spec.frame) return;
         if (spec.dragging) {
             const view = viewWindow(spec.frame);
@@ -277,6 +296,8 @@ function initSpectrum() {
         if (spec.dragFrom && !spec.dragging) {
             const f = freqAt(e.clientX);
             if (f !== null) radioCommand('tune', {frequency: snapToStep(f)});
+            // A click in the band view: listen there
+            if (f !== null && spec.zoom === 'band') setZoom(spec.lastZoom || 'full');
         }
         spec.dragFrom = null;
         spec.dragging = false;

@@ -166,3 +166,70 @@ def test_manual_tuning_takes_band_and_channel_settings(radio):
     radio.command("tune", frequency=121_700_000)  # same band, not stored: nothing changes
     run(radio, 1)
     assert radio.mode == "nfm"
+
+
+def _notices(radio):
+    return [p["message"] for k, p in radio.events if k == "notice"]
+
+
+def test_out_of_range_is_refused(radio):
+    """The simulated receiver tunes 24 to 1766 MHz, like an RTL-SDR."""
+    radio.command("tune", frequency=531_000)
+    run(radio, 1)
+    assert radio.frequency == 145_500_000
+    assert "out of range" in _notices(radio)[-1]
+
+
+def test_band_key_skips_bands_out_of_range(radio):
+    seen = []
+    for _ in range(len(radio.bands) + 2):
+        radio.command("band", direction=1)
+        run(radio, 1)
+        seen.append(radio.frequency)
+    assert all(24_000_000 <= f <= 1_766_000_000 for f in seen)
+    names = {b["name"] for b in radio.bands if any(b["start"] <= f <= b["stop"] for f in seen)}
+    assert {"FM", "Air", "2 m", "70 cm"} <= names
+    assert not names & {"LW", "MW", "SW 40 m", "SW 20 m", "13 cm", "ISM 2.4 GHz"}
+
+
+def test_band_scan_out_of_range_says_so(radio):
+    radio.command("scan", action="start", kind="band", band="MW")
+    run(radio, 1)
+    assert radio.scan.kind == ""
+    assert "MW is out of range" in _notices(radio)[-1]
+
+
+def test_band_view_sweeps_the_band(radio):
+    radio.spectrum_listeners = 1
+    radio.sweep_wanted = True
+    run(radio, 3)
+    sweep = radio.sweep
+    # 2 m is 2 MHz: wider than the 1.92 MHz used of one capture, so two steps
+    assert sweep is not None and sweep["label"] == "2 m" and sweep["count"] == 2
+    assert sweep["start"] <= 144_000_000 and sweep["start"] + sweep["span"] >= 146_000_000
+    radio.events.clear()
+    run(radio, sweep["count"] * 3 + 3)
+    frames = [p for k, p in radio.events if k == "spectrum"]
+    assert frames, "a complete pass sends a frame"
+    frame = frames[-1]
+    assert frame["rate"] == sweep["span"]
+    # The simulated transmitter on 145.5 MHz stands out of the swept band
+    levels = list(frame["bins"])
+    at = int((145_500_000 - (frame["center"] - frame["rate"] / 2)) / frame["rate"] * len(levels))
+    assert max(levels[at - 5 : at + 5]) > sorted(levels)[len(levels) // 2] + 40
+    assert not [k for k, _ in radio.events if k == "audio"]
+    # Back to normal: the receiver returns to the tuned frequency
+    radio.sweep_wanted = False
+    run(radio, 1)
+    assert radio.sweep is None and abs(radio.center - 145_500_000) < radio.rate / 2
+
+
+def test_hackrf_reaches_hf_and_ghz_bands(radio):
+    """A HackRF tunes 1 MHz to 6 GHz: its bands are reachable, the BAND key goes there."""
+    radio.device.frequency_range = (1_000_000.0, 6_000_000_000.0)
+    radio.command("band", name="ISM 2.4 GHz")
+    run(radio, 1)
+    assert 2_400_000_000 <= radio.frequency <= 2_483_500_000
+    radio.command("band", name="SW 40 m")
+    run(radio, 1)
+    assert radio.frequency == 7_000_000 and radio.mode == "lsb"
