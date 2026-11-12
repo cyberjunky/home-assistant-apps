@@ -113,6 +113,7 @@ class WebUI:
         r.add_get("/api/decoded", self._handle_decoded)
         r.add_get("/api/decoded/keys", self._handle_decoded_keys)
         r.add_get("/api/decoded/live", self._handle_decoded_live)
+        r.add_post("/api/decoded/snapshot", self._handle_snapshot)
         r.add_get("/api/files/{mode:[a-z0-9]+}/{name:[A-Za-z0-9._-]+}", self._handle_file)
         r.add_get("/api/map-tiles/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.png", self._handle_map_tile)
         r.add_delete("/api/decoded", self._handle_decoded_delete)
@@ -464,6 +465,16 @@ class WebUI:
         if mode.isalnum() and not q.get("key"):
             await asyncio.to_thread(shutil.rmtree, self.files_dir / mode, True)
         return _json({"removed": removed})
+
+    async def _handle_snapshot(self, request: web.Request) -> web.Response:
+        """Keep what a picture mode shows now (Video)."""
+        decoder = self.radio.decoder
+        if decoder is None or decoder.key != request.query.get("mode") or not hasattr(decoder, "snapshot"):
+            return _error("Not in that mode", 409)
+        item = await asyncio.to_thread(decoder.snapshot)
+        if item is None:
+            return _error("No picture to keep: no video found", 409)
+        return _json({"item": item})
 
     async def _handle_file(self, request: web.Request) -> web.Response:
         """A picture or recording a mode saved (SSTV pictures, satellite recordings)."""

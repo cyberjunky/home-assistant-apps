@@ -10,7 +10,16 @@ import time
 
 import numpy as np
 
-from tests import acars_signal, adsb_signal, ais_signal, aprs_signal, pocsag_signal, rds_signal, sstv_signal
+from tests import (
+    acars_signal,
+    adsb_signal,
+    ais_signal,
+    aprs_signal,
+    pocsag_signal,
+    rds_signal,
+    sstv_signal,
+    video_signal,
+)
 
 # frequency, mode, level (amplitude), on seconds, off seconds, tone Hz
 SIGNALS = [
@@ -30,6 +39,8 @@ SIGNALS = [
     (145_800_000, "sstv", 0.05, 0, 0, 0),
     # ACARS on the three European channels (the ACARS mode, tuned to the middle one)
     (131_725_000, "acars", 0.05, 0, 0, 0),
+    # Analog FPV video on 5.8 GHz (the Video mode, with the receiver set to a HackRF)
+    (5_800_000_000, "video", 0.3, 0, 0, 0),
     # Ships sending AIS on both channels (the Ships mode, tuned between them)
     (162_000_000, "ais", 0.05, 0, 0, 0),
 ]
@@ -76,7 +87,9 @@ class SimulatedDevice:
         self.center = 0.0
         self.gain: float | None = None
         self.gain_range = (0.0, 49.6, 0.0)
-        self.frequency_range = (24_000_000.0, 1_766_000_000.0)
+        # As an RTL-SDR, or as a HackRF (1 MHz to 6 GHz) when the receiver is set to one
+        hackrf = getattr(config, "type", "") == "hackrf"
+        self.frequency_range = (1_000_000.0, 6_000_000_000.0) if hackrf else (24_000_000.0, 1_766_000_000.0)
         self.info: dict = {}
         self.sample_index = 0
         self.rng = np.random.default_rng(1)
@@ -104,7 +117,11 @@ class SimulatedDevice:
 
     @property
     def sample_rate(self) -> float:
-        return float(self.config.sample_rate)
+        return float(getattr(self, "rate_override", None) or self.config.sample_rate)
+
+    def set_sample_rate(self, rate: float) -> float:
+        self.rate_override = float(rate)
+        return self.sample_rate
 
     def set_center(self, frequency: float) -> None:
         self.center = float(frequency)
@@ -140,6 +157,9 @@ class SimulatedDevice:
                 continue
             if mode == "sstv":
                 x += self._sstv(start, rate, offset, level, count)
+                continue
+            if mode == "video":
+                x += self._video(rate, offset, level, count)
                 continue
             period = on + off
             if off and (start % period) > on:
@@ -263,6 +283,23 @@ class SimulatedDevice:
         phase = self.sstv_phase + 2 * math.pi * np.cumsum(offset + 3_000 * 2 * a) / rate
         self.sstv_phase = float(phase[-1] % (2 * math.pi))
         return (level * np.exp(1j * phase)).astype(np.complex64)
+
+    def _video(self, rate: float, offset: float, level: float, count: int) -> np.ndarray:
+        """Two fields of FM video made once (for this rate), played round and round."""
+        if getattr(self, "video_rate", None) != rate:
+            image = video_signal.test_picture()
+            self.video_iq = video_signal.fm_iq(video_signal.composite(image, rate, "PAL", fields=2), rate) * (
+                level / 0.5
+            )
+            self.video_rate = rate
+        n = len(self.video_iq)
+        first = self.sample_index % n
+        idx = (first + np.arange(count)) % n
+        x = self.video_iq[idx]
+        if offset:
+            t = (np.arange(count) + self.sample_index) / rate
+            x = x * np.exp(2j * math.pi * offset * t).astype(np.complex64)
+        return x.astype(np.complex64)
 
     def _queue_burst(self, name: str, at: int, samples: np.ndarray) -> None:
         self.__dict__.setdefault(f"{name}_bursts", []).append([at, samples])

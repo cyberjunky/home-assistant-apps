@@ -237,6 +237,7 @@ const PAGER_NETWORKS = [
 function modeSettingsHtml(ha) {
     const pager = app.settings.mode_pager || {}, sensors = app.settings.mode_sensors || {}, aprs = app.settings.mode_aprs || {};
     const acars = app.settings.mode_acars || {}, sstv = app.settings.mode_sstv || {}, sats = app.settings.mode_satellites || {};
+    const video = app.settings.mode_video || {};
     const mhz = hz => +(hz / 1e6).toFixed(6);
     return `
         ${setRow('Pager network', 'sets the frequency and the protocols; or type your own below',
@@ -262,6 +263,9 @@ function modeSettingsHtml(ha) {
         ${setRow('Satellites', 'followed during their passes; the frequency (MHz) as heard without Doppler, the Meteor ones change now and then',
             `<div class="sat-settings">${SATELLITES.map(s => `<label><input type="checkbox" data-sat-follow="${s.id}"${(sats.follow || []).includes(s.id) ? ' checked' : ''}> <b>${escapeHtml(s.name)}</b> <small class="muted">${escapeHtml(s.what)}</small></label>
                 <input class="input mono" data-sat-frequency="${s.id}" value="${mhz((sats.frequencies || {})[s.id] || s.frequency)}" inputmode="decimal" aria-label="${escapeHtml(s.name)} frequency">`).join('')}</div>`)}
+        ${setRow('Video frequency', 'MHz (HackRF only); 5.8 GHz FPV (Raceband R1–R8, F4 5800), 1.2 GHz and 2.4 GHz cameras. Only video meant to be seen: drones, your own cameras',
+            `<input class="input mono" id="mode-video-frequency" list="video-frequencies" value="${mhz(video.frequency)}" inputmode="decimal">
+             <datalist id="video-frequencies">${[5800, 5658, 5695, 5732, 5769, 5806, 5843, 5880, 5917, 5865, 5845, 5825, 5805, 5785, 5765, 5745, 5725, 1080, 1120, 1160, 1200, 1240, 1280, 1320, 2414, 2432, 2450, 2468].map(f => `<option value="${f}">`).join('')}</datalist>`, 'mode-video-frequency')}
         ${setRow('Satellite passes from', 'degrees above the horizon: lower passes are short and far away',
             `<input class="input mono" id="mode-sat-elevation" type="number" min="0" max="60" value="${sats.min_elevation ?? 10}">`, 'mode-sat-elevation')}
         ${setRow('Record Meteor passes', 'as 8-bit IQ at 200 kHz (about 300 MB a pass), to make weather pictures from with SatDump',
@@ -293,6 +297,7 @@ function bindModeSettings() {
     frequency('mode-sensors-frequency', 'sensors');
     frequency('mode-aprs-frequency', 'aprs');
     frequency('mode-sstv-frequency', 'sstv');
+    frequency('mode-video-frequency', 'video');
     const sats = () => ({...(app.settings.mode_satellites || {})});
     document.querySelectorAll('[data-sat-follow]').forEach(el => el.addEventListener('change', () => {
         const follow = Array.from(document.querySelectorAll('[data-sat-follow]:checked')).map(x => x.dataset.satFollow);

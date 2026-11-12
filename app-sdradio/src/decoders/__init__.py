@@ -29,6 +29,11 @@ class Decoder:
     # What decodes it, and how the signal is modulated, for the display
     decoded_by = "SDRadio"
     signal = ""
+    # The receivers it works with (None: all), the sample rate it needs (None: the usual 2.4 MS/s),
+    # and whether the radio demodulates audio meanwhile (a picture mode has nothing to hear)
+    receivers: tuple[str, ...] | None = None
+    sample_rate: float | None = None
+    listen = True
 
     def __init__(self, settings: dict, publish: Callable[[dict], None],
                  update: Callable[[dict], None] | None = None):  # fmt: skip
@@ -62,6 +67,25 @@ class Decoder:
         if not 100_000 <= frequency <= 6_000_000_000:
             raise ValidationError(f"{cls.name}: the frequency must be between 0.1 and 6000 MHz")
         return {**cls.defaults, "frequency": frequency}
+
+    # Why only those receivers (shown on a ghosted mode button)
+    receivers_why = ""
+
+    @classmethod
+    def usable(cls, receiver: str, frequency_range: tuple[float, float] | None) -> bool:
+        """Whether this receiver can be used for this mode: its kind, then its range."""
+        return cls.why_not(receiver, frequency_range) is None
+
+    @classmethod
+    def why_not(cls, receiver: str, frequency_range: tuple[float, float] | None, name: str = "") -> str | None:
+        """Why this receiver can't be used for this mode, or None when it can."""
+        if cls.receivers is not None and receiver not in cls.receivers:
+            needs = " or ".join({"hackrf": "HackRF", "rtl-sdr": "RTL-SDR"}.get(r, r) for r in cls.receivers)
+            return f"{needs} only" + (f": {cls.receivers_why}" if cls.receivers_why else "")
+        if not cls.available(frequency_range):
+            f = cls.defaults.get("frequency", 0)
+            return f"The {name or 'receiver'} doesn't tune to {f / 1e6:g} MHz"
+        return None
 
     @classmethod
     def available(cls, frequency_range: tuple[float, float] | None) -> bool:
@@ -101,5 +125,6 @@ def registry() -> dict[str, type[Decoder]]:
     from .sensors import Sensors
     from .ships import Ships
     from .sstv import Sstv
+    from .video import Video
 
-    return {cls.key: cls for cls in (Pager, Sensors, Aircraft, Acars, Ships, Aprs, Sstv, Satellites)}
+    return {cls.key: cls for cls in (Pager, Sensors, Aircraft, Acars, Ships, Aprs, Sstv, Satellites, Video)}

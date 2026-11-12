@@ -30,13 +30,17 @@ function renderModePicker() {
     const box = document.getElementById('mode-buttons');
     if (!s || !box) return;
     const modes = [{key: 'radio', name: 'Radio'}, ...(s.modes || [])];
-    const signature = modes.map(m => m.key).join();
+    const signature = modes.map(m => `${m.key}:${m.why_not || ''}`).join();
     if (box.dataset.signature !== signature) {
-        box.innerHTML = modes.map(m => `<button type="button" class="mode-btn" data-mode="${m.key}" title="${escapeHtml(MODE_TITLES[m.key] || m.name)}">${escapeHtml(m.name)}</button>`).join('');
+        // A mode this receiver can't do stays, ghosted, saying why
+        box.innerHTML = modes.map(m => `<button type="button" class="mode-btn${m.why_not ? ' ghost' : ''}" data-mode="${m.key}"
+            title="${escapeHtml(m.why_not ? `${MODE_TITLES[m.key] || m.name}. ${m.why_not}` : (MODE_TITLES[m.key] || m.name))}"${m.why_not ? ' aria-disabled="true"' : ''}>${escapeHtml(m.name)}</button>`).join('');
         box.dataset.signature = signature;
         box.onclick = (e) => {
             const b = e.target.closest('[data-mode]');
-            if (b && b.dataset.mode !== currentMode()) chooseMode(b.dataset.mode);
+            if (!b || b.dataset.mode === currentMode()) return;
+            if (b.classList.contains('ghost')) return toast(b.title, 'error');
+            chooseMode(b.dataset.mode);
         };
     }
     box.querySelectorAll('.mode-btn').forEach(b => {
@@ -90,7 +94,7 @@ function renderModeHead() {
 function key2placeholder(key) {
     return {sensors: 'Search devices…', aircraft: 'Search callsign, registration, type…', ships: 'Search name, MMSI, destination…',
         aprs: 'Search call sign, text…', acars: 'Search flight, registration, text…', sstv: 'Search kind (PD120, Robot 36)…',
-        satellites: 'Search satellite…'}[key] || 'Search messages, capcodes…';
+        satellites: 'Search satellite…', video: 'Search snapshots…'}[key] || 'Search messages, capcodes…';
 }
 
 async function loadModeData() {
@@ -130,6 +134,10 @@ async function loadModeData() {
 
 onSocket('live', (m) => {
     if (m.mode === 'satellites' && modeView.key === 'satellites') return onSatelliteLive(m);
+    if (m.mode === 'video' && modeView.key === 'video') {
+        modeView.frame = m.frame;
+        return renderVideoFrame();
+    }
     if (m.mode === 'sstv' && modeView.key === 'sstv') {
         modeView.receiving = m.receiving;
         return queueModeRender();
@@ -169,6 +177,7 @@ function renderModeBody() {
     if (modeView.key === 'pager') body.innerHTML = pagerHtml();
     else if (modeView.key === 'acars') body.innerHTML = acarsHtml();
     else if (modeView.key === 'sstv') body.innerHTML = sstvHtml();
+    else if (modeView.key === 'video') renderVideo(body);
     else if (modeView.key === 'sensors') body.innerHTML = sensorsHtml();
     else body.innerHTML = '';
 }
@@ -216,6 +225,55 @@ function sstvHtml() {
         <a href="${fileUrl('sstv', i.file)}" target="_blank" rel="noopener"><img src="${fileUrl('sstv', i.file)}" alt="${escapeHtml(i.kind)} picture" loading="lazy"></a>
         <figcaption>${timeOf(i.ts)} · ${escapeHtml(i.kind)}${i.complete ? '' : ` · ${i.rows} of ${i.height} lines`}</figcaption>
     </figure>`).join('')}</div>`;
+}
+
+// ---------------------------------------------------------------- video (HackRF)
+
+function renderVideo(body) {
+    if (!body.querySelector('.video-view')) {
+        body.innerHTML = `<div class="video-view">
+            <div class="video-screen"><img id="video-img" alt="The video"><div class="video-none" id="video-none">No video found on this frequency yet</div></div>
+            <div class="video-bar"><span class="range-text" id="video-info"></span><span class="spacer"></span>
+                <button type="button" class="btn btn-small" onclick="videoSnapshot()">Snapshot</button></div>
+            <div class="sstv-grid" id="video-shots"></div>
+        </div>`;
+    }
+    renderVideoFrame();
+    const shots = modeView.items.filter(i => i.file);
+    document.getElementById('video-shots').innerHTML = shots.map(i => `<figure>
+        <a href="${fileUrl('video', i.file)}" target="_blank" rel="noopener"><img src="${fileUrl('video', i.file)}" alt="Snapshot" loading="lazy"></a>
+        <figcaption>${timeOf(i.ts)} · ${escapeHtml(i.key)}</figcaption></figure>`).join('');
+}
+
+function renderVideoFrame() {
+    const img = document.getElementById('video-img');
+    if (!img) return;
+    const f = modeView.frame;
+    document.getElementById('video-none').hidden = !!f;
+    img.hidden = !f;
+    if (f) {
+        // The next frame only once this one has loaded: no pile-up on a slow connection
+        if (!img.dataset.loading) {
+            img.dataset.loading = '1';
+            img.onload = img.onerror = () => { delete img.dataset.loading; };
+            img.src = `${fileUrl('video', f.file)}?t=${f.t}`;
+        }
+        document.getElementById('video-info').textContent =
+            `${f.standard}${f.inverted ? ' (inverted)' : ''} · ${f.locked ? 'locked' : 'searching for the field sync'} · black and white`;
+    } else {
+        document.getElementById('video-info').textContent = 'no video';
+    }
+}
+
+async function videoSnapshot() {
+    try {
+        const data = await api('decoded/snapshot?mode=video', {method: 'POST'});
+        toast('Snapshot kept', 'success');
+        modeView.items.unshift({...data.item, ts: Date.now() / 1000});
+        renderModeBody();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
 }
 
 // ---------------------------------------------------------------- ACARS

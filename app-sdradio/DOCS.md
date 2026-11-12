@@ -169,6 +169,16 @@ the filter and the scan speed. Mode → Radio brings them back.
   passes that are over, with their pictures, packets and recordings. The NOAA weather satellites
   were switched off in 2025.
 
+- **Video** (HackRF only): analog video as FPV drones and wireless cameras send it, in black and
+  white, a few frames a second. Analog video is FM some 16 MHz wide, so in this mode the HackRF
+  runs at 20 MS/s (back to 2.4 when you leave it); the RTL-SDR takes in 2.4 MHz, too little. PAL
+  or NTSC, and video sent upside down, are recognised by themselves. 5.8 GHz FPV (Raceband
+  R1–R8, F4 5800), 1.2 GHz and 2.4 GHz cameras are under Modes. **Snapshot** keeps a picture.
+  Only for video that is meant to be seen: drones (yours, or at a race) and your own cameras;
+  watching other people's camera feeds is not allowed.
+
+A mode your receiver can't do is ghosted: hovering over it says why ("HackRF only: …").
+
 **The map** (Aircraft, Ships, APRS, Satellites) shows OpenStreetMap through Home Assistant's own map tile service (which
 needs Home Assistant 2026.9 or later), centred on Home Assistant's home location; the distances
 are from there. The map is darkened only with the dark theme.

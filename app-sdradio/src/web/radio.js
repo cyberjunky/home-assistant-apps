@@ -295,7 +295,7 @@ function renderLcd() {
     // In a mode: what decodes it (the mode and filter shown are only how it sounds with Listen)
     const d = s.decoder || {};
     document.getElementById('lcd-bw').textContent = d.key && d.key !== 'radio' && d.decoded_by
-        ? `decoded by ${d.decoded_by} · listen as ${modeLabel(s.mode)}`
+        ? `decoded by ${d.decoded_by} · ${d.listen === false ? 'no sound' : `listen as ${modeLabel(s.mode)}`}`
         : `BW ${fmtKHz(s.bandwidth)} · STEP ${fmtKHz(s.step)}`;
     const set = (id, on) => document.getElementById(id).classList.toggle('on', !!on);
     set('ind-scan', s.scan);
@@ -316,7 +316,8 @@ function renderLcd() {
         ? `${escapeHtml(s.channel.name || 'Unnamed')}<small>M${chNum(s.channel.number)}${s.channel.favourite ? ' ★' : ''}${ps && ps !== s.channel.name ? ` · ${escapeHtml(ps)}` : ''}</small>`
         : ps ? `${escapeHtml(ps)}<small>RDS · not stored</small>`
         : `<span style="opacity:.6">${s.busy ? 'Signal · not stored' : 'Not stored'}</span>`;
-    renderRds(s.mode === 'wfm', rds);
+    // A mode without sound (Video) has no RDS either
+    renderRds(s.mode === 'wfm' && !(s.decoder && s.decoder.decoded_by && s.decoder.listen === false), rds);
     // S-meter: -120 to -20 dBFS over 24 segments
     const meter = document.getElementById('smeter');
     if (meter.children.length !== 24) meter.innerHTML = Array.from({length: 24}, (_, i) => `<i class="${i >= 18 ? 'hot' : ''}" style="height:${6 + i * 0.5}px"></i>`).join('');
@@ -431,7 +432,7 @@ onSocket('state', (s) => {
             spectrum.getContext('2d').clearRect(0, 0, spectrum.width, spectrum.height);
         }
     }
-    const deviceKey = JSON.stringify([s.power, s.device && s.device.ok, s.device && s.device.error]);
+    const deviceKey = JSON.stringify([s.power, s.rate, s.device && s.device.ok, s.device && s.device.error]);
     if (deviceKey !== radio.lastDevice) { radio.lastDevice = deviceKey; renderChrome(); }
     if (activeTab !== 'radio') return;
     fitWaterfall();

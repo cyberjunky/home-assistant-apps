@@ -6,6 +6,12 @@ const PALETTES = {
     turbo: [[0, '#30123b'], [0.15, '#4662d7'], [0.3, '#36aaf9'], [0.45, '#1ae4b6'], [0.6, '#72fe5e'], [0.75, '#e4cf34'], [0.88, '#fb7e21'], [1, '#7a0403']],
 };
 // Band: the whole band, swept; 2.4M: everything one capture holds; then zoomed round the tuned frequency
+// The full button says how wide the receiver takes in: 2.4M usually, 20M for the HackRF's video
+function renderZoomLabel(s) {
+    const b = document.querySelector('#zoom [data-key="full"]');
+    const label = s && s.rate ? `${+(s.rate / 1e6).toFixed(1)}M` : '2.4M';
+    if (b && b.textContent !== label) b.textContent = label;
+}
 const ZOOMS = [{key: 'band', label: 'Band'}, {key: 'full', label: '2.4M'}, {key: '1000000', label: '1M'}, {key: '200000', label: '200k'}, {key: '50000', label: '50k'}];
 const ZOOM_TITLES = {band: 'The whole band: the receiver sweeps across it, and the radio is silent meanwhile',
     full: 'Everything the receiver takes in at once: 2.4 MHz'};
@@ -262,6 +268,7 @@ function snapToStep(f) {
 
 function initSpectrum() {
     buildChips(document.getElementById('zoom'), ZOOMS, spec.zoom, setZoom);
+    onSocket('state', renderZoomLabel);
     document.querySelectorAll('#zoom .tab').forEach(t => { if (ZOOM_TITLES[t.dataset.key]) t.title = ZOOM_TITLES[t.dataset.key]; });
     renderAutoRange();
     const wrap = document.getElementById('spectrum-wrap');

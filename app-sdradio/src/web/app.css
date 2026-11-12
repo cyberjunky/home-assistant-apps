@@ -370,6 +370,9 @@ table.data .ent small { display: block; font-family: var(--mono); font-size: 11p
     color: var(--primary-text-color); font: 600 11.5px var(--mono); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mode-btn:hover { border-color: var(--primary-color); }
 .mode-btn.on { background: var(--primary-color); border-color: var(--primary-color); color: #fff; }
+/* A mode this receiver can't do: there, but ghosted (hover says why) */
+.mode-btn.ghost { opacity: 0.35; border-style: dashed; cursor: help; }
+.mode-btn.ghost:hover { border-color: var(--key-edge); }
 .front > .keypad { grid-area: keys; align-self: start; }
 .scan-keys { grid-area: scan; align-self: end; display: flex; flex-direction: column; gap: 6px; }
 .scan-keys .tabs { display: flex; }
@@ -527,6 +530,11 @@ table.sensors td:last-child, table.sensors th:last-child { text-align: center; }
 /* A mode with a map takes more of the width than the spectrum */
 #tab-radio:is([data-mode="aircraft"], [data-mode="ships"], [data-mode="aprs"], [data-mode="satellites"]) .spectrum-panel { flex: 1 1 420px; }
 #tab-radio:is([data-mode="aircraft"], [data-mode="ships"], [data-mode="aprs"], [data-mode="satellites"]) .mode-panel { flex: 1.7 1 620px; }
+.video-view { padding: 10px 12px; }
+.video-screen { position: relative; background: #000; aspect-ratio: 4 / 3; border-radius: 6px; overflow: hidden; }
+.video-screen img { width: 100%; height: 100%; display: block; image-rendering: auto; }
+.video-none { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #aaa; font-size: 13px; }
+.video-bar { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
 .sat-settings { display: grid; grid-template-columns: minmax(0, 1fr) 110px; gap: 6px 10px; align-items: center; }
 .sat-settings label { font-size: 13px; }
 .sat-now { padding: 8px 12px; font-size: 12.5px; background: var(--hover-bg); border-bottom: 1px solid var(--divider-color); }
