@@ -105,14 +105,20 @@ after a few hits (the number is on the Settings page).
 
 The **mode buttons** under the tune dial set the radio up for one kind of signal and decode
 what it hears. The radio tunes to the mode's frequency (set on the Settings page, under Modes);
-you can still tune elsewhere and listen. In place of the favourites and the stored channels the
-page shows what the mode decodes. The modes only show up when your receiver can use them.
+you can still tune elsewhere and listen. Beside the spectrum the page shows what the mode decodes,
+and the favourites and the stored channels stay, so another channel (or mode) is a click away.
+
+**A channel with a mode**: a stored channel can belong to a mode (the *Mode* field when storing or
+editing it; in a CSV the tag `mode:<mode>`, e.g. `mode:dab`, `mode:pager`). Picking it (in the
+list, with ◀ ▶ or as a favourite) switches the radio to that mode on the channel's frequency; a
+channel without one switches back to the radio. A channel stored while in a mode belongs to it.
 In a mode the display shows how its signal is modulated (FSK for pagers, OOK/FSK for sensors,
 PPM for ADS-B, MSK on AM for ACARS, GMSK for AIS, AFSK for APRS) and what decodes it; the
 demodulation beside it is only how it sounds with Listen. The modes whose decoder reads the
 receiver's samples and that carry no voice (Sensors, Aircraft, ACARS, Ships, Video) have no sound:
 the radio doesn't demodulate audio for them, and the meter shows the level in the channel.
-Pager, APRS, SSTV and Satellites decode from the audio and can be listened to. What would take the mode off its
+Pager, APRS, SSTV and Satellites decode from the audio and can be listened to; DAB+ plays its
+stations in the page itself. What would take the mode off its
 frequency or change how it listens is off meanwhile: SCAN, HOLD, PRI, L/O, MODE, BAND, AUTO,
 the filter and the scan speed. Mode → Radio brings them back.
 
@@ -172,6 +178,11 @@ the filter and the scan speed. Mode → Radio brings them back.
   passes that are over, with their pictures, packets and recordings. The NOAA weather satellites
   were switched off in 2025.
 
+- **DAB+**: digital radio: the stations of a DAB+ block (an ensemble), decoded by welle-cli: their
+  names, programme type, bitrate and what is playing now (DLS); click a station to hear it in the
+  page, with its slides (album art, logos) when it sends them. In this mode the receiver runs at
+  2.048 MS/s, DAB's own rate. Pick the block under Modes: in the Netherlands 12C is the NPO,
+  11C the national commercial stations, and regional ensembles are on 8A, 8B, 5C and others.
 - **Video** (HackRF only): analog video as FPV drones and wireless cameras send it, in black and
   white, a few frames a second. Analog video is FM some 16 MHz wide, so in this mode the HackRF
   runs at 20 MS/s (back to 2.4 when you leave it); the RTL-SDR takes in 2.4 MHz, too little. PAL

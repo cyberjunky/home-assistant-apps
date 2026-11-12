@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0
+
+**After updating:** nothing to do.
+
+- **DAB+** (new mode): digital radio. The stations of a DAB+ block, decoded by welle-cli (now built into the app), with their programme type, bitrate and what is playing now; click a station to hear it in the page, with its slides. The receiver runs at 2.048 MS/s in this mode. Pick the block under Settings → Modes (12C NPO, 11C commercial in the Netherlands).
+- **A channel with a mode:** a stored channel can belong to a mode (the new *Mode* field when storing or editing, or the tag `mode:dab`, `mode:pager` … in a CSV). Picking it switches the radio to that mode on the channel's frequency; a channel without one switches back to the radio.
+- **The stored channels and the favourites stay** in every mode, beside the mode's view, so another channel or mode is a click away.
+- **Fixed:** the Home Assistant tick on a sensor was not saved (it looked ticked until the next reading); clicking an APRS station did nothing; the waterfall and display colours could not be changed. A value with quotes broke the page's handlers.
+- **No sound** in the modes whose decoder reads the samples and that carry no voice (Sensors, Aircraft, ACARS, Ships, Video): no audio demodulated for nothing, and the meter shows the channel's level.
+
 ## 0.3.0
 
 **After updating:** nothing to do. A range scan you had set up is gone: SCAN does the band you are in, or your stored channels.

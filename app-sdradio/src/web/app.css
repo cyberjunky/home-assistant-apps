@@ -503,7 +503,11 @@ button.ind.on:hover { opacity: 1; }
 .freq-axis span.tuned { color: var(--accent-color); font-weight: 600; }
 
 /* A mode replaces the favourites and the stored channels with its own view */
-#tab-radio:not([data-mode="radio"]) .favbar, #tab-radio:not([data-mode="radio"]) .chlist { display: none; }
+/* In a mode the favourites and the stored channels stay: a channel (with its mode) is a click away.
+   The spectrum gives up some of its width to the mode's panel */
+#tab-radio:not([data-mode="radio"]) .spectrum-panel { flex: 1 1 380px; }
+#tab-radio:not([data-mode="radio"]) .chlist { flex: 0 1 280px; }
+.ch-mode { color: var(--primary-color); font-weight: 600; }
 #tab-radio[data-mode="radio"] .mode-panel { display: none; }
 .mode-panel { flex: 1.4 1 520px; min-width: 0; display: flex; flex-direction: column; overflow: hidden; min-height: 260px; }
 .mode-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 12px 8px; border-bottom: 1px solid var(--divider-color); }
@@ -528,11 +532,13 @@ table.sensors td:last-child, table.sensors th:last-child { text-align: center; }
 
 /* The map of the modes with positions (aircraft): the map above, the list below */
 /* A mode with a map takes more of the width than the spectrum */
-#tab-radio:is([data-mode="aircraft"], [data-mode="ships"], [data-mode="aprs"], [data-mode="satellites"]) .spectrum-panel { flex: 1 1 420px; }
-#tab-radio:is([data-mode="aircraft"], [data-mode="ships"], [data-mode="aprs"], [data-mode="satellites"]) .mode-panel { flex: 1.7 1 620px; }
-.dab-view { padding: 0 0 8px; }
+#tab-radio:is([data-mode="aircraft"], [data-mode="ships"], [data-mode="aprs"], [data-mode="satellites"]) .spectrum-panel { flex: 1 1 340px; }
+#tab-radio:is([data-mode="aircraft"], [data-mode="ships"], [data-mode="aprs"], [data-mode="satellites"]) .mode-panel { flex: 1.8 1 560px; }
+/* The player stays at the top; the station list scrolls under it */
+.dab-view { display: flex; flex-direction: column; height: 100%; }
+#dab-list { flex: 1 1 0; min-height: 0; overflow: auto; padding-bottom: 8px; }
 .dab-head { padding: 10px 12px 6px; }
-.dab-now { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--divider-color); background: var(--hover-bg); }
+.dab-now { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--divider-color); background: var(--hover-bg); }
 .dab-now img { width: 96px; height: 72px; object-fit: cover; border-radius: 4px; border: 1px solid var(--divider-color); }
 .dab-now-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
 .dab-now audio { width: 100%; max-width: 420px; height: 32px; }
