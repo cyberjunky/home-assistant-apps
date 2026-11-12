@@ -52,8 +52,11 @@ that far.
 Going into another band takes that band's mode, filter and step; landing on a stored channel
 takes the channel's own settings (mode, filter, step, squelch, gain).
 
-The receiver only tunes its own range (an RTL-SDR 24 to 1766 MHz): BAND skips bands outside it,
-the Settings page marks them, and a frequency outside it is refused with a message.
+The band plan covers LW to 6 GHz: long and medium wave, the HF amateur and broadcast bands, CB,
+VHF and UHF, and with a HackRF 13 cm, 2.4 GHz, 9 cm, 6 cm and 5.8 GHz. Only the bands your
+receiver can tune to are used (an RTL-SDR 24 to 1766 MHz, a HackRF 1 MHz to 6 GHz): BAND skips the
+others, the Settings page hides them, and a frequency out of range is refused with a message.
+Less used bands have no BAND button; switch it on for a band on the Settings page.
 
 **The spectrum** shows **2.4M**, everything the receiver takes in at once, or a zoom of 1 MHz,
 200 kHz or 50 kHz round the tuned frequency. **Band** shows the whole band the radio is in (or

@@ -189,7 +189,7 @@ def test_band_key_skips_bands_out_of_range(radio):
     assert all(24_000_000 <= f <= 1_766_000_000 for f in seen)
     names = {b["name"] for b in radio.bands if any(b["start"] <= f <= b["stop"] for f in seen)}
     assert {"FM", "Air", "2 m", "70 cm"} <= names
-    assert not names & {"LW", "MW", "SW 40 m", "SW 20 m"}
+    assert not names & {"LW", "MW", "SW 40 m", "SW 20 m", "13 cm", "ISM 2.4 GHz"}
 
 
 def test_band_scan_out_of_range_says_so(radio):
@@ -222,3 +222,14 @@ def test_band_view_sweeps_the_band(radio):
     radio.sweep_wanted = False
     run(radio, 1)
     assert radio.sweep is None and abs(radio.center - 145_500_000) < radio.rate / 2
+
+
+def test_hackrf_reaches_hf_and_ghz_bands(radio):
+    """A HackRF tunes 1 MHz to 6 GHz: its bands are reachable, the BAND key goes there."""
+    radio.device.frequency_range = (1_000_000.0, 6_000_000_000.0)
+    radio.command("band", name="ISM 2.4 GHz")
+    run(radio, 1)
+    assert 2_400_000_000 <= radio.frequency <= 2_483_500_000
+    radio.command("band", name="SW 40 m")
+    run(radio, 1)
+    assert radio.frequency == 7_000_000 and radio.mode == "lsb"

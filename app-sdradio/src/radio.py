@@ -892,7 +892,12 @@ class Radio:
             else None,
             "audio_rate": self.demod.audio_rate if self.demod else None,
             "rds": self.demod.rds.snapshot() if self.demod and self.demod.rds else None,
-            "device": {"ok": self.device is not None, "error": self.device_error, **self.device_info},
+            "device": {
+                "ok": self.device is not None,
+                "error": self.device_error,
+                "receiver": self.config.receiver.name,
+                **self.device_info,
+            },
         }
 
     def _emit_state(self, force: bool = False) -> None:

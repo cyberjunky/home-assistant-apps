@@ -252,8 +252,17 @@ class Database:
             for i, b in enumerate(DEFAULT_BANDS):
                 self.conn.execute(
                     "INSERT INTO bands (name, start, stop, mode, step, bandwidth, button, position)"
-                    " VALUES (?, ?, ?, ?, ?, ?, 1, ?)",
-                    (b["name"], b["start"], b["stop"], b["mode"], b["step"], b["bandwidth"], i),
+                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        b["name"],
+                        b["start"],
+                        b["stop"],
+                        b["mode"],
+                        b["step"],
+                        b["bandwidth"],
+                        int(b.get("button", True)),
+                        i,
+                    ),
                 )
         return self.bands()
 
