@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- The top bar is as high as Home Assistant's own header (its --header-height, 56px by default) -->
+    <script>try{const h=getComputedStyle(window.parent.document.documentElement).getPropertyValue('--header-height').trim();if(h)document.documentElement.style.setProperty('--ha-header-height',h);}catch(e){}</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freqtrade</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2319b07a' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3v18M18 3v18M12 6v12'/%3E%3Crect x='4' y='7' width='4' height='8' rx='1'/%3E%3Crect x='10' y='9' width='4' height='5' rx='1'/%3E%3Crect x='16' y='5' width='4' height='9' rx='1'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="static/app.css?v=__VERSION__"/>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3v18M18 3v18M12 6v12"/><rect x="4" y="7" width="4" height="8" rx="1"/><rect x="10" y="9" width="4" height="5" rx="1"/><rect x="16" y="5" width="4" height="9" rx="1"/></svg>
+            <span class="brand-name">FREQTRADE</span>
+        </div>
+        <nav class="tabs" id="nav" aria-label="Views">
+            <button type="button" class="tab" data-tab="overview" onclick="switchTab('overview')">Overview</button>
+            <span id="bot-tabs" class="bot-tabs"></span>
+            <span class="tab-sep" aria-hidden="true"></span>
+            <button type="button" class="tab" data-tab="info" onclick="switchTab('info')" title="Info"><span class="tab-label">Info</span><span class="tab-icon" aria-hidden="true">ⓘ</span></button>
+        </nav>
+        <span class="spacer"></span>
+        <div class="tabs" role="group" aria-label="Theme">
+            <button type="button" id="theme-toggle" class="tab icon-tab" onclick="cycleTheme()" title="Theme"><span id="theme-icon" aria-hidden="true">🌓</span></button>
+        </div>
+        <span id="clock" class="clock"></span>
+    </header>
+
+    <div class="views">
+        <div class="pages" id="pages">
+            <div class="container">
+                <!-- Overview: all bots together -->
+                <div id="tab-overview" class="tab-content">
+                    <div id="ov-notices"></div>
+                    <div id="ov-tiles" class="tiles kpi-tiles"></div>
+                    <div class="panel"><div class="panel-body">
+                        <div class="chart-title"><span>Bots</span><span class="hint">open a bot for its own page</span></div>
+                        <div id="ov-bots" class="table-wrap"></div>
+                    </div></div>
+                    <div class="dash-grid wide-left">
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Balance</span><span class="filters-inline"><span class="tabs" role="group" aria-label="Show" id="ov-mode"></span> <span class="tabs" role="group" aria-label="Period" id="ov-range"></span></span></div>
+                            <div id="ov-equity" class="chart"></div>
+                            <div class="legend" id="ov-equity-legend"></div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Allocation</span><span class="hint" id="ov-alloc-hint">balance per bot</span></div>
+                            <div id="ov-alloc"></div>
+                        </div></div>
+                    </div>
+                    <div class="dash-grid">
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Profit per day</span><span class="hint" id="ov-daily-hint">last 30 days</span></div>
+                            <div id="ov-daily" class="chart"></div>
+                            <div class="legend" id="ov-daily-legend"></div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Activity</span><span class="hint">from the bots' WebSockets</span></div>
+                            <div id="ov-events" class="events"></div>
+                        </div></div>
+                    </div>
+                    <div class="panel"><div class="panel-body">
+                        <div class="chart-title"><span>Open trades</span><span class="hint" id="ov-open-hint"></span></div>
+                        <div id="ov-open" class="table-wrap"></div>
+                    </div></div>
+                </div>
+
+                <!-- One bot: the same page for each, filled for the bot that is open -->
+                <div id="tab-bot" class="tab-content">
+                    <div id="bot-head" class="bot-head"></div>
+                    <div class="filters">
+                        <div class="tabs" role="group" aria-label="Section" id="bot-sections"></div>
+                        <span class="range-text" id="bot-updated"></span>
+                    </div>
+                    <div id="bot-notices"></div>
+
+                    <div class="bot-section" data-section="summary">
+                        <div id="bot-tiles" class="tiles kpi-tiles"></div>
+                        <div class="stats-grid">
+                            <div class="panel"><div class="panel-body">
+                                <div class="chart-title"><span>Cumulative profit</span><span class="hint" id="bot-cum-hint">closed trades</span></div>
+                                <div id="bot-cum" class="chart"></div>
+                            </div></div>
+                            <div class="panel"><div class="panel-body">
+                                <div class="chart-title"><span>Balance</span><span class="hint" id="bot-equity-hint"></span></div>
+                                <div id="bot-equity" class="chart"></div>
+                            </div></div>
+                            <div class="panel"><div class="panel-body">
+                                <div class="chart-title"><span>Profit per day</span><span class="hint" id="bot-daily-hint">last 30 days</span></div>
+                                <div id="bot-daily" class="chart"></div>
+                            </div></div>
+                            <div class="panel"><div class="panel-body">
+                                <div class="chart-title"><span>Trade profits</span><span class="hint" id="bot-tp-hint">last 100 trades</span></div>
+                                <div id="bot-tp" class="chart"></div>
+                            </div></div>
+                        </div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Open trades</span><span class="hint" id="bot-open-hint"></span></div>
+                            <div id="bot-open" class="table-wrap"></div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Activity</span><span class="hint">latest events of this bot</span></div>
+                            <div id="bot-events-short" class="events"></div>
+                        </div></div>
+                    </div>
+
+                    <div class="bot-section" data-section="chart">
+                        <div class="filters">
+                            <select class="select" id="ch-pair" aria-label="Pair" onchange="chartPairChanged()"></select>
+                            <span class="filter-label">Candles</span>
+                            <div class="tabs" role="group" aria-label="Candles" id="ch-limit"></div>
+                            <select class="select" id="ch-add" aria-label="Add an indicator" onchange="addIndicator()"><option value="">+ Indicator</option></select>
+                            <button type="button" class="btn btn-small" onclick="loadCandles(true)" title="Read the candles again">⟳</button>
+                            <span class="range-text" id="ch-info"></span>
+                        </div>
+                        <div class="panel"><div class="panel-body">
+                            <div id="ch-indicators" class="chips ind-chips"></div>
+                            <div id="ch-chart" class="chart candle-chart"></div>
+                            <div class="legend" id="ch-legend"></div>
+                            <p class="panel-sub" style="margin-top:8px">The candles as the strategy analysed them, with the indicators of its plot_config. Click an indicator to hide it; add any other column of the strategy with + Indicator.</p>
+                        </div></div>
+                    </div>
+
+                    <div class="bot-section" data-section="trades">
+                        <div class="filters">
+                            <input class="input" id="tr-search" type="search" placeholder="Pair, tag or exit reason" aria-label="Search trades" oninput="tradesFilterChanged()">
+                            <div class="tabs" role="group" aria-label="Side" id="tr-side"></div>
+                            <div class="tabs" role="group" aria-label="Result" id="tr-result"></div>
+                            <span class="range-text" id="tr-summary"></span>
+                        </div>
+                        <div class="panel"><div class="panel-body">
+                            <div id="tr-table" class="table-wrap"></div>
+                            <div class="pager" id="tr-pager"></div>
+                        </div></div>
+                    </div>
+
+                    <div class="bot-section" data-section="performance">
+                        <div class="stats-grid">
+                            <div class="panel"><div class="panel-body">
+                                <div class="chart-title"><span>Profit</span><span class="tabs" role="group" aria-label="Direction" id="pf-direction"></span></div>
+                                <div id="pf-metrics" class="table-wrap"></div>
+                            </div></div>
+                            <div class="dash-stack">
+                                <div class="panel"><div class="panel-body">
+                                    <div class="chart-title"><span>Profit distribution</span><span class="hint">trades per profit range</span></div>
+                                    <div id="pf-dist" class="chart"></div>
+                                </div></div>
+                                <div class="panel"><div class="panel-body">
+                                    <div class="chart-title"><span>Profit per week</span><span class="hint">last 26 weeks</span></div>
+                                    <div id="pf-weekly" class="chart"></div>
+                                </div></div>
+                                <div class="panel"><div class="panel-body">
+                                    <div class="chart-title"><span>Profit per month</span><span class="hint">last 24 months</span></div>
+                                    <div id="pf-monthly" class="chart"></div>
+                                </div></div>
+                            </div>
+                        </div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Per pair</span><span class="hint">closed trades</span></div>
+                            <div id="pf-pairs" class="table-wrap"></div>
+                        </div></div>
+                        <div class="stats-grid">
+                            <div class="panel"><div class="panel-body">
+                                <div class="chart-title"><span>Entry tags</span><span class="hint">what opened the trades</span></div>
+                                <div id="pf-entries" class="table-wrap"></div>
+                            </div></div>
+                            <div class="panel"><div class="panel-body">
+                                <div class="chart-title"><span>Exit reasons</span><span class="hint">what closed the trades</span></div>
+                                <div id="pf-exits" class="table-wrap"></div>
+                            </div></div>
+                        </div>
+                    </div>
+
+                    <div class="bot-section" data-section="balance">
+                        <div id="bal-note"></div>
+                        <div id="bal-tiles" class="tiles"></div>
+                        <div class="dash-grid">
+                            <div class="panel"><div class="panel-body">
+                                <div class="chart-title"><span>Balance details</span>
+                                    <span class="checks">
+                                        <label><input type="checkbox" id="bal-bot-only" checked onchange="renderBalance()"> Bot balance only</label>
+                                        <label><input type="checkbox" id="bal-hide-small" checked onchange="renderBalance()"> Hide small balances</label>
+                                    </span>
+                                </div>
+                                <div id="bal-table" class="table-wrap"></div>
+                            </div></div>
+                            <div class="dash-stack">
+                                <div class="panel"><div class="panel-body">
+                                    <div class="chart-title"><span>Breakdown</span><span class="hint" id="bal-breakdown-hint"></span></div>
+                                    <div id="bal-donut"></div>
+                                </div></div>
+                                <div class="panel"><div class="panel-body">
+                                    <div class="chart-title"><span>Bot share</span><span class="hint">bot-managed balance as share of the account</span></div>
+                                    <div id="bal-share"></div>
+                                </div></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bot-section" data-section="bot">
+                        <div class="info-grid">
+                            <div class="panel"><div class="panel-body"><div class="section-title">Bot</div><div id="bi-status"></div></div></div>
+                            <div class="panel"><div class="panel-body"><div class="section-title">Trading rules</div><div id="bi-rules"></div></div></div>
+                            <div class="panel"><div class="panel-body"><div class="section-title">Connection</div><div id="bi-connection"></div></div></div>
+                            <div class="panel"><div class="panel-body"><div class="section-title">Locks</div><div id="bi-locks"></div></div></div>
+                            <div class="panel wide"><div class="panel-body"><div class="section-title" id="bi-pairs-title">Pairlist</div><div id="bi-pairs" class="chips"></div></div></div>
+                        </div>
+                        <div class="page-section"><span>Activity</span><small>events from the bot's WebSocket, kept by this app</small></div>
+                        <div class="panel"><div class="panel-body">
+                            <div id="bot-events" class="events"></div>
+                            <div class="detail-actions" style="margin-top:10px"><button type="button" class="btn btn-small" id="bot-events-more" onclick="moreBotEvents()">Older events</button></div>
+                        </div></div>
+                        <div class="page-section"><span>Log</span><small>the bot's own log, latest lines first</small></div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="filters">
+                                <button type="button" class="btn" onclick="loadLogs()">Load the log</button>
+                                <div class="tabs" role="group" aria-label="Level" id="log-level"></div>
+                            </div>
+                            <div id="bot-logs" class="logs"><div class="empty-state">The bot's last 200 log lines, read when you ask.</div></div>
+                        </div></div>
+                    </div>
+                </div>
+
+                <!-- Info: the app, its configuration and its data -->
+                <div id="tab-info" class="tab-content">
+                    <div class="page-section"><span>Bots</span><small>change these in the app's configuration in Home Assistant</small></div>
+                    <div class="panel"><div class="panel-body"><div id="set-bots" class="table-wrap"></div></div></div>
+                    <div class="page-section"><span>Configuration</span><small>passwords and tokens are never shown</small></div>
+                    <div class="info-grid">
+                        <div class="panel"><div class="panel-body"><div class="section-title">App</div><div id="set-app"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">MQTT</div><div id="set-mqtt"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Data</div><div id="set-data"></div>
+                            <div class="detail-actions" style="margin-top:12px"><a class="btn" href="api/backup" download>Database backup</a></div>
+                            <p class="panel-sub" style="margin-top:8px">The balance history and the events this app kept. The trades stay in each bot's own database. Your options and passwords aren't in it.</p>
+                            <div class="danger-zone">
+                                <div class="section-title">Danger zone</div>
+                                <p class="panel-sub">Deletes the balance history and the events this app kept. Nothing on the bots is touched. Download a backup first if you may want them back.</p>
+                                <button type="button" class="btn btn-danger" onclick="deleteAllData()">Delete the app's history</button>
+                            </div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">About</div><div id="set-about"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Donate</div>
+                            <div class="panel-sub" style="margin-bottom:12px">This app is free and open source. If it's useful to you, please consider supporting its development.</div>
+                            <div class="detail-actions">
+                                <a class="btn btn-primary" href="https://www.paypal.me/cyberjunkynl/" target="_blank" rel="noopener">Donate via PayPal</a>
+                                <a class="btn" href="https://github.com/sponsors/cyberjunky" target="_blank" rel="noopener">Sponsor on GitHub</a>
+                            </div>
+                        </div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="statusbar" id="statusbar"></footer>
+    <div id="toast-root"></div>
+    <div id="modal-root"></div>
+
+    <script src="static/core.js?v=__VERSION__"></script>
+    <script src="static/charts.js?v=__VERSION__"></script>
+    <script src="static/overview.js?v=__VERSION__"></script>
+    <script src="static/bot.js?v=__VERSION__"></script>
+    <script src="static/candles.js?v=__VERSION__"></script>
+    <script src="static/info.js?v=__VERSION__"></script>
+    <script src="static/main.js?v=__VERSION__"></script>
+    <script src="static/donate.js?v=__VERSION__" data-app="Freqtrade" data-api="api/donate"></script>
+</body>
+</html>

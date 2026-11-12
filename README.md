@@ -81,6 +81,19 @@ of every incident and response with statistics. Reads everything from Home Assis
 
 [:books: Documentation](app-fireservicerota/DOCS.md) · [:memo: Changelog](app-fireservicerota/CHANGELOG.md) · [:lock: Security](app-fireservicerota/SECURITY.md)
 
+### <img src="app-freqtrade/icon.png" alt="" width="36" align="absmiddle"> [Freqtrade](app-freqtrade/)
+
+![Version][freqtrade-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+Unofficial dashboard for your Freqtrade trading bots, opened from the sidebar. All bots together
+on one overview, a page per bot with its trades, performance, balance and a candle chart with the
+strategy's indicators and signals, and every trade as it happens over the bot's WebSocket. Each
+bot appears in Home Assistant over MQTT, with an event for every trade.
+
+[:books: Documentation](app-freqtrade/DOCS.md) · [:memo: Changelog](app-freqtrade/CHANGELOG.md) · [:lock: Security](app-freqtrade/SECURITY.md)
+
 ### <img src="app-goodwe/icon.png" alt="" width="36" align="absmiddle"> [GoodWe](app-goodwe/)
 
 ![Version][goodwe-version-shield]
@@ -248,5 +261,6 @@ software each app packages keeps its own license, noted in the app's README.
 [arcade-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-arcade%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [chronicle-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-chronicle%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [fireservicerota-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-fireservicerota%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[freqtrade-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-freqtrade%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [nuclei-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-nuclei%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [sdradio-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-sdradio%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge

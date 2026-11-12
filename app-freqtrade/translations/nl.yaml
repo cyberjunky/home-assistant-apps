@@ -1,0 +1,64 @@
+configuration:
+  bots:
+    name: Bots
+    description: >-
+      Je Freqtrade-bots, elk met zijn API-server. Zet eerst api_server aan in de
+      configuratie van de bot. Houd de naam van een bot gelijk: zijn geschiedenis
+      en zijn entiteiten in Home Assistant worden eronder bewaard.
+    fields:
+      name:
+        name: Naam
+        description: De naam van de bot op de pagina's en in Home Assistant.
+      url:
+        name: Adres
+        description: Adres van de API-server van de bot, bijvoorbeeld http://192.168.1.20:8080.
+      username:
+        name: Gebruikersnaam
+        description: De gebruikersnaam van de api_server van de bot.
+      password:
+        name: Wachtwoord
+        description: Het wachtwoord van de api_server van de bot.
+      ws_token:
+        name: WebSocket-token
+        description: >-
+          De api_server.ws_token van de bot. Optioneel: zonder logt de WebSocket
+          in met de gebruikersnaam en het wachtwoord.
+      verify_ssl:
+        name: Certificaat controleren
+        description: Controleer het certificaat van een https-adres. Zet uit voor een zelfondertekend certificaat.
+  poll_seconds:
+    name: Lezen elke (seconden)
+    description: Hoe vaak de toestand van elke bot gelezen wordt. Een trade leest hem meteen.
+  read_only:
+    name: Alleen lezen
+    description: Zet de knoppen op de pagina van een bot uit, zodat deze app je bots niet kan veranderen.
+  mqtt:
+    name: MQTT
+    description: >-
+      Publiceert de bots naar Home Assistant. Laat de host leeg om de broker
+      te gebruiken die Home Assistant kent.
+    fields:
+      enabled:
+        name: Aan
+        description: Publiceer de bots via MQTT.
+      host:
+        name: Host
+        description: Adres van de broker.
+      port:
+        name: Poort
+        description: Poort van de broker.
+      user:
+        name: Gebruiker
+        description: Gebruiker voor de broker.
+      password:
+        name: Wachtwoord
+        description: Wachtwoord voor de broker.
+      base_topic:
+        name: Basistopic
+        description: Topic waaronder de toestand en gebeurtenissen van de bots gepubliceerd worden.
+      discovery_prefix:
+        name: Discovery-prefix
+        description: Het discovery-prefix van Home Assistant.
+  log_level:
+    name: Logniveau
+    description: Hoeveelheid logging.

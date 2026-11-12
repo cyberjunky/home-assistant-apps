@@ -1,0 +1,64 @@
+configuration:
+  bots:
+    name: Bots
+    description: >-
+      Your Freqtrade bots, each with its API server. Turn on api_server in the
+      bot's configuration first. Keep a bot's name once set: its history and its
+      entities in Home Assistant are stored under it.
+    fields:
+      name:
+        name: Name
+        description: The bot's name on the pages and in Home Assistant.
+      url:
+        name: Address
+        description: Address of the bot's API server, for example http://192.168.1.20:8080.
+      username:
+        name: Username
+        description: The username of the bot's api_server.
+      password:
+        name: Password
+        description: The password of the bot's api_server.
+      ws_token:
+        name: WebSocket token
+        description: >-
+          The bot's api_server.ws_token. Optional: without it the WebSocket logs
+          in with the username and password.
+      verify_ssl:
+        name: Check the certificate
+        description: Check the certificate of an https address. Turn off for a self-signed certificate.
+  poll_seconds:
+    name: Read every (seconds)
+    description: How often each bot's state is read. A trade reads it at once.
+  read_only:
+    name: Read-only
+    description: Turn off the buttons on a bot's page, so this app can't change your bots.
+  mqtt:
+    name: MQTT
+    description: >-
+      Publishes the bots to Home Assistant. Leave the host empty to use the
+      broker Home Assistant knows.
+    fields:
+      enabled:
+        name: Enabled
+        description: Publish the bots over MQTT.
+      host:
+        name: Host
+        description: Address of the broker.
+      port:
+        name: Port
+        description: Port of the broker.
+      user:
+        name: User
+        description: User for the broker.
+      password:
+        name: Password
+        description: Password for the broker.
+      base_topic:
+        name: Base topic
+        description: Topic under which the bots' state and events are published.
+      discovery_prefix:
+        name: Discovery prefix
+        description: Home Assistant's discovery prefix.
+  log_level:
+    name: Log level
+    description: Amount of logging.
