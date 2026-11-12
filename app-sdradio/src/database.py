@@ -14,6 +14,8 @@ import time
 from pathlib import Path
 
 from .bands import DEFAULT_BANDS, MODES, band_for, default_bandwidth
+from .decoders import registry
+from .errors import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +69,17 @@ CREATE TABLE IF NOT EXISTS bands (
     position INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+-- What the modes decode: pager messages, sensor readings (data is the JSON of the item)
+CREATE TABLE IF NOT EXISTS decoded (
+    id INTEGER PRIMARY KEY,
+    ts REAL NOT NULL,
+    mode TEXT NOT NULL,
+    key TEXT NOT NULL DEFAULT '',
+    frequency INTEGER,
+    data TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS decoded_mode_ts ON decoded (mode, ts);
+CREATE INDEX IF NOT EXISTS decoded_mode_key ON decoded (mode, key, ts);
 """
 
 # Settings the Settings page edits, with their defaults and allowed values
@@ -86,7 +99,11 @@ SETTINGS: dict[str, dict] = {
     "ha_sensors": {"default": False},
     "ha_events": {"default": False},
     "lcd_colour": {"default": "lcd", "options": ["lcd", "amber", "green", "blue", "white"]},
+    "decoded_keep_days": {"default": 30, "options": [1, 7, 30, 90, 365, 0]},
 }
+# Each mode's own settings (frequency and so on), checked by the mode itself
+for _key, _cls in registry().items():
+    SETTINGS[f"mode_{_key}"] = {"default": dict(_cls.defaults), "mode": _cls}
 
 CHANNEL_FIELDS = (
     "number",
@@ -150,10 +167,6 @@ MODE_ALIASES = {
     "cw": "cw",
     "dsb": "dsb",
 }
-
-
-class ValidationError(ValueError):
-    """Bad input from the page; the message is shown to the user."""
 
 
 def _bool(value) -> int:
@@ -556,6 +569,58 @@ class Database:
         with self.lock:
             return self.conn.execute("DELETE FROM hits WHERE ts < ?", (time.time() - keep_days * 86400,)).rowcount
 
+    # ------------------------------------------------------------- decoded (modes)
+
+    def add_decoded(self, ts: float, mode: str, key: str, frequency: int | None, data: dict) -> int:
+        with self.lock:
+            cur = self.conn.execute(
+                "INSERT INTO decoded (ts, mode, key, frequency, data) VALUES (?, ?, ?, ?, ?)",
+                (ts, mode, key, frequency, json.dumps(data, default=str)),
+            )
+            return cur.lastrowid
+
+    def decoded(self, mode: str, limit: int = 200, before: int | None = None, key: str | None = None,
+                search: str = "") -> list[dict]:  # fmt: skip
+        """The newest items of a mode, newest first; `before` (an id) pages back."""
+        sql, args = "SELECT * FROM decoded WHERE mode = ?", [mode]
+        if before:
+            sql += " AND id < ?"
+            args.append(int(before))
+        if key:
+            sql += " AND key = ?"
+            args.append(key)
+        if search:
+            sql += " AND (key LIKE ? OR data LIKE ?)"
+            args += [f"%{search}%", f"%{search}%"]
+        sql += " ORDER BY id DESC LIMIT ?"
+        args.append(max(1, min(int(limit), 1000)))
+        return [_decoded_item(r) for r in self._rows(sql, args)]
+
+    def decoded_keys(self, mode: str) -> list[dict]:
+        """Per key (a sensor, a pager address): how often, first and last seen, and the last item."""
+        rows = self._rows(
+            "SELECT d.*, k.count, k.first FROM decoded d JOIN ("
+            " SELECT key, COUNT(*) AS count, MIN(ts) AS first, MAX(id) AS last FROM decoded"
+            " WHERE mode = ? GROUP BY key) k ON d.id = k.last ORDER BY d.ts DESC",
+            (mode,),
+        )
+        return [{**_decoded_item(r), "count": r["count"], "first": r["first"]} for r in rows]
+
+    def decoded_counts(self) -> dict:
+        return {r["mode"]: r["n"] for r in self._rows("SELECT mode, COUNT(*) AS n FROM decoded GROUP BY mode")}
+
+    def delete_decoded(self, mode: str, key: str | None = None) -> int:
+        with self.lock:
+            if key is None:
+                return self.conn.execute("DELETE FROM decoded WHERE mode = ?", (mode,)).rowcount
+            return self.conn.execute("DELETE FROM decoded WHERE mode = ? AND key = ?", (mode, key)).rowcount
+
+    def prune_decoded(self, keep_days: int) -> int:
+        if keep_days <= 0:
+            return 0
+        with self.lock:
+            return self.conn.execute("DELETE FROM decoded WHERE ts < ?", (time.time() - keep_days * 86400,)).rowcount
+
     # ------------------------------------------------------------- stats
 
     def stats(self, now: float | None = None) -> dict:
@@ -725,7 +790,14 @@ def _csv_row(record: dict) -> dict:
     return row
 
 
+def _decoded_item(row: dict) -> dict:
+    return {"id": row["id"], "ts": row["ts"], "mode": row["mode"], "key": row["key"],
+            "frequency": row["frequency"], **json.loads(row["data"])}  # fmt: skip
+
+
 def _check_setting(key: str, spec: dict, value):
+    if "mode" in spec:
+        return spec["mode"].validate(value)
     default = spec["default"]
     if "options" in spec:
         if value not in spec["options"]:

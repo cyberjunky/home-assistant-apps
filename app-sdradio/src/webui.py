@@ -29,7 +29,10 @@ INGRESS_ADDRESS = "172.30.32.2"
 MAX_UPLOAD = 64 * 1024 * 1024
 # Commands the page may send over the WebSocket, with the radio method they become
 COMMANDS = {"tune", "channel", "step_tune", "set", "cycle", "band", "scan", "priority", "lockout", "memory",
-            "autotune", "power"}  # fmt: skip
+            "autotune", "power", "decoder"}  # fmt: skip
+# Map tiles come from Home Assistant's map tile proxy; OpenStreetMap asks for a week's caching
+MAP_MAX_ZOOM = 19
+MAP_TILE_MAX_AGE = 7 * 24 * 60 * 60
 SPECTRUM_FRAME = 1
 AUDIO_FRAME = 2
 
@@ -103,6 +106,11 @@ class WebUI:
         r.add_post("/api/finds/unignore", self._handle_unignore)
         r.add_get("/api/stats", self._handle_stats)
         r.add_get("/api/hits", self._handle_hits)
+        r.add_get("/api/decoded", self._handle_decoded)
+        r.add_get("/api/decoded/keys", self._handle_decoded_keys)
+        r.add_get("/api/decoded/live", self._handle_decoded_live)
+        r.add_get("/api/map-tiles/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.png", self._handle_map_tile)
+        r.add_delete("/api/decoded", self._handle_decoded_delete)
         r.add_get("/api/settings", self._handle_settings)
         r.add_put("/api/settings", self._handle_settings_update)
         r.add_post("/api/bands", self._handle_band_create)
@@ -125,6 +133,19 @@ class WebUI:
 
         self._tasks.append(asyncio.create_task(nightly(self.backups, self.db), name="nightly"))
         self._tasks.append(asyncio.create_task(self._count_listening(), name="listening"))
+        self._tasks.append(asyncio.create_task(self._find_home(), name="home"))
+
+    async def _find_home(self) -> None:
+        """Home Assistant's home location, for the maps (tried again while core starts up)."""
+        if not self.ha.available:
+            return
+        for _ in range(30):
+            location = await self.ha.home_location()
+            if location:
+                self.radio.location = location
+                logger.info("Home location from Home Assistant, for the maps")
+                return
+            await asyncio.sleep(20)
 
     async def _on_shutdown(self, _app) -> None:
         for task in self._tasks:
@@ -190,6 +211,8 @@ class WebUI:
                 if client.listen:
                     client.send(frame)
         else:
+            if kind == "decoded":
+                self._decoded_to_ha(payload)
             if (
                 kind == "hit"
                 and payload.get("channel")
@@ -383,6 +406,56 @@ class WebUI:
         stats["backups"] = len(self.backups.list())
         return _json(stats)
 
+    def _decoded_to_ha(self, payload: dict) -> None:
+        if not self.ha.available:
+            return
+        mode, item = payload["mode"], payload["item"]
+        settings = self.db_settings_cache().get(f"mode_{mode}") or {}
+        if mode == "pager" and settings.get("ha_events"):
+            self._background(self.ha.fire_pager(item))
+        elif mode == "sensors" and item["key"] in settings.get("ha_devices", []):
+            self._background(self.ha.publish_sensor(item))
+
+    # ================================================================ modes
+
+    async def _handle_decoded(self, request: web.Request) -> web.Response:
+        q = request.query
+        try:
+            limit = int(q.get("limit", 200))
+            before = int(q["before"]) if q.get("before") else None
+        except ValueError:
+            raise ValidationError("limit and before must be numbers") from None
+        items = await asyncio.to_thread(
+            self.db.decoded, q.get("mode", ""), limit, before, q.get("key") or None, q.get("search", "").strip()
+        )
+        return _json({"items": items})
+
+    async def _handle_decoded_keys(self, request: web.Request) -> web.Response:
+        return _json({"keys": await asyncio.to_thread(self.db.decoded_keys, request.query.get("mode", ""))})
+
+    async def _handle_decoded_live(self, request: web.Request) -> web.Response:
+        """What a mode shows live (the aircraft now in view), for a page that opens."""
+        decoder = self.radio.decoder
+        mode = request.query.get("mode", "")
+        live = decoder.live() if decoder is not None and decoder.key == mode else None
+        return _json({"live": live, "location": self.radio.location})
+
+    async def _handle_map_tile(self, request: web.Request) -> web.Response:
+        z, x, y = (int(request.match_info[k]) for k in ("z", "x", "y"))
+        if z > MAP_MAX_ZOOM or x >= 2**z or y >= 2**z:
+            return web.Response(status=404)
+        body = await self.ha.map_tile(z, x, y)
+        if body is None:
+            return web.Response(status=502, text="No map tile from Home Assistant")
+        return web.Response(
+            body=body, content_type="image/png", headers={"Cache-Control": f"max-age={MAP_TILE_MAX_AGE}"}
+        )
+
+    async def _handle_decoded_delete(self, request: web.Request) -> web.Response:
+        q = request.query
+        removed = await asyncio.to_thread(self.db.delete_decoded, q.get("mode", ""), q.get("key") or None)
+        return _json({"removed": removed})
+
     async def _handle_hits(self, request: web.Request) -> web.Response:
         try:
             limit = max(1, min(500, int(request.query.get("limit", 100))))
@@ -396,7 +469,9 @@ class WebUI:
         return _json(
             {
                 "settings": self.db.settings(),
-                "spec": {k: {kk: vv for kk, vv in v.items() if kk != "default"} for k, v in SETTINGS.items()},
+                "spec": {
+                    k: {kk: vv for kk, vv in v.items() if kk not in ("default", "mode")} for k, v in SETTINGS.items()
+                },
                 "options": self.config.public(),
                 "bands": self.db.bands(),
                 "ha": self.ha.available,

@@ -102,6 +102,52 @@ Every transmission the squelch lets through is logged as a hit: while scanning, 
 listening with a squelch set. A frequency with signals that isn't stored becomes a **new find**
 after a few hits (the number is on the Settings page).
 
+## Modes
+
+Next to Listen in the top bar, **Mode** sets the radio up for one kind of signal and decodes
+what it hears. The radio tunes to the mode's frequency (set on the Settings page, under Modes);
+you can still tune elsewhere and listen. In place of the favourites and the stored channels the
+page shows what the mode decodes. The modes only show up when your receiver can use them.
+
+- **Pager**: POCSAG (512, 1200 and 2400 baud) and FLEX messages, decoded by multimon-ng from
+  the radio's own NFM audio. 169.65 MHz is P2000, the Dutch emergency services. Search the
+  messages by text or capcode. With **Pager events** on, every message is an `sdradio_pager`
+  event in Home Assistant.
+- **Sensors**: weather stations, thermometers, doorbells, remotes and meters, decoded by rtl_433
+  (some 250 kinds of device). 433.92 MHz for most, 868.3 MHz for many weather stations,
+  868.95 MHz for wireless M-Bus meters. Each device shows its last reading; tick **HA** to get
+  its readings as Home Assistant sensors (`sensor.sdradio_<device>_temperature_c` and so on).
+- **Aircraft**: ADS-B on 1090 MHz, decoded by dump1090. The aircraft in view are on a map with
+  the trail each one leaves, coloured by altitude, and in a list with their callsign,
+  registration and type (from dump1090's aircraft database), altitude, speed, distance and
+  squawk; an emergency squawk (7500, 7600, 7700) is marked. An aircraft goes into the
+  **History** when it has been out of reach for a minute. For this mode the receiver is centred
+  on 1090 MHz, as ADS-B is 2 MHz wide. The stock RTL-SDR antenna works best high up and outside;
+  a 1090 MHz antenna reaches 200 km and more.
+
+- **ACARS**: the short text messages between aircraft and their airlines (positions, out/off/on/in
+  times, gate and weather requests), on up to three channels at once: 131.525, 131.725 and
+  131.825 MHz in Europe (set under Modes). Decoded by SDRadio itself; each message shows the
+  flight, the registration, its label and the text.
+- **Ships**: AIS on 161.975 and 162.025 MHz (both channels at once: the radio tunes between them),
+  decoded by SDRadio itself. Ships on rivers, canals and the sea send their position every few
+  seconds while under way and their name, call sign, kind and destination every few minutes; on
+  the map they point where they sail, coloured by kind (cargo green, tanker red, passenger blue,
+  pleasure craft purple), and lie as a dot when moored. A ship goes into the **History** when it
+  has not been heard for a quarter of an hour.
+
+- **APRS**: amateur radio positions, weather stations, objects, status texts and messages on
+  144.800 MHz (144.390 in North America, 145.825 for the ISS; set under Modes), decoded by
+  multimon-ng with the packets read by SDRadio (plain, compressed and Mic-E positions, weather
+  reports). Stations with a position are on the map with their symbol, moving ones with their
+  trail; **Packets** lists everything heard.
+
+**The map** (Aircraft, Ships, APRS) shows OpenStreetMap through Home Assistant's own map tile service (which
+needs Home Assistant 2026.9 or later), centred on Home Assistant's home location; the distances
+are from there. The map is darkened only with the dark theme.
+
+What the modes decode is kept in the database (30 days by default, set under Modes).
+
 ## Channels
 
 The Channels page lists every stored channel; click one to edit it on the right. The views at
@@ -124,6 +170,8 @@ downloaded backup to the list. The database and its backups are in the app's dat
 Home Assistant backups include them.
 
 ## Home Assistant
+
+The modes add the `sdradio_pager` event and the sensors of the devices picked in Sensors (see Modes).
 
 On the Settings page:
 - **Sensors**: `sensor.sdradio_frequency` (MHz, with the mode, band and channel, and on FM the RDS `station`, `radio_text`, `artist`, `title` and `programme_type`), `sensor.sdradio_signal` (dBFS) and `sensor.sdradio_scan` (`off`, `scanning` or `holding`), updated at most every 5 seconds.

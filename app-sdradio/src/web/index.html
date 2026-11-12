@@ -10,6 +10,7 @@
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232457c5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 10a7 7 0 0 1 14 0'/%3E%3Cpath d='M8 10a4 4 0 0 1 8 0'/%3E%3Ccircle cx='12' cy='10' r='1'/%3E%3Cpath d='M12 11v10'/%3E%3Cpath d='M8 21h8'/%3E%3C/svg%3E">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="__BASE__/web/vendor/leaflet/leaflet.css"/>
     <link rel="stylesheet" href="__BASE__/web/app.css?v=__ADDON_VERSION__"/>
 </head>
 <body>
@@ -29,6 +30,10 @@
         </nav>
         <span class="spacer"></span>
         <span class="badge warn" id="scan-badge" hidden></span>
+        <label class="mode-pick" title="Mode: the radio, or the radio set up to decode pagers, sensors, …">
+            <span>Mode</span>
+            <select class="select" id="mode-select" aria-label="Mode"><option value="radio">Radio</option></select>
+        </label>
         <button type="button" class="btn listen-btn" id="listen-btn" onclick="toggleListen()">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
             <span id="listen-label">Listen</span>
@@ -50,7 +55,7 @@
                 <div id="setup-hint" class="setup-hint" hidden><span id="setup-hint-text"></span></div>
 
                 <!-- Radio: the front panel, favourites, spectrum and the stored channels -->
-                <div id="tab-radio" class="tab-content">
+                <div id="tab-radio" class="tab-content" data-mode="radio">
                     <section class="front" aria-label="Front panel">
                         <div class="front-lcd">
                             <div class="lcd" id="lcd">
@@ -115,6 +120,17 @@
                                 <div class="freq-axis" id="freq-axis"></div>
                                 <canvas id="waterfall" height="240"></canvas>
                             </div>
+                        </section>
+                        <!-- A mode's view (pager messages, sensors): in place of the stored channels -->
+                        <section class="panel mode-panel" id="mode-panel" aria-label="What the mode decodes">
+                            <div class="mode-head">
+                                <span class="section-title" id="mode-title"></span>
+                                <span class="range-text" id="mode-status"></span>
+                                <span class="spacer"></span>
+                                <input type="search" class="input" id="mode-search" placeholder="Search…" autocomplete="off" spellcheck="false" aria-label="Search">
+                                <button type="button" class="btn btn-small" onclick="clearModeData()" title="Delete what this mode decoded">Clear…</button>
+                            </div>
+                            <div class="mode-body" id="mode-body"></div>
                         </section>
                         <aside class="panel chlist" aria-label="Stored channels">
                             <div class="chlist-head">
@@ -230,6 +246,9 @@
     <script src="__BASE__/web/controls.js?v=__ADDON_VERSION__"></script>
     <script src="__BASE__/web/spectrum.js?v=__ADDON_VERSION__"></script>
     <script src="__BASE__/web/radio.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/vendor/leaflet/leaflet.js"></script>
+    <script src="__BASE__/web/maps.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/modes.js?v=__ADDON_VERSION__"></script>
     <script src="__BASE__/web/channels.js?v=__ADDON_VERSION__"></script>
     <script src="__BASE__/web/stats.js?v=__ADDON_VERSION__"></script>
     <script src="__BASE__/web/settings.js?v=__ADDON_VERSION__"></script>

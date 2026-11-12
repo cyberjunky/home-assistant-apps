@@ -1,10 +1,12 @@
 """Home Assistant: the radio's state as sensors, and an event for every transmission on a stored channel.
 
 Both are switched on on the Settings page and go through the Supervisor's proxy to the core API.
+The modes add an event for every pager message, and sensors for the devices picked in Sensors.
 """
 
 import logging
 import os
+import re
 import time
 
 import aiohttp
@@ -14,6 +16,33 @@ logger = logging.getLogger(__name__)
 CORE_API_URL = "http://supervisor/core/api"
 # Sensor updates at most this often; the signal level changes all the time
 SENSOR_INTERVAL = 5.0
+
+# rtl_433 fields as Home Assistant sensors: (name, unit, device class)
+SENSOR_FIELDS = {
+    "temperature_C": ("Temperature", "°C", "temperature"),
+    "temperature_F": ("Temperature", "°F", "temperature"),
+    "humidity": ("Humidity", "%", "humidity"),
+    "moisture": ("Moisture", "%", "moisture"),
+    "pressure_hPa": ("Pressure", "hPa", "pressure"),
+    "pressure_kPa": ("Pressure", "kPa", "pressure"),
+    "wind_avg_km_h": ("Wind speed", "km/h", "wind_speed"),
+    "wind_max_km_h": ("Wind gust", "km/h", "wind_speed"),
+    "wind_avg_m_s": ("Wind speed", "m/s", "wind_speed"),
+    "wind_max_m_s": ("Wind gust", "m/s", "wind_speed"),
+    "wind_dir_deg": ("Wind direction", "°", None),
+    "rain_mm": ("Rain", "mm", "precipitation"),
+    "rain_rate_mm_h": ("Rain rate", "mm/h", "precipitation_intensity"),
+    "light_lux": ("Light", "lx", "illuminance"),
+    "uv": ("UV index", None, None),
+    "power_W": ("Power", "W", "power"),
+    "energy_kWh": ("Energy", "kWh", "energy"),
+    "current_A": ("Current", "A", "current"),
+    "voltage_V": ("Voltage", "V", "voltage"),
+}
+
+
+def _slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
 
 
 class HomeAssistant:
@@ -28,15 +57,47 @@ class HomeAssistant:
     def available(self) -> bool:
         return bool(self.token)
 
-    async def _post(self, path: str, payload: dict) -> bool:
-        if not self.token:
-            return False
+    def _client(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession(
                 headers={"Authorization": f"Bearer {self.token}"}, timeout=aiohttp.ClientTimeout(total=10)
             )
+        return self._session
+
+    async def home_location(self) -> tuple[float, float] | None:
+        """Home Assistant's home (latitude, longitude): where the receiver is, for the maps."""
+        if not self.token:
+            return None
         try:
-            async with self._session.post(f"{CORE_API_URL}/{path}", json=payload) as response:
+            async with self._client().get(f"{CORE_API_URL}/config") as response:
+                if response.status != 200:
+                    return None
+                config = await response.json()
+        except (aiohttp.ClientError, TimeoutError, ValueError):
+            return None
+        lat, lon = config.get("latitude"), config.get("longitude")
+        if isinstance(lat, int | float) and isinstance(lon, int | float) and (lat or lon):
+            return float(lat), float(lon)
+        return None
+
+    async def map_tile(self, z: int, x: int, y: int) -> bytes | None:
+        """An OpenStreetMap tile through Home Assistant's map tile proxy (2026.9 and later): a
+        browser asking OpenStreetMap itself from inside Home Assistant is turned away."""
+        if not self.token:
+            return None
+        try:
+            async with self._client().get(f"{CORE_API_URL}/map_tiles/raster/{z}/{x}/{y}.png") as response:
+                if response.status != 200:
+                    return None
+                return await response.read()
+        except (aiohttp.ClientError, TimeoutError):
+            return None
+
+    async def _post(self, path: str, payload: dict) -> bool:
+        if not self.token:
+            return False
+        try:
+            async with self._client().post(f"{CORE_API_URL}/{path}", json=payload) as response:
                 if response.status >= 300:
                     raise aiohttp.ClientResponseError(
                         response.request_info, (), status=response.status, message=await response.text()
@@ -119,6 +180,39 @@ class HomeAssistant:
                 "peak": round(hit["peak"], 1),
             },
         )
+
+    async def fire_pager(self, item: dict) -> None:
+        await self._post(
+            "events/sdradio_pager",
+            {k: item.get(k) for k in ("protocol", "address", "type", "text", "frequency")}
+            | {"capcode": item.get("key")},
+        )
+
+    async def publish_sensor(self, item: dict) -> None:
+        """One rtl_433 reading of a device picked in Sensors, as sensor.sdradio_<device>_<field>."""
+        device = _slug(item["key"])
+        label = " ".join(str(x) for x in (item.get("model"), item.get("id"), item.get("channel")) if x is not None)
+        values = item.get("values") or {}
+        for field, value in values.items():
+            if field == "battery_ok":
+                entity, state, attributes = f"sensor.sdradio_{device}_battery", "ok" if value else "low", {
+                    "friendly_name": f"{label} battery", "icon": "mdi:battery"}  # fmt: skip
+            elif isinstance(value, int | float) and not isinstance(value, bool):
+                name, unit, device_class = SENSOR_FIELDS.get(field, (field.replace("_", " "), None, None))
+                entity, state = f"sensor.sdradio_{device}_{_slug(field)}", str(value)
+                attributes = {"friendly_name": f"{label} {name.lower()}", "state_class": "measurement"}
+                if unit:
+                    attributes["unit_of_measurement"] = unit
+                if device_class:
+                    attributes["device_class"] = device_class
+            else:
+                continue
+            attributes["device"] = item["key"]
+            key = (state, tuple(sorted((k, str(v)) for k, v in attributes.items())))
+            if self._last_states.get(entity) == key:
+                continue
+            if await self._post(f"states/{entity}", {"state": state, "attributes": attributes}):
+                self._last_states[entity] = key
 
     async def close(self) -> None:
         if self._session and not self._session.closed:
