@@ -16,10 +16,14 @@ A software defined radio receiver in Home Assistant, opened from the sidebar. Pl
 RTL-SDR or HackRF (or point it at an `rtl_tcp` server), and you get a receiver front panel: a
 display with the frequency, mode and signal meter, knobs, a tune dial and a keypad, a live
 spectrum and waterfall to click on, and your stored channels beside it. Listen in the browser,
-scan your channels, a band or a range, and keep every channel and every transmission heard in a
-database, with CSV import and export, statistics and nightly backups.
+scan your channels or a band, and keep every channel and every transmission heard in a
+database, with CSV import and export, statistics and nightly backups. The mode buttons under the
+tune dial turn it into a decoder: pagers, weather sensors, aircraft and ships on a map, ACARS,
+APRS, SSTV pictures, satellite passes, and analog FPV video with a HackRF.
 
-![The radio: display, band scale, knobs, tune dial and keypad, favourites, the spectrum and waterfall, and the stored channels (light theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/screenshots/radio-light.webp)
+![The radio: display, band scale, knobs, tune dial with the mode buttons and keypad, favourites, the spectrum and waterfall, and the stored channels (light theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/screenshots/radio-light.webp)
+
+![The Aircraft mode: ADS-B on 1090 MHz, the aircraft on a map with their trails and in a list](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/screenshots/mode-aircraft-light.webp)
 
 <details>
 <summary>More screenshots</summary>
@@ -38,6 +42,30 @@ database, with CSV import and export, statistics and nightly backups.
 
 **The radio, dark theme**
 ![The radio in the dark theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/screenshots/radio-dark.webp)
+
+**Pager** — P2000 (FLEX) and POCSAG messages, decoded by multimon-ng
+![Pager mode](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/screenshots/mode-pager-light.webp)
+
+**Ships** — AIS on both channels: the ships on a map, pointing where they sail, with name and destination
+![Ships mode](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/screenshots/mode-ships-light.webp)
+
+**APRS** — radio amateur stations, cars and weather stations on 144.800 MHz, with their symbols
+![APRS mode](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/screenshots/mode-aprs-light.webp)
+
+**ACARS** — the text messages of aircraft, three channels at once
+![ACARS mode](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/screenshots/mode-acars-light.webp)
+
+**SSTV** — pictures sent as sound, from the ISS and radio amateurs
+![SSTV mode](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/screenshots/mode-sstv-light.webp)
+
+**Satellites** — the passes over your home, followed with the Doppler shift taken out
+![Satellites mode](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/screenshots/mode-satellites-light.webp)
+
+**Video** (HackRF) — analog FPV video, in black and white
+![Video mode](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/screenshots/mode-video-light.webp)
+
+**Settings → Modes** — pager networks, the frequencies and options of each mode
+![Settings for the modes](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/screenshots/settings-modes-light.webp)
 
 </details>
 

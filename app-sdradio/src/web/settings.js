@@ -98,7 +98,7 @@ function renderSettings() {
 
         <div class="panel"><div class="panel-body">
             <div class="chart-title"><span>Modes</span></div>
-            <p class="panel-sub" style="margin-bottom:8px">Pick a mode in the top bar: the radio tunes to the mode's frequency and decodes what it hears there. You can still tune elsewhere.</p>
+            <p class="panel-sub" style="margin-bottom:8px">Pick a mode with the buttons under the tune dial: the radio tunes to the mode's frequency and decodes what it hears there. You can still tune elsewhere.</p>
             ${modeSettingsHtml(ha)}
             ${setRow('Keep decoded for', 'pager messages and sensor readings; older ones are removed nightly', selectHtml('decoded_keep_days', spec.decoded_keep_days.options, days))}
         </div></div>
