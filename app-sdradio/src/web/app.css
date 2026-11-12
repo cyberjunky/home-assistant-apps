@@ -386,6 +386,14 @@ table.data .ent small { display: block; font-family: var(--mono); font-size: 11p
 button.ind { cursor: pointer; }
 button.ind:hover { opacity: 0.7; }
 button.ind.on:hover { opacity: 1; }
+.ind-power { padding: 0 5px; display: inline-flex; align-items: center; height: 18px; }
+.ind-power svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; }
+/* Switched off: only the power button answers */
+#tab-radio.power-off .front > :not(.front-lcd), #tab-radio.power-off .favbar, #tab-radio.power-off .radio-bottom,
+#tab-radio.power-off .lcd > :not(.lcd-top), #tab-radio.power-off .lcd-top > :not(.ind-power), #tab-radio.power-off .scale {
+    opacity: 0.35; pointer-events: none;
+}
+#tab-radio.power-off .ind-power { opacity: 1; }
 .lcd-info { font-size: 12px; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lcd-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-top: 4px; }
 .lcd-freq { font-size: 46px; font-weight: 600; line-height: 1; letter-spacing: 0.01em; outline: none; cursor: ns-resize; white-space: nowrap; }

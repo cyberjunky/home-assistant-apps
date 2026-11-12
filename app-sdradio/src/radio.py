@@ -125,6 +125,8 @@ class Radio:
         self.agc = bool(state.get("agc", True))
         self.noise_blanker = bool(state.get("nb", False))
         self.band_last: dict = state.get("band_last") or {}
+        # Off: the receiver is closed and nothing is processed (remembered across a restart)
+        self.power = bool(state.get("power", True))
         self.demod: Demodulator | None = None
         self._rds_frequency = 0
         self.spectrum = Spectrum(int(self.settings["fft_size"]))
@@ -158,6 +160,13 @@ class Radio:
 
     def _run(self) -> None:
         while not self._stop.is_set():
+            if not self.power:
+                if self.device is not None or self.device_error:
+                    self._power_down()
+                self._handle_commands()
+                self._emit_state()
+                self._stop.wait(0.1)
+                continue
             if self.device is None:
                 self._open()
                 if self.device is None:
@@ -201,6 +210,23 @@ class Radio:
         )
         self._emit_state(force=True)
 
+    def _power_down(self) -> None:
+        """Off: let go of the receiver, so it uses nothing (and another program may have it)."""
+        self._stop_scan()
+        self.sweep = None
+        self._end_signal(self._clock())
+        if self.device:
+            self.device.close()
+            logger.info("Switched off: the receiver is closed")
+        self.device = None
+        self.device_error = None
+        self.level = -140.0
+        self._bin_noise = -140.0
+        self._avg_power = None
+        self._avg_count = 0
+        self._autotune_wanted = False
+        self._emit_state(force=True)
+
     def _fail(self, message: str) -> None:
         logger.error(message)
         self.device_error = message
@@ -221,6 +247,8 @@ class Radio:
                 return
             try:
                 handler = getattr(self, f"_cmd_{name}", None)
+                if not self.power and name not in ("power", "reload"):
+                    continue  # switched off: only the power button works
                 if handler is None:
                     logger.warning(f"Unknown command {name}")
                 else:
@@ -228,6 +256,11 @@ class Radio:
             except (TypeError, ValueError) as e:
                 logger.warning(f"Command {name} {args}: {e}")
             self._state_dirty = True
+
+    def _cmd_power(self, on=None) -> None:
+        self.power = (not self.power) if on is None else bool(on)
+        logger.info("Switched on" if self.power else "Switching off")
+        self._save_state()
 
     def _cmd_reload(self) -> None:
         self.bands = self.db.bands()
@@ -894,6 +927,7 @@ class Radio:
                     "agc": self.agc,
                     "nb": self.noise_blanker,
                     "band_last": self.band_last,
+                    "power": self.power,
                 }
             )
         except Exception as e:
@@ -903,6 +937,7 @@ class Radio:
         band = band_for(self.bands, self.frequency)
         channel = self.channel
         return {
+            "power": self.power,
             "frequency": self.frequency,
             "center": self.center,
             "rate": self.rate,

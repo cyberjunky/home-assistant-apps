@@ -28,7 +28,8 @@ WEB_DIR = Path(__file__).resolve().parent / "web"
 INGRESS_ADDRESS = "172.30.32.2"
 MAX_UPLOAD = 64 * 1024 * 1024
 # Commands the page may send over the WebSocket, with the radio method they become
-COMMANDS = {"tune", "channel", "step_tune", "set", "cycle", "band", "scan", "priority", "lockout", "memory", "autotune"}
+COMMANDS = {"tune", "channel", "step_tune", "set", "cycle", "band", "scan", "priority", "lockout", "memory",
+            "autotune", "power"}  # fmt: skip
 SPECTRUM_FRAME = 1
 AUDIO_FRAME = 2
 

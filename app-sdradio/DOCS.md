@@ -35,6 +35,11 @@ signal-to-noise ratio. Along the top: SCAN, HOLD and PRI light up while they are
 (automatic gain for AM, SSB and CW), **NB** (noise blanker) and **MUTE** switch with a click;
 **L/O** shows that this channel is locked out of scans.
 
+**Power**: the button at the top left of the display switches the radio off and on. Off, the
+receiver is closed and nothing is processed, so SDRadio uses next to no CPU and another program
+can use the receiver meanwhile. It stays off after a restart until you switch it on again; the
+`sensor.sdradio_frequency` attribute `power` shows `on` or `off`.
+
 **RDS** (WFM): an FM broadcast station's name shows where the channel name goes when the
 frequency isn't stored, and a line below it shows the artist and title (when the station marks
 them with RadioText+) or else its radio text, with the programme type on the right. It is read

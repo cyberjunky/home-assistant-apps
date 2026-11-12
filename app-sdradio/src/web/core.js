@@ -340,11 +340,12 @@ function renderStatusbar() {
     const opts = (status.options || {}).receiver || {};
     const parts = [];
     if (!socket || socket.readyState !== WebSocket.OPEN) parts.push('<span class="sb-bad">● not connected to the app</span>');
+    else if (s.power === false) parts.push('<span>● <b>off</b></span>');
     else if (device.ok) parts.push(`<span><span class="sb-ok">●</span> <b>${escapeHtml(device.hardware || device.driver || '')}</b></span>`);
     else parts.push(`<span class="sb-bad">● no receiver</span>`);
-    if (s.rate) parts.push(`<span>rate <b>${num(s.rate / 1e6, 1)} MS/s</b></span>`);
+    if (s.rate && device.ok) parts.push(`<span>rate <b>${num(s.rate / 1e6, 1)} MS/s</b></span>`);
     if (opts.ppm_correction) parts.push(`<span class="sb-extra">ppm <b>${opts.ppm_correction > 0 ? '+' : ''}${opts.ppm_correction}</b></span>`);
-    if (s.audio_rate) parts.push(`<span class="sb-extra">audio <b>${num(s.audio_rate / 1000, 1)} kHz</b></span>`);
+    if (s.audio_rate && device.ok) parts.push(`<span class="sb-extra">audio <b>${num(s.audio_rate / 1000, 1)} kHz</b></span>`);
     if (status.counts) parts.push(`<span class="sb-extra">database <b>${num(app.channels.length || status.counts.channels)} channels</b></span>`);
     if (status.last_backup) parts.push(`<span class="sb-extra">last backup <b>${escapeHtml(fmtDateTime(status.last_backup))}</b></span>`);
     parts.push(`<span class="spacer"></span><span class="sb-extra">SDRadio ${escapeHtml(app.version)}</span>`);

@@ -385,7 +385,8 @@ function renderControls() {
     });
     renderScanKey();
     const hint = document.getElementById('spectrum-hint');
-    const hintText = s.sweep
+    const hintText = s.power === false ? 'Switched off: the power button at the top left of the display switches it on'
+        : s.sweep
         ? `Band view of ${s.sweep.label}: the receiver sweeps the band, so the radio is silent · click a station to listen`
         : 'click to tune · scroll to step · drag to move';
     if (hint.textContent !== hintText) hint.textContent = hintText;
@@ -397,7 +398,21 @@ function renderControls() {
 }
 
 onSocket('state', (s) => {
-    const deviceKey = JSON.stringify([s.device && s.device.ok, s.device && s.device.error]);
+    const off = s.power === false;
+    const page = document.getElementById('tab-radio');
+    if (page.classList.contains('power-off') !== off) {
+        page.classList.toggle('power-off', off);
+        const button = document.getElementById('ind-power');
+        button.classList.toggle('on', !off);
+        button.title = off ? 'Switch the radio on' : 'Switch the radio off (closes the receiver, uses nothing)';
+        if (off) {
+            clearWaterfall();
+            spec.frame = null;  // nothing to redraw while off
+            const spectrum = document.getElementById('spectrum');
+            spectrum.getContext('2d').clearRect(0, 0, spectrum.width, spectrum.height);
+        }
+    }
+    const deviceKey = JSON.stringify([s.power, s.device && s.device.ok, s.device && s.device.error]);
     if (deviceKey !== radio.lastDevice) { radio.lastDevice = deviceKey; renderChrome(); }
     if (activeTab !== 'radio') return;
     fitWaterfall();

@@ -270,3 +270,26 @@ def test_autotune_centres_on_the_signal(radio):
     run(radio, 10)
     assert radio.frequency == 145_300_000
     assert any(k == "notice" and "No signal" in p["message"] for k, p in radio.events)
+
+
+def test_power_off_closes_the_receiver_and_on_opens_it(radio):
+    import time
+
+    radio.start()
+    try:
+        radio.command("power", on=False)
+        end = time.monotonic() + 3
+        while radio.device is not None and time.monotonic() < end:
+            time.sleep(0.02)
+        assert radio.device is None and radio.devices[-1].closed
+        assert radio.snapshot()["power"] is False and radio.db.state()["power"] is False
+        radio.command("tune", frequency=145_300_000)  # ignored while off
+        time.sleep(0.3)
+        assert radio.frequency != 145_300_000
+        radio.command("power", on=True)
+        end = time.monotonic() + 3
+        while radio.device is None and time.monotonic() < end:
+            time.sleep(0.02)
+        assert radio.device is not None and len(radio.devices) == 2
+    finally:
+        radio.stop()
