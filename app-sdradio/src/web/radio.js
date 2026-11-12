@@ -215,6 +215,7 @@ function radioKeys(e) {
     else if (e.target.closest('.knob')) { /* the knob handles its own keys */ }
     else if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { radioCommand('step_tune', {steps: 1}); e.preventDefault(); }
     else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { radioCommand('step_tune', {steps: -1}); e.preventDefault(); }
+    else if (e.key === 't' || e.key === 'T') { radioCommand('autotune'); e.preventDefault(); }
     else if (e.key === 'PageUp') { radioCommand('step_tune', {steps: 10}); e.preventDefault(); }
     else if (e.key === 'PageDown') { radioCommand('step_tune', {steps: -10}); e.preventDefault(); }
 }

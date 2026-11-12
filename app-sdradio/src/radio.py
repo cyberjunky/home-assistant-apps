@@ -18,7 +18,7 @@ from .bands import MODES, STEPS, band_for, default_bandwidth
 from .config import Config
 from .database import Database
 from .device import DeviceError
-from .dsp import DB_FLOOR, Demodulator, Spectrum, noise_floor, quantize, to_pcm16
+from .dsp import DB_FLOOR, Demodulator, Spectrum, find_signal, noise_floor, quantize, to_pcm16
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,8 @@ BLOCKS_PER_SECOND = 20
 SETTLE_BLOCKS = 2
 # Keep the tuned frequency this far inside the edge of the received span
 EDGE = 0.42
+# Blocks of averaged spectrum autotune waits for (after a retune)
+AUTOTUNE_BLOCKS = 6
 # When the receiver has to move, put the tuned frequency this far (of the span) off the centre,
 # away from the receiver's own DC spike in the middle
 RECENTRE_OFFSET = 0.1
@@ -126,6 +128,11 @@ class Radio:
         self.demod: Demodulator | None = None
         self._rds_frequency = 0
         self.spectrum = Spectrum(int(self.settings["fft_size"]))
+        # The spectrum averaged over the last second or so (linear), for autotune
+        self._avg_power: np.ndarray | None = None
+        self._avg_center = 0.0
+        self._avg_count = 0
+        self._autotune_wanted = False
 
     # ================================================================ lifecycle
 
@@ -231,6 +238,38 @@ class Radio:
         self.channel = self.db.channel_at(self.frequency)
         if self.scan.kind == "channels":
             self._rebuild_scan_targets()
+
+    def _cmd_autotune(self) -> None:
+        """AUTO: to the middle of the strongest signal near the frequency (done once the spectrum
+        has been averaged for a moment)."""
+        if self.mode in ("usb", "lsb", "cw"):
+            self.emit("notice", {"message": "Autotune centres AM, FM and DSB signals: tune SSB and CW by ear"})
+            return
+        self._autotune_wanted = True
+
+    def _autotune(self) -> None:
+        offset = self.frequency - self.center
+        search = max(self.bandwidth, self.step)
+        found = find_signal(self._avg_power, self.rate, offset, self.bandwidth, search)
+        if found is None:
+            self.emit("notice", {"message": f"No signal to tune to near {self.frequency / 1e6:.4f} MHz"})
+            return
+        frequency = self.center + found[0]
+        # On the channel grid when it is that close to a channel, else to 100 Hz
+        grid = round(frequency / self.step) * self.step
+        bin_hz = self.rate / len(self._avg_power)
+        frequency = grid if abs(frequency - grid) <= max(self.step / 4, bin_hz) else round(frequency / 100) * 100
+        self._cmd_tune(int(frequency))
+
+    def _average_spectrum(self, db: np.ndarray) -> None:
+        power = np.power(10.0, db / 10.0)
+        if self._avg_power is None or len(self._avg_power) != len(power) or self._avg_center != self.center:
+            self._avg_power = power
+            self._avg_center = self.center
+            self._avg_count = 1
+        else:
+            self._avg_power = self._avg_power * 0.8 + power * 0.2
+            self._avg_count += 1
 
     def _cmd_tune(self, frequency, mode=None, bandwidth=None, step=None, stop_scan=True) -> None:
         if stop_scan:
@@ -491,10 +530,15 @@ class Radio:
         every = 1 if int(self.settings["spectrum_rate"]) >= 20 else 2
         if self._block % every == 0 or self.spectrum_listeners == 0:
             db = self.spectrum(block)
+            self._average_spectrum(db)
             floor = noise_floor(db)
             self._bin_noise = self._bin_noise * 0.8 + floor * 0.2 if self._bin_noise > -140 else floor
             if self.spectrum_listeners and self._block % every == 0:
                 self.emit("spectrum", {"center": self.center, "rate": self.rate, "bins": quantize(db)})
+
+        if self._autotune_wanted and self._avg_count >= AUTOTUNE_BLOCKS:
+            self._autotune_wanted = False
+            self._autotune()
 
         threshold = self._threshold()
         open_ = threshold is None or level >= threshold

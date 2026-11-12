@@ -399,6 +399,8 @@ button.ind.on:hover { opacity: 1; }
 .lcd-unit { font-size: 15px; opacity: 0.7; }
 .lcd-mode { font: 600 19px var(--mono); padding: 0 7px; border: 2px solid currentColor; border-radius: 4px; background: none; color: inherit; cursor: pointer; }
 .lcd-bw { font-size: 12px; opacity: 0.75; }
+.lcd-auto { font-size: 13px; padding: 2px 6px; margin-left: 4px; border-width: 1px; opacity: 0.85; }
+.lcd-auto:hover { opacity: 1; }
 .lcd-bottom { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--lcd-line); }
 .lcd-name { flex: 1 1 180px; min-width: 0; font: 600 14px 'IBM Plex Sans', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lcd-name small { font: 400 12px var(--mono); opacity: 0.75; margin-left: 8px; }
@@ -543,7 +545,7 @@ pre.yaml .c { color: var(--muted-text-color); }
 
 @media (max-width: 700px) {
     .lcd-freq { font-size: 36px; }
-    .lcd-mode { font-size: 16px; }
+    .lcd-mode:not(.lcd-auto) { font-size: 16px; }
     .front { padding: 12px; }
     .settings-grid { grid-template-columns: 1fr; }
     .listen-btn span { display: none; }

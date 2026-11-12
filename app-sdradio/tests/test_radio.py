@@ -256,3 +256,17 @@ def test_hackrf_reaches_hf_and_ghz_bands(radio):
     radio.command("band", name="SW 40 m")
     run(radio, 1)
     assert radio.frequency == 7_000_000 and radio.mode == "lsb"
+
+
+def test_autotune_centres_on_the_signal(radio):
+    radio.command("tune", frequency=145_492_000)
+    run(radio, 3)
+    radio.command("autotune")
+    run(radio, 10)
+    assert radio.frequency == 145_500_000  # on the 12.5 kHz grid
+    radio.command("tune", frequency=145_300_000)  # nothing within a channel of here
+    run(radio, 3)
+    radio.command("autotune")
+    run(radio, 10)
+    assert radio.frequency == 145_300_000
+    assert any(k == "notice" and "No signal" in p["message"] for k, p in radio.events)

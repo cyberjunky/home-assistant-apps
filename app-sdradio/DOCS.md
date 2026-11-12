@@ -45,6 +45,7 @@ that far.
 - Scroll over a digit of the frequency to change that digit.
 - Type a frequency in MHz on the keypad or keyboard and press **MHz** or Enter (CLR or Esc cancels).
 - Turn the **Tune** dial (drag round, scroll, or the arrow keys); ↑ ↓ and PgUp PgDn work anywhere on the page.
+- **AUTO** on the display (or T) centres on the strongest signal within a channel of where you are: a broadcast station on the middle of its width, on the band's channel grid when it is that close to a channel. It works on AM, FM and DSB; SSB and CW are tuned by ear.
 - Click the spectrum or waterfall, drag it to move, or scroll it to step.
 - Click or drag the band scale under the display.
 - **BAND** goes to the next band, **STEP** to the next tuning step, **MODE** to the next mode.
