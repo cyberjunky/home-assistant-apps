@@ -20,13 +20,15 @@
         <nav class="tabs" aria-label="Views">
             <button type="button" class="tab active" data-tab="library" onclick="switchTab('library')">Library</button>
             <button type="button" class="tab" data-tab="stats" onclick="switchTab('stats')">Stats</button>
-            <button type="button" class="tab" data-tab="info" onclick="switchTab('info')">Info</button>
+            <span class="tab-sep" aria-hidden="true"></span>
+            <button type="button" class="tab" data-tab="info" onclick="switchTab('info')" title="Info"><span class="tab-label">Info</span><span class="tab-icon" aria-hidden="true">ⓘ</span></button>
         </nav>
         <span class="spacer"></span>
         <input id="search" class="input" type="search" placeholder="Search games" oninput="renderGames()" aria-label="Search games">
         <div class="tabs" role="group" aria-label="Theme">
-            <button type="button" id="theme-toggle" class="tab icon-tab" onclick="cycleTheme()" title="Theme"><span id="theme-icon">🌓</span></button>
+            <button type="button" id="theme-toggle" class="tab icon-tab" onclick="cycleTheme()" title="Theme"><span id="theme-icon" aria-hidden="true">🌓</span></button>
         </div>
+        <span id="clock" class="clock"></span>
     </header>
 
     <main class="pages">

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.2
+
+**After updating:** nothing to do.
+
+- The top bar matches the other apps: the clock on the right, Info after a separator, and the theme button tells what it does when you point at it.
+- `?theme=light`, `dark` or `auto` in the address sets the theme, as in the other apps.
+
 ## 0.6.1
 
 **After updating:** nothing to do.
