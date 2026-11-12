@@ -54,6 +54,7 @@ jobs:
           - app-arcade
           - app-chronicle
           - app-fireservicerota
+          - app-freqtrade
           - app-goodwe
           - app-meldkamer
           - app-tesla
