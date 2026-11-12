@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0
+
+**Modes:** next to Listen in the top bar, **Mode** sets the radio up for one kind of signal and decodes what it hears, with its own view in place of the favourites and stored channels. Only the modes your receiver can use show up; the radio stays usable meanwhile.
+
+- **Pager:** POCSAG (512, 1200, 2400) and FLEX with multimon-ng, 169.65 MHz (P2000) to start with; searchable, and optionally an `sdradio_pager` event in Home Assistant for every message.
+- **Sensors:** weather stations, thermometers, remotes and meters on 433 and 868 MHz with rtl_433 (some 250 kinds); each device's last reading, and its readings as Home Assistant sensors with a tick.
+- **Aircraft:** ADS-B on 1090 MHz with dump1090, on a map with their trails, coloured by altitude, and a list with callsign, registration and type, altitude, speed, distance and squawk.
+- **Ships:** AIS on both channels, on the map pointing where they sail, coloured by kind, with name, call sign and destination.
+- **APRS:** stations, cars and weather stations on 144.800 MHz on the map with their symbol, and every packet in a log.
+- **ACARS:** the text messages of aircraft on 131.525, 131.725 and 131.825 MHz at once.
+- **The map** shows OpenStreetMap through Home Assistant's own map tile service, centred on your home; it is darkened only with the dark theme. This needs Home Assistant 2026.9 or later.
+- Settings → Modes holds each mode's frequency and options, and how long decoded data is kept (30 days).
+
 ## 0.1.6
 
 - **Power button:** at the top left of the display. Off closes the receiver and stops all processing, so SDRadio uses next to no CPU and another program can use the receiver meanwhile; on opens it again where it was. It stays off after a restart until you switch it on. `sensor.sdradio_frequency` has a `power` attribute (`on` or `off`).

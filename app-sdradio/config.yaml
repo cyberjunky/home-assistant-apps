@@ -1,5 +1,5 @@
 name: SDRadio
-version: "0.1.6"
+version: "0.2.0"
 slug: app-sdradio
 description: "A software defined radio receiver in Home Assistant - tune, listen, scan and keep your channels, with an RTL-SDR, HackRF or rtl_tcp"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-sdradio"
