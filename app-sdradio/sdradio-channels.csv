@@ -1,0 +1,114 @@
+name,frequency_mhz,mode,bandwidth_khz,band,tags,notes,favourite,scan
+NPO Radio 1,98.9,wfm,180,,"broadcast,fm","News and sport. Lopik transmitter (the 'Gerbrandytoren', 372 m, the tallest structure in the Netherlands); other regions use other frequencies. RDS shows the station name and programme.",1,1
+NPO Radio 2,92.6,wfm,180,,"broadcast,fm",Pop music; with RDS RadioText+ the display shows artist and title. Lopik transmitter.,1,1
+NPO 3FM,96.8,wfm,180,,"broadcast,fm",Pop and alternative. Lopik transmitter.,0,1
+NPO Klassiek,94.3,wfm,180,,"broadcast,fm",Classical music: good for hearing what wideband FM stereo quality sounds like. Lopik transmitter.,0,1
+DAB+ 12C (NPO),227.36,wfm,200,,"broadcast,digital,dab,mode:dab","The NPO's DAB+ multiplex: a 1.5 MHz wide block of OFDM, a flat-topped shape in the waterfall. Use the DAB+ mode: its stations, what they play, and listen.",0,0
+DAB+ 11C (commercial),220.352,wfm,200,,"broadcast,digital,dab,mode:dab",The national commercial DAB+ multiplex (some 18 stations in one 1.5 MHz block).,0,0
+Air guard,121.5,am,8.333,,"air,emergency","The international aviation distress frequency: every airliner listens on it. Mostly quiet; when it isn't, something is going on (or an emergency beacon test on the hour).",1,1
+Schiphol arrival ATIS,132.975,am,8.333,,"air,continuous","A recorded loop with the weather, runways in use and the information letter (Alpha, Bravo…), changed every half hour. A good test signal: always on. (Frequency from public lists: check it with the Band view.)",1,0
+Amsterdam Information,124.3,am,8.333,,air,Flight information for small aircraft flying under visual rules in Dutch airspace. (Frequency from public lists: check it with the Band view.),0,1
+Gliding,123.5,am,8.333,,air,A common gliding frequency in Europe: busy on sunny weekend afternoons.,0,1
+Mil air guard,243,am,9,,"air,military,emergency","The military distress frequency: exactly twice 121.5 MHz, so a transmitter on one gives a harmonic on the other.",0,1
+ADS-B 1090,1090,am,15,,"air,digital,mode:aircraft","Aircraft transponders, about 2 million pulses a second over the country. Use the Aircraft mode: positions, callsigns and altitudes on a map. Fact: an airliner at 11 km is heard 300+ km away.",0,1
+ACARS 131.725,131.725,am,8.333,,"air,digital,mode:acars","Aircraft text messages (gate requests, weather, out/off/on/in times). Use the ACARS mode: it decodes 131.525, 131.725 and 131.825 at once.",0,1
+VDL2 136.975,136.975,am,25,,"air,digital,mode:vdl2","VHF Data Link: ACARS's digital successor, over Europe busier than ACARS itself. Use the VDL2 mode: it decodes 136.725, 136.775, 136.875 and 136.975 at once, with controller-pilot messages (CPDLC). Sounds like a short hiss.",0,1
+Shannon VOLMET,5.505,usb,2.7,,"air,hf,continuous,hackrf","Irish aviation weather for European airports, read out all day and night. Fact: a computer voice since 2005; before that, people read it live. HackRF only.",1,0
+Shannon VOLMET 8957,8.957,usb,2.7,,"air,hf,continuous,hackrf","Aviation weather, all day. HackRF only.",0,0
+RAF VOLMET,5.45,usb,2.7,,"air,hf,military,hackrf",Weather for Royal Air Force airfields. HackRF only.,0,1
+Shanwick 8891,8.891,usb,2.7,,"air,hf,hackrf",Oceanic air traffic control for the North Atlantic (Shannon and Prestwick): aircraft without radar coverage report their position by voice. (Frequency from public lists: check it with the Band view.) HackRF only.,0,1
+HFGCS 8992,8.992,usb,2.7,,"military,hf,weird,hackrf","The US Air Force's worldwide HF network: now and then 'Emergency Action Messages', long strings of letters read out by an operator ('SKYKING, SKYKING, do not answer…'). Nobody outside knows what they say. HackRF only.",1,0
+HFGCS 11175,11.175,usb,2.7,,"military,hf,weird,hackrf",HFGCS by day: same network as 8992. HackRF only.,0,0
+Marine ch 16,156.8,nfm,16,,"marine,emergency","Calling and distress on the water: every ship keeps a watch here. 'Mayday', 'Pan-pan' and 'Sécurité' start here.",1,1
+Marine ch 70 DSC,156.525,nfm,16,,"marine,digital",Digital Selective Calling: a ship's distress button sends a burst here with its position.,0,1
+Marine ch 10,156.5,nfm,16,,marine,Inland shipping and harbour traffic.,0,1
+Marine ch 13,156.65,nfm,16,,marine,Bridge to bridge: ships agreeing how to pass each other.,0,1
+Marine ch 23 Kustwacht,161.75,nfm,16,,marine,The Dutch Coastguard's broadcasts: weather and navigation warnings.,0,1
+AIS 1,161.975,nfm,25,,"marine,digital,mode:ships","Ships' positions. Use the Ships mode (it listens to both AIS channels at once). Fact: every ship over 300 tons must send AIS, and its range is about 40 km.",0,1
+AIS 2,162.025,nfm,25,,"marine,digital,mode:ships",The other AIS channel: ships alternate between the two.,0,1
+2 m FM calling,145.5,nfm,12.5,,"ham,fm",Where radio amateurs call each other on 2 m FM before moving to another channel.,1,1
+2 m APRS,144.8,nfm,12.5,,"ham,digital,mode:aprs","Packets with positions of cars, weather stations and digipeaters. Use the APRS mode: they appear on a map. Sounds like short chirps.",0,1
+2 m SSB calling,144.3,usb,2.7,,"ham,ssb",Long-distance 2 m contacts; in summer 'tropo' brings in stations from England and Germany.,0,1
+2 m FT8,144.174,usb,2.7,,"ham,ssb,digital","FT8: weak-signal data, a 15 second rhythm of tones.",0,1
+70 cm FM calling,433.5,nfm,12.5,,"ham,fm",The 70 cm FM calling channel.,0,1
+70 cm SSB calling,432.2,usb,2.7,,"ham,ssb",Weak-signal 70 cm.,0,1
+6 m FT8,50.313,usb,2.7,,"ham,ssb,digital,mode:ft8",The 'magic band': in summer sporadic E opens it to all of Europe within minutes.,1,1
+6 m SSB calling,50.15,usb,2.7,,"ham,ssb","6 m SSB: quiet most of the year, crowded during openings.",0,1
+4 m FM calling,70.45,nfm,12.5,,"ham,fm",4 m: a band only a few European countries have.,0,1
+10 m FT8,28.074,usb,2.7,,"ham,ssb,digital,mode:ft8",10 m opens to the whole world in a solar maximum (the sun is near one now). FT8 mode.,1,1
+10 m FM calling,29.6,nfm,16,,"ham,fm","FM on HF: when 10 m is open, American repeaters can be heard.",0,1
+23 cm SSB calling,1296.2,usb,2.7,,"ham,ssb","23 cm: moon bounce stations work each other near here, bouncing signals off the moon.",0,1
+80 m SSB,3.7,lsb,2.7,,"ham,ssb,hf,hackrf",Evening and night: Dutch and Belgian amateurs talking. HackRF only.,0,1
+40 m SSB,7.1,lsb,2.7,,"ham,ssb,hf,hackrf","All of Europe by day, further at night. HackRF only.",0,1
+20 m FT8,14.074,usb,2.7,,"ham,ssb,hf,digital,mode:ft8,hackrf",The busiest frequency on HF: FT8 from all over the world. Use the FT8 mode: the stations on a map. HackRF only.,0,1
+40 m FT8,7.074,usb,2.7,,"ham,ssb,hf,digital,mode:ft8,hackrf",FT8 at night: all of Europe and beyond. FT8 mode. HackRF only.,0,1
+2 m DV calling,145.375,nfm,12.5,,"ham,digital,mode:digital","The digital voice calling frequency on 2 m (IARU Region 1): DMR, D-STAR and YSF simplex. Use the Digital voice mode to hear the speech and who is talking.",0,1
+70 cm DV calling,433.45,nfm,12.5,,"ham,digital,mode:digital","Digital voice calling on 70 cm, where most DMR simplex and hotspots are. Fact: a DMR channel carries two conversations at once, in turns of 30 milliseconds.",0,1
+20 m SSTV,14.23,usb,2.7,,"ham,ssb,hf,mode:sstv,hackrf",Pictures sent as sound. Use the SSTV mode (set its frequency to 14.23) to see them. HackRF only.,1,1
+2 m SSTV,144.5,nfm,12.5,,"ham,fm,mode:sstv",SSTV on 2 m FM (SSTV mode).,0,1
+DAPNET pagers,439.9875,nfm,12.5,,"ham,digital,mode:pager",The radio amateurs' own pager network (POCSAG). Pick DAPNET under Settings → Modes → Pager network.,0,1
+ISS voice and SSTV,145.8,nfm,16,,"ham,satellite,mode:satellites","The International Space Station: crew contacts with schools, and SSTV pictures during its events. Use the Satellites mode: it follows the Doppler shift. Fact: the ISS goes round the earth every 92 minutes at 28 000 km/h.",1,1
+ISS APRS,145.825,nfm,12.5,,"ham,satellite,digital,mode:aprs",The ISS's APRS digipeater: amateurs' packets relayed from space.,0,1
+SO-50,436.795,nfm,16,,"ham,satellite,mode:satellites","A small FM repeater satellite launched in 2002, still working: a few minutes of contacts per pass. Satellites mode.",0,1
+P2000,169.65,nfm,16,,"pager,digital,mode:pager","The Dutch emergency services' pager network (FLEX): every ambulance, fire and police alarm. Use the Pager mode.",1,1
+KPN Nationaal 1,154.9875,nfm,12.5,,"pager,digital,mode:pager","Commercial POCSAG pagers (Pager mode, network KPN Nationaal 1). (Frequency from public lists: check it with the Band view.)",0,1
+ISM 433 sensors,433.92,am,15,,"ism,digital,mode:sensors","Weather stations, thermometers, doorbells, car keys and tyre pressure sensors. Use the Sensors mode (rtl_433 knows some 250 kinds).",1,1
+SRD 868 sensors,868.3,am,15,,"ism,digital,mode:sensors",Weather stations (Bresser and others) and smart meters (868.95 wM-Bus). Sensors mode.,0,1
+Meshtastic,869.525,nfm,250,,"ism,digital,weird","Meshtastic's default LoRa channel in Europe: an off-grid text network of small radios passing messages on. LoRa chirps, 250 kHz wide; SDRadio shows them, it doesn't decode them.",0,0
+LoRaWAN 868.1,868.1,nfm,25,,"ism,digital,weird","LoRa: 'chirps' sweeping up through 125 kHz, made to be heard 10+ km away with milliwatts. The Things Network's gateways listen here.",0,0
+Sigfox 868.13,868.13,nfm,12.5,,"ism,digital","Sigfox: tiny 100 Hz-wide bursts from sensors (parcel trackers, alarms).",0,1
+PMR446 ch 1,446.00625,nfm,8.333,,pmr,"Licence-free walkie-talkies, eight channels 12.5 kHz apart (446.00625 to 446.09375). Fact: 0.5 W, but several km from a hill.",0,1
+PMR446 ch 8,446.09375,nfm,8.333,,pmr,PMR446 channel 8.,0,1
+CB ch 9,27.065,am,9,,cb,CB's emergency channel (AM).,0,1
+CB ch 19,27.185,nfm,10,,cb,Truckers' channel: in the Netherlands mostly FM.,0,1
+C2000 TETRA,392.5,nfm,25,,"digital,weird","The Dutch emergency services' radio network (TETRA, 390 to 395 MHz): digital and encrypted, so you only see the carriers in the waterfall.",0,0
+Radiosondes De Bilt,403,nfm,16,,"weather,digital,mode:sondes",Weather balloons: the KNMI launches a Vaisala RS41 from De Bilt around 11:00 and 23:00 UTC; it climbs to 30+ km before the balloon bursts. Use the Radiosondes mode to follow it on a map; the frequency changes from launch to launch (400–406 MHz): sondehub.org shows the last ones.,0,1
+Radiosondes Essen,402.7,nfm,16,,"weather,digital,mode:sondes","The German weather service's sondes from Essen, also an RS41; Germany launches from a dozen sites. Fact: a balloon lands up to 150 km away, and people find them.",0,1
+DWD weather fax 3855,3.8531,usb,3,,"weather,hf,digital,mode:wefax,hackrf","Deutscher Wetterdienst, Pinneberg (DDH3): weather charts for ships, day and night (dial 1.9 kHz below 3855 kHz). Use the Weather fax mode. Fact: weather fax has been sent like this since the 1930s. HackRF only.",0,1
+DWD weather fax 7880,7.8781,usb,3,,"weather,hf,digital,mode:wefax,hackrf","Pinneberg (DDK3) on 7880 kHz: the best by day. Surface analyses, forecasts, sea state. HackRF only.",1,1
+DWD weather fax 13882,13.8806,usb,3,,"weather,hf,digital,mode:wefax,hackrf",Pinneberg (DDK6) on 13882.5 kHz. HackRF only.,0,1
+Northwood weather fax,4.6081,usb,3,,"weather,hf,digital,mode:wefax,hackrf",The UK Met Office's charts from Northwood (GYA) on 4610 kHz (also 2618.5 and 8040). HackRF only.,0,1
+Meteor-M2-3,137.1,wfm,120,,"satellite,weather,mode:satellites",A Russian weather satellite sending pictures (LRPT). Satellites mode can record its passes for SatDump. Its frequency changes now and then.,0,1
+Meteor-M2-4,137.9,wfm,120,,"satellite,weather,mode:satellites",Meteor-M2-4: as M2-3. Fact: the American NOAA weather satellites that sent easy pictures on 137 MHz were switched off in 2025.,0,1
+Iridium,1626,nfm,25,,"satellite,digital,weird","Satellite phones and pagers: bursts every 90 ms from 66 satellites, 780 km up. Fact: their old antennas made 'Iridium flares', flashes in the night sky.",0,0
+Inmarsat-C,1541.45,usb,3,,"satellite,digital","Ships' safety messages from a geostationary satellite over Africa: weather, navigation warnings, distress relays. Needs a small L-band antenna. (Frequency from public lists: check it with the Band view.)",0,1
+GPS L1,1575.42,nfm,25,,"satellite,weird",GPS: you won't see it. The signal is 20 dB below the noise; receivers dig it out by correlating for a long time. Fact: each satellite sends just 50 W from 20 000 km.,0,0
+Hydrogen line,1420.405,nfm,25,,"space,weird",Radio astronomy: neutral hydrogen in our galaxy sends on this frequency. With a dish (or a horn) and an LNA you can map the Milky Way's arms. Protected: nothing may transmit here.,0,0
+UVB-76 The Buzzer,4.625,usb,3,,"weird,russian,hf,hackrf","A Russian military station that has buzzed 25 times a minute, day and night, since the 1970s. Now and then a voice reads out names and numbers ('MDZhB…') and nobody outside knows why. Often linked to Russia's 'Dead Hand'. Parallel channel 6998 kHz. HackRF only.",1,0
+The Buzzer 6998,6.998,usb,3,,"weird,russian,hf,hackrf","The Buzzer's parallel channel, since 2015. HackRF only.",0,0
+The Pip,3.756,usb,3,,"weird,russian,hf,hackrf","The Buzzer's sister: short beeps, ten or so a second, now and then a voice message. 5448 kHz by day. (Not checked recently: may have moved.) HackRF only.",0,0
+The Squeaky Wheel,5.473,usb,3,,"weird,russian,hf,hackrf",Another sister station: two squeaky tones repeated over and over. 3828 kHz at night. (Not checked recently: may have moved.) HackRF only.,0,0
+Woodpecker-like OTH radar,13.5,am,9,,"weird,radar,hf,hackrf","Over-the-horizon radars (Russian 'Kontayner', Chinese) still sweep the HF bands with a 'tap-tap-tap', heir to the Soviet 'Russian Woodpecker' (Duga near Chernobyl, 1976–1989). They move around: look for regular pulses between 7 and 20 MHz, in the evening. HackRF only.",0,0
+CODAR ocean radar,4.8,usb,3,,"weird,radar,hf,hackrf","Coastal radars measuring sea currents send sweeping 'swoosh' chirps around 4.5–5.3, 12–13.5 and 24–27 MHz; several stand along the North Sea. HackRF only.",0,0
+GRAVES meteor pings,143.049,usb,2.7,,"weird,radar,space","The French space surveillance radar near Dijon transmits continuously on 143.050 MHz. You don't hear it directly; you hear short 'pings' when a meteor's trail reflects it, dozens an hour during a shower (Perseids, Geminids). Tune 1 kHz below to hear them as tones.",1,0
+BRAMS meteor beacon,49.97,usb,2.7,,"weird,radar,space","The Belgian meteor radar's beacon at Dourbes: like GRAVES, heard here only through meteor trails. Used for a citizen-science meteor count.",0,0
+RWM time 4996,4.996,cw,0.5,,"time,russian,hf,hackrf","Moscow's time station: second pips and a Morse ID, the Russian equivalent of DCF77. HackRF only.",0,1
+RWM time 9996,9.996,cw,0.5,,"time,russian,hf,hackrf",RWM by day. HackRF only.,0,1
+WWV 10 MHz,10,am,6,,"time,hf,hackrf","The American time station in Fort Collins, Colorado: a voice says the time every minute. Heard in Europe at night when the band is open. HackRF only.",0,1
+CHU 7850,7.85,usb,3,,"time,hf,hackrf",Canada's time station: a voice in English and French and a modem burst with the time. HackRF only.,0,1
+Channel 292,6.07,am,9,,"broadcast,hf,hackrf","A German shortwave station playing music day and night, run by enthusiasts: one of the few still on 49 m. HackRF only.",0,1
+13 cm SSB calling,2320.2,usb,2.7,,"ham,ssb,hackrf",13 cm amateur band. HackRF only.,0,1
+Wi-Fi ch 6,2437,wfm,200,,"ism,wifi,hackrf","Wi-Fi: bursts in the waterfall (no audio). Fact: Wi-Fi shares 2.4 GHz with microwave ovens, which leak around 2450 MHz. HackRF only.",0,0
+Microwave oven,2450,wfm,200,,"ism,weird,hackrf","Switch on a microwave oven and watch it here: a wide, wobbling hum, 50 times a second. HackRF only.",0,0
+Bluetooth adv 2402,2402,wfm,200,,"ism,hackrf","Bluetooth Low Energy advertising: every phone, watch and earbud blips here. HackRF only.",0,1
+FPV R1,5658,wfm,200,FPV 5.8 GHz,"fpv,video,mode:video,hackrf",Analog FPV drone video (Raceband R1). Use the Video mode to see the picture. HackRF only.,0,0
+FPV F4,5800,wfm,200,FPV 5.8 GHz,"fpv,video,mode:video,hackrf",A common FPV drone channel (Fatshark F4). Video mode. HackRF only.,0,0
+FPV R8,5917,wfm,200,FPV 5.8 GHz,"fpv,video,mode:video,hackrf",Raceband R8. Video mode. HackRF only.,0,0
+1.2 GHz video,1280,wfm,200,,"video,mode:video","Older 1.2 GHz video senders and FPV (long range). Video mode, HackRF.",0,1
+Russian Navy beacons 4558,4.558,cw,0.5,,"military,russian,weird,hf,hackrf","Single-letter Morse beacons ('C', 'D', 'P', 'S', 'M'…) of Russian naval bases, each repeating its letter day and night, a few in 100 Hz slots of one cluster. Ships and submarines use them to pick the channel that gets through. Clusters also on 3594, 5154, 7039, 8495, 10872 and 13528 kHz. HackRF only.",1,0
+Russian Navy beacons 8495,8.495,cw,0.5,,"military,russian,weird,hf,hackrf",The 8 MHz cluster of the Russian Navy letter beacons: by day. HackRF only.,0,0
+Radio Romania International,9.73,am,9,,"broadcast,hf,propaganda,hackrf","Romania's international service, one of the strongest signals on shortwave in Europe, in a dozen languages; it reports on the war next door in Ukraine. Shortwave broadcasters change frequencies twice a year (March and October): check a current schedule. HackRF only.",0,1
+Voice of Korea,6.17,am,9,,"broadcast,hf,propaganda,hackrf","North Korea's state radio for the world: revolutionary songs, praise for the leader, and news from Pyongyang. Aimed at Europe in German, Russian and other languages. Also 9425 kHz. Shortwave broadcasters change frequencies twice a year (March and October): check a current schedule. HackRF only.",1,1
+Voice of Korea 9425,9.425,am,9,,"broadcast,hf,propaganda,hackrf",Voice of Korea's other frequency to Europe. Shortwave broadcasters change frequencies twice a year (March and October): check a current schedule. HackRF only.,0,1
+China Radio International,11.725,am,9,,"broadcast,hf,propaganda,hackrf","China's international radio (CRI), in German to Europe from Xi'an: China's view of the world. Shortwave broadcasters change frequencies twice a year (March and October): check a current schedule. HackRF only.",0,1
+CRI Russian,7.255,am,9,,"broadcast,hf,propaganda,russian,hackrf",China Radio International in Russian. Shortwave broadcasters change frequencies twice a year (March and October): check a current schedule. HackRF only.,0,1
+RRI Russian,7.33,am,9,,"broadcast,hf,propaganda,russian,hackrf","Radio Romania International in Russian: aimed at Russia, Moldova and Ukraine. Shortwave broadcasters change frequencies twice a year (March and October): check a current schedule. HackRF only.",0,1
+HM01 Cuban numbers,11.435,am,9,,"weird,numbers,hf,hackrf","Cuba's numbers station: a woman reads groups of numbers, followed by digital bursts. Thought to send instructions to agents abroad. Frequencies change; Priyom.org keeps the schedules of the numbers stations still on air. (Frequency from public lists: check it with the Band view.) HackRF only.",0,0
+NATO search and rescue,282.8,am,9,,"military,air,emergency",The NATO and international on-scene search and rescue frequency (UHF): helicopters and lifeboats coordinate here during a rescue.,0,1
+Military UHF air,251,am,10,,"military,air","The military air band (225–400 MHz, AM): fighter jets, tankers and AWACS. Scan the band (Mil air) to find what's active near you, e.g. near Volkel or Leeuwarden air bases.",0,1
+UHF SATCOM,255.55,nfm,25,,"military,satellite,weird","Military satellites in the 240–270 MHz band. Fact: the old American FLTSATCOM satellites over the Atlantic are famously hijacked by Brazilian truckers and pirates, whose voices you may hear relayed from space. (Frequency from public lists: check it with the Band view.)",0,0
+STANAG data modem,6.348,usb,3,,"military,digital,hf,hackrf","Navies send data over HF with STANAG modems: a steady warbling hiss, 2400 baud. Several sit around 4–8 MHz. (Frequency from public lists: check it with the Band view.) HackRF only.",0,1
+ORBCOMM,137.5,nfm,25,,"satellite,digital","ORBCOMM's small data satellites (137.2–137.8 MHz): short digital bursts from trucks', ships' and pipelines' trackers. Seen with the stock antenna during a pass.",0,1
+Meteor HRPT,1700,wfm,200,,"satellite,weather",The Meteor satellites' high-resolution pictures (HRPT): needs a tracking dish. Fact: a 1 km resolution picture from 830 km.,0,1
+Meteosat HRIT,1691,wfm,200,,"satellite,weather","Meteosat, Europe's geostationary weather satellite at 36 000 km above Africa: its pictures need a 1 m dish pointed south. (Frequency from public lists: check it with the Band view.)",0,1
+Amateur sats 145.9,145.9,nfm,16,,"ham,satellite",Several amateur satellites send their FM downlink or telemetry near 145.9 MHz; the Satellites mode follows the ISS and SO-50.,0,1
