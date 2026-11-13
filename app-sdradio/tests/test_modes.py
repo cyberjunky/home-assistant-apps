@@ -286,3 +286,61 @@ def test_a_channel_brings_its_mode(radio):
     radio.command("memory", direction=-1)
     run(radio, 3)
     assert radio.decoder_key == "fake" and radio.frequency == 434_000_000
+
+
+def _real_radio(tmp_path, signals, receiver="rtl-sdr"):
+    config = Config()
+    config.receiver.type = receiver
+    db = Database(tmp_path / "db.sqlite")
+    events = []
+    r = Radio(
+        config, db, lambda c: SimulatedDevice(c, realtime=False, signals=signals), lambda k, p: events.append((k, p))
+    )
+    r.events = events
+    r.files_dir = tmp_path / "files"
+    r._open()
+    return r
+
+
+def test_ctcss_under_an_nfm_channel(tmp_path):
+    from tests import simulator
+
+    r = _real_radio(tmp_path, [(145_612_500, "nfm", 0.05, 30, 0, 800)])
+    r.command("tune", frequency=145_612_500, mode="nfm")
+    run(r, 20 * 4)
+    assert simulator.CTCSS[145_612_500] == 88.5
+    assert r.snapshot()["tones"] == {"ctcss": 88.5, "dcs": None, "dtmf": None}
+    r.db.close()
+
+
+def test_weather_fax_through_the_radio(tmp_path, monkeypatch):
+    from scipy.signal import resample_poly
+
+    from tests import simulator, wefax_signal
+
+    short = resample_poly(wefax_signal.transmission(wefax_signal.chart(60), phasing=6, start=3.0), 4, 1)
+    monkeypatch.setattr(simulator.SimulatedDevice, "_wefax_audio", staticmethod(lambda: short.astype(np.float32)))
+    r = _real_radio(tmp_path, [(7_878_100, "wefax", 0.05, 0, 0, 0)], receiver="hackrf")
+    r.command("decoder", key="wefax")
+    seconds = len(short) / 48_000 + 1
+    run(r, int(seconds * 20))
+    [chart] = r.db.decoded("wefax")
+    assert chart["rows"] >= 55 and (tmp_path / "files" / "wefax" / chart["file"]).exists()
+    assert r.frequency == 7_878_100 and r.mode == "usb"
+    r.db.close()
+
+
+def test_every_mode_starts_and_stops(tmp_path):
+    """Every mode through the radio, on a receiver that can do them all: started, fed, stopped."""
+    from src.decoders import registry
+
+    r = _real_radio(tmp_path, [], receiver="hackrf")
+    for key in registry():
+        r.command("decoder", key=key)
+        run(r, 3)
+        assert r.decoder is not None and r.decoder.key == key, key
+        assert r.snapshot()["decoder"]["key"] == key
+    r.command("decoder", key="radio")
+    run(r, 2)
+    assert r.decoder is None
+    r.db.close()

@@ -713,8 +713,12 @@ class Radio:
         self.demod.configure(self.mode, self.bandwidth)
         self.demod.set_offset(self.frequency - self.center)
         # RDS belongs to one station: start over on another frequency
-        if self.demod.rds is not None and self.frequency != self._rds_frequency:
-            self.demod.rds.reset()
+        if self.frequency != self._rds_frequency:
+            if self.demod.rds is not None:
+                self.demod.rds.reset()
+            # And the tones to one channel
+            if self.demod.tones is not None:
+                self.demod.tones = type(self.demod.tones)(self.demod.if_rate)
         self._rds_frequency = self.frequency
         self.demod.agc_enabled = self.agc
         self.demod.noise_blanker = self.noise_blanker
@@ -769,7 +773,9 @@ class Radio:
         elif self.priority:
             self._priority_step(open_)
 
-        if open_ and self.listeners and not self.settle and audio is not None:
+        # A mode that decodes speech (Digital voice) is heard by its decoded voice, not the FM audio
+        voice = getattr(self.decoder, "take_voice", None) if self.decoder is not None else None
+        if voice is None and open_ and self.listeners and not self.settle and audio is not None:
             self.emit("audio", {"rate": self.demod.audio_rate, "pcm": to_pcm16(audio)})
 
         # The mode's decoder reads every block, squelch or not
@@ -778,6 +784,10 @@ class Radio:
                 self.decoder.feed_audio(audio, self.demod.audio_rate)
             if self.decoder.input in ("iq", "both"):
                 self.decoder.feed_iq(block, self.rate, self.frequency - self.center)
+        if voice is not None:
+            pcm = voice()
+            if pcm and self.listeners:
+                self.emit("audio", {"rate": self.decoder.voice_rate, "pcm": pcm})
 
         if self._save_due and time.monotonic() >= self._save_due:
             self._save_state()
@@ -1171,6 +1181,7 @@ class Radio:
             else None,
             "audio_rate": self.demod.audio_rate if self.demod else None,
             "rds": self.demod.rds.snapshot() if self.demod and self.demod.rds else None,
+            "tones": self.demod.tones.snapshot() if self.demod and self.demod.tones else None,
             "device": {
                 "ok": self.device is not None,
                 "error": self.device_error,

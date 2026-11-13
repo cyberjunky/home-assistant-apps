@@ -4,7 +4,8 @@
 
 const modeMap = {map: null, el: null, home: null, homeAt: null, viewKey: 'map_view'};
 // Where each mode's map opens: satellites see the whole world, the others the neighbourhood
-const MAP_START = {satellites: {zoom: 2, world: true}};
+// FT8 stations are hundreds to thousands of km away: a map of Europe and beyond
+const MAP_START = {satellites: {zoom: 2, world: true}, ft8: {zoom: 4}, sondes: {zoom: 7}};
 
 // The map in its slot in the mode's view: made once, moved back in when the view is redrawn.
 // Each mode keeps its own view (zoomed in on ships, out on satellites)
@@ -58,7 +59,8 @@ function setMapHome(location) {
     if (modeMap.home) modeMap.home.remove();
     modeMap.home = L.circleMarker(location, {radius: 6, color: '#fff', weight: 2, fillColor: '#03a9f4', fillOpacity: 1})
         .bindTooltip('The receiver (Home Assistant\'s home)').addTo(map);
-    if (!lsGet(modeMap.viewKey, null) && !modeMap.viewKey.endsWith('satellites')) map.setView(location, 8);
+    const mode = modeMap.viewKey.replace('map_view_', '');
+    if (!lsGet(modeMap.viewKey, null) && mode !== 'satellites') map.setView(location, (MAP_START[mode] || {}).zoom || 8);
 }
 
 // An aircraft's colour by its altitude, low (orange) to high (purple), as flight trackers do
@@ -137,5 +139,28 @@ function aprsIcon(s, colour, selected) {
         className: 'aprs-icon' + (selected ? ' selected' : ''),
         html: `<span style="border-color: ${colour}">${aprsSymbol(s)}</span>`,
         iconSize: [24, 24], iconAnchor: [12, 12],
+    });
+}
+
+// A radiosonde: a balloon, coloured by its altitude (metres, as the sondes report it)
+const BALLOON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a6 6 0 0 1 6 6c0 3.6-3.2 7-5 8l.8 1.5h-3.6L11 16c-1.8-1-5-4.4-5-8a6 6 0 0 1 6-6z"/><path d="M12 17.5v4.5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
+function sondeIcon(s, colour, selected) {
+    return L.divIcon({
+        className: 'plane-icon' + (selected ? ' selected' : ''),
+        html: `<span style="color: ${colour}">${BALLOON_SVG}</span>`,
+        iconSize: [26, 26], iconAnchor: [13, 22],
+    });
+}
+
+// An FT8 station: a dot, coloured by how strong it was heard (red weak, green strong)
+function snrColour(snr) {
+    const t = Math.max(0, Math.min(1, ((snr ?? -24) + 24) / 34));
+    return `hsl(${Math.round(t * 120)}, 75%, 45%)`;
+}
+function dotIcon(colour, selected) {
+    return L.divIcon({
+        className: 'aprs-icon' + (selected ? ' selected' : ''),
+        html: `<span style="border-color: ${colour}; background: ${colour}; width: 14px; height: 14px"></span>`,
+        iconSize: [14, 14], iconAnchor: [7, 7],
     });
 }

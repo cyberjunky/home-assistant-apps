@@ -22,7 +22,8 @@ const MODE_TITLES = {
     radio: 'The radio: tune, listen and scan', pager: 'Pager messages (P2000, POCSAG)', sensors: 'Weather stations and sensors on 433 and 868 MHz',
     aircraft: 'Aircraft on a map (ADS-B)', acars: 'Text messages of aircraft (ACARS)', ships: 'Ships on a map (AIS)',
     aprs: 'Radio amateur stations on a map (APRS)', sstv: 'Pictures sent as sound (SSTV)', satellites: 'Satellite passes',
-    dab: 'Digital radio: the stations of a DAB+ block',
+    dab: 'Digital radio: the stations of a DAB+ block', vdl2: 'Data link messages of aircraft (VDL2, ACARS over VDL)',
+    sondes: 'Weather balloons on a map (radiosondes)', digital: 'Digital voice: DMR, D-STAR, YSF, NXDN, P25, heard as speech', ft8: 'Radio amateurs far away (FT8, FT4)', wefax: 'Weather maps by radio (weather fax)',
     video: 'Analog video (FPV)',
 };
 
@@ -86,6 +87,7 @@ function renderModeHead() {
     const text = d.error ? d.error
         : TRACKED[d.key] ? `${fmtMHz(s.frequency)} MHz · ${modeView.planes.size} in view · ${d.count || 0} heard since the mode started`
         : d.key === 'satellites' ? `${fmtMHz(s.frequency)} MHz · ${d.count || 0} passes heard since the mode started`
+        : d.key === 'digital' ? `${fmtMHz(s.frequency)} MHz · ${d.protocol || ''} · ${d.speaking ? 'voice' : 'quiet'} · ${d.count || 0} calls since the mode started`
         : d.key === 'sensors' ? `${fmtMHz(s.frequency)} MHz · ${d.bursts || 0} bursts heard, ${d.count || 0} decoded since the mode started${d.hint ? ` · ${d.hint}` : ''}`
         : `${fmtMHz(s.frequency)} MHz · ${d.count || 0} decoded since the mode started`;
     if (status.textContent !== text) status.textContent = text;
@@ -96,7 +98,8 @@ function renderModeHead() {
 function key2placeholder(key) {
     return {sensors: 'Search devices…', aircraft: 'Search callsign, registration, type…', ships: 'Search name, MMSI, destination…',
         aprs: 'Search call sign, text…', acars: 'Search flight, registration, text…', sstv: 'Search kind (PD120, Robot 36)…',
-        satellites: 'Search satellite…', video: 'Search snapshots…', dab: 'Search station, music…'}[key] || 'Search messages, capcodes…';
+        satellites: 'Search satellite…', video: 'Search snapshots…', dab: 'Search station, music…', vdl2: 'Search flight, registration, text…',
+        sondes: 'Search sonde…', digital: 'Search talkgroup, radio ID, call sign, text…', ft8: 'Search call sign, grid, text…', wefax: 'Search charts…'}[key] || 'Search messages, capcodes…';
 }
 
 async function loadModeData() {
@@ -148,7 +151,7 @@ onSocket('live', (m) => {
         modeView.frame = m.frame;
         return renderVideoFrame();
     }
-    if (m.mode === 'sstv' && modeView.key === 'sstv') {
+    if ((m.mode === 'sstv' || m.mode === 'wefax') && modeView.key === m.mode) {
         modeView.receiving = m.receiving;
         return queueModeRender();
     }
@@ -187,6 +190,9 @@ function renderModeBody() {
     if (modeView.key === 'pager') body.innerHTML = pagerHtml();
     else if (modeView.key === 'acars') body.innerHTML = acarsHtml();
     else if (modeView.key === 'sstv') body.innerHTML = sstvHtml();
+    else if (modeView.key === 'vdl2') body.innerHTML = vdl2Html();
+    else if (modeView.key === 'digital') body.innerHTML = digitalHtml();
+    else if (modeView.key === 'wefax') body.innerHTML = wefaxHtml();
     else if (modeView.key === 'video') renderVideo(body);
     else if (modeView.key === 'dab') renderDab(body);
     else if (modeView.key === 'sensors') body.innerHTML = sensorsHtml();
@@ -235,6 +241,24 @@ function sstvHtml() {
     return `${live}<div class="sstv-grid">${pictures.map(i => `<figure>
         <a href="${fileUrl('sstv', i.file)}" target="_blank" rel="noopener"><img src="${fileUrl('sstv', i.file)}" alt="${escapeHtml(i.kind)} picture" loading="lazy"></a>
         <figcaption>${timeOf(i.ts)} · ${escapeHtml(i.kind)}${i.complete ? '' : ` · ${i.rows} of ${i.height} lines`}</figcaption>
+    </figure>`).join('')}</div>`;
+}
+
+// ---------------------------------------------------------------- weather fax
+
+function wefaxHtml() {
+    const r = modeView.receiving;
+    const live = r ? `<figure class="sstv-live fax">
+        <img src="${fileUrl('wefax', r.file)}?t=${r.t}" alt="The chart coming in">
+        <figcaption><span class="badge warn">receiving</span> ${num(r.rows)} lines · two a second</figcaption>
+    </figure>` : '';
+    const charts = modeView.items.filter(i => i.file);
+    if (!charts.length && !r) {
+        return emptyHtml(modeView.search ? 'No charts match.' : 'No charts yet. A chart starts with its start tone; the DWD (Pinneberg) sends on 3855, 7880 and 13882.5 kHz around the clock, a chart every 20 minutes or so.');
+    }
+    return `${live}<div class="sstv-grid fax">${charts.map(i => `<figure>
+        <a href="${fileUrl('wefax', i.file)}" target="_blank" rel="noopener"><img src="${fileUrl('wefax', i.file)}" alt="Weather chart" loading="lazy"></a>
+        <figcaption>${timeOf(i.ts)} · ${num(i.frequency / 1000, 1)} kHz · ${num(i.rows)} lines</figcaption>
     </figure>`).join('')}</div>`;
 }
 
@@ -372,6 +396,41 @@ function acarsHtml() {
     </div>`).join('');
 }
 
+// ---------------------------------------------------------------- VDL2
+
+function vdl2Html() {
+    if (!modeView.items.length) {
+        return emptyHtml(modeView.search ? 'No messages match.' : 'No messages yet. Over Europe VDL2 is busier than ACARS: near an airport messages come in every minute; the ground stations\' link upkeep is counted, not listed.');
+    }
+    return modeView.items.map(m => `<div class="msg acars">
+        <span class="msg-time mono" title="${fmtMHz(m.frequency)} MHz · ${m.direction === 'down' ? 'from the aircraft' : 'to the aircraft'}">${timeOf(m.ts)}</span>
+        <span class="badge" title="${escapeHtml(m.kind || '')}">${escapeHtml(m.kind === 'ACARS' ? (m.label || 'ACARS') : m.kind || '')}</span>
+        <span class="msg-addr mono">${escapeHtml([m.flight, m.registration].filter(Boolean).join(' · ') || (m.aircraft ? m.aircraft : m.key))}</span>
+        <span class="msg-text${m.text ? '' : ' muted'}">${m.text ? escapeHtml(m.text) : 'no text'}${m.crc === false ? ' <span class="warn-text" title="The block check did not match">(check failed)</span>' : ''}</span>
+    </div>`).join('');
+}
+
+// ---------------------------------------------------------------- digital voice
+
+function digitalHtml() {
+    if (!modeView.items.length) {
+        return emptyHtml(modeView.search ? 'No calls match.' : 'No calls yet. Each call is listed when it ends, with its talkgroup and who spoke; press Listen to hear them. Set the repeater or hotspot under Settings → Modes.');
+    }
+    return modeView.items.map(c => {
+        const who = [c.source && escapeHtml(c.source), c.alias && `<i>${escapeHtml(c.alias)}</i>`].filter(Boolean).join(' ');
+        const to = c.target ? `→ ${escapeHtml(c.target)}` : '';
+        const where = [c.cc !== undefined ? `CC ${c.cc}` : '', c.nac ? `NAC ${c.nac}` : '', c.ran !== undefined ? `RAN ${c.ran}` : '',
+            c.slot ? `slot ${c.slot}` : ''].filter(Boolean).join(' · ');
+        const flags = (c.flags || []).map(f => `<span class="badge${f === 'ENC' || f === 'Emergency' ? ' warn' : ''}">${escapeHtml(f === 'ENC' ? 'encrypted' : f.toLowerCase())}</span>`).join(' ');
+        return `<div class="msg acars">
+            <span class="msg-time mono">${timeOf(c.ts)}</span>
+            <span class="badge">${escapeHtml(c.system || '')}</span>
+            <span class="msg-addr mono">${who} ${to}</span>
+            <span class="msg-text">${flags} <small class="muted">${escapeHtml(where)}</small>${c.text ? `\n${escapeHtml(c.text)}` : ''}${c.gps ? `\nGPS ${escapeHtml(c.gps)}` : ''}</span>
+        </div>`;
+    }).join('');
+}
+
 // ---------------------------------------------------------------- sensors
 
 function sensorValues(values) {
@@ -456,6 +515,30 @@ const TRACKED = {
         liveHtml: aprsRows, historyHtml: aprsPacketRows,
         empty: 'No stations with a position yet. Digipeaters and weather stations send every 10 to 30 minutes; cars every minute or so while driving.',
         gone: 'No packets yet.',
+    },
+    sondes: {
+        listKey: 'sondes', noun: 'radiosondes',
+        id: s => s.id,
+        label: s => s.id,
+        colour: s => altitudeColour((s.altitude || 0) * 3.28 / 1.25),
+        icon: (s, colour, selected) => sondeIcon(s, colour, selected),
+        look: () => '',
+        search: s => [s.id, s.type],
+        liveHtml: sondeRows, historyHtml: sondeHistoryRows,
+        empty: 'No radiosondes in reach. Weather services launch them twice a day, around 11:00 and 23:00 UTC (De Bilt for the Netherlands); set the frequency of the nearest launch site on the Settings page.',
+        gone: 'Sondes are listed here when they have not been heard for ten minutes: usually when they have come down.',
+    },
+    ft8: {
+        listKey: 'stations', noun: 'stations', historyLabel: 'Decodes',
+        id: s => s.call,
+        label: s => s.call,
+        colour: s => snrColour(s.snr),
+        icon: (s, colour, selected) => dotIcon(colour, selected),
+        look: () => '',
+        search: s => [s.call, s.grid, s.text, s.to],
+        liveHtml: ft8Rows, historyHtml: ft8DecodeRows,
+        empty: 'No stations with a grid square yet. FT8 is busiest on 14.074 MHz by day and 7.074 MHz by night (HackRF); 28.074 MHz opens by day around the solar maximum.',
+        gone: 'No decodes yet. Every 15 seconds (7.5 for FT4) the slot just heard is decoded.',
     },
 };
 const tracked = () => TRACKED[modeView.key];
@@ -686,6 +769,66 @@ function aprsPacketRows(packets) {
         <span class="badge">${escapeHtml(p.type || 'packet')}</span>
         <span class="msg-addr mono" title="${escapeHtml(['via', ...(p.path || [])].join(' '))}">${escapeHtml(p.source || p.key)}</span>
         <span class="msg-text">${escapeHtml(aprsPacketText(p))}</span>
+    </div>`).join('');
+}
+
+// ---------------------------------------------------------------- radiosondes
+
+function sondeReadings(s) {
+    return [s.temperature !== undefined ? `${num(s.temperature, 1)} °C` : '', s.humidity !== undefined ? `${num(s.humidity)} %` : '',
+        s.pressure !== undefined ? `${num(s.pressure, 1)} hPa` : ''].filter(Boolean).join(' · ');
+}
+
+function sondeRows(sondes) {
+    const has = withDistance(sondes);
+    sortByDistance(sondes, s => s.id);
+    return `<table class="data aircraft"><thead><tr><th>Sonde</th><th>Altitude</th><th>Readings</th>${has ? '<th>Distance</th>' : ''}<th>Seen</th></tr></thead><tbody>
+        ${sondes.map(s => `<tr class="link${modeView.selected === s.id ? ' on' : ''}" onclick="selectTracked(${escapeHtml(JSON.stringify(s.id))}, true)">
+            <td><span class="plane-dot" style="background:${TRACKED.sondes.colour(s)}"></span><b>${escapeHtml(s.id)}</b>
+                <small class="muted mono">${escapeHtml([s.type, s.battery !== undefined ? `${num(s.battery, 1)} V` : null].filter(Boolean).join(' · '))}</small></td>
+            <td class="mono">${num(s.altitude)} m${s.climb > 1 ? ` ↑ ${num(s.climb, 1)} m/s` : s.climb < -1 ? ` ↓ ${num(-s.climb, 1)} m/s` : ''}<small class="muted">highest ${num(s.max_altitude)} m</small></td>
+            <td class="mono">${escapeHtml(sondeReadings(s))}</td>
+            ${distanceCell(s, has)}
+            <td class="mono" title="${num(s.frames)} frames">${fmtAgo(s.seen)}</td>
+        </tr>`).join('')}
+    </tbody></table>`;
+}
+
+function sondeHistoryRows(items) {
+    const where = p => p ? `${num(p[0], 4)}, ${num(p[1], 4)}` : '';
+    return `<table class="data aircraft"><thead><tr><th>Heard</th><th>Sonde</th><th>Highest</th><th>Last heard at</th><th>Frames</th></tr></thead><tbody>
+        ${items.map(i => `<tr>
+            <td class="mono">${i.first ? `${timeOf(i.first)} – ${fmtTime(i.seen)}` : timeOf(i.ts)}</td>
+            <td><b>${escapeHtml(i.key)}</b><small class="muted mono">${escapeHtml(i.type || '')}</small></td>
+            <td class="mono">${num(i.max_altitude || 0)} m</td>
+            <td class="mono">${where(i.last_position)}${i.altitude !== undefined ? ` · ${num(i.altitude)} m` : ''}</td>
+            <td class="mono">${num(i.frames || 0)}</td>
+        </tr>`).join('')}
+    </tbody></table>`;
+}
+
+// ---------------------------------------------------------------- FT8
+
+function ft8Rows(stations) {
+    const has = withDistance(stations);
+    sortByDistance(stations, s => s.call);
+    return `<table class="data aircraft"><thead><tr><th>Station</th><th>Grid</th>${has ? '<th>Distance</th>' : ''}<th>SNR</th><th>Last heard</th></tr></thead><tbody>
+        ${stations.map(s => `<tr class="link${modeView.selected === s.call ? ' on' : ''}" onclick="selectTracked(${escapeHtml(JSON.stringify(s.call))}, true)">
+            <td><span class="plane-dot" style="background:${snrColour(s.snr)}"></span><b>${escapeHtml(s.call)}</b><small class="muted mono">${escapeHtml(s.text || '')}</small></td>
+            <td class="mono">${escapeHtml(s.grid || '')}</td>
+            ${distanceCell(s, has)}
+            <td class="mono">${num(s.snr, 0)} dB</td>
+            <td class="mono" title="${num(s.messages)} messages">${fmtAgo(s.seen)}</td>
+        </tr>`).join('')}
+    </tbody></table>`;
+}
+
+function ft8DecodeRows(items) {
+    return items.map(m => `<div class="msg">
+        <span class="msg-time mono" title="${num(m.offset)} Hz in the passband · time offset ${num(m.dt, 1)} s">${timeOf(m.slot || m.ts)}</span>
+        <span class="badge" title="Signal to noise">${num(m.snr, 0)} dB</span>
+        <span class="msg-addr mono">${escapeHtml(m.grid || '')}${m.distance !== undefined ? ` · ${num(m.distance)} km` : ''}</span>
+        <span class="msg-text mono">${escapeHtml(m.text)}</span>
     </div>`).join('');
 }
 

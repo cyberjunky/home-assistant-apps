@@ -129,6 +129,7 @@ class Demodulator:
         self._dc = 0.0
         half = self.bandwidth / 2
         self.rds = None
+        self.tones = None
         if self.mode == "wfm":
             from .rds import RdsDecoder  # here: rds.py uses this module's filters
 
@@ -144,6 +145,10 @@ class Demodulator:
             return
         self.audio_rate = self.if_rate
         self.audio_factor = 1
+        if self.mode == "nfm":
+            from .tones import ToneReader  # here: tones.py uses this module's filters
+
+            self.tones = ToneReader(self.if_rate)
         self.cw_shift = Mixer(self.if_rate)
         self.cw_shift.offset = -700.0
         if self.mode == "usb":
@@ -206,8 +211,10 @@ class Demodulator:
             return self.audio_decimate(audio) * 0.8
         if self.mode == "nfm":
             deviation = max(self.bandwidth / 4, 1_500)
-            audio = self._fm(x) * (self.if_rate / (2 * math.pi * deviation)) * 0.5
-            return self.audio_lowpass(audio)
+            audio = self.audio_lowpass(self._fm(x) * (self.if_rate / (2 * math.pi * deviation)) * 0.5)
+            if self.tones is not None:
+                self.tones.process(audio)
+            return audio
         if self.mode == "am":
             envelope = np.abs(x).astype(np.float32)
             mean = float(np.mean(envelope)) if len(envelope) else 0.0
