@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- The top bar is as high as Home Assistant's own header (its --header-height, 56px by default) -->
+    <script>try{const h=getComputedStyle(window.parent.document.documentElement).getPropertyValue('--header-height').trim();if(h)document.documentElement.style.setProperty('--ha-header-height',h);}catch(e){}</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%234c8dff' d='M10,2C8.89,2 8,2.89 8,4V7C8,8.11 8.89,9 10,9H11V11H2V13H6V15H5C3.89,15 3,15.89 3,17V20C3,21.11 3.89,22 5,22H9C10.11,22 11,21.11 11,20V17C11,15.89 10.11,15 9,15H8V13H16V15H15C13.89,15 13,15.89 13,17V20C13,21.11 13.89,22 15,22H19C20.11,22 21,21.11 21,20V17C21,15.89 20.11,15 19,15H18V13H22V11H13V9H14C15.11,9 16,8.11 16,7V4C16,2.89 15.11,2 14,2H10M10,4H14V7H10V4M5,17H9V20H5V17M15,17H19V20H15V17Z'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="static/vendor/leaflet/leaflet.css?v=__VERSION__"/>
+    <link rel="stylesheet" href="static/app.css?v=__VERSION__"/>
+    <link rel="stylesheet" href="static/network.css?v=__VERSION__"/>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10,2C8.89,2 8,2.89 8,4V7C8,8.11 8.89,9 10,9H11V11H2V13H6V15H5C3.89,15 3,15.89 3,17V20C3,21.11 3.89,22 5,22H9C10.11,22 11,21.11 11,20V17C11,15.89 10.11,15 9,15H8V13H16V15H15C13.89,15 13,15.89 13,17V20C13,21.11 13.89,22 15,22H19C20.11,22 21,21.11 21,20V17C21,15.89 20.11,15 19,15H18V13H22V11H13V9H14C15.11,9 16,8.11 16,7V4C16,2.89 15.11,2 14,2H10M10,4H14V7H10V4M5,17H9V20H5V17M15,17H19V20H15V17Z"/></svg>
+            <span class="brand-name">NETWORK</span>
+            <span class="brand-sub" id="brand-sub"></span>
+        </div>
+        <nav class="tabs" id="nav" aria-label="Views">
+            <button type="button" class="tab" data-tab="overview" onclick="switchTab('overview')">Overview</button>
+            <button type="button" class="tab" data-tab="map" onclick="switchTab('map')">Map</button>
+            <button type="button" class="tab" data-tab="devices" onclick="switchTab('devices')">Devices</button>
+            <button type="button" class="tab" data-tab="networks" onclick="switchTab('networks')">Networks</button>
+            <button type="button" class="tab" data-tab="mobile" onclick="switchTab('mobile')">Mobile</button>
+            <button type="button" class="tab" data-tab="stats" onclick="switchTab('stats')">Stats</button>
+            <span class="tab-sep" aria-hidden="true"></span>
+            <button type="button" class="tab" data-tab="info" onclick="switchTab('info')" title="Info"><span class="tab-label">Info</span><span class="tab-icon" aria-hidden="true">ⓘ</span></button>
+        </nav>
+        <span class="spacer"></span>
+        <div class="tabs" role="group" aria-label="Theme">
+            <button type="button" id="theme-toggle" class="tab icon-tab" onclick="cycleTheme()" title="Theme"><span id="theme-icon" aria-hidden="true">🌓</span></button>
+        </div>
+        <span id="clock" class="clock"></span>
+    </header>
+
+    <div class="views">
+        <div class="pages" id="pages">
+            <div class="container">
+                <!-- Each page fills its own container; see the script of the same name -->
+                <div id="notices"></div>
+                <div id="tab-overview" class="tab-content"></div>
+                <div id="tab-devices" class="tab-content"></div>
+                <div id="tab-networks" class="tab-content"></div>
+                <div id="tab-mobile" class="tab-content"></div>
+                <div id="tab-stats" class="tab-content"></div>
+                <div id="tab-info" class="tab-content"></div>
+            </div>
+        </div>
+        <!-- The map fills the whole view -->
+        <div id="tab-map" class="tab-content map-view"></div>
+    </div>
+
+    <footer class="statusbar" id="statusbar"></footer>
+    <div id="toast-root"></div>
+    <div id="modal-root"></div>
+
+    <script src="static/vendor/leaflet/leaflet.js?v=__VERSION__"></script>
+    <script src="static/vendor/leaflet-heat/leaflet-heat.js?v=__VERSION__"></script>
+    <script src="static/core.js?v=__VERSION__"></script>
+    <script src="static/mdi.js?v=__VERSION__"></script>
+    <script src="static/icons.js?v=__VERSION__"></script>
+    <script src="static/charts.js?v=__VERSION__"></script>
+    <script src="static/overview.js?v=__VERSION__"></script>
+    <script src="static/devices.js?v=__VERSION__"></script>
+    <script src="static/map.js?v=__VERSION__"></script>
+    <script src="static/networks.js?v=__VERSION__"></script>
+    <script src="static/mobile.js?v=__VERSION__"></script>
+    <script src="static/stats.js?v=__VERSION__"></script>
+    <script src="static/info.js?v=__VERSION__"></script>
+    <script src="static/main.js?v=__VERSION__"></script>
+    <script src="static/donate.js?v=__VERSION__" data-app="Network" data-api="api/donate"></script>
+</body>
+</html>

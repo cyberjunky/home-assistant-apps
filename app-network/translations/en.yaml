@@ -1,0 +1,15 @@
+configuration:
+  history_days:
+    name: History read at start (days)
+    description: >-
+      How many days of Home Assistant's recorder history are read at start to
+      fill the statistics. The recorder keeps 10 days by default; 0 reads none.
+  keep_days:
+    name: Keep (days)
+    description: How long the app keeps its own record of every time a device went on or off the network.
+  include_disabled:
+    name: Disabled trackers
+    description: Also show device trackers that are disabled in Home Assistant.
+  log_level:
+    name: Log level
+    description: Amount of logging.
