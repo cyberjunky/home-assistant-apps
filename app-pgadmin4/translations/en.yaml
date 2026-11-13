@@ -1,0 +1,51 @@
+configuration:
+  ssl:
+    name: HTTPS on the direct port
+    description: >-
+      Serve the optional direct port over HTTPS (443) instead of HTTP (80), with
+      the certificate below. The sidebar (ingress) is not affected.
+  certfile:
+    name: Certificate file
+    description: The certificate in Home Assistant's ssl folder, used when HTTPS is on.
+  keyfile:
+    name: Private key file
+    description: The private key in Home Assistant's ssl folder, used when HTTPS is on.
+  servers:
+    name: Database servers
+    description: >-
+      Servers to add to pgAdmin automatically, when pgAdmin doesn't have one with
+      that name yet. Passwords can't be imported: enter them once in pgAdmin and
+      tick Save password.
+    fields:
+      name:
+        name: Name
+        description: Its name in pgAdmin.
+      host:
+        name: Host
+        description: Host name or IP address of the server.
+      port:
+        name: Port
+        description: Default 5432.
+      username:
+        name: Username
+        description: Default postgres.
+      database:
+        name: Maintenance database
+        description: Default postgres.
+      group:
+        name: Group
+        description: The server group in pgAdmin.
+  system_packages:
+    name: Extra packages
+    description: Alpine packages to install at start. Many packages slow the start down.
+  init_commands:
+    name: Commands at start
+    description: Shell commands to run at start.
+  leave_front_door_open:
+    name: Leave the front door open
+    description: >-
+      Serve pgAdmin without Home Assistant's login. A security risk: leave it off
+      unless you know why you need it.
+network:
+  80/tcp: pgAdmin over HTTP, without Home Assistant's login (optional; only on a trusted network)
+  443/tcp: pgAdmin over HTTPS, without Home Assistant's login (optional; only on a trusted network)

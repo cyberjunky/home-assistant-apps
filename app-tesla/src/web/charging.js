@@ -244,7 +244,7 @@ function editChargeCost(id) {
                 <label for="charge-cost">Cost (${escapeHtml(app.currency)})</label>
                 <input id="charge-cost" class="input" type="number" min="0" step="0.01" value="${missing(charge.cost) ? '' : charge.cost}">
             </div>
-            <div class="panel-sub">Leave empty to use what Tesla billed, or else the calculated cost (energy from the charger × the price per kWh in the add-on configuration).</div>
+            <div class="panel-sub">Leave empty to use what Tesla billed, or else the calculated cost (energy from the charger × the price per kWh in the app configuration).</div>
             <div class="form-error" id="charge-cost-error"></div>`,
         footHTML: '<button class="btn" data-close>Cancel</button><button class="btn btn-primary" data-save>Save</button>',
     });

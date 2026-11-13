@@ -61,7 +61,7 @@ def get_provinces() -> list[str]:
     return PROVINCES
 
 
-# A batch of provinces imported one after the other. The queue lives here, in the add-on,
+# A batch of provinces imported one after the other. The queue lives here, in the app,
 # so closing the page, a reload or a dropped connection can't stop it half way
 _batch: dict[str, Any] = {"batch_running": False, "batch_total": 0, "batch_index": 0, "batch_results": []}
 

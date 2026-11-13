@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 
-# Home Assistant's ingress proxy: the only client allowed when running as an add-on
+# Home Assistant's ingress proxy: the only client allowed when running as an app
 INGRESS_ADDRESS = "172.30.32.2"
 STREAM_HEARTBEAT = 15
 BUCKETS = ("day", "week", "month", "year")
@@ -67,7 +67,7 @@ async def _json_body(request: web.Request) -> dict:
 
 
 class WebUI:
-    """The add-on's web server."""
+    """The app's web server."""
 
     def __init__(
         self,
@@ -128,7 +128,7 @@ class WebUI:
         await asyncio.Event().wait()
 
     def closing(self) -> None:
-        """The add-on is stopping: end the live streams of open dashboards."""
+        """The app is stopping: end the live streams of open dashboards."""
         self._stopping = True
 
     async def stop(self) -> None:
@@ -156,7 +156,7 @@ class WebUI:
         return web.Response(
             text=html,
             content_type="text/html",
-            # Never let the browser serve a stale cached page after an add-on update
+            # Never let the browser serve a stale cached page after an app update
             headers={"Cache-Control": "no-cache, must-revalidate"},
         )
 
@@ -278,7 +278,7 @@ class WebUI:
     async def _handle_forecast_refresh(self, request: web.Request) -> web.Response:
         if not self.forecast.configured:
             return _error(
-                "The forecast is not configured: set a location and at least one plane in the add-on configuration", 409
+                "The forecast is not configured: set a location and at least one plane in the app configuration", 409
             )
         await self.forecast.fetch(force=True)
         if self.forecast.error:

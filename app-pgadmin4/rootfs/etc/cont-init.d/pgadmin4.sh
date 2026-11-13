@@ -1,7 +1,7 @@
 #!/usr/bin/with-contenv bashio
 # shellcheck shell=bash
 # ==============================================================================
-# Home Assistant Add-on: pgAdmin4
+# Home Assistant App: pgAdmin4
 # Configures pgAdmin4 before running (see pkg/docker/entrypoint.sh of pgAdmin)
 # ==============================================================================
 declare -r DATA_DIR=/data/pgadmin4
@@ -49,7 +49,7 @@ fi
 # ------------------------------------------------------------------------------
 # Register database servers in pgAdmin:
 # - the TimescaleDB app, when it is installed: the Supervisor is asked which
-#   add-ons are installed (so it is found whatever repository it came from),
+#   apps are installed (so it is found whatever repository it came from),
 #   and its container must be reachable, i.e. the app must be started;
 # - the servers listed in the 'servers' option.
 # A server is only added when the pgAdmin user has no server with the same
@@ -73,7 +73,7 @@ def add(name, host, group="Home Assistant", port=5432, database="postgres", user
 
 
 # TimescaleDB app. Its hostname is "<repository hash>-timescaledb", so ask the Supervisor
-# for the installed add-ons instead of guessing the repository; fall back to known names.
+# for the installed apps instead of guessing the repository; fall back to known names.
 hosts = []
 token = os.environ.get("SUPERVISOR_TOKEN")
 if token:
@@ -88,7 +88,7 @@ if token:
         if not hosts:
             print("  No TimescaleDB app is installed")
     except Exception as e:
-        print(f"  Could not list the installed add-ons ({e}); trying the known TimescaleDB hostnames")
+        print(f"  Could not list the installed apps ({e}); trying the known TimescaleDB hostnames")
 if not hosts and not token:
     hosts = [(h, None) for h in ("1b41fb55-timescaledb", "99fed3e4-timescaledb", "3c34fea8-timescaledb",
                                  "local-timescaledb")]
@@ -101,7 +101,7 @@ for host, state in hosts:
         continue
     add("TimescaleDB app (local)" if host.startswith("local-") else "TimescaleDB app", host)
 
-# Servers from the add-on options
+# Servers from the app options
 try:
     with open("/data/options.json", encoding="utf-8") as f:
         options = json.load(f)

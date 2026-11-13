@@ -22,7 +22,7 @@ configuration:
       Publiceer de omvormer via MQTT met Home Assistant discovery: sensoren voor
       zon, accu, net en huis, de accubesturing, en een event-entiteit voor
       moduswisselingen, omvormercommando's en meldingen. Laat host leeg om de
-      broker van Home Assistant zelf (Mosquitto add-on) te gebruiken.
+      broker van Home Assistant zelf (Mosquitto broker app) te gebruiken.
   miners:
     name: Miners (overschotverbruikers)
     description: >-
@@ -36,4 +36,4 @@ configuration:
       dashboard op handmatig om hem erbuiten te houden.
   log_level:
     name: Logniveau
-    description: Hoeveel detail de add-on naar het log schrijft.
+    description: Hoeveel detail de app naar het log schrijft.

@@ -26,9 +26,6 @@ backup_exclude:
   - postgres/**
 ports:
   5432/tcp:
-ports_description:
-  5432/tcp: "PostgreSQL Port. Beware! This port may already be in use.
-    Choose another port-number if the add-on won't start."
 options:
   databases:
     - homeassistant

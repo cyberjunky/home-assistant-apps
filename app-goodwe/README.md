@@ -67,7 +67,7 @@ Alternatively:
 ## Configuration
 
 The inverter's address and poll interval, the solar forecast (location and panels) and
-the MQTT broker are set on the add-on's Configuration tab. The battery control (auto-hold,
+the MQTT broker are set on the app's Configuration tab. The battery control (auto-hold,
 zero export, surplus signal) is set on the dashboard's Settings page. See
 [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-goodwe/DOCS.md) for every option, how the controller decides, the MQTT entities, the data
 it handles, the requirements and development notes.

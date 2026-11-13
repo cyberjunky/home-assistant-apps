@@ -118,7 +118,7 @@ def connect(params: dict):
     """Open a connection to the source database. Raises HistoryImportError on failure."""
     try:
         import pg8000.dbapi
-    except ImportError as e:  # pragma: no cover - the add-on image ships it
+    except ImportError as e:  # pragma: no cover - the app image ships it
         raise HistoryImportError("the PostgreSQL driver is not installed") from e
     try:
         return pg8000.dbapi.connect(

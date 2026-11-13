@@ -31,7 +31,7 @@ async def main() -> int:
     try:
         config = Config.from_options_file()
     except ValueError as e:
-        logger.error(f"{e} - fix the add-on configuration and restart")
+        logger.error(f"{e} - fix the app configuration and restart")
         return 1
     if config.log_level in ("debug", "warning", "error"):
         logging.getLogger().setLevel(config.log_level.upper())
@@ -73,7 +73,7 @@ async def main() -> int:
             logger.info(f"Mapped {mapped} drives for the Stats map")
 
     async def forever(service) -> None:
-        """A service that ends on its own (MQTT without a broker) must not end the add-on."""
+        """A service that ends on its own (MQTT without a broker) must not end the app."""
         await service
         await asyncio.Event().wait()
 
@@ -93,7 +93,7 @@ async def main() -> int:
         loop.add_signal_handler(sig, stop.set)
 
     # A service failing (e.g. port already in use) is fatal: exit non-zero so
-    # the finish script stops the add-on instead of restarting it in a loop
+    # the finish script stops the app instead of restarting it in a loop
     exit_code = 0
     stopper = asyncio.create_task(stop.wait())
     done, _ = await asyncio.wait([stopper, *services], return_when=asyncio.FIRST_COMPLETED)

@@ -1,0 +1,77 @@
+configuration:
+  postgres_password:
+    name: Wachtwoord van de gebruiker postgres
+    description: >-
+      Wordt bij elke start ingesteld, zodat je het later kunt wijzigen. Zonder
+      krijgt een nieuwe installatie het wachtwoord homeassistant (met een
+      waarschuwing in de log) en houdt een bestaande zijn wachtwoord.
+  databases:
+    name: Databases
+    description: Databases die bij de start worden gemaakt als ze nog niet bestaan.
+  timescale_enabled:
+    name: TimescaleDB in deze databases
+    description: Databases die de TimescaleDB-extensie krijgen.
+  timescaledb:
+    name: TimescaleDB
+    description: De telemetrie van TimescaleDB en het budget waarmee de afstemming rekent.
+    fields:
+      telemetry:
+        name: Telemetrie
+        description: off of basic.
+      maxmemory:
+        name: Geheugen
+        description: Het geheugenbudget voor de afstemming, bijvoorbeeld 512MB.
+      maxcpus:
+        name: CPU's
+        description: Het aantal CPU's voor de afstemming.
+  max_connections:
+    name: Maximum aantal verbindingen
+    description: Gelijktijdige verbindingen, minstens 20.
+  vectorchord:
+    name: VectorChord
+    description: >-
+      Laad VectorChord (vchord), de extensie voor vectorzoeken die Immich nodig
+      heeft. Databases die het gebruiken falen op hun vectorindexen als het weer
+      uit staat.
+  system_packages:
+    name: Extra pakketten
+    description: Alpine-pakketten om bij de start te installeren.
+  init_commands:
+    name: Opdrachten bij de start
+    description: Shell-opdrachten die bij de start worden uitgevoerd.
+  retry_upgrade:
+    name: Upgrade opnieuw proberen
+    description: Probeer een mislukte upgrade naar een nieuwe hoofdversie van PostgreSQL bij de volgende start opnieuw.
+  postgresql_settings:
+    name: PostgreSQL-instellingen
+    description: >-
+      naam=waarde, bijvoorbeeld work_mem=32MB. Ze gaan voor de eigen
+      instellingen van de app en worden gecontroleerd voordat PostgreSQL start:
+      wordt er één geweigerd, dan worden ze die start allemaal genegeerd en
+      staat de fout in de log.
+  pg_hba_config:
+    name: Toegangsregels (pg_hba.conf)
+    description: >-
+      Regels die aan pg_hba.conf worden toegevoegd; de eerste die past telt. Een
+      verkeerde regel kan je buitensluiten: houd er één die werkt.
+    fields:
+      type:
+        name: Soort
+        description: local, host, hostssl of hostnossl.
+      database:
+        name: Database
+        description: De database, of all.
+      user:
+        name: Gebruiker
+        description: De gebruiker, of all.
+      address:
+        name: Adres
+        description: Bijvoorbeeld 192.168.1.0/24.
+      method:
+        name: Methode
+        description: Bijvoorbeeld scram-sha-256, md5, trust of reject.
+      options:
+        name: Opties
+        description: Bijvoorbeeld clientcert=verify-full.
+network:
+  5432/tcp: "PostgreSQL, voor databaseprogramma's buiten Home Assistant (optioneel). Start de app niet, dan is deze poort misschien al in gebruik: kies een andere"

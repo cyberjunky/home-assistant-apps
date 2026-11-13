@@ -20,7 +20,7 @@ configuration:
       Publish the inverter to MQTT with Home Assistant discovery: sensors for
       solar, battery, grid and home power and energy, the battery control state,
       and an event entity for mode changes, inverter commands and alerts. Leave
-      host empty to use Home Assistant's own broker (Mosquitto add-on).
+      host empty to use Home Assistant's own broker (Mosquitto broker app).
   miners:
     name: Miners (surplus loads)
     description: >-
@@ -33,4 +33,4 @@ configuration:
       sensors; switch a miner to manual on the dashboard to keep it out.
   log_level:
     name: Log level
-    description: How much detail the add-on writes to its log.
+    description: How much detail the app writes to its log.

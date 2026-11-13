@@ -1,6 +1,6 @@
 #!/usr/bin/with-contenv bashio
 # ==============================================================================
-# Home Assistant Community Add-on: pgAdmin4
+# Home Assistant Community App: pgAdmin4
 # runs pgAdmin4 (see official-pgadmin4/pkg/docker/entrypoint.sh )
 # ==============================================================================
 

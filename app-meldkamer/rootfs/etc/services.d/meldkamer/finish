@@ -10,10 +10,10 @@ pkill -9 -x rtl_fm 2>/dev/null || true
 pkill -9 -x rx_fm 2>/dev/null || true
 pkill -9 -x multimon-ng 2>/dev/null || true
 
-# Fatal error (e.g. invalid configuration): take down the add-on instead of
+# Fatal error (e.g. invalid configuration): take down the app instead of
 # restarting it in an endless loop
 if [[ "${1:-0}" -ne 0 ]] && [[ "${1:-0}" -ne 256 ]]; then
-    echo "[ERROR] Meldkamer failed with exit code ${1}, stopping add-on"
+    echo "[ERROR] Meldkamer failed with exit code ${1}, stopping app"
     echo "${1:-0}" > /run/s6-linux-init-container-results/exitcode
     exec /run/s6/basedir/bin/halt
 fi

@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse"
 # Nominatim's usage policy: identify the application, at most one request per second
-USER_AGENT = f"ha-tesla-app/{ADDON_VERSION} (Home Assistant add-on; https://github.com/cyberjunky/home-assistant-apps)"
+USER_AGENT = f"ha-tesla-app/{ADDON_VERSION} (Home Assistant app; https://github.com/cyberjunky/home-assistant-apps)"
 REQUEST_SPACING = 1.5
 # After a failed lookup (no internet, service down) nothing is asked for this long
 FAILURE_PAUSE = 600

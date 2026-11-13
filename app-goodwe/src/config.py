@@ -9,16 +9,16 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Add-on storage: options.json, the database and the controller state live here.
+# App storage: options.json, the database and the controller state live here.
 # The GOODWE_* environment variables are for development only (see tools/mock_inverter.py);
-# the add-on itself never sets them.
+# the app itself never sets them.
 DATA_DIR = Path(os.environ.get("GOODWE_DATA_DIR", "/data"))
 OPTIONS_FILE = Path(os.environ.get("GOODWE_OPTIONS", str(DATA_DIR / "options.json")))
 WEB_PORT = int(os.environ.get("GOODWE_PORT", "8099"))
 
 
 def addon_version() -> str:
-    """The add-on version from config.yaml (copied next to the sources in the image)."""
+    """The app version from config.yaml (copied next to the sources in the image)."""
     for path in (Path("/app/config.yaml"), Path(__file__).resolve().parent.parent / "config.yaml"):
         try:
             for line in path.read_text().splitlines():
@@ -99,7 +99,7 @@ def _miners(items) -> list[Miner]:
 
 @dataclass
 class Config:
-    """Application configuration, read from the add-on options."""
+    """Application configuration, read from the app options."""
 
     inverter_host: str = ""
     # Seconds between inverter reads. The ES/AA55 network stack stops answering when polled too fast
@@ -142,9 +142,9 @@ class Config:
             config.mqtt_host = os.environ.get("GOODWE_MQTT_HOST", "")
             return config
         except (OSError, ValueError) as e:
-            raise ValueError(f"Cannot read add-on options from {path}: {e}") from e
+            raise ValueError(f"Cannot read app options from {path}: {e}") from e
         if not isinstance(data, dict):
-            raise ValueError(f"Invalid add-on options in {path}: expected a JSON object")
+            raise ValueError(f"Invalid app options in {path}: expected a JSON object")
 
         inverter = data.get("inverter") or {}
         forecast = data.get("forecast") or {}
@@ -165,7 +165,7 @@ class Config:
             )
         host = str(inverter.get("host") or os.environ.get("GOODWE_INVERTER_HOST", "")).strip()
         if not host:
-            raise ValueError("inverter.host is not set: enter the inverter's IP address in the add-on configuration")
+            raise ValueError("inverter.host is not set: enter the inverter's IP address in the app configuration")
         return cls(
             inverter_host=host,
             poll_seconds=_clamp(inverter.get("poll_seconds"), defaults.poll_seconds, 5, 300),

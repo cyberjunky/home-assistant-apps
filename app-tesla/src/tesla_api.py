@@ -52,7 +52,7 @@ class OwnerApiClosed(TeslaApiError):
         if source in ("browser", "app"):
             # The token came from a real browser (or the Tesla Auth app) and is still refused:
             # that points to the account, not to how this app connects
-            how = "the add-on's browser" if source == "browser" else "the Tesla Auth app"
+            how = "the app's browser" if source == "browser" else "the Tesla Auth app"
             message = (
                 f"Tesla's owner API refuses this account (403, pointing to its Fleet API), even with a token from"
                 f" {how}. That is the account, not this app: Tesla has closed the owner API for business and"

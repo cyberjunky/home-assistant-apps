@@ -1,4 +1,4 @@
-"""The inverter: connection, polling, normalising, and the only way the add-on writes to it.
+"""The inverter: connection, polling, normalising, and the only way the app writes to it.
 
 Everything that talks to the inverter goes through one asyncio lock. The AA55/UDP
 stack of the ES/EM/BP series is a small embedded implementation with no real
@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 # (General mode already self-consumes there: solar → house → battery → grid).
 WORK_MODES = {0: "General", 1: "Off-grid", 2: "Backup", 3: "Eco", 4: "Peak shaving", 5: "Self-use"}
 ES_WORK_MODES = (0, 1, 2, 3)
-# The settings this add-on can write, each through its dedicated command
+# The settings this app can write, each through its dedicated command
 WRITABLE = ("work_mode", "dod", "grid_export_limit", "grid_export", "charge_i")
 WRITE_NAMES = {
     "work_mode": "work mode",
@@ -357,7 +357,7 @@ class InverterLink:
         is for callers that write in a verify-and-retry loop and report once themselves.
         """
         if key not in WRITABLE:
-            raise ValueError(f"The setting {key} cannot be written by this add-on")
+            raise ValueError(f"The setting {key} cannot be written by this app")
         if self.inverter is None:
             raise InverterError("Inverter not connected")
         entry = {"ts": int(time.time()), "key": key, "value": value, "source": source}
@@ -447,4 +447,4 @@ class InverterLink:
             await inverter._read_from_socket(Aa55ProtocolCommand(f"035104{v_raw:04x}{amps:04x}", "03d1"))
             return f"battery charge current → {amps} A"
 
-        raise ValueError(f"The setting {key} cannot be written by this add-on")
+        raise ValueError(f"The setting {key} cannot be written by this app")

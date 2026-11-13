@@ -1,4 +1,4 @@
-/* Tesla dashboard. Same design language as the Meldkamer add-on: dark
+/* Tesla dashboard. Same design language as the Meldkamer app: dark
    palette by default; light when Home Assistant (or, outside it, the system)
    uses a light theme - see applyTheme() in core.js */
 :root {
@@ -476,7 +476,7 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; line-height:
 .tag-edit .input { width: 92px; text-align: right; }
 .tag-edit .hint { color: var(--muted-text-color); font-size: 11px; }
 
-/* The add-on's sign-in browser, shown in the sign-in dialog */
+/* The app's sign-in browser, shown in the sign-in dialog */
 .signin-here { display: flex; flex-direction: column; gap: 8px; }
 .signin-screen {
     display: block; width: 100%; max-width: 480px; margin: 0 auto; aspect-ratio: 480 / 640;

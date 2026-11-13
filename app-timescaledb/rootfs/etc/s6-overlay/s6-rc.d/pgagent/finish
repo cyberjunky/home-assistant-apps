@@ -4,7 +4,7 @@
 # Handles the exit of the pgAgent service.
 #
 # pgAgent is an auxiliary service: a failure of pgAgent must never take down
-# PostgreSQL (and with it the whole add-on). We only log the exit and let s6
+# PostgreSQL (and with it the whole app). We only log the exit and let s6
 # restart the service, unless the container is shutting down (SIGTERM).
 # ==============================================================================
 readonly exit_code_service="${1}"
