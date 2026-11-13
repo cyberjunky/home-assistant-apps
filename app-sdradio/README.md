@@ -1,6 +1,6 @@
 [![Version][version-shield]][changelog]
 [![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]](LICENSE)
+[![License][license-shield]](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-sdradio/LICENSE)
 ![Project Maintenance][maintenance-shield]
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
@@ -121,12 +121,12 @@ Alternatively:
 | `receiver.sdr_gain` | `40` | `0` = automatic; the RF gain knob changes it while listening |
 | `tune.frequency` / `tune.mode` | `145.5` / `nfm` | Where the radio starts |
 
-All options, and how scanning, channels and backups work: [DOCS.md](DOCS.md).
+All options, and how scanning, channels and backups work: [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-sdradio/DOCS.md).
 
 **HackRF or RTL-SDR?** Both do nearly everything. The HackRF adds shortwave (below 24 MHz: HF
 broadcast, FT8 on 7 and 14 MHz, weather fax), 1.7 to 6 GHz and the 20 MHz that analog video
 needs; the RTL-SDR is a little more sensitive on VHF and UHF and draws less power. The table is
-in [DOCS.md](DOCS.md#hackrf-or-rtl-sdr).
+in [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-sdradio/DOCS.md#hackrf-or-rtl-sdr).
 
 One receiver serves one app at a time: two apps can't share a dongle, unless one of them uses it
 through `rtl_tcp`.
@@ -147,7 +147,7 @@ Every contribution, no matter the size, makes a difference and is greatly apprec
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-sdradio/LICENSE) file for
 details.
 
 ---

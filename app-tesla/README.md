@@ -1,6 +1,6 @@
 [![Version][version-shield]][changelog]
 [![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]](LICENSE)
+[![License][license-shield]](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-tesla/LICENSE)
 ![Project Maintenance][maintenance-shield]
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
@@ -71,13 +71,13 @@ Alternatively:
 5. Open **Tesla** from the sidebar and sign in to Tesla
 
 Signing in brings its own browser (Tesla has no way for third-party tools to log in by
-themselves), so there is nothing to copy or paste. See [DOCS.md](DOCS.md) for the sign-in
+themselves), so there is nothing to copy or paste. See [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-tesla/DOCS.md) for the sign-in
 steps, the refresh-token alternative and importing existing history.
 
 ## Configuration
 
 This app works out of the box; the options cover units and currency, charging cost,
-how often the car is read, and the MQTT broker. See [DOCS.md](DOCS.md) for every option,
+how often the car is read, and the MQTT broker. See [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-tesla/DOCS.md) for every option,
 how it works, the data it handles, the requirements and development notes.
 
 ## Disclaimer
@@ -108,7 +108,7 @@ Every contribution, no matter the size, makes a difference and is greatly apprec
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-tesla/LICENSE) file for
 details.
 
 ---

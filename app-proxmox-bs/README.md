@@ -1,6 +1,6 @@
 [![Version][version-shield]][changelog]
 [![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]](LICENSE)
+[![License][license-shield]](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-proxmox-bs/LICENSE)
 ![Project Maintenance][maintenance-shield]
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
@@ -78,7 +78,7 @@ Alternatively:
 
 ## Configuration
 
-See [DOCS.md](DOCS.md) for the options, setting up a disk, connecting Proxmox VE and what to
+See [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-proxmox-bs/DOCS.md) for the options, setting up a disk, connecting Proxmox VE and what to
 expect.
 
 ## Disclaimer
@@ -108,7 +108,7 @@ Every contribution, no matter the size, makes a difference and is greatly apprec
 
 ## License
 
-This app's own code is licensed under the MIT License - see the [LICENSE](LICENSE) file for
+This app's own code is licensed under the MIT License - see the [LICENSE](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-proxmox-bs/LICENSE) file for
 details. Proxmox Backup Server is free software by Proxmox Server Solutions GmbH under the
 GNU AGPL v3; the image installs it unchanged from Proxmox's repository (amd64) or from
 [wofferl/proxmox-backup-arm64](https://github.com/wofferl/proxmox-backup-arm64) (aarch64).

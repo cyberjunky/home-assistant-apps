@@ -1,6 +1,6 @@
 [![Version][version-shield]][changelog]
 [![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]](LICENSE)
+[![License][license-shield]](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-proxmox/LICENSE)
 ![Project Maintenance][maintenance-shield]
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
@@ -88,7 +88,7 @@ twice.
 ## Requirements
 
 - A Proxmox VE 8 or 9 node or cluster, reachable from Home Assistant on port 8006
-- An API token (DOCS.md shows the four commands to make one)
+- An API token (see **Making the API token** below)
 - Optional: a Proxmox Backup Server with its own read-only token
 
 ## Installation
@@ -101,13 +101,43 @@ Alternatively:
 2. Open the menu (⋮) and choose **Repositories**
 3. Add `https://github.com/cyberjunky/home-assistant-apps`
 4. Install **Proxmox**
-5. Make an API token in Proxmox, and enter your nodes under `hosts` and the token under `token_id` and `token_secret`
+5. Make an API token in Proxmox (see below), and enter your nodes under `hosts` and the token under `token_id` and `token_secret` on the app's **Configuration** tab
 6. Start the app and open **Proxmox** from the sidebar
 
 ## Configuration
 
-Proxmox needs one or more nodes of your cluster and an API token. See [DOCS.md](DOCS.md) for
-every option, the token's privileges, what each page shows and how it works.
+Proxmox needs one or more nodes of your cluster and an API token:
+
+```yaml
+hosts:
+  - 192.168.1.11
+  - 192.168.1.12
+token_id: homeassistant@pve!dashboard
+token_secret: the-secret-proxmox-printed
+```
+
+### Making the API token
+
+On any node of the cluster, as root (in the Proxmox web interface: the node → **Shell**):
+
+```sh
+pveum user add homeassistant@pve --comment "Home Assistant dashboard"
+# Proxmox VE 9
+pveum role add HADashboard --privs "Sys.Audit,Sys.Modify,VM.Audit,VM.GuestAgent.Audit,Datastore.Audit,SDN.Audit,Pool.Audit"
+# Proxmox VE 8 (use this line instead of the one above)
+pveum role add HADashboard --privs "Sys.Audit,Sys.Modify,VM.Audit,VM.Monitor,Datastore.Audit,SDN.Audit,Pool.Audit"
+pveum acl modify / --users homeassistant@pve --roles HADashboard
+pveum user token add homeassistant@pve dashboard --privsep 0
+```
+
+The last command prints the token's secret, once: copy it into `token_secret`. `token_id` is
+`homeassistant@pve!dashboard`. This role only reads. For the buttons (power, firewall rules, VLANs) add
+`VM.PowerMgmt,VM.Config.Network` to it with
+`pveum role modify HADashboard --append 1 --privs "VM.PowerMgmt,VM.Config.Network"` and set
+`read_only: false`. The app's **Info** page shows these commands too, and what the token can't read.
+
+For a Proxmox Backup Server, every option, what each page shows and how it works: the app's
+**Documentation** tab in Home Assistant, or [DOCS.md on GitHub](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-proxmox/DOCS.md).
 
 ## Disclaimer
 
@@ -136,7 +166,7 @@ Every contribution, no matter the size, makes a difference and is greatly apprec
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-proxmox/LICENSE) file for
 details. Proxmox VE is not part of this app; the app only talks to its API.
 
 ---

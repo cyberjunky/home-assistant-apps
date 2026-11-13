@@ -1,6 +1,6 @@
 [![Version][version-shield]][changelog]
 [![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]](LICENSE)
+[![License][license-shield]](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-nuclei/LICENSE)
 ![Project Maintenance][maintenance-shield]
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
@@ -53,12 +53,12 @@ systems you do not own or have permission to test.
 
 ## Configuration
 
-See [DOCS.md](DOCS.md) for every option, how the two-pass scan works, the data it
+See [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-nuclei/DOCS.md) for every option, how the two-pass scan works, the data it
 handles, the requirements and development notes.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-nuclei/LICENSE) file for
 details.
 
 ---

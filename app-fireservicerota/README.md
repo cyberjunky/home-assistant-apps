@@ -1,6 +1,6 @@
 [![Version][version-shield]][changelog]
 [![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]](LICENSE)
+[![License][license-shield]](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-fireservicerota/LICENSE)
 ![Project Maintenance][maintenance-shield]
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
@@ -68,7 +68,7 @@ Alternatively:
 
 This app works out of the box: it finds the integration's entities by itself. The
 options cover the entities (if you want other ones), how much history to import,
-events and announcements. See [DOCS.md](DOCS.md) for every option, how it works, the
+events and announcements. See [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-fireservicerota/DOCS.md) for every option, how it works, the
 data it handles, the requirements and development notes.
 
 ## Disclaimer
@@ -99,7 +99,7 @@ Every contribution, no matter the size, makes a difference and is greatly apprec
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-fireservicerota/LICENSE) file for
 details.
 
 ---

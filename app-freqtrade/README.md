@@ -1,6 +1,6 @@
 [![Version][version-shield]][changelog]
 [![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]](LICENSE)
+[![License][license-shield]](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-freqtrade/LICENSE)
 ![Project Maintenance][maintenance-shield]
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
@@ -92,7 +92,7 @@ Alternatively:
 ## Configuration
 
 Freqtrade needs the address, username and password of each bot's API server. See
-[DOCS.md](DOCS.md) for every option, the settings on the bot's side, how it works and what the
+[DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-freqtrade/DOCS.md) for every option, the settings on the bot's side, how it works and what the
 dashboard shows.
 
 ## Disclaimer
@@ -122,7 +122,7 @@ Every contribution, no matter the size, makes a difference and is greatly apprec
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-freqtrade/LICENSE) file for
 details. Freqtrade itself is GPL-3.0 and is not part of this app; the app only talks to its API.
 
 ---
