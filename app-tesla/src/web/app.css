@@ -152,11 +152,6 @@ a { color: var(--primary-color); }
 .pages { height: 100%; overflow-y: auto; }
 .pages:not(:has(.tab-content.active)) { display: none; }
 
-.panel-label {
-    height: 34px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    padding: 0 14px; border-bottom: var(--card-border); background: var(--ha-card-background);
-    color: var(--secondary-text-color); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
-}
 .empty-state { color: var(--secondary-text-color); text-align: center; padding: 40px 20px; font-size: 12px; }
 .setup-hint {
     display: flex; align-items: center; gap: 10px; margin: 8px; padding: 8px 12px; border-radius: 6px;
@@ -214,9 +209,6 @@ a { color: var(--primary-color); }
 }
 .pin.end { border-color: var(--success-color); }
 .pin.charge { border-color: var(--state-charging); }
-.map-tools {
-    position: absolute; top: 10px; right: 10px; z-index: 1000; display: flex; gap: 6px;
-}
 .map-legend {
     position: absolute; left: 10px; bottom: 10px; z-index: 1000; display: flex; align-items: center; gap: 8px;
     padding: 4px 8px; border-radius: 4px; background: var(--ha-card-background); border: var(--card-border);
@@ -371,8 +363,6 @@ a { color: var(--primary-color); }
 
 /* ---------- Stats & Settings pages ---------- */
 .panel { background: var(--ha-card-background); border: var(--card-border); border-radius: 6px; }
-.panel-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--divider-color); }
-.panel-title { font-size: 13px; font-weight: 600; }
 .panel-sub { color: var(--secondary-text-color); font-size: 12px; }
 .panel-body { padding: 16px 18px; }
 .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }
@@ -425,8 +415,6 @@ a { color: var(--primary-color); }
 .step p { color: var(--secondary-text-color); margin: 2px 0 8px; line-height: 1.5; }
 .step b { color: var(--primary-text-color); font-weight: 600; }
 .note { padding: 8px 10px; border-radius: 4px; background: var(--ha-background); border: var(--card-border); font-size: 12px; color: var(--secondary-text-color); line-height: 1.5; }
-details.advanced summary { cursor: pointer; color: var(--secondary-text-color); font-size: 12px; }
-details.advanced[open] summary { margin-bottom: 8px; }
 
 /* ---------- Buttons & inputs ---------- */
 .btn {

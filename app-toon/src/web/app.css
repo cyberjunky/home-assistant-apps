@@ -1,4 +1,4 @@
-/* Toon dashboard. Same design language as the GoodWe and TeslaMeter apps:
+/* Toon dashboard. Same design language as the GoodWe and Tesla apps:
    dark palette by default; light when Home Assistant (or, outside it, the system)
    uses a light theme - see applyTheme() in core.js */
 :root {
@@ -107,7 +107,6 @@ a { color: var(--primary-color); }
 .brand { display: flex; align-items: center; gap: 8px; }
 .brand svg { width: 20px; height: 20px; color: var(--flame); }
 .brand-name { font-weight: 600; letter-spacing: 0.04em; }
-.brand-sub { font-family: var(--mono); font-size: 12px; color: var(--secondary-text-color); }
 
 .tabs { display: flex; gap: 2px; padding: 2px; border-radius: 6px; background: var(--ha-background); border: var(--card-border); }
 .tab {
@@ -203,14 +202,10 @@ a { color: var(--primary-color); }
     display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px;
     color: var(--secondary-text-color); font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
 }
-.live-note { margin-top: 8px; font-size: 12px; color: var(--secondary-text-color); }
 
 /* ---------- Dashboard ---------- */
 .dash-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
 .dash-grid .panel { min-width: 0; }
-.dash-stack { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.dash-stack > .panel + .panel { margin-top: 0; }
-.dash-stack > .panel:last-child { flex: 1; }
 .panel + .panel, .stats-grid + .panel { margin-top: 14px; }
 .dash-grid + .panel { margin-top: 0; }
 .dash-grid > .panel + .panel, .stats-grid > .panel + .panel, .info-grid > .panel + .panel { margin-top: 0; }
@@ -313,8 +308,6 @@ a { color: var(--primary-color); }
 .section-title { font-size: 11.5px; font-weight: 600; color: var(--secondary-text-color); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
 .note { padding: 8px 10px; border-radius: 4px; background: var(--ha-background); border: var(--card-border); font-size: 12px; color: var(--secondary-text-color); line-height: 1.5; }
 .note.warn { border-color: var(--warning-color); color: var(--primary-text-color); background: rgba(245,165,36,0.08); }
-details.advanced summary { cursor: pointer; color: var(--secondary-text-color); font-size: 12px; }
-details.advanced[open] summary { margin-bottom: 12px; }
 .detail-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
 /* ---------- Buttons & inputs ---------- */
@@ -353,7 +346,6 @@ details.advanced[open] summary { margin-bottom: 12px; }
 .input:focus { border-color: var(--primary-color); }
 .form-field label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--secondary-text-color); margin-bottom: 5px; }
 .form-field .input { width: 100%; }
-.form-error { color: var(--danger-color); font-size: 12.5px; }
 
 /* ---------- Toasts ---------- */
 #toast-root { position: fixed; right: 18px; bottom: 40px; z-index: 4000; display: flex; flex-direction: column; gap: 8px; }
@@ -408,7 +400,6 @@ button.preset:disabled { cursor: default; opacity: 0.65; }
 
 /* ---------- Smaller screens ---------- */
 @media (max-width: 1400px) {
-    .brand-sub { display: none; }
     .clock { font-size: 18px; }
 }
 @media (max-width: 1000px) {
@@ -416,8 +407,6 @@ button.preset:disabled { cursor: default; opacity: 0.65; }
     .stats-grid { grid-template-columns: 1fr; }
     .records, #health-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .info-grid { grid-template-columns: 1fr; }
-    .control-row { grid-template-columns: minmax(0, 1fr) auto; }
-    .control-row .ch { grid-column: 1 / -1; }
     #stats-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 700px) {

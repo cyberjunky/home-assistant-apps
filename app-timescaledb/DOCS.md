@@ -107,12 +107,6 @@ postgresql_settings:
   - "timescaledb.max_background_workers=12"
 ```
 
-### Option: `postgresql_config`
-
-Replaced by `postgresql_settings` in 5.6.0. It could never hold a value (the Supervisor drops
-keys of a dictionary option that the schema does not list by name), is ignored, and will be
-removed in a later version.
-
 ### Option: `pg_hba_config`
 
 Rules appended to the default `pg_hba.conf`. Rules are evaluated in order; the first match

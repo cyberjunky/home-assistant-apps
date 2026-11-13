@@ -325,17 +325,6 @@ function lineChart(el, opts) {
     });
 }
 
-// Evenly spaced time labels for a line chart's x axis
-function timeTicks(xs, count, format) {
-    const ticks = [];
-    const x0 = xs[0], x1 = xs[xs.length - 1];
-    for (let i = 0; i <= count; i++) {
-        const at = x0 + (x1 - x0) * i / count;
-        ticks.push({at, label: format(at)});
-    }
-    return ticks;
-}
-
 // Whole hours between two timestamps, every `step` hours
 function hourTicks(from, to, step) {
     const ticks = [];

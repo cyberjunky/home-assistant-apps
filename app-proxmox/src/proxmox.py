@@ -278,7 +278,7 @@ def _port_in(spec: str, port: int) -> bool:
     return False
 
 
-def lockout_risk(scope: dict, rule: dict, options: dict | None = None) -> str:
+def lockout_risk(scope: dict, rule: dict) -> str:
     """Why a rule on the host firewall may cut off the web interface (port 8006) or SSH, or ''.
 
     Only for the datacenter and the nodes: a guest's rules never filter the host."""

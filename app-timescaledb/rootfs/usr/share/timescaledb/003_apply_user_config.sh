@@ -76,14 +76,6 @@ apply_postgresql_config() {
     local check_output
     local line
 
-    # postgresql_config (a dictionary) never held a value: the Supervisor drops dictionary
-    # keys that the schema does not list by name. It is still accepted so saved options
-    # keep validating, but it is replaced by postgresql_settings.
-    if [[ "$(bashio::config 'postgresql_config // {} | length')" != "0" ]]; then
-        bashio::log.warning "The postgresql_config option is replaced by postgresql_settings and is ignored."
-        bashio::log.warning "Move each setting to postgresql_settings as \"name=value\", e.g. \"work_mem=16MB\"."
-    fi
-
     # User settings live in their own file, rewritten on every start, so removing a
     # setting from the options also removes it from PostgreSQL.
     {

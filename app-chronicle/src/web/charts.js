@@ -671,7 +671,3 @@ function stateColors(states) {
     });
     return s => map[s] || cssVar('--muted-text-color');
 }
-
-function legendHtml(items) {
-    return items.map(it => `<span><i class="${it.kind || ''}" style="background:${it.color}"></i>${escapeHtml(it.name)}</span>`).join('');
-}

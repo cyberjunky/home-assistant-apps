@@ -19,7 +19,6 @@ RATE = 240_000
 # Fields that identify a device or describe the reading itself, not what it measured
 META = {"time", "model", "id", "channel", "subtype", "mic", "mod", "freq", "freq1", "freq2", "rssi", "snr", "noise",
         "protocol"}  # fmt: skip
-FREQUENCIES = [433_920_000, 868_300_000, 868_950_000, 915_000_000, 315_000_000, 345_000_000]
 
 
 def device_key(reading: dict) -> str:

@@ -147,8 +147,6 @@ timescaledb/
     └── usr/
         └── share/
             └── timescaledb/
-                ├── 000_install_timescaledb.sh
-                ├── 001_reenable_auth.sh
                 ├── 002_timescaledb_tune.sh
                 └── 003_apply_user_config.sh  # NEW
 ```

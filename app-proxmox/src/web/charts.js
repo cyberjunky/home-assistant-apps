@@ -1,4 +1,4 @@
-// Proxmox dashboard - small SVG charts: bars, signed bars, lines and a donut, with a shared tooltip.
+// Proxmox dashboard - small SVG charts: bars, signed bars and lines, with a shared tooltip.
 // Charts are drawn at the pixel width of their container and redrawn when it changes.
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -342,32 +342,6 @@ function timeTicks(xs, count, format) {
     return ticks;
 }
 
-// Whole hours between two timestamps, every `step` hours
-function hourTicks(from, to, step) {
-    const ticks = [];
-    const start = new Date(from * 1000);
-    start.setMinutes(0, 0, 0);
-    for (let t = start.getTime() / 1000; t <= to; t += 3600) {
-        const h = new Date(t * 1000).getHours();
-        if (t >= from && h % step === 0) ticks.push({at: t, label: `${String(h).padStart(2, '0')}:00`});
-    }
-    return ticks;
-}
-
-// Consecutive samples with the same state become one background band
-function stateBands(xs, states, colors, step) {
-    const bands = [];
-    for (let i = 0; i < xs.length; i++) {
-        const s = states[i];
-        if (!colors[s]) continue;
-        let j = i;
-        while (j + 1 < xs.length && states[j + 1] === s) j++;
-        bands.push({from: xs[i], to: xs[j] + step, color: colors[s], state: s});
-        i = j;
-    }
-    return bands;
-}
-
 function legendHtml(items) {
     return items.map(it => `<span><i class="${it.kind || ''}" style="background:${it.color}"></i>${escapeHtml(it.name)}</span>`).join('');
 }
@@ -431,56 +405,6 @@ function signedBarChart(el, opts) {
         });
         svg.appendChild(svgEl('line', {class: 'baseline', x1: plot.x, x2: plot.x + plot.w, y1: zero, y2: zero}));
     });
-}
-
-// ---------------------------------------------------------------------
-// Donut with a legend. items: [{name, value, color, detail?}], center: {label, value}
-// Only for parts of one whole: values must be positive and share a unit.
-// ---------------------------------------------------------------------
-function donutChart(el, items, center, format) {
-    const parts = items.filter(it => it.value > 0);
-    const total = parts.reduce((a, it) => a + it.value, 0);
-    if (!total) {
-        el.innerHTML = '<div class="empty-state">Nothing to show</div>';
-        return;
-    }
-    const size = 168, r = 80, inner = 56, c = size / 2;
-    const svg = svgEl('svg', {class: 'donut', viewBox: `0 0 ${size} ${size}`, role: 'img'});
-    let angle = -Math.PI / 2;
-    const point = (a, radius) => `${(c + radius * Math.cos(a)).toFixed(2)},${(c + radius * Math.sin(a)).toFixed(2)}`;
-    parts.forEach(it => {
-        const sweep = Math.min(it.value / total, 0.99999) * Math.PI * 2;
-        const end = angle + sweep;
-        const large = sweep > Math.PI ? 1 : 0;
-        const d = `M${point(angle, r)} A${r},${r} 0 ${large} 1 ${point(end, r)} L${point(end, inner)} A${inner},${inner} 0 ${large} 0 ${point(angle, inner)} Z`;
-        const path = svgEl('path', {d, fill: it.color, tabindex: '0'});
-        const tip = (e) => {
-            const box = path.getBoundingClientRect();
-            showTip(e && e.clientX ? e.clientX : box.left + box.width / 2, e && e.clientY ? e.clientY : box.top, it.name,
-                [{color: it.color, value: format(it.value)}, {value: `${num(it.value / total * 100, 1)}%`, name: 'of the total'}]);
-        };
-        path.addEventListener('pointermove', tip);
-        path.addEventListener('focus', () => tip(null));
-        path.addEventListener('pointerleave', hideTip);
-        path.addEventListener('blur', hideTip);
-        svg.appendChild(path);
-        angle = end;
-    });
-    const label = svgEl('text', {class: 'c-label', x: c, y: c - 6});
-    label.textContent = center.label;
-    const value = svgEl('text', {class: 'c-value', x: c, y: c + 14});
-    value.textContent = center.value;
-    svg.append(label, value);
-    el.innerHTML = '';
-    const wrap = document.createElement('div');
-    wrap.className = 'donut-wrap';
-    wrap.appendChild(svg);
-    const legend = document.createElement('div');
-    legend.className = 'donut-legend';
-    legend.innerHTML = items.map(it => `<div class="row"><i style="background:${it.color}"></i><span class="name">${escapeHtml(it.name)}</span>`
-        + `<span class="val">${escapeHtml(it.detail || format(it.value))}</span><span class="pct">${it.value > 0 ? num(it.value / total * 100, 1) + '%' : '–'}</span></div>`).join('');
-    wrap.appendChild(legend);
-    el.appendChild(wrap);
 }
 
 // Date labels for a time axis: hours within a day, days within months, months beyond

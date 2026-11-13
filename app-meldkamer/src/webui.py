@@ -2007,11 +2007,6 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
         /* Settings & Info pages */
         .panel { background: var(--ha-card-background); border: var(--card-border); border-radius: 6px; }
-        .panel-head {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 12px 14px; border-bottom: 1px solid var(--divider-color);
-        }
-        .panel-title { font-size: 13px; font-weight: 600; }
         .panel-sub { color: var(--secondary-text-color); font-size: 12px; }
         .panel-body { padding: 16px 18px; }
 
@@ -2043,7 +2038,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
         /* ---------- Info tab ---------- */
         .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
-        .info-card h3, .section-title {
+        .info-card h3 {
             font-size: 11.5px; font-weight: 600; color: var(--secondary-text-color);
             text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 4px;
             display: flex; align-items: center; gap: 8px;
@@ -4075,7 +4070,6 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             const numberField = overlay.querySelector('[data-db-vp-number-field]');
             overlay.querySelectorAll('input[name="db-vp-key"]').forEach(radio => {
                 radio.addEventListener('change', () => {
-                    const isNumber = radio.value === 'number' && radio.checked;
                     if (radio.checked) {
                         categoryField.style.display = radio.value === 'category' ? '' : 'none';
                         numberField.style.display = radio.value === 'number' ? '' : 'none';

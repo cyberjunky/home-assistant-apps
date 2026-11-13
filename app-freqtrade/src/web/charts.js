@@ -342,32 +342,6 @@ function timeTicks(xs, count, format) {
     return ticks;
 }
 
-// Whole hours between two timestamps, every `step` hours
-function hourTicks(from, to, step) {
-    const ticks = [];
-    const start = new Date(from * 1000);
-    start.setMinutes(0, 0, 0);
-    for (let t = start.getTime() / 1000; t <= to; t += 3600) {
-        const h = new Date(t * 1000).getHours();
-        if (t >= from && h % step === 0) ticks.push({at: t, label: `${String(h).padStart(2, '0')}:00`});
-    }
-    return ticks;
-}
-
-// Consecutive samples with the same state become one background band
-function stateBands(xs, states, colors, step) {
-    const bands = [];
-    for (let i = 0; i < xs.length; i++) {
-        const s = states[i];
-        if (!colors[s]) continue;
-        let j = i;
-        while (j + 1 < xs.length && states[j + 1] === s) j++;
-        bands.push({from: xs[i], to: xs[j] + step, color: colors[s], state: s});
-        i = j;
-    }
-    return bands;
-}
-
 function legendHtml(items) {
     return items.map(it => `<span><i class="${it.kind || ''}" style="background:${it.color}"></i>${escapeHtml(it.name)}</span>`).join('');
 }

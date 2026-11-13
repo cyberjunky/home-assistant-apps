@@ -108,8 +108,6 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-
 // A place name, or its coordinates when it has no name (yet)
 function placeName(name, lat, lon) {
     if (name) return name;

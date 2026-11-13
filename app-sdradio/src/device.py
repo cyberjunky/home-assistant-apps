@@ -28,7 +28,7 @@ class SoapyDevice:
             from SoapySDR import SOAPY_SDR_CF32, SOAPY_SDR_RX
         except ImportError as e:
             raise DeviceError(f"SoapySDR is not installed: {e}") from e
-        self._soapy, self._rx = SoapySDR, SOAPY_SDR_RX
+        self._rx = SOAPY_SDR_RX
         args = self.config.device_args()
         try:
             found = SoapySDR.Device.enumerate(args)
