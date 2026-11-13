@@ -9,19 +9,17 @@
 
 Run `./project.sh <command>` in this folder:
 
-- `build`: build the app for the current architecture (`PLATFORM` in the script), tagged
-  with the version from `config.yaml`.
-- `build-push`: the same, then push it to the registry.
-- `build-dependencies`: build and push the prebuilt dependency images (extensions) that
-  the main Dockerfile pulls from `ghcr.io/<owner>/app-timescaledb/dependency`.
-- `build-ha`: use the Home Assistant builder to build all architectures, tagged `latest`.
-- `run-hassos`: build, push, then SSH to Home Assistant and pull the image.
-- `inspect`: build and run locally with an interactive shell.
-- `debug`: build and run locally with the normal start-up.
+- `build`: build the app for the current architecture (`PLATFORM` in the script) into the
+  local Docker as `local/app-timescaledb:<version>`.
+- `debug`: build it and run it with the normal start-up.
+- `inspect`: run a shell in the image built last.
+- `build-dependencies [component version]`: build and push the prebuilt dependency images
+  (extensions and tools) that the Dockerfile pulls from `ghcr.io/<owner>/app-timescaledb/dependency`.
+  The workflow below does the same on GitHub's runners.
 
-The registry defaults to `ghcr.io/cyberjunky/app-timescaledb`; set `REGISTRY` to push
-elsewhere. Component versions are the `ARG` lines at the top of `Dockerfile`, which `project.sh` and
-the repository's **Build TimescaleDB dependencies** workflow read.
+Set `REGISTRY` to push the dependencies elsewhere. Component versions are the `ARG` lines at the
+top of `Dockerfile`, which `project.sh` and the repository's **Build TimescaleDB dependencies**
+workflow read.
 
 ## Release builds
 
@@ -31,35 +29,11 @@ publishes `ghcr.io/cyberjunky/app-timescaledb:<version>` (multi-arch) whenever t
 images from `ghcr.io/cyberjunky/app-timescaledb/dependency`, so rebuild those first with the
 **Build TimescaleDB dependencies** workflow whenever a component version changes.
 
-## Manual build
+## A shell in the running app
+
+From a system SSH session (port 22222) on the Home Assistant host, `docker ps` shows the
+app's container (`addon_<repository>_timescaledb`); then:
 
 ```
-docker build --platform linux/aarch64 --tag ghcr.io/cyberjunky/timescaledb/aarch64:5.5.0 .
-```
-
-The Dockerfile carries the default base image and architecture:
-
-```
-ARG BUILD_FROM=ghcr.io/hassio-addons/base/aarch64:20.2.0
-ARG BUILD_ARCH=aarch64
-```
-
-## Test on a Home Assistant host
-
-From a system SSH session (port 22222):
-
-```
-docker image pull ghcr.io/cyberjunky/timescaledb/aarch64:5.5.0
-```
-
-Run with the app's data attached and an interactive shell:
-
-```
-docker run -it --entrypoint "/bin/sh" -v /mnt/data/supervisor/addons/data/local_timescaledb/:/data:rw ghcr.io/cyberjunky/timescaledb/aarch64:5.5.0
-```
-
-Or attach to the running app:
-
-```
-docker exec -it addon_local_timescaledb bash
+docker exec -it addon_<repository>_timescaledb bash
 ```

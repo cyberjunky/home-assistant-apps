@@ -5,7 +5,9 @@ ARG GO_VERSION=1.27.4
 ###########################################
 FROM golang:${GO_VERSION}-alpine AS timescaledb-tools
 
-ARG VERSION=latest
+# <timescaledb-tune>-<timescaledb-parallel-copy>-<timescaledb-backup>, as TIMESCALEDB_TOOLS_VERSION
+# in the app's Dockerfile
+ARG VERSION
 ARG TARGETARCH
 ARG TARGETVARIANT
 
@@ -15,10 +17,11 @@ RUN --mount=type=cache,id=apk-${TARGETARCH}-${TARGETVARIANT},sharing=locked,targ
         git \
         gcc \
         musl-dev \
-    && go install github.com/timescale/timescaledb-tune/cmd/timescaledb-tune@${VERSION} \
-    && go install github.com/timescale/timescaledb-parallel-copy/cmd/timescaledb-parallel-copy@${VERSION} \
-    && go install github.com/timescale/timescaledb-backup/cmd/ts-dump@${VERSION} \
-    && go install github.com/timescale/timescaledb-backup/cmd/ts-restore@${VERSION}
+    && tune="${VERSION%%-*}" && rest="${VERSION#*-}" && copy="${rest%%-*}" && backup="${rest#*-}" \
+    && go install "github.com/timescale/timescaledb-tune/cmd/timescaledb-tune@v${tune}" \
+    && go install "github.com/timescale/timescaledb-parallel-copy/cmd/timescaledb-parallel-copy@v${copy}" \
+    && go install "github.com/timescale/timescaledb-backup/cmd/ts-dump@${backup}" \
+    && go install "github.com/timescale/timescaledb-backup/cmd/ts-restore@${backup}"
 
 # Labels
 LABEL \

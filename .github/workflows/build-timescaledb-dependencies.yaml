@@ -62,8 +62,9 @@ jobs:
             --arg pgvector "$(ver PGVECTOR_VERSION)" \
             --arg pgcron "$(ver PG_CRON_VERSION)" \
             --arg vchord "$(ver VECTORCHORD_VERSION)" \
+            --arg tools "$(ver TIMESCALEDB_TOOLS_VERSION)" \
             --arg alpine "${alpine}" \
-            '[{component: "timescaledb-tools", version: "latest", tag: "latest"}]
+            '[{component: "timescaledb-tools", version: $tools, tag: $tools}]
              + [ ("pg17", "pg18") as $pg |
                  {component: "pgagent-\($pg)",                          version: $pgagent},
                  {component: "timescaledb-toolkit-\($pg)",              version: $toolkit},

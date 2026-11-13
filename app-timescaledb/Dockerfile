@@ -29,12 +29,14 @@ ARG SYSTEM_STATS_VERSION=4.1
 ARG PGVECTOR_VERSION=0.8.7
 ARG PG_CRON_VERSION=1.6.8
 ARG VECTORCHORD_VERSION=1.1.1
+# timescaledb-tune, timescaledb-parallel-copy and timescaledb-backup (ts-dump, ts-restore),
+# in that order: three projects with their own releases, built into one image
+ARG TIMESCALEDB_TOOLS_VERSION=0.19.1-0.13.2-0.1.1
 
 FROM timescale/timescaledb:${TIMESCALEDB_VERSION}-pg17                                                       AS timescale-pg17
 FROM timescale/timescaledb:${TIMESCALEDB_VERSION}-pg18                                                       AS timescale-pg18
 
-# hadolint ignore=DL3007
-FROM ${DEPENDENCY_REGISTRY}/timescaledb-tools:latest                                                         AS timescaledb-tools
+FROM ${DEPENDENCY_REGISTRY}/timescaledb-tools:${TIMESCALEDB_TOOLS_VERSION}                                   AS timescaledb-tools
 FROM ${DEPENDENCY_REGISTRY}/pgagent-pg17:${PGAGENT_VERSION}-alpine${ALPINE_VERSION}                          AS pgagent-pg17
 FROM ${DEPENDENCY_REGISTRY}/pgagent-pg18:${PGAGENT_VERSION}-alpine${ALPINE_VERSION}                          AS pgagent-pg18
 FROM ${DEPENDENCY_REGISTRY}/postgis-pg17:${POSTGIS_VERSION}-alpine${ALPINE_VERSION}                          AS postgis-pg17
@@ -243,7 +245,7 @@ COPY --from=vectorchord-pg18 --link /usr/lib/postgresql18/vchord.so /usr/lib/pos
 COPY --from=vectorchord-pg18 --link /usr/share/postgresql18/extension/vchord* /usr/share/postgresql18/extension/
 
 # --------------------------------------
-# Timescaledb Tools (alwasys latest)
+# TimescaleDB tools (TIMESCALEDB_TOOLS_VERSION)
 # --------------------------------------
 # Copy timescaledb-tools
 COPY --from=timescaledb-tools /go/bin/* /usr/local/bin/
