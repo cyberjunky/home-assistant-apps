@@ -2515,25 +2515,6 @@ class Database:
             logger.error(f"Failed to get TTS replacements: {e}")
             return []
 
-    def import_tts_replacements(self, replacements: list) -> int:
-        """Bulk import TTS replacements from config. Returns count imported."""
-        count = 0
-        try:
-            with self._transaction() as conn:
-                for item in replacements:
-                    pattern = item.get("pattern", "")
-                    replacement = item.get("replacement", "")
-                    if pattern:
-                        cur = conn.execute(
-                            "INSERT OR IGNORE INTO tts_replacements (pattern, replacement) VALUES (?, ?)",
-                            (pattern, replacement),
-                        )
-                        count += cur.rowcount
-        except Exception as e:
-            count = 0
-            logger.error(f"Failed to import TTS replacements: {e}")
-        return count
-
     # =========================================================================
     # LOOKUP TABLES WITH DEFAULTS (city_abbreviations, talkgroup_codes)
     # =========================================================================
@@ -2876,20 +2857,6 @@ class Database:
         except Exception as e:
             logger.error(f"Failed to get ignore-text patterns: {e}")
             return []
-
-    def import_ignore_text(self, patterns: list[str]) -> int:
-        """Bulk import ignore-text patterns from config. Returns count imported."""
-        count = 0
-        try:
-            with self._transaction() as conn:
-                for pattern in patterns:
-                    if pattern:
-                        cur = conn.execute("INSERT OR IGNORE INTO ignore_text (pattern) VALUES (?)", (pattern,))
-                        count += cur.rowcount
-        except Exception as e:
-            count = 0
-            logger.error(f"Failed to import ignore-text patterns: {e}")
-        return count
 
     def export_ignore_text_csv(self) -> str:
         """Export all ignore-text patterns to CSV string."""

@@ -121,7 +121,6 @@ class RdsDecoder:
         self.artist = ""
         self.title = ""
         self.groups = 0
-        self.good_blocks = 0
 
     # ---------------------------------------------------------------- signal → bits
 
@@ -214,7 +213,6 @@ class RdsDecoder:
                 self.group = {}
             return
         self.bad = max(0, self.bad - 1)
-        self.good_blocks += 1
         self.group[name] = word >> 10
         if expect == "D":
             self._group(self.group)

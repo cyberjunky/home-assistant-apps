@@ -164,7 +164,6 @@ class HAWebSocket:
         self.on_connected = on_connected
         self.connected = False
         self.last_error = ""
-        self.connected_since: float | None = None
         self.reconnects = 0
         self._ws: aiohttp.ClientWebSocketResponse | None = None
         self._ids = itertools.count(1)
@@ -190,7 +189,6 @@ class HAWebSocket:
                 self.last_error = f"{type(e).__name__}: {e}"
                 logger.warning(f"Home Assistant websocket: {self.last_error}, reconnecting in {backoff}s")
             self.connected = False
-            self.connected_since = None
             self.reconnects += 1
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 60)
@@ -212,7 +210,6 @@ class HAWebSocket:
             reader = asyncio.create_task(self._read(ws))
             try:
                 self.connected = True
-                self.connected_since = asyncio.get_running_loop().time()
                 self.last_error = ""
                 logger.info(f"Connected to Home Assistant {answer.get('ha_version', '')} over the websocket")
                 await self.on_connected()

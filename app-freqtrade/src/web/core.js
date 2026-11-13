@@ -37,7 +37,6 @@ function num(v, digits) {
     if (missing(v)) return '–';
     return Number(v).toLocaleString(undefined, {minimumFractionDigits: digits || 0, maximumFractionDigits: digits || 0});
 }
-function withUnit(text, unitText) { return text === '–' ? '–' : `${text}<small> ${escapeHtml(unitText)}</small>`; }
 // Digits for an amount in a stake currency: the bot's own, or fewer for big numbers
 function moneyDigits(v, decimals) {
     const abs = Math.abs(v || 0);

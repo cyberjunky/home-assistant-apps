@@ -605,9 +605,6 @@ class Database:
         )
         return [{**_decoded_item(r), "count": r["count"], "first": r["first"]} for r in rows]
 
-    def decoded_counts(self) -> dict:
-        return {r["mode"]: r["n"] for r in self._rows("SELECT mode, COUNT(*) AS n FROM decoded GROUP BY mode")}
-
     def delete_decoded(self, mode: str, key: str | None = None) -> int:
         with self.lock:
             if key is None:

@@ -160,9 +160,6 @@ function build_all() {
         case $platform in
             "aarch64") docker_platform="linux/arm64";;
             "amd64") docker_platform="linux/amd64";;
-            "armv7") docker_platform="linux/arm/v7";;
-            "i386") docker_platform="linux/i386";;
-            "armhf") docker_platform="linux/arm/v6";;
         esac
 
         printInColor "Building platform ${platform} (${docker_platform}) for Home Assistant with tag ${tag}" "green"

@@ -12,7 +12,6 @@ const RANGES = [
 ];
 const GROUPS = [{key: 'day', label: 'Day'}, {key: 'week', label: 'Week'}, {key: 'month', label: 'Month'}, {key: 'year', label: 'Year'}];
 const DEFAULT_GROUP = {'7d': 'day', '30d': 'day', '90d': 'week', '12m': 'month', year: 'month', all: 'year'};
-const MAX_BUCKETS = 370;
 
 const stats = {range: '30d', year: '', bucket: 'day', report: null, day: todayIso(), loading: 0, view: 'electricity'};
 

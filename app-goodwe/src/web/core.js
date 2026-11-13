@@ -50,10 +50,6 @@ const fmtKw = w => missing(w) ? '–' : `${num(w / 1000, 2)} kW`;
 const fmtKwh = (kwh, digits) => missing(kwh) ? '–' : `${num(kwh, energyDigits(kwh, digits))} kWh`;
 // kWh with sensible decimals (two below 10 kWh, one above), MWh from 10 MWh
 function energyDigits(kwh, digits) { return digits === undefined ? (Math.abs(kwh) < 10 ? 2 : 1) : digits; }
-function fmtEnergy(kwh, digits) {
-    if (missing(kwh)) return '–';
-    return kwh >= 10000 ? `${num(kwh / 1000, 2)} MWh` : `${num(kwh, energyDigits(kwh, digits))} kWh`;
-}
 function energyUnit(kwh, digits) {
     if (missing(kwh)) return '–';
     return kwh >= 10000 ? withUnit(num(kwh / 1000, 2), 'MWh') : withUnit(num(kwh, energyDigits(kwh, digits)), 'kWh');
@@ -61,18 +57,8 @@ function energyUnit(kwh, digits) {
 const fmtPct = (v, digits) => missing(v) ? '–' : `${num(v, digits || 0)}%`;
 const fmtTemp = c => missing(c) ? '–' : `${num(c, 1)} °C`;
 
-function fmtDuration(seconds) {
-    if (missing(seconds)) return '–';
-    const minutes = Math.round(seconds / 60);
-    if (minutes < 60) return `${minutes} min`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 48) return `${hours}h ${String(minutes % 60).padStart(2, '0')}m`;
-    return `${Math.floor(hours / 24)}d ${hours % 24}h`;
-}
-
 const fmtTime = ts => new Date(ts * 1000).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
 const fmtDay = ts => new Date(ts * 1000).toLocaleDateString([], {weekday: 'short', day: 'numeric', month: 'short'});
-const fmtDate = ts => new Date(ts * 1000).toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'});
 const fmtDateTime = ts => `${fmtDay(ts)} ${fmtTime(ts)}`;
 // An ISO date ("2026-11-07") as a readable day
 function fmtIsoDate(iso, withYear) {

@@ -151,8 +151,7 @@ class Config:
         mqtt = data.get("mqtt") or {}
         defaults = cls()
         planes = []
-        # "planes" was the option's name in 0.1.0 and 0.1.1
-        for item in forecast.get("panels") or forecast.get("planes") or []:
+        for item in forecast.get("panels") or []:
             if not isinstance(item, dict):
                 continue
             planes.append(

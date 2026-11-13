@@ -3,5 +3,4 @@
 .DS_Store
 build.sh
 config.yaml
-.README.j2
 *.md

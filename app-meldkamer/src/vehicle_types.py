@@ -224,17 +224,6 @@ def resolve_vehicle(
     }
 
 
-def extract_vehicle_number(text: str) -> str:
-    """Extract a vehicle number following a known vehicle-type token, if present."""
-    named = named_vehicles(text)
-    if named:
-        return named[0][0]
-    match = _AMBULANCE_UNIT_RE.search(text)
-    if match:
-        return f"{match.group(1)}-{match.group(2)}"
-    return ""
-
-
 def icon_for(category: str) -> str:
     """Fallback emoji for a vehicle category ("" gives a generic radio icon)."""
     return CATEGORY_ICONS.get(category, DEFAULT_ICON)

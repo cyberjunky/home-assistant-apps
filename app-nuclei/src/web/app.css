@@ -115,7 +115,6 @@ label { display: block; font-size: 12px; color: var(--text2); margin: 10px 0 4px
 @media (max-width: 700px) {
     .topbar { flex-wrap: wrap; gap: 6px 8px; padding: 6px 10px; }
     .topbar > .brand { display: flex; flex: 1 1 0; min-width: 0; }
-    .brand-sub { display: none; }
     .brand-name { overflow: hidden; text-overflow: ellipsis; }
     .topbar > .spacer { display: none; }
     .topbar > nav.tabs { order: 1; flex: 1 1 100%; }

@@ -21,14 +21,6 @@ def message(hex_without_parity: str) -> str:
     return f"{value | crc(value, 112):028X}"
 
 
-# Known messages (from "The 1090 MHz Riddle"): KLM1023's identity, a position pair near
-# 52.257 N 3.919 E at 38 000 ft, and a velocity
-IDENTITY = "8D4840D6202CC371C32CE0576098"
-EVEN = "8D40621D58C382D690C8AC2863A7"
-ODD = "8D40621D58C386435CC412692AD6"
-VELOCITY = "8D485020994409940838175B284F"
-
-
 # ---------------------------------------------------------------- encoding an aircraft that flies
 
 NZ = 15

@@ -1,7 +1,6 @@
 // SDRadio dashboard - knobs and the tune dial.
 // A knob: drag up or down, scroll, or use the arrow keys; double-click puts it back to its default.
 
-const SVG_NS = 'http://www.w3.org/2000/svg';
 const ARC = 207.3;  // 270° of a circle with radius 44
 
 function knobSvg(size) {

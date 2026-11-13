@@ -73,7 +73,7 @@ def add(name, host, group="Home Assistant", port=5432, database="postgres", user
 
 
 # TimescaleDB app. Its hostname is "<repository hash>-timescaledb", so ask the Supervisor
-# for the installed add-ons instead of guessing the repository; fall back to known names.
+# for the installed add-ons instead of guessing the repository.
 hosts = []
 token = os.environ.get("SUPERVISOR_TOKEN")
 if token:
@@ -88,10 +88,7 @@ if token:
         if not hosts:
             print("  No TimescaleDB app is installed")
     except Exception as e:
-        print(f"  Could not list the installed add-ons ({e}); trying the known TimescaleDB hostnames")
-if not hosts and not token:
-    hosts = [(h, None) for h in ("1b41fb55-timescaledb", "99fed3e4-timescaledb", "3c34fea8-timescaledb",
-                                 "local-timescaledb")]
+        print(f"  Could not list the installed add-ons ({e})")
 for host, state in hosts:
     try:
         socket.gethostbyname(host)

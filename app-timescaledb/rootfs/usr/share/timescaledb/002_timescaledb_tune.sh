@@ -1,47 +1,7 @@
 #!/bin/bash
 
-NO_TS_TUNE=${NO_TS_TUNE:-""}
 TS_TUNE_MEMORY=${TS_TUNE_MEMORY:-""}
 TS_TUNE_NUM_CPUS=${TS_TUNE_NUM_CPUS:-""}
-
-if [ -n "${NO_TS_TUNE:-}" ]; then
-    # The user has explicitly requested not to run timescaledb-tune; exit this script
-    exit 0
-fi
-
-if [ -z "${POSTGRESQL_CONF_DIR:-}" ]; then
-        POSTGRESQL_CONF_DIR=${PGDATA}
-fi
-
-if [ -z "${TS_TUNE_MEMORY:-}" ]; then
-    # See if we can get the container's total allocated memory from the cgroups metadata
-    if [ -f /sys/fs/cgroup/memory/memory.limit_in_bytes ]; then
-        TS_TUNE_MEMORY=$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes)
-
-        if [ "${TS_TUNE_MEMORY}" = "18446744073709551615" ]; then
-            # Bash seems to error out for numbers greater than signed 64-bit,
-            # so if the value of limit_in_bytes is the 64-bit UNSIGNED max value
-            # we should just bail out and hope timescaledb-tune can figure this
-            # out. If we don't, the next comparison is likely going to fail
-            # or it might store a negative value which will crash later.
-            TS_TUNE_MEMORY=""
-        fi
-
-        FREE_MB=$(free -m | grep 'Mem' | awk '{print $2}')
-        FREE_BYTES=$(( FREE_MB * 1024 * 1024 ))
-        if [ "${TS_TUNE_MEMORY}" -gt ${FREE_BYTES} ]; then
-            # Something weird is going on if the cgroups memory limit exceeds the total available
-            # amount of system memory reported by "free", which is the total amount of memory available on the host.
-            # Most likely, it is this issue: https://github.com/moby/moby/issues/18087 (if no limit is
-            # set, the max limit is set to the max 64 bit integer). In this case, we just leave
-            # TS_TUNE_MEMORY blank and let timescaledb-tune derive the memory itself using syscalls.
-            TS_TUNE_MEMORY=""
-        else
-            # Convert the bytes to MB so it plays nicely with timescaledb-tune
-            TS_TUNE_MEMORY="$(echo "${TS_TUNE_MEMORY}" | awk '{print int($1 / 1024 / 1024)}')MB"
-        fi
-    fi
-fi
 
 if [ -z "${TS_TUNE_NUM_CPUS:-}" ]; then
     # See if we can get the container's available CPUs from the cgroups metadata

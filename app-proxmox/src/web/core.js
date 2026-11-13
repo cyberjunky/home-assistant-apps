@@ -38,7 +38,6 @@ function num(v, digits) {
     if (missing(v)) return '–';
     return Number(v).toLocaleString(undefined, {minimumFractionDigits: digits || 0, maximumFractionDigits: digits || 0});
 }
-function withUnit(text, unitText) { return text === '–' ? '–' : `${text}<small> ${escapeHtml(unitText)}</small>`; }
 const plainPct = (ratio, digits) => missing(ratio) ? '–' : `${num(ratio * 100, digits === undefined ? 1 : digits)}%`;
 
 const UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'];
@@ -229,19 +228,7 @@ function parseHash() {
     return at < 0 ? [raw, ''] : [raw.slice(0, at), raw.slice(at + 1)];
 }
 
-function buildChips(containerId, options, current, onChange) {
-    const el = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
-    el.innerHTML = options.map(o =>
-        `<button type="button" class="tab chip${o.key === current ? ' active' : ''}" data-key="${attr(o.key)}"${o.title ? ` title="${attr(o.title)}"` : ''}>${escapeHtml(o.label)}${o.count !== undefined ? ` <span class="chip-count">${escapeHtml(o.count)}</span>` : ''}</button>`
-    ).join('');
-    el.onclick = (e) => {
-        const button = e.target.closest('[data-key]');
-        if (!button) return;
-        el.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === button));
-        onChange(button.dataset.key);
-    };
-}
-// The same, as an HTML string for a page that renders itself; wire it with bindChips
+// Chips as an HTML string for a page that renders itself; wire it with bindChips
 function chipsHtml(id, options, current, label) {
     return `<div class="tabs" role="group" aria-label="${attr(label || '')}" id="${id}">${options.map(o =>
         `<button type="button" class="tab chip${o.key === current ? ' active' : ''}" data-key="${attr(o.key)}"${o.title ? ` title="${attr(o.title)}"` : ''}>${escapeHtml(o.label)}${o.count !== undefined ? ` <span class="chip-count">${escapeHtml(o.count)}</span>` : ''}</button>`).join('')}</div>`;

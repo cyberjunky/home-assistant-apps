@@ -347,14 +347,6 @@ class Database:
         ).fetchone()
         return row["id"] if row else None
 
-    def last_response_state(self) -> tuple[str, str] | None:
-        row = self.conn.execute("SELECT state, attributes FROM responses ORDER BY ts DESC LIMIT 1").fetchone()
-        return (row["state"], row["attributes"] or "") if row else None
-
-    def last_duty_state(self) -> tuple[str, str] | None:
-        row = self.conn.execute("SELECT state, attributes FROM duty ORDER BY ts DESC LIMIT 1").fetchone()
-        return (row["state"], row["attributes"] or "") if row else None
-
     def latest_ts(self) -> str | None:
         """The newest stored state timestamp of any kind, to import a gap from."""
         row = self.conn.execute(
