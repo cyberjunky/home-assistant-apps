@@ -223,6 +223,15 @@ onTab('mobile', () => renderMobile(), () => {
     renderMobileList();
     if (!mobState.lastLoad || Date.now() - mobState.lastLoad > 60000) { mobState.lastLoad = Date.now(); mobLoad(); }
 });
+// The open phone moved: its track, numbers and position again, at most every 20 seconds
+onLive(changed => {
+    if (activeTab !== 'mobile') return;
+    const h = hostByKey(mobState.key);
+    if (!h || !h.trackers.some(t => changed.includes(t.entity_id))) return;
+    if (mobState.lastLoad && Date.now() - mobState.lastLoad < 20000) return;
+    mobState.lastLoad = Date.now();
+    mobLoad();
+});
 function renderMobileList() {
     const list = document.querySelector('#tab-mobile .mob-list');
     const keep = mobState.key;
