@@ -58,6 +58,11 @@ DAY = 86400
         (["Nintendo-Switch"], "Nintendo", "nintendo"),
         (["Daikin Perfera"], "", "airco"),
         (["Nespresso Vertuo"], "", "coffee"),
+        (["Sonos Arc"], "Sonos", "soundbar"),
+        (["Samsung HW-Q990 Soundbar"], "", "soundbar"),
+        (["Sonos-Kitchen"], "Sonos", "speaker"),
+        (["Wahoo KICKR"], "", "fitness"),
+        (["Peloton Bike"], "", "fitness"),
         (["something"], "", "generic"),
     ],
 )
