@@ -27,7 +27,6 @@ ingress_stream: true
 panel_icon: mdi:headset
 panel_title: Meldkamer
 homeassistant_api: true
-hassio_api: true
 services:
   - mqtt:want
 

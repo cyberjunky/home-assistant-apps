@@ -3,6 +3,7 @@
 import contextlib
 import json
 import logging
+import os
 import tempfile
 import time
 from pathlib import Path
@@ -16,6 +17,21 @@ from .library import Library
 from .saves import MAX_FILE, Saves
 from .stats import Stats
 from .thumbs import MAX_THUMB, TYPES, Thumbs
+
+# Home Assistant's ingress proxy: the only way in for changes when the app runs under the Supervisor
+INGRESS_ADDRESS = "172.30.32.2"
+READ_METHODS = ("GET", "HEAD", "OPTIONS")
+
+
+@web.middleware
+async def ingress_only(request: web.Request, handler):
+    """Changes only through Home Assistant's signed-in ingress proxy, not from other apps on its network."""
+    if request.method in READ_METHODS or not os.environ.get("SUPERVISOR_TOKEN"):
+        return await handler(request)
+    if request.remote != INGRESS_ADDRESS:
+        raise web.HTTPForbidden(text="Use Arcade from Home Assistant's sidebar")
+    return await handler(request)
+
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +73,7 @@ class WebUI:
         self.thumbs = thumbs
         self.hiscores = hiscores
         self.mame = _mame_info()
-        self.app = web.Application(client_max_size=MAX_UPLOAD)
+        self.app = web.Application(client_max_size=MAX_UPLOAD, middlewares=[ingress_only])
         self._runner: web.AppRunner | None = None
         r = self.app.router
         r.add_get("/", self._index)

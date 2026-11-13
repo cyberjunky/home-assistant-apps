@@ -23,6 +23,24 @@ from .speech import spell
 from .timeutil import now_ts
 from .tracker import Tracker
 
+# Home Assistant's ingress proxy: the only way in for changes when the app runs under the Supervisor
+INGRESS_ADDRESS = "172.30.32.2"
+READ_METHODS = ("GET", "HEAD", "OPTIONS")
+
+
+@web.middleware
+async def ingress_only(request: web.Request, handler):
+    """Changes only through Home Assistant's signed-in ingress proxy, not from other apps on its network."""
+    if request.method in READ_METHODS or not os.environ.get("SUPERVISOR_TOKEN"):
+        return await handler(request)
+    # FSR_SUPERVISOR_URL points the app at the development stand-in, where there is no ingress proxy
+    if os.environ.get("FSR_SUPERVISOR_URL"):
+        return await handler(request)
+    if request.remote != INGRESS_ADDRESS:
+        raise web.HTTPForbidden(text="Use FireServiceRota from Home Assistant's sidebar")
+    return await handler(request)
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -67,7 +85,7 @@ class WebUI:
         self.port = port
         self.db = database
         self.tracker = tracker
-        self.app = web.Application(client_max_size=MAX_RESTORE_SIZE)
+        self.app = web.Application(client_max_size=MAX_RESTORE_SIZE, middlewares=[ingress_only])
         self._runner: web.AppRunner | None = None
         self._setup_routes()
 

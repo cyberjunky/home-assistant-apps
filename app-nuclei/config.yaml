@@ -14,7 +14,8 @@ panel_icon: mdi:shield-search
 panel_title: Nuclei
 # Scanning needs to reach the hosts you register; the host's network gives naabu and nuclei direct access
 host_network: true
-hassio_api: true
+map:
+  - addon_config:rw
 options:
   # Scans only ever run against the objects you register in the app, after acknowledging you are allowed
   # to scan them. Nothing here opens that up.

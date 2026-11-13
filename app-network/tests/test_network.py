@@ -10,7 +10,7 @@ from src import ha_client
 from src.config import Config
 from src.history import History, host_events, host_stats, merge, online_series, up_intervals
 from src.inventory import Inventory, build_hosts, is_up
-from src.kinds import KINDS, guess_kind, is_random_mac, normalize_mac
+from src.kinds import KINDS, guess_kind, is_random_mac, mac_vendor, normalize_mac
 from src.mobile import distance, habits, haversine, mismatch, segments, summary, trips
 from src.store import Conflict, Store, clean, empty_doc
 from src.webui import WebUI
@@ -35,12 +35,34 @@ DAY = 86400
         (["DS920plus"], "Synology", "nas"),
         (["LG-webOS-TV"], "LG Electronics", "tv"),
         (["Sonos-Kitchen"], "Sonos", "speaker"),
-        (["PS5"], "Sony Interactive Entertainment", "console"),
+        (["PS5"], "Sony Interactive Entertainment", "playstation"),
         (["Reolink-Doorbell"], "Reolink", "doorbell"),
         (["bitaxe-gamma-1"], "Espressif", "miner"),
         (["LT-WORK-4471"], "Lenovo", "laptop"),
         (["Internet (ping 1.1.1.1)"], "", "internet"),
         (["something"], "Raspberry Pi Trading Ltd", "sbc"),
+        (["Automower-430X"], "Husqvarna", "mower"),
+        (["roborock-s8"], "Roborock", "vacuum"),
+        (["BRWADS-1700W"], "Brother", "scanner"),
+        (["Denon-AVR-X2800H"], "Denon", "audio"),
+        (["homeassistant"], "", "ha"),
+        (["Home Assistant Green"], "", "ha_green"),
+        (["pve1"], "ASRock", "proxmox"),
+        (["something"], "Bitmain", "miner"),
+        (["SLZB ZBT-2"], "", "zbt"),
+        (["bosch-dishwasher-0"], "", "dishwasher"),
+        (["Miele-WashingMachine"], "Miele", "washer"),
+        (["shellyplug-s-washer"], "Shelly", "plug"),
+        (["Xbox Series X"], "", "xbox"),
+        (["PS5"], "", "playstation"),
+        (["Nintendo-Switch"], "Nintendo", "nintendo"),
+        (["Daikin Perfera"], "", "airco"),
+        (["Nespresso Vertuo"], "", "coffee"),
+        (["Sonos Arc"], "Sonos", "soundbar"),
+        (["Samsung HW-Q990 Soundbar"], "", "soundbar"),
+        (["Sonos-Kitchen"], "Sonos", "speaker"),
+        (["Wahoo KICKR"], "", "fitness"),
+        (["Peloton Bike"], "", "fitness"),
         (["something"], "", "generic"),
     ],
 )
@@ -50,6 +72,14 @@ def test_guess_kind(texts, maker, kind):
 
 def test_every_kind_has_an_icon():
     assert all(mdi.startswith("mdi:") for _label, mdi, _infra in KINDS.values())
+
+
+def test_maker_from_the_mac():
+    assert mac_vendor("24:0A:C4:00:30:10") == "Espressif"
+    assert mac_vendor("dc:a6:32:00:10:50").startswith("Raspberry Pi")
+    # A private (random) address belongs to no maker
+    assert mac_vendor("6a:3f:21:9c:00:01") == ""
+    assert mac_vendor("not a mac") == ""
 
 
 def test_macs():
@@ -389,3 +419,15 @@ async def test_mobile_api(app):
     zones = (await (await test.get("/api/hosts")).json())["zones"]
     assert {z["state"] for z in zones} >= {"home", "work"}
     assert (await test.get("/api/mobile?entity_id=device_tracker.nope&days=7")).status == 404
+
+
+def test_a_device_that_just_left_counts():
+    # Left half a second before the statistics were made: still a drop, and an event
+    until = 10 * HOUR
+    iv, known = up_intervals(True, [(until - 0.5, False)], 0.0, until)
+    assert host_stats(iv, known, 0.0, until)["drops"] == 1
+    assert [e["up"] for e in host_events({"a": iv}, 0.0, until)] == [False]
+    # Still online: no drop
+    iv, known = up_intervals(True, [], 0.0, until)
+    assert host_stats(iv, known, 0.0, until)["drops"] == 0
+    assert host_events({"a": iv}, 0.0, until) == []

@@ -31,8 +31,8 @@ function suggestedNetworks() {
         const share = k => kinds.filter(x => k.includes(x)).length / kinds.length;
         let purpose = 'LAN';
         if (share(['camera', 'doorbell']) > 0.6) purpose = 'Cameras';
-        else if (share(['iot', 'plug', 'light', 'hub', 'thermostat', 'energy', 'car', 'appliance', 'miner']) > 0.5) purpose = 'IoT';
-        else if (share(['server', 'nas', 'vm', 'sbc']) > 0.5) purpose = 'Servers';
+        else if (share(['iot', 'plug', 'light', 'hub', 'thermostat', 'airco', 'heatpump', 'energy', 'car', 'miner', 'appliance', 'dishwasher', 'washer', 'dryer', 'fridge', 'oven', 'coffee', 'vacuum', 'mower']) > 0.5) purpose = 'IoT';
+        else if (share(['server', 'proxmox', 'nas', 'vm', 'sbc', 'ha', 'ha_green', 'ha_yellow', 'ha_blue']) > 0.5) purpose = 'Servers';
         else if (hosts.filter(h => h.random_mac).length / hosts.length > 0.6) purpose = 'Guests';
         return {subnet: `${intToIp(base)}/24`, vlan: third > 1 && third < 4095 ? String(third) : '', purpose, hosts};
     });

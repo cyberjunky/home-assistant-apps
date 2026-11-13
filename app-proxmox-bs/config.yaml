@@ -22,8 +22,6 @@ udev: true
 privileged:
   - SYS_ADMIN
   - SYS_RAWIO
-# Home Assistant's time zone for PBS's schedules, and whether Protection mode is on
-hassio_api: true
 timeout: 30
 # The backups live on the datastore disks, never in /data. Task logs are left out too; the
 # configuration, certificate, users, tokens and mount units are kept, so a restore gives the same server

@@ -5,6 +5,7 @@ come from Home Assistant's signed-in ingress proxy.
 """
 
 import asyncio
+import json
 import logging
 import os
 import time
@@ -32,6 +33,8 @@ STATS_DAYS = (1, 7, 30, 90, 365)
 MOBILE_DAYS = (1, 7, 30)
 MAP_MAX_ZOOM = 19
 MAP_TILE_MAX_AGE = 7 * 24 * 60 * 60
+# The stream's heartbeat, so ingress and the browser keep it open
+LIVE_HEARTBEAT = 20
 
 
 class WebUI:
@@ -44,7 +47,7 @@ class WebUI:
         self.inventory = inventory
         self.history = history
         self.store = store
-        self._stats_cache: dict[int, tuple[float, dict]] = {}
+        self._stats_cache: dict[int, tuple[float, dict, int]] = {}
         self._mobile_cache: dict[tuple, tuple[float, dict]] = {}
         # The REST side of the connection to Home Assistant: history and map tiles
         self.ws_client = ws.client
@@ -57,6 +60,7 @@ class WebUI:
         r.add_post("/api/doc", self._save_doc)
         r.add_get("/api/stats", self._stats)
         r.add_get("/api/mobile", self._mobile)
+        r.add_get("/api/live", self._live)
         r.add_get("/api/map-tiles/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.png", self._map_tile)
         r.add_post("/api/rename", self._rename)
         r.add_post("/api/icon", self._icon)
@@ -166,10 +170,12 @@ class WebUI:
         if days not in STATS_DAYS:
             raise web.HTTPBadRequest(text=f"days must be one of {STATS_DAYS}")
         cached = self._stats_cache.get(days)
-        if cached and time.time() - cached[0] < 20:
+        # Again after any change of a tracker, else at most every minute
+        if cached and cached[2] == self.inventory.version and time.time() - cached[0] < 60:
             return web.json_response(cached[1])
+        version = self.inventory.version
         result = await asyncio.to_thread(self.stats, days)
-        self._stats_cache[days] = (time.time(), result)
+        self._stats_cache[days] = (time.time(), result, version)
         return web.json_response(result)
 
     async def _mobile(self, request: web.Request) -> web.Response:
@@ -186,7 +192,7 @@ class WebUI:
             raise web.HTTPBadRequest(text=f"days must be one of {MOBILE_DAYS}")
         key = (entity_id, days, request.query.get("wifi", ""))
         cached = self._mobile_cache.get(key)
-        if cached and time.time() - cached[0] < 60:
+        if cached and time.time() - cached[0] < 20:
             return web.json_response(cached[1])
         now = time.time()
         since = now - days * DAY
@@ -214,6 +220,31 @@ class WebUI:
             result["wifi"]["since"] = start
         self._mobile_cache[key] = (time.time(), result)
         return web.json_response(result)
+
+    async def _live(self, request: web.Request) -> web.StreamResponse:
+        """Server-sent events: which trackers changed, the moment Home Assistant says so."""
+        response = web.StreamResponse()
+        response.headers["Content-Type"] = "text/event-stream"
+        response.headers["Cache-Control"] = "no-cache"
+        response.headers["X-Accel-Buffering"] = "no"
+        await response.prepare(request)
+        seen = self.inventory.version
+        last_write = time.monotonic()
+        try:
+            await response.write(f"event: hello\ndata: {json.dumps({'version': seen})}\n\n".encode())
+            while True:
+                await asyncio.sleep(0.5)
+                if self.inventory.version != seen:
+                    changed = self.inventory.changed_since(seen)
+                    seen = self.inventory.version
+                    await response.write(f"data: {json.dumps({'version': seen, 'changed': changed})}\n\n".encode())
+                    last_write = time.monotonic()
+                elif time.monotonic() - last_write >= LIVE_HEARTBEAT:
+                    await response.write(b"event: ping\ndata: {}\n\n")
+                    last_write = time.monotonic()
+        except (ConnectionResetError, TimeoutError, asyncio.CancelledError):
+            pass
+        return response
 
     async def _map_tile(self, request: web.Request) -> web.Response:
         """An OpenStreetMap raster tile through Home Assistant's map tile proxy."""
