@@ -144,8 +144,7 @@ function mapBuild() {
                 </div>
                 <div class="mp-list" id="mp-list"></div>
                 <div class="mp-section mp-shapes">
-                    <div class="section-title">Shapes</div>
-                    <div class="mp-shape-grid" id="mp-shapes"></div>
+                    <div id="mp-shapes"></div>
                 </div>
             </aside>
             <section class="map-main">
@@ -167,9 +166,11 @@ function mapBuild() {
             </section>
             <aside class="map-side" id="map-side"></aside>
         </div>`;
-    document.getElementById('mp-shapes').innerHTML = PALETTE_SHAPES.map(k => `<div class="mp-shape" draggable="true" data-drag="shape:${k}" title="Drag onto the map: ${attr(kindLabel(k))}">${kindIconHtml(k, 'small')}<span>${escapeHtml(kindLabel(k))}</span></div>`).join('')
+    const shape = k => `<div class="mp-shape" draggable="true" data-drag="shape:${k}" title="Drag onto the map: ${attr(kindLabel(k))}">${kindIconHtml(k, 'small')}<span>${escapeHtml(PALETTE_SHORT[k] || kindLabel(k))}</span></div>`;
+    document.getElementById('mp-shapes').innerHTML = '<div class="mp-shape-title">Drawing</div><div class="mp-shape-grid">'
         + '<div class="mp-shape" draggable="true" data-drag="group" title="Drag onto the map: a box to group devices, for a room, a rack or a VLAN"><span class="kicon small shape-box"></span><span>Group</span></div>'
-        + '<div class="mp-shape" draggable="true" data-drag="text" title="Drag onto the map: a note"><span class="kicon small shape-text">T</span><span>Text</span></div>';
+        + '<div class="mp-shape" draggable="true" data-drag="text" title="Drag onto the map: a note"><span class="kicon small shape-text">T</span><span>Text</span></div></div>'
+        + PALETTE_GROUPS.map(g => `<div class="mp-shape-title">${escapeHtml(g.title)}</div><div class="mp-shape-grid">${g.kinds.filter(k => app.kinds[k]).map(shape).join('')}</div>`).join('');
     const search = document.getElementById('mp-search');
     search.addEventListener('input', () => { mapState.search = search.value; mapPalette(); });
     const palette = document.getElementById('map-palette');

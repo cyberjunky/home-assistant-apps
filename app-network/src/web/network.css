@@ -8,13 +8,11 @@
 .kicon.small svg { width: 16px; height: 16px; }
 .kicon.big { width: 44px; height: 44px; border-radius: 10px; }
 .kicon.big svg { width: 28px; height: 28px; }
-.kicon[data-kind="internet"], .kicon[data-kind="cloud"], .kicon[data-kind="modem"], .kicon[data-kind="router"], .kicon[data-kind="firewall"],
-.kicon[data-kind="switch"], .kicon[data-kind="ap"] { --fam: var(--series-1); }
-.kicon[data-kind="server"], .kicon[data-kind="nas"], .kicon[data-kind="vm"], .kicon[data-kind="sbc"] { --fam: var(--series-3); }
-.kicon[data-kind="desktop"], .kicon[data-kind="laptop"], .kicon[data-kind="phone"], .kicon[data-kind="tablet"], .kicon[data-kind="watch"], .kicon[data-kind="printer"] { --fam: var(--series-5); }
-.kicon[data-kind="tv"], .kicon[data-kind="speaker"], .kicon[data-kind="console"] { --fam: var(--series-4); }
-.kicon[data-kind="camera"], .kicon[data-kind="doorbell"], .kicon[data-kind="hub"], .kicon[data-kind="iot"], .kicon[data-kind="plug"], .kicon[data-kind="light"],
-.kicon[data-kind="thermostat"], .kicon[data-kind="energy"], .kicon[data-kind="car"], .kicon[data-kind="appliance"], .kicon[data-kind="miner"] { --fam: var(--series-2); }
+.kicon[data-fam="net"] { --fam: var(--series-1); }
+.kicon[data-fam="srv"] { --fam: var(--series-3); }
+.kicon[data-fam="user"] { --fam: var(--series-5); }
+.kicon[data-fam="media"] { --fam: var(--series-4); }
+.kicon[data-fam="home"] { --fam: var(--series-2); }
 .kicon.shape-box { border: 2px dashed var(--secondary-text-color); background: transparent; }
 .kicon.shape-text { font-weight: 700; font-family: var(--mono); color: var(--secondary-text-color); background: var(--hover-bg); }
 .host-label { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
@@ -76,7 +74,9 @@ table.data.dev-table .meter { min-width: 120px; }
 .mp-name { font-size: 12.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mp-sub { font-size: 11px; font-family: var(--mono); color: var(--secondary-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mp-check { color: var(--success-color); font-size: 12px; }
-.mp-shapes { border-top: var(--card-border); border-bottom: 0; }
+.mp-shapes { border-top: var(--card-border); border-bottom: 0; max-height: 42%; overflow-y: auto; }
+.mp-shape-title { font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted-text-color); margin: 6px 0 2px; }
+.mp-shape-title:first-of-type { margin-top: 0; }
 .mp-shapes .section-title { margin-bottom: 0; }
 .mp-shape-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
 .mp-shape { display: flex; align-items: center; gap: 6px; padding: 3px 4px; border-radius: 5px; cursor: grab; font-size: 11.5px; user-select: none; white-space: nowrap; overflow: hidden; }

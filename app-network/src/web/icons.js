@@ -16,7 +16,7 @@ function hostIcon(h) {
 // The inside of a 24x24 svg
 const mdiSvg = icon => `<path d="${mdiPath(icon)}"/>`;
 function iconHtml(icon, cls, kind) {
-    return `<span class="kicon ${cls || ''}" data-kind="${attr(kind || '')}"><svg viewBox="0 0 24 24" aria-hidden="true">${mdiSvg(icon)}</svg></span>`;
+    return `<span class="kicon ${cls || ''}" data-fam="${kindFamily(kind)}"><svg viewBox="0 0 24 24" aria-hidden="true">${mdiSvg(icon)}</svg></span>`;
 }
 const hostIconHtml = (h, cls) => iconHtml(hostIcon(h), cls, kindOf(h));
 const kindIconHtml = (kind, cls) => iconHtml(kindMdi(kind), cls, kind);
@@ -24,13 +24,25 @@ const kindIconHtml = (kind, cls) => iconHtml(kindMdi(kind), cls, kind);
 // What colour a kind has on the map: network gear, servers, people's devices, media, the smart home
 const KIND_FAMILY = {
     internet: 'net', cloud: 'net', modem: 'net', router: 'net', firewall: 'net', switch: 'net', ap: 'net',
-    server: 'srv', nas: 'srv', vm: 'srv', sbc: 'srv',
-    desktop: 'user', laptop: 'user', phone: 'user', tablet: 'user', watch: 'user', printer: 'user',
-    tv: 'media', speaker: 'media', console: 'media',
-    camera: 'home', doorbell: 'home', hub: 'home', iot: 'home', plug: 'home', light: 'home', thermostat: 'home',
-    energy: 'home', car: 'home', appliance: 'home', miner: 'home', generic: 'other',
+    server: 'srv', proxmox: 'srv', nas: 'srv', vm: 'srv', sbc: 'srv', ha: 'srv', ha_green: 'srv', ha_yellow: 'srv', ha_blue: 'srv',
+    desktop: 'user', laptop: 'user', phone: 'user', tablet: 'user', watch: 'user', printer: 'user', scanner: 'user',
+    tv: 'media', speaker: 'media', audio: 'media', console: 'media',
+    camera: 'home', doorbell: 'home', hub: 'home', zbt: 'home', zwa: 'home', iot: 'home', plug: 'home', light: 'home', thermostat: 'home',
+    energy: 'home', car: 'home', appliance: 'home', vacuum: 'home', mower: 'home', miner: 'home', generic: 'other',
 };
 const kindFamily = kind => KIND_FAMILY[kind] || 'other';
 
-// The shapes to drop on a map that aren't a tracker: the internet, a cloud service, a switch without its own tracker...
-const PALETTE_SHAPES = ['internet', 'cloud', 'modem', 'router', 'firewall', 'switch', 'ap', 'server', 'nas', 'generic'];
+// The shapes to drop on a map that aren't a tracker (a switch without a tracker of its own, the internet,
+// a Connect stick on a USB port...), by family
+// Short names where the full one doesn't fit the palette
+const PALETTE_SHORT = {
+    ha_green: 'HA Green', ha_yellow: 'HA Yellow', ha_blue: 'HA Blue', ha: 'HA (other)', zbt: 'ZBT-2', zwa: 'ZWA-2', console: 'Console',
+    vm: 'VM', sbc: 'SBC (Pi)', proxmox: 'Proxmox', desktop: 'PC', audio: 'Audio', hub: 'Hub', iot: 'IoT / ESP', plug: 'Plug',
+    energy: 'Energy', car: 'Car / charger', miner: 'Bitcoin miner', vacuum: 'Vacuum', mower: 'Mower', tv: 'TV', cloud: 'Cloud', ap: 'Access point',
+};
+const PALETTE_GROUPS = [
+    {title: 'Network', kinds: ['internet', 'cloud', 'modem', 'router', 'firewall', 'switch', 'ap']},
+    {title: 'Servers', kinds: ['server', 'proxmox', 'nas', 'vm', 'sbc', 'ha_green', 'ha_yellow', 'ha_blue', 'ha']},
+    {title: 'Smart home', kinds: ['hub', 'zbt', 'zwa', 'iot', 'plug', 'light', 'thermostat', 'camera', 'doorbell', 'energy', 'car', 'miner']},
+    {title: 'Devices', kinds: ['desktop', 'laptop', 'tablet', 'phone', 'watch', 'printer', 'scanner', 'tv', 'speaker', 'audio', 'console', 'appliance', 'vacuum', 'mower', 'generic']},
+];

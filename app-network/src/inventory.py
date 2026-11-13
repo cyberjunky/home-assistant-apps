@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Any
 
 from .ha_client import HAClientError, HAWebSocket
-from .kinds import guess_kind, is_random_mac, normalize_mac
+from .kinds import guess_kind, is_random_mac, mac_vendor, normalize_mac
 
 logger = logging.getLogger(__name__)
 
@@ -164,12 +164,14 @@ def build_hosts(
             "via_device_id": pick("via_device_id"),
             "device_ids": sorted({t["device_id"] for t in group if t["device_id"]}),
         }
+        # The maker from the MAC address, for trackers that don't say (Nmap, Ping, many routers)
+        host["vendor"] = "" if host["manufacturer"] else mac_vendor(host["mac"])
         host["guess"] = guess_kind(
             *(t["name"] for t in group),
             *(t["original_name"] for t in group),
             host["host_name"],
             host["model"],
-            manufacturer=host["manufacturer"],
+            manufacturer=host["manufacturer"] or host["vendor"],
         )
         for device_id in host["device_ids"]:
             device_hosts[device_id] = key

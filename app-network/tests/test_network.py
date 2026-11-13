@@ -10,7 +10,7 @@ from src import ha_client
 from src.config import Config
 from src.history import History, host_events, host_stats, merge, online_series, up_intervals
 from src.inventory import Inventory, build_hosts, is_up
-from src.kinds import KINDS, guess_kind, is_random_mac, normalize_mac
+from src.kinds import KINDS, guess_kind, is_random_mac, mac_vendor, normalize_mac
 from src.mobile import distance, habits, haversine, mismatch, segments, summary, trips
 from src.store import Conflict, Store, clean, empty_doc
 from src.webui import WebUI
@@ -41,6 +41,15 @@ DAY = 86400
         (["LT-WORK-4471"], "Lenovo", "laptop"),
         (["Internet (ping 1.1.1.1)"], "", "internet"),
         (["something"], "Raspberry Pi Trading Ltd", "sbc"),
+        (["Automower-430X"], "Husqvarna", "mower"),
+        (["roborock-s8"], "Roborock", "vacuum"),
+        (["BRWADS-1700W"], "Brother", "scanner"),
+        (["Denon-AVR-X2800H"], "Denon", "audio"),
+        (["homeassistant"], "", "ha"),
+        (["Home Assistant Green"], "", "ha_green"),
+        (["pve1"], "ASRock", "proxmox"),
+        (["something"], "Bitmain", "miner"),
+        (["SLZB ZBT-2"], "", "zbt"),
         (["something"], "", "generic"),
     ],
 )
@@ -50,6 +59,14 @@ def test_guess_kind(texts, maker, kind):
 
 def test_every_kind_has_an_icon():
     assert all(mdi.startswith("mdi:") for _label, mdi, _infra in KINDS.values())
+
+
+def test_maker_from_the_mac():
+    assert mac_vendor("24:0A:C4:00:30:10") == "Espressif"
+    assert mac_vendor("dc:a6:32:00:10:50").startswith("Raspberry Pi")
+    # A private (random) address belongs to no maker
+    assert mac_vendor("6a:3f:21:9c:00:01") == ""
+    assert mac_vendor("not a mac") == ""
 
 
 def test_macs():
