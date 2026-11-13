@@ -12,9 +12,8 @@ image: "ghcr.io/cyberjunky/app-goodwe"
 ingress: true
 panel_icon: mdi:solar-power-variant
 panel_title: GoodWe
-# Home location and time zone for the solar forecast; the MQTT broker from the Supervisor
+# Home location and time zone for the solar forecast
 homeassistant_api: true
-hassio_api: true
 services:
   - mqtt:want
 

@@ -12,8 +12,6 @@ image: "ghcr.io/cyberjunky/app-proxmox"
 ingress: true
 panel_icon: mdi:server
 panel_title: Proxmox
-# Home Assistant's time zone from the Supervisor
-hassio_api: true
 
 options:
   hosts: []
