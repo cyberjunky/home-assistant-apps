@@ -37,8 +37,9 @@ EVENT_TYPES = {
     "battery_low": "Battery low",
     "surplus_started": "Solar surplus available (battery full)",
     "surplus_ended": "Solar surplus gone",
-    "miners_started": "Miners (surplus loads) started",
-    "miners_stopped": "Miners (surplus loads) stopped",
+    "miners_started": "A miner (surplus load) started",
+    "miners_stopped": "A miner (surplus load) stopped",
+    "miner_switch_failed": "A miner could not be switched",
 }
 
 Listener = Callable[[dict], None]

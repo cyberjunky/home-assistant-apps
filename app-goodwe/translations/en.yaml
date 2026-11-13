@@ -24,12 +24,13 @@ configuration:
   miners:
     name: Miners (surplus loads)
     description: >-
-      The loads your Home Assistant automation switches on with the Solar surplus
-      sensor, e.g. bitcoin miners: a name, their total rated power in W, and
-      optionally the entity that says whether they run (a switch or input_boolean)
-      or what they draw (a power sensor in W or kW). Without an entity they count
-      as running whenever the surplus signal is on. Shown on the dashboard, in the
-      statistics and as MQTT sensors. Power 0 and no entity: off.
+      The miners (or other loads) the app switches on with the solar surplus, one
+      entry each: a name, the switch that starts and stops it, the power sensor
+      with what it draws (W or kW), and its rated power in W (optional with a
+      sensor: the app learns the draw). They start one by one while the surplus
+      covers the next, and stop one by one once the house imports from the grid or
+      drains the battery. Shown on the dashboard, in the statistics and as MQTT
+      sensors; switch a miner to manual on the dashboard to keep it out.
   log_level:
     name: Log level
     description: How much detail the add-on writes to its log.

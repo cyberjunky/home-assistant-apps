@@ -67,6 +67,20 @@ class HAClient:
             raise HAClientError(f"Unexpected answer for {entity_id}")
         return body
 
+    async def call_service(self, domain: str, service: str, entity_id: str) -> None:
+        """Call a service on one entity (switch.turn_on, ...); raises HAClientError."""
+        url = f"{CORE_API_URL}/services/{domain}/{service}"
+        try:
+            session = await self._get_session()
+            async with session.post(url, json={"entity_id": entity_id}) as resp:
+                if resp.status != 200:
+                    detail = (await resp.text())[:200].strip()
+                    raise HAClientError(f"HTTP {resp.status} for {domain}.{service}: {detail}")
+        except HAClientError:
+            raise
+        except Exception as e:
+            raise HAClientError(f"{type(e).__name__}: {e}") from e
+
     async def get_mqtt_service(self) -> dict | None:
         """The broker of Home Assistant's MQTT service (Mosquitto add-on), None when there is none."""
         try:

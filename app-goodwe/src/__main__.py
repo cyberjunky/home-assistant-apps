@@ -36,13 +36,15 @@ async def main() -> int:
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     database = Database(DATA_DIR / "goodwe.db")
+    database.miner_names = [m.name for m in config.miners]
     events = EventBus(database)
     ha_client = HAClient()
     forecast = Forecast(config, ha_client, DATA_DIR)
     link = InverterLink(config, events)
     controller = BatteryController(link, forecast, events, DATA_DIR)
     # After the controller (its listener stamps the surplus signal), before the recorder (stores it)
-    controller.miners = Miners(config, ha_client, link, events)
+    controller.miners = Miners(config, ha_client, link, events, DATA_DIR)
+    controller.miners.controller = controller
     recorder = Recorder(database, link, forecast, events)
     mqtt = MqttPublisher(config, ha_client, link, controller, forecast, events)
     webui = WebUI(WEB_PORT, config, database, link, controller, forecast, mqtt, events)

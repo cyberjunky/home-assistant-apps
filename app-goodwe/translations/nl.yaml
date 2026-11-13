@@ -26,13 +26,14 @@ configuration:
   miners:
     name: Miners (overschotverbruikers)
     description: >-
-      De verbruikers die je Home Assistant-automatisering aanzet met de sensor
-      Zonne-overschot, bijvoorbeeld bitcoin-miners: een naam, hun totale
-      nominale vermogen in W, en eventueel de entiteit die zegt of ze draaien
-      (een switch of input_boolean) of wat ze verbruiken (een vermogenssensor in
-      W of kW). Zonder entiteit tellen ze als draaiend zolang het
-      overschotsignaal aan is. Te zien op het dashboard, in de statistieken en
-      als MQTT-sensoren. Vermogen 0 en geen entiteit: uit.
+      De miners (of andere verbruikers) die de app aanzet met het zonne-overschot,
+      één regel per stuk: een naam, de switch die hem start en stopt, de
+      vermogenssensor met wat hij verbruikt (W of kW), en zijn nominale vermogen
+      in W (optioneel met een sensor: de app leert het verbruik). Ze starten één
+      voor één zolang het overschot de volgende dekt, en stoppen één voor één
+      zodra het huis van het net haalt of de accu leegtrekt. Te zien op het
+      dashboard, in de statistieken en als MQTT-sensoren; zet een miner op het
+      dashboard op handmatig om hem erbuiten te houden.
   log_level:
     name: Logniveau
     description: Hoeveel detail de add-on naar het log schrijft.

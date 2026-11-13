@@ -99,14 +99,25 @@ folder. The Dashboard shows what the controller is doing.
   Every day the app records how long the signal was on, how much solar went to the home
   meanwhile (the loads you switched on, plus the house), and an estimate of the solar
   curtailed under zero export; see Stats.
-- **Miners.** The loads you switch on with the surplus signal (bitcoin miners, say) can be
-  followed too: set their total rated power under `miners` in the configuration. The app
-  doesn't switch them, your automation does; it shows whether they run, since when and what
-  they draw, on the dashboard and as MQTT sensors, and counts their hours and energy per
-  day in Stats. With `miners.entity` set it reads that entity: a switch, input_boolean or
-  binary_sensor (on/off, counted at the rated power), or a power sensor in W or kW (the
-  actual draw; running above 5% of the rated power). Without an entity they count as
-  running whenever the surplus signal is on, at the rated power.
+- **Miners.** The app switches your miners (or other surplus loads) itself, one by one,
+  through their Home Assistant switches; no automation needed. List them under `miners` in
+  the configuration, each with its switch, its power sensor and optionally its rated power.
+  - **Start**: while the surplus signal is on, the next miner (in the order of the list)
+    starts once the estimated surplus covers its draw: its rated power, or the draw the app
+    learned from its sensor while it ran (the surplus margin until it knows).
+  - **Stop**: once the house imports more than *off when importing* from the grid, or the
+    battery discharges, for the debounce time, the miner that started last stops; then the
+    next one, as long as that lasts.
+  - That is the **hysteresis**: a miner starts only when the surplus carries it, and stops
+    only when the house actually draws from the grid or the battery, not when the estimate
+    dips. There is at most one switch per debounce period (two minutes by default), and a
+    stopped miner stays off for at least five minutes.
+  - Each miner can be put on **manual** on the dashboard: the app leaves it alone and you
+    can start and stop it there by hand. A miner without a switch is only read; one with
+    neither switch nor sensor counts as running whenever the surplus signal is on.
+
+  The dashboard shows each miner (running, power, today, auto or manual) and what the app
+  is doing or waiting for; Stats counts each miner's hours and energy.
 
 The charge cap of 0.1.x ("stop charging at") is gone: with zero export it only threw solar
 away (braked surplus is curtailed, not exported), and LFP batteries take a full charge in
@@ -122,8 +133,8 @@ overrides that).
   solar → battery, grid → home, …) and shows curtailment and the surplus signal; the
   battery (state of charge, power, voltage, temperature, health, BMS limits, cycles); the
   solar panels and PV strings against the forecast; what the controller is doing (work
-  mode, hold, zero export, surplus, today's surplus hours and curtailment, and the miners
-  when configured); today's energy flow as a thin Sankey (solar, battery and grid into home, battery and grid); and today's production and battery charts.
+  mode, hold, zero export, surplus, today's surplus hours and curtailment); the miners, each
+  with its state, power, today and an auto/manual switch; today's energy flow as a thin Sankey (solar, battery and grid into home, battery and grid); and today's production and battery charts.
 - **Stats** — Pick a period and bar size. Energies per period, grid, battery (with cycles),
   solar surplus, curtailment and the miners' energy and hours, self-sufficiency and self-consumption; a day detail with
   the battery's state and that day's energy flow as a Sankey diagram (any recorded day);
@@ -143,10 +154,28 @@ overrides that).
 | `forecast.enabled` | `true` | Fetch the solar forecast (needed for auto-hold and the surplus estimate under zero export) |
 | `forecast.latitude` / `longitude` | `0` | Location of the panels; `0` uses Home Assistant's home location |
 | `forecast.panels` | one group of 4 kWp | One entry per roof side, for the panels facing the same way: `name`, `kwp` (peak power), `tilt` (0 = flat, 90 = vertical), `azimuth` (0 = south, −90 = east, 90 = west) |
-| `miners.name` | `BTC miners` | What the surplus loads are called on the dashboard and in Home Assistant |
-| `miners.power_w` | `0` | Their total rated power in W. `0` without an entity: not shown |
-| `miners.entity` | | Optional: the Home Assistant entity that says whether they run (`switch.…`, `input_boolean.…`, `binary_sensor.…`) or what they draw (a power `sensor.…` in W or kW). Empty: they follow the surplus signal |
+| `miners` | none | The miners the app switches with the solar surplus, one entry each (up to 8), see below |
 | `log_level` | `info` | `debug`, `info`, `warning` or `error` |
+
+### Miners
+
+```yaml
+miners:
+  - name: S19 left
+    switch: switch.s19_left_mining      # turned on and off by the app
+    sensor: sensor.s19_left_power       # what it draws, in W or kW
+  - name: S19 right
+    switch: switch.s19_right_mining
+    sensor: sensor.s19_right_power
+    power_w: 1450                       # optional
+```
+
+| Field | Description |
+|-------|-------------|
+| `name` | How the miner is called on the dashboard, in Stats and in Home Assistant; every miner its own name |
+| `switch` | The entity that starts and stops it: a `switch.…`, `input_boolean.…` or anything with `turn_on` / `turn_off`. Without one the app only reads the miner |
+| `sensor` | Its power sensor (W or kW): whether it runs and what it draws |
+| `power_w` | Optional. Its rated power in W, used to decide whether the surplus covers it. With a sensor the app learns the draw itself; set it only to start with a known value |
 
 ### MQTT
 
@@ -165,7 +194,8 @@ The inverter becomes a device named after its model with:
   hours, battery hold (`held` / `discharging`), depth of discharge, the auto-hold decision,
   the solar surplus in watts, solar surplus today (hours) and the solar used during it,
   curtailed power and curtailed today (estimates), and the forecast for today, tomorrow and
-  this hour; with miners configured also their power, hours today and energy today
+  this hour; with miners configured also their power, hours today and energy today in
+  total, and the power of each miner
 - **Diagnostic sensors** — everything else the inverter reports: PV1 and PV2 voltage and
   current, grid current, meter power factor and grid status, the inverter's output and
   total power, home total, the battery's status, BMS charge and discharge limits, warning
@@ -176,6 +206,7 @@ The inverter becomes a device named after its model with:
   when you want them
 - **Binary sensors** — inverter connected, **solar surplus**, battery held, auto-hold,
   zero export, exporting, work mode not General, fault; with miners configured, *running*
+  for all of them and for each miner
 - **Events** — an event entity whose `event_type` is one of the app's events, with the
   message and details as attributes
 
@@ -191,7 +222,8 @@ The state is one retained JSON message on `goodwe/state`, sent when something ch
 `zero_export_set`, `export_violation`, `export_violation_recovered`,
 `write_budget_exhausted`, `fault_detected`, `fault_cleared`, `grid_outage`, `grid_restored`,
 `battery_full`, `battery_low`, `surplus_started`, `surplus_ended`, `miners_started`,
-`miners_stopped`.
+`miners_stopped` (one miner, named in the message and the `miner` attribute),
+`miner_switch_failed`.
 
 A Telegram message for every command the app sends and every alert, as a Home Assistant
 automation (replace the entity id with yours):
