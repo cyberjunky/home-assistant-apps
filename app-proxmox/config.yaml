@@ -1,0 +1,43 @@
+name: Proxmox
+version: "0.1.0"
+slug: app-proxmox
+description: "Unofficial dashboard for your Proxmox VE cluster - nodes, guests, storage, backups, Ceph and HA, the network and VLANs as a map, and the firewall as a flow with its log"
+url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-proxmox"
+init: false
+arch:
+  - aarch64
+  - amd64
+# Prebuilt by the repository Builder workflow; bump `version` to publish a new image
+image: "ghcr.io/cyberjunky/app-proxmox"
+ingress: true
+panel_icon: mdi:server
+panel_title: Proxmox
+# Home Assistant's time zone from the Supervisor
+hassio_api: true
+
+options:
+  hosts: []
+  token_id: ""
+  token_secret: ""
+  verify_ssl: false
+  poll_seconds: 10
+  read_only: true
+  pbs: []
+  log_level: info
+
+schema:
+  hosts:
+    - str
+  token_id: str
+  token_secret: password
+  verify_ssl: bool
+  poll_seconds: int(5,300)?
+  read_only: bool?
+  pbs:
+    - name: str?
+      host: str
+      token_id: str
+      token_secret: password
+      fingerprint: str?
+      verify_ssl: bool?
+  log_level: list(debug|info|warning|error)?

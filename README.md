@@ -143,6 +143,20 @@ app automatically. Apache 2.0, derived from an earlier add-on (see its NOTICE).
 
 [:books: Documentation](app-pgadmin4/DOCS.md) · [:memo: Changelog](app-pgadmin4/CHANGELOG.md) · [:lock: Security](app-pgadmin4/SECURITY.md)
 
+### <img src="app-proxmox/icon.png" alt="" width="36" align="absmiddle"> [Proxmox](app-proxmox/)
+
+![Version][proxmox-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+Unofficial dashboard for your Proxmox VE cluster, opened from the sidebar. The datacenter on one
+overview with health checks, a page per node and guest, storage with a fill-up forecast, backups
+with RPO and RTO at a glance (and your Proxmox Backup Server, if you like), the network as a map
+and as VLAN lanes to drag guests between, and the firewall as a flow per guest with drag-and-drop
+rules and the log with statistics. Read-only unless you allow changes.
+
+[:books: Documentation](app-proxmox/DOCS.md) · [:memo: Changelog](app-proxmox/CHANGELOG.md) · [:lock: Security](app-proxmox/SECURITY.md)
+
 ### <img src="app-sdradio/icon.png" alt="" width="36" align="absmiddle"> [SDRadio](app-sdradio/)
 
 ![Version][sdradio-version-shield]
@@ -264,3 +278,4 @@ software each app packages keeps its own license, noted in the app's README.
 [freqtrade-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-freqtrade%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [nuclei-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-nuclei%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [sdradio-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-sdradio%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[proxmox-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-proxmox%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge

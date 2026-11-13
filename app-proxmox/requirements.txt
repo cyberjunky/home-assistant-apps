@@ -1,0 +1,3 @@
+# Python dependencies for Proxmox (installed in the Dockerfile).
+# aiohttp - web server and ingress, and the Proxmox VE API
+aiohttp>=3.14.5,<4

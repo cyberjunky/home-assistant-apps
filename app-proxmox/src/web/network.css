@@ -1,0 +1,98 @@
+/* Proxmox dashboard - Network page: VLAN lanes, the interface map, interfaces and SDN */
+
+.net-top { margin-bottom: 12px; }
+.net-help { margin: -4px 0 12px; }
+.net-bridge-name { text-transform: none; letter-spacing: 0; color: var(--primary-text-color); font-size: 12.5px; }
+.net-bridge + .net-bridge { margin-top: 14px; }
+
+/* ---------- VLAN lanes ---------- */
+.net-lanes { display: flex; flex-direction: column; gap: 8px; }
+.net-lane {
+    display: grid; grid-template-columns: 230px minmax(0, 1fr); min-height: 64px;
+    border: var(--card-border); border-left: 4px solid var(--vlan); border-radius: 6px;
+    background: color-mix(in srgb, var(--vlan) 5%, var(--ha-card-background));
+    transition: background 0.12s, border-color 0.12s, opacity 0.12s, box-shadow 0.12s;
+}
+.net-lane-head { padding: 9px 12px; border-right: 1px dashed var(--divider-color); min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.net-lane-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.net-lane-name { font-size: 12.5px; }
+.net-lane-line { font-size: 11.5px; line-height: 1.45; overflow-wrap: anywhere; }
+.net-count { font-family: var(--mono); color: var(--primary-text-color); font-weight: 600; }
+.net-lane-cards { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 6px; padding: 8px; min-width: 0; }
+.net-lane-empty { align-self: center; color: var(--muted-text-color); font-size: 12px; padding: 6px 4px; }
+.net-lane.filtered { opacity: 0.45; }
+.net-lane-new { --vlan: var(--muted-text-color); border-style: dashed; border-left-style: dashed; background: transparent; min-height: 48px; }
+
+/* While a card is dragged: where it may go, and where not */
+.net-lane.drop-no { opacity: 0.35; }
+.net-lane.drop-ok { box-shadow: 0 0 0 1px color-mix(in srgb, var(--vlan) 45%, transparent); }
+.net-lane.drop-ok.over { background: color-mix(in srgb, var(--vlan) 16%, var(--ha-card-background)); box-shadow: 0 0 0 2px var(--vlan); }
+
+.net-card {
+    width: 196px; padding: 6px 8px 6px 9px; border-radius: 5px; border: var(--card-border);
+    background: var(--ha-card-background); box-shadow: var(--shadow-sm); font-size: 12px; min-width: 0;
+}
+.net-card[draggable="true"] { cursor: grab; }
+.net-card[draggable="true"]:hover { border-color: var(--vlan); }
+.net-card.dragging { opacity: 0.4; }
+.net-card.stopped { background: transparent; box-shadow: none; }
+.net-card.stopped .guest-label { color: var(--secondary-text-color); }
+.net-card-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.net-card-top .plain-link { min-width: 0; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+.net-card-top .guest-label { font-weight: 500; }
+.net-card-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 3px; font-size: 11.5px; }
+.net-card-sub .muted { margin-left: auto; }
+.net-card-mac { font-size: 10.5px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.net-move {
+    flex-shrink: 0; width: 22px; height: 20px; border: var(--card-border); border-radius: 4px; padding: 0;
+    background: transparent; color: var(--secondary-text-color); cursor: pointer; font-size: 12px; line-height: 1;
+}
+.net-move:hover { color: var(--primary-text-color); background: var(--hover-bg); }
+
+/* ---------- Map ---------- */
+.net-map-tools { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+.net-legend { font-family: 'IBM Plex Sans', sans-serif; }
+.net-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin: 0 3px 0 6px; vertical-align: 0; }
+.net-legend i.run { background: var(--success-color); }
+.net-legend i.off { background: var(--idle); }
+.net-map-panel + .net-map-panel { margin-top: 14px; }
+.net-map-scroll { overflow: auto; max-height: 78vh; border-radius: 4px; background:
+    radial-gradient(circle, var(--grid-color) 1px, transparent 1.2px) 0 0 / 16px 16px; }
+svg.net-map { display: block; font-family: 'IBM Plex Sans', sans-serif; touch-action: none; user-select: none; }
+.net-col-head { font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; fill: var(--secondary-text-color); }
+.net-edge { fill: none; stroke: var(--muted-text-color); stroke-width: 1.6; opacity: 0.75; transition: opacity 0.12s, stroke-width 0.12s; }
+.net-box { cursor: grab; outline: none; }
+.net-box.moving { cursor: grabbing; }
+.net-box-bg { fill: var(--ha-card-background); stroke: var(--divider-color); stroke-width: 1; }
+.net-box:hover .net-box-bg, .net-box:focus .net-box-bg { stroke: var(--primary-color); }
+.net-box.k-bridge .net-box-bg, .net-box.k-OVSBridge .net-box-bg { stroke: color-mix(in srgb, var(--primary-color) 55%, var(--divider-color)); }
+.net-box.k-guests .net-box-bg { fill: var(--ha-background); }
+.net-box.k-missing .net-box-bg { stroke: var(--danger-color); stroke-dasharray: 4 3; }
+.net-box.k-missing .net-box-sub { fill: var(--danger-color); }
+.net-box.inactive { opacity: 0.5; }
+.net-box-title { font-family: var(--mono); font-size: 12px; font-weight: 600; fill: var(--primary-text-color); }
+.net-box-sub { font-size: 10.5px; fill: var(--secondary-text-color); }
+.net-guest { cursor: pointer; }
+.net-guest:hover .net-guest-text { fill: var(--primary-color); }
+.net-guest-text { font-size: 11px; fill: var(--primary-text-color); }
+.net-guest-text .mono-t { font-family: var(--mono); fill: var(--secondary-text-color); font-size: 10.5px; }
+.net-guest-fw { font-size: 9px; font-weight: 700; fill: var(--success-color); letter-spacing: 0.04em; }
+.net-guest circle.run { fill: var(--success-color); }
+.net-guest circle.off { fill: var(--idle); }
+/* Hover: the box's path stands out, the rest steps back */
+svg.net-map.hl .net-box:not(.on) { opacity: 0.3; }
+svg.net-map.hl .net-edge { opacity: 0.12; }
+svg.net-map.hl .net-edge.on { opacity: 1; stroke-width: 2.6; }
+
+/* ---------- Interfaces ---------- */
+.net-pending { border-color: var(--warning-color); }
+.net-pending .diff { max-height: 320px; }
+.net-pending + .panel { margin-top: 14px; }
+
+@media (max-width: 700px) {
+    .net-lane { grid-template-columns: minmax(0, 1fr); }
+    .net-lane-head { border-right: 0; border-bottom: 1px dashed var(--divider-color); flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+    .net-card { width: 100%; }
+    .net-map-tools { margin-left: 0; justify-content: flex-start; }
+    .net-legend { display: none; }
+}
