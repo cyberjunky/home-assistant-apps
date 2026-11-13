@@ -13,7 +13,7 @@ import logging
 
 import paho.mqtt.client as mqtt
 
-from .config import ADDON_VERSION, Config
+from .config import ADDON_VERSION, MAX_MINERS, Config
 from .controller import BatteryController
 from .events import EVENT_TYPES, EventBus
 from .forecast import Forecast
@@ -250,6 +250,12 @@ def state_payload(data: dict, control: dict, inverter: dict, forecast: dict, set
         "miners_today": num("miners_hours"),
         "miners_energy_today": num("e_miners_day"),
         "miners_running": bool(miners.get("on")),
+        # Each miner: its power and whether it runs ("miner1_power", "miner1_running", ...)
+        **{
+            f"miner{m['index']}_{key}": value
+            for m in miners.get("miners") or []
+            for key, value in (("power", m.get("watts")), ("running", bool(m.get("on"))))
+        },
         "pv1_voltage": num("vpv1", 1),
         "pv1_current": num("ipv1", 1),
         "pv1_mode": text("pv1_mode_label"),
@@ -446,20 +452,37 @@ class MqttPublisher:
             "origin": {"name": "GoodWe", "sw_version": ADDON_VERSION},
         }
         prefix = self.config.mqtt_discovery_prefix
-        miners = (self.controller.state().get("miners") or {}).get("enabled")
-        miner_name = self.config.miners_name
-        sensors = SENSORS + tuple(
-            (key, name.replace("Miners", miner_name), *rest) for key, name, *rest in (MINER_SENSORS if miners else ())
+        units = self.config.miners
+        miners = bool(units)
+        sensors = (
+            SENSORS
+            + (MINER_SENSORS if miners else ())
+            + tuple(
+                (f"miner{i}_power", f"{m.name} power", "power", "W", "measurement", "mdi:bitcoin", False)
+                for i, m in enumerate(units, 1)
+            )
         )
-        binary_sensors = BINARY_SENSORS + tuple(
-            (key, name.replace("Miners", miner_name), *rest)
-            for key, name, *rest in (MINER_BINARY_SENSORS if miners else ())
+        binary_sensors = (
+            BINARY_SENSORS
+            + (MINER_BINARY_SENSORS if miners else ())
+            + tuple(
+                (f"miner{i}_running", f"{m.name} running", "running", "mdi:bitcoin") for i, m in enumerate(units, 1)
+            )
         )
-        removed = REMOVED + (
-            ()
-            if miners
-            else tuple(("sensor", s[0]) for s in MINER_SENSORS)
-            + tuple(("binary_sensor", s[0]) for s in MINER_BINARY_SENSORS)
+        removed = (
+            REMOVED
+            + (
+                ()
+                if miners
+                else tuple(("sensor", s[0]) for s in MINER_SENSORS)
+                + tuple(("binary_sensor", s[0]) for s in MINER_BINARY_SENSORS)
+            )
+            # The miners no longer in the configuration
+            + tuple(
+                (component, f"miner{i}_{key}")
+                for i in range(len(units) + 1, MAX_MINERS + 1)
+                for component, key in (("sensor", "power"), ("binary_sensor", "running"))
+            )
         )
         for key, name, device_class, unit, state_class, icon, diagnostic in sensors:
             config = {

@@ -486,3 +486,15 @@ pre.json { font-family: var(--mono); font-size: 11.5px; white-space: pre-wrap; o
     .topbar > nav.tabs { order: 1; flex: 1 1 100%; }
     nav.tabs .tab { flex: 1 0 auto; padding: 0 8px; }
 }
+
+/* The miners on the dashboard */
+.miners-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.miners-table th { text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--secondary-text-color); padding: 0 8px 6px 0; }
+.miners-table td { padding: 7px 8px 7px 0; border-top: 1px solid var(--divider-color); vertical-align: top; line-height: 1.35; }
+.miners-table td small { color: var(--secondary-text-color); }
+.miners-table .miner-mode { white-space: nowrap; text-align: right; padding-right: 0; }
+.miners-table th:last-child { text-align: right; padding-right: 0; }
+.miner-auto { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; vertical-align: middle; }
+.state.miners::before { background: var(--miners); }
+.miners-table .muted { color: var(--muted-text-color); }

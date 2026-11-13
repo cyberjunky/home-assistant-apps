@@ -140,6 +140,9 @@ class BatteryController:
         self.surplus_w = 0
         self.curtailed_w = 0
         self.surplus_reason = ""
+        # The house no longer covered by the panels (importing, or the battery discharging): the
+        # miners stop one by one while this holds; the reason in words, empty when covered
+        self.overload = ""
         self._surplus_pending: bool | None = None
         self._surplus_pending_since = 0.0
         link.listeners.append(self._on_data)
@@ -637,6 +640,9 @@ class BatteryController:
         self.curtailed_w = round(curtailed_w)
         importing = pgrid > s.surplus_off_import_w
         draining = pbat < -IDLE_W
+        self.overload = (
+            f"importing {pgrid:.0f} W" if importing else f"battery discharging {-pbat:.0f} W" if draining else ""
+        )
         if self.surplus:
             # Off when the house is no longer covered by the panels
             wanted = not (importing or draining or soc < s.surplus_full_soc - 10)
