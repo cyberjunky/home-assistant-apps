@@ -90,26 +90,6 @@ def test_deleted_defaults_stay_deleted_on_update(tmp_path):
     db.close()
 
 
-def test_untracked_tables_of_an_older_version_keep_deletions(tmp_path):
-    """Before 1.4.16 the abbreviations and ignore texts weren't tracked: a table that has rows
-    but no record counts all its shipped rows as offered."""
-    path = str(tmp_path / "meldkamer.sqlite3")
-    db = Database(path)
-    db.delete_abbreviation(db.list_abbreviations(search="GHOR")["items"][0]["id"])
-    mob = next(r for r in db.list_ignore_text()["items"] if r["pattern"] == "*MOB*")
-    db.delete_ignore_text(mob["id"])
-    db.cursor.execute("DELETE FROM speech_seeded WHERE kind IN ('abbreviations', 'ignore_text', 'defaults')")
-    db._commit()
-    db.close()
-
-    db = Database(path)
-    assert not [r for r in db.list_abbreviations(search="GHOR")["items"] if r["abbreviation"] == "GHOR"]
-    assert "*MOB*" not in [r["pattern"] for r in db.list_ignore_text()["items"]]
-    total = db.cursor.execute("SELECT COUNT(*) FROM abbreviations").fetchone()[0]
-    assert total == len(default_data.read("abbreviations")) - 1
-    db.close()
-
-
 def test_a_new_default_row_in_a_new_version_is_added(tmp_path, monkeypatch):
     path = str(tmp_path / "meldkamer.sqlite3")
     Database(path).close()

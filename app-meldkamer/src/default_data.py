@@ -4,12 +4,6 @@ They are only read to fill the database (see the Database class): at the first s
 a version, and never again after that. At runtime the database tables are the only source.
 
 - <table>.csv: the built-in rows of a table (UTF-8, header row = the table's columns).
-- previous.csv: values older versions shipped (table, key, column, value, migration): a row
-  still at such a value gets the current value, or is removed when the key is no longer
-  shipped. Done once per entry; rows you changed are left alone.
-- added_later.csv: keys a table got after older versions filled it without keeping track of
-  what they added (table, key, version). Only those are added to such a table; the other
-  shipped rows count as offered, so a row you deleted there stays deleted.
 """
 
 import csv

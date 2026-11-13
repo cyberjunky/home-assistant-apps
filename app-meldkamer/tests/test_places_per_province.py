@@ -1,7 +1,6 @@
 """Same-named places in different provinces (issue #67): Velp in Gelderland and in Noord-Brabant."""
 
 import asyncio
-import sqlite3
 from types import SimpleNamespace
 
 import pytest
@@ -45,37 +44,6 @@ BAG = {
     },
 }
 
-# The places and streets tables of Meldkamer 1.4.10: a place is unique on its name alone
-SCHEMA_1_4_10 = """
-CREATE TABLE places (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    city TEXT UNIQUE NOT NULL,
-    abbreviation TEXT,
-    province TEXT,
-    latitude REAL,
-    longitude REAL
-);
-CREATE TABLE streets (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    street TEXT NOT NULL,
-    city_id INTEGER,
-    postalcode TEXT,
-    latitude REAL,
-    longitude REAL,
-    FOREIGN KEY (city_id) REFERENCES places(id)
-);
-CREATE INDEX idx_streets_street ON streets(street);
-CREATE INDEX idx_streets_city ON streets(city_id);
-CREATE INDEX idx_streets_lookup ON streets(street, city_id);
-CREATE UNIQUE INDEX idx_streets_unique ON streets(street, city_id);
-CREATE TABLE capcodes (
-    capcode TEXT PRIMARY KEY, discipline TEXT, region TEXT, location TEXT, description TEXT, remark TEXT
-);
-CREATE TABLE abbreviations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, abbreviation TEXT UNIQUE NOT NULL, full_text TEXT NOT NULL
-);
-"""
-
 
 @pytest.fixture
 def fake_pdok(monkeypatch):
@@ -93,9 +61,6 @@ def fake_pdok(monkeypatch):
 
     monkeypatch.setattr(bag_import, "_fetch_woonplaatsen_for_province", woonplaatsen)
     monkeypatch.setattr(bag_import, "_fetch_streets_for_woonplaats", streets)
-    monkeypatch.setattr(
-        bag_import, "_fetch_woonplaats_codes", lambda name, prov: [BAG[prov][name][2]] if name in BAG[prov] else []
-    )
 
 
 def _import(db, *provinces):
@@ -116,101 +81,6 @@ def _streets(db, place_id):
         "SELECT street, latitude, longitude FROM streets WHERE city_id = ? ORDER BY street", (place_id,)
     ).fetchall()
     return {row[0]: (row[1], row[2]) for row in rows}
-
-
-def _old_database(path, velp_province="Noord-Brabant"):
-    """A 1.4.10 database after Import BAG for Noord-Brabant and Gelderland: one Velp with streets of both.
-
-    The place has the province and position of one of them (in 1.4.10: of the province imported last).
-    """
-    conn = sqlite3.connect(path)
-    conn.executescript(SCHEMA_1_4_10)
-    velp = VELP_NB if velp_province == "Noord-Brabant" else VELP_GLD
-    conn.execute("INSERT INTO places VALUES (1, 'Velp', 'VELP', ?, ?, ?)", (velp_province, *velp))
-    conn.execute("INSERT INTO places VALUES (2, 'Mijndorp', 'MIJND', NULL, 52.1, 5.1)")  # own place, no province
-    conn.execute("INSERT INTO places VALUES (3, 'Hoorn', 'HOORN', 'Noord-Holland', ?, ?)", HOORN_NH)
-    streets = [
-        ("Kerkstraat", 1, "5363", 51.749, 5.715),  # Velp NB (Velp Gld's Kerkstraat was dropped)
-        ("Graafsebaan", 1, "5363", 51.745, 5.710),
-        ("Hoofdstraat", 1, "6881", 51.997, 5.977),  # Velp Gld streets on the NB place
-        ("Arnhemsestraat", 1, "6881", 51.990, 5.960),
-        ("Mijnstraat", 2, "", None, None),  # own street
-        ("Grote Noord", 3, "1621", 52.642, 5.058),
-        ("Dorpsstraat", 3, "8896", 53.388, 5.340),  # Terschelling's Hoorn on the NH place
-        ("Losse weg", None, "", None, None),  # a street without a place
-    ]
-    conn.executemany(
-        "INSERT INTO streets (street, city_id, postalcode, latitude, longitude) VALUES (?, ?, ?, ?, ?)", streets
-    )
-    conn.execute("INSERT INTO capcodes VALUES ('001234567', 'Brandweer', 'Gelderland Midden', '', 'TS Velp', '')")
-    conn.execute("INSERT INTO abbreviations (abbreviation, full_text) VALUES ('MIJNAFK', 'Mijn afkorting')")
-    conn.commit()
-    conn.close()
-    return streets
-
-
-def test_migration_keeps_every_row(tmp_path, caplog):
-    path = str(tmp_path / "meldkamer.sqlite3")
-    old_streets = _old_database(path)
-
-    db = Database(path)
-
-    places = db.cursor.execute("SELECT id, city, abbreviation, province, latitude FROM places ORDER BY id").fetchall()
-    assert [tuple(row) for row in places] == [
-        (1, "Velp", "VELP", "Noord-Brabant", VELP_NB[0]),  # still the merged place, re-import separates it
-        (2, "Mijndorp", "MIJND", "", 52.1),
-        (3, "Hoorn", "HOORN", "Noord-Holland", HOORN_NH[0]),
-    ]
-    streets = db.cursor.execute(
-        "SELECT street, city_id, postalcode, latitude, longitude FROM streets ORDER BY id"
-    ).fetchall()
-    assert [tuple(row) for row in streets] == old_streets
-    assert db.find_capcode("001234567")["region"] == "Gelderland Midden"
-    assert db.cursor.execute("SELECT full_text FROM abbreviations WHERE abbreviation = 'MIJNAFK'").fetchone()[0]
-    # Now unique per name and province: a second Velp can be added, a second Velp (NB) can't
-    assert db.add_place("Velp", province="Gelderland")
-    assert not db.add_place("Velp", province="Noord-Brabant")
-    # The merged places are reported
-    assert [p["city"] for p in db.mixed_places()] == ["Hoorn", "Velp"]
-    assert "Run Import BAG again" in caplog.text
-
-    # Opening it again changes nothing
-    db.conn.close()
-    db = Database(path)
-    assert db.cursor.execute("SELECT COUNT(*) FROM places").fetchone()[0] == 4
-
-
-@pytest.mark.parametrize(
-    ("velp_province", "order"),
-    [
-        ("Noord-Brabant", ["Gelderland", "Noord-Brabant", "Noord-Holland", "Friesland"]),
-        ("Gelderland", ["Gelderland", "Noord-Brabant", "Noord-Holland", "Friesland"]),
-        ("Gelderland", ["Friesland", "Noord-Holland", "Noord-Brabant", "Gelderland"]),
-    ],
-)
-def test_reimport_separates_merged_places(tmp_path, fake_pdok, velp_province, order):
-    path = str(tmp_path / "meldkamer.sqlite3")
-    _old_database(path, velp_province)
-    db = Database(path)
-
-    _import(db, *order)
-
-    velp = _places(db, "Velp")
-    assert set(velp) == {"Gelderland", "Noord-Brabant"}
-    assert velp[velp_province]["id"] == 1  # the existing place keeps its id
-    assert (velp["Gelderland"]["latitude"], velp["Gelderland"]["longitude"]) == VELP_GLD
-    assert (velp["Noord-Brabant"]["latitude"], velp["Noord-Brabant"]["longitude"]) == VELP_NB
-    # Each its own Kerkstraat (1.4.10 kept only one)
-    assert _streets(db, velp["Gelderland"]["id"])["Kerkstraat"] == (51.994, 5.973)
-    assert _streets(db, velp["Noord-Brabant"]["id"])["Kerkstraat"] == (51.749, 5.715)
-    assert set(_streets(db, velp["Gelderland"]["id"])) == {"Hoofdstraat", "Kerkstraat", "Arnhemsestraat"}
-    assert set(_streets(db, velp["Noord-Brabant"]["id"])) == {"Kerkstraat", "Graafsebaan"}
-    hoorn = _places(db, "Hoorn")
-    assert set(_streets(db, hoorn["Noord-Holland"]["id"])) == {"Grote Noord"}
-    assert set(_streets(db, hoorn["Friesland"]["id"])) == {"Dorpsstraat"}
-    # Own place and street untouched, nothing reported as mixed any more
-    assert _streets(db, 2) == {"Mijnstraat": (None, None)}
-    assert db.mixed_places() == []
 
 
 def test_import_two_provinces_gives_two_places(tmp_path, fake_pdok):

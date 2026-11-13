@@ -150,8 +150,6 @@ MINER_SENSORS = (
     ("miners_energy_today", "Miners energy today", "energy", "kWh", "total_increasing", "mdi:bitcoin", False),
 )
 MINER_BINARY_SENSORS = (("miners_running", "Miners running", "running", "mdi:bitcoin"),)
-# Entities of earlier versions, removed from Home Assistant on discovery: (component, key)
-REMOVED = (("binary_sensor", "charge_cap_active"),)
 
 
 def state_payload(data: dict, control: dict, inverter: dict, forecast: dict, settings: dict | None = None) -> dict:
@@ -470,8 +468,7 @@ class MqttPublisher:
             )
         )
         removed = (
-            REMOVED
-            + (
+            (
                 ()
                 if miners
                 else tuple(("sensor", s[0]) for s in MINER_SENSORS)

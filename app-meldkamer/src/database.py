@@ -5,7 +5,6 @@ import csv
 import io
 import json
 import logging
-import math
 import os
 import re
 import shutil
@@ -95,12 +94,6 @@ def _nl_coordinates(latitude, longitude) -> tuple[float | None, float | None]:
     return None, None
 
 
-def _km(a: tuple[float, float], b: tuple[float, float]) -> float:
-    """Distance in km between two (latitude, longitude) points (equirectangular, fine within the Netherlands)."""
-    x = (b[1] - a[1]) * math.cos(math.radians((a[0] + b[0]) / 2))
-    return math.hypot(x, b[0] - a[0]) * 111.2
-
-
 def province_key(province: str | None) -> str:
     """A province name for comparing: "Fryslân", "Friesland" and " friesland" are the same."""
     key = unicodedata.normalize("NFKD", province or "").encode("ascii", "ignore").decode().casefold().strip()
@@ -136,6 +129,7 @@ class Database:
     CREATE INDEX IF NOT EXISTS idx_streets_street ON streets(street);
     CREATE INDEX IF NOT EXISTS idx_streets_city ON streets(city_id);
     CREATE INDEX IF NOT EXISTS idx_streets_lookup ON streets(street, city_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_streets_unique ON streets(street, city_id);
 
     -- Capcodes table
     CREATE TABLE IF NOT EXISTS capcodes (
@@ -175,6 +169,7 @@ class Database:
     CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp);
     CREATE INDEX IF NOT EXISTS idx_messages_city ON messages(city);
     CREATE INDEX IF NOT EXISTS idx_messages_discipline ON messages(discipline);
+    CREATE INDEX IF NOT EXISTS idx_messages_incident ON messages(incident_id);
 
     -- Geocodes cache table
     CREATE TABLE IF NOT EXISTS geocodes (
@@ -378,7 +373,7 @@ class Database:
         self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self.conn = _LockedConnection(self._conn, self._lock)
-        self._migrate_schema()
+        self._create_schema()
         # Capcodes imported before the vehicles table existed
         self.learn_vehicles_from_capcodes()
 
@@ -564,53 +559,32 @@ class Database:
                 logger.info(f"Creating new database at {self.db_path}")
                 # Will be created when we connect
 
-    def _migrate_schema(self) -> None:
-        """Ensure all tables exist with proper schema."""
+    # The oldest version whose database this version opens: 1.4.16 added the incident_rules
+    # table, and every older change to the tables had been made by then
+    OLDEST_SUPPORTED_VERSION = "1.4.16"
+
+    @staticmethod
+    def _older_than_supported(tables: set[str]) -> bool:
+        """Whether a database with these tables is from a version before OLDEST_SUPPORTED_VERSION."""
+        return "places" in tables and "incident_rules" not in tables
+
+    def _create_schema(self) -> None:
+        """Create the missing tables and indexes and fill the tables with the built-in rows.
+
+        Stops the app when the database is from a version before OLDEST_SUPPORTED_VERSION:
+        such a database is not upgraded.
+        """
+        tables = {row[0] for row in self._conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        if self._older_than_supported(tables):
+            logger.error(
+                f"The database {self.db_path} is from a Meldkamer version before {self.OLDEST_SUPPORTED_VERSION}, "
+                f"which this version can no longer upgrade. Delete {self.db_path} (or uninstall and reinstall "
+                "the app, which removes its data) and start the app again to begin with a new, empty database."
+            )
+            raise SystemExit(1)
         try:
-            # First, create any missing tables
             self.conn.executescript(self.SCHEMA)
             self._commit()
-
-            # Then, add missing columns to existing tables (for upgrades)
-            migrations = [
-                # Places table migrations
-                ("places", "province", "TEXT"),
-                ("places", "latitude", "REAL"),
-                ("places", "longitude", "REAL"),
-                # Streets table migrations
-                ("streets", "postalcode", "TEXT"),
-                ("streets", "latitude", "REAL"),
-                ("streets", "longitude", "REAL"),
-                # Messages table migrations
-                ("messages", "distance_km", "REAL"),
-                ("messages", "incident_id", "TEXT"),
-                ("messages", "repeats", "INTEGER NOT NULL DEFAULT 0"),
-            ]
-
-            for table, column, col_type in migrations:
-                try:
-                    self.cursor.execute(f"SELECT {column} FROM {table} LIMIT 1")
-                except sqlite3.OperationalError:
-                    # Column doesn't exist, add it
-                    try:
-                        self.cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
-                        logger.info(f"Added column {column} to {table}")
-                    except sqlite3.OperationalError as e:
-                        logger.warning(f"Could not add column {column} to {table}: {e}")
-
-            # Indexes on migrated columns (SCHEMA runs before the columns exist on upgrades)
-            self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_messages_incident ON messages(incident_id)")
-            # Places without a province have province '' since 1.4.11 (the column is NOT NULL now)
-            self.cursor.execute("UPDATE places SET province = '' WHERE province IS NULL")
-            self._commit()
-
-            # SQLite cannot ADD COLUMN a PRIMARY KEY - rebuild legacy tables
-            # that predate the id column (rowid is kept as id so existing
-            # streets.city_id links survive)
-            self._rebuild_table_with_id("places", ["city", "abbreviation", "province", "latitude", "longitude"])
-            self._rebuild_table_with_id("streets", ["street", "city_id", "postalcode", "latitude", "longitude"])
-            self._rebuild_places_per_province()
-            self._ensure_unique_streets()
             self.seed_all_defaults()
             self.load_lookups()
         except sqlite3.Error as e:
@@ -644,49 +618,15 @@ class Database:
         marker = default_data.signature()
         if self.cursor.execute("SELECT 1 FROM speech_seeded WHERE kind = 'defaults' AND key = ?", (marker,)).fetchone():
             return 0
-        later: dict[str, set[str]] = {}
-        for row in default_data.read("added_later"):
-            later.setdefault(row["table"], set()).add(row["key"])
         added = 0
-        current: dict[str, dict[str, dict]] = {}
         for table in self.DEFAULT_TABLES:
-            rows = default_data.read(table)
-            spec = self._SEED_SPECS[table]
-            if len(spec["key"]) == 1:
-                current[table] = {self._seed_values(spec, row)[spec["key"][0]]: row for row in rows}
-            added += self.seed_defaults(table, rows, later.get(table, set()))
-        self._apply_previous_defaults(current)
+            added += self.seed_defaults(table, default_data.read(table))
         with self._transaction() as conn:
             conn.execute("DELETE FROM speech_seeded WHERE kind = 'defaults'")
             conn.execute("INSERT INTO speech_seeded (kind, key) VALUES ('defaults', ?)", (marker,))
         if added:
             logger.info(f"Added {added} built-in row(s) from src/defaults")
         return added
-
-    def _apply_previous_defaults(self, current: dict[str, dict[str, dict]]) -> None:
-        """Rows still at a value an older version shipped (src/defaults/previous.csv) get the
-        current value, or are removed when that key isn't shipped any more. Once per entry;
-        an entry whose migration already ran under an older version is skipped."""
-        with self._transaction() as conn:
-            done = {r[0] for r in conn.execute("SELECT key FROM speech_seeded WHERE kind = 'migration'")}
-            for row in default_data.read("previous"):
-                entry = "\x1f".join((row["table"], row["key"], row["column"], row["value"]))
-                if entry in done or row.get("migration") in done:
-                    continue
-                table, column = row["table"], row["column"]
-                key_column = self._SEED_SPECS[table]["key"][0]
-                now = current.get(table, {}).get(row["key"])
-                if now is not None:
-                    conn.execute(
-                        f"UPDATE {table} SET {column} = ? WHERE {key_column} = ? AND {column} = ?",
-                        (now[column], row["key"], row["value"]),
-                    )
-                else:
-                    conn.execute(
-                        f"DELETE FROM {table} WHERE {key_column} = ? AND {column} = ?", (row["key"], row["value"])
-                    )
-                conn.execute("INSERT OR IGNORE INTO speech_seeded (kind, key) VALUES ('migration', ?)", (entry,))
-        self.invalidate_text_caches()
 
     def load_lookups(self) -> None:
         """Hand the current contents of the parser's lookup tables to the parsing modules."""
@@ -724,162 +664,13 @@ class Database:
             }
         )
 
-    def _table_sql(self, table: str) -> str:
-        """Return the CREATE TABLE statement for a table from SCHEMA."""
-        match = re.search(rf"CREATE TABLE IF NOT EXISTS {table} \(.*?\n    \);", self.SCHEMA, re.DOTALL)
-        return match.group(0)
-
-    def _rebuild_table_with_id(self, table: str, columns: list[str]) -> None:
-        """Rebuild a legacy table without an id column (create, copy, drop, rename)."""
-        with self._lock:
-            existing = {row[1] for row in self._conn.execute(f"PRAGMA table_info({table})").fetchall()}
-            if not existing or "id" in existing:
-                return
-            copy_cols = [c for c in columns if c in existing]
-            col_list = ", ".join(copy_cols)
-            create_sql = self._table_sql(table).replace(f"EXISTS {table} (", f"EXISTS {table}_new (", 1)
-            try:
-                with self._transaction() as conn:
-                    conn.execute(f"DROP TABLE IF EXISTS {table}_new")
-                    conn.execute(create_sql)
-                    # OR IGNORE: legacy rows may violate the new UNIQUE/NOT NULL constraints
-                    conn.execute(
-                        f"INSERT OR IGNORE INTO {table}_new (id, {col_list}) SELECT rowid, {col_list} FROM {table}"
-                    )
-                    conn.execute(f"DROP TABLE {table}")
-                    conn.execute(f"ALTER TABLE {table}_new RENAME TO {table}")
-                logger.info(f"Rebuilt table {table} with id column")
-            except sqlite3.Error as e:
-                logger.warning(f"Could not rebuild table {table} with id column: {e}")
-                return
-        # Recreate the indexes that were dropped together with the old table
-        self.conn.executescript(self.SCHEMA)
-
-    def _places_unique_on_name(self) -> bool:
-        """Whether the places table is unique on the name alone (versions before 1.4.11)."""
-        for index in self._conn.execute("PRAGMA index_list(places)").fetchall():
-            if index[2]:  # unique
-                columns = [row[2] for row in self._conn.execute(f"PRAGMA index_info('{index[1]}')").fetchall()]
-                if columns == ["city"]:
-                    return True
-        return False
-
-    def _rebuild_places_per_province(self) -> None:
-        """Make places unique per (name, province) instead of per name (versions before 1.4.11).
-
-        Every row is copied with its id, so streets keep their place and your own places,
-        abbreviations and coordinates stay as they are. A place that already holds the
-        streets of two same-named places is not split here (that needs the BAG data):
-        importing BAG again for those provinces moves the streets to their own place
-        (see move_namesake_streets). Such places are reported in the log.
-        """
-        with self._lock:
-            if not self._places_unique_on_name():
-                return
-            create_sql = self._table_sql("places").replace("EXISTS places (", "EXISTS places_new (", 1)
-            try:
-                with self._transaction() as conn:
-                    conn.execute("DROP TABLE IF EXISTS places_new")
-                    conn.execute(create_sql)
-                    # A plain INSERT: a row that doesn't fit fails the whole rebuild (rolled
-                    # back, the old table stays as it was) instead of being skipped
-                    conn.execute(
-                        "INSERT INTO places_new (id, city, abbreviation, province, latitude, longitude) "
-                        "SELECT id, city, abbreviation, COALESCE(province, ''), latitude, longitude FROM places"
-                    )
-                    before = conn.execute("SELECT COUNT(*) FROM places").fetchone()[0]
-                    after = conn.execute("SELECT COUNT(*) FROM places_new").fetchone()[0]
-                    if before != after:
-                        raise sqlite3.Error(f"copied {after} of {before} places")
-                    conn.execute("DROP TABLE places")
-                    conn.execute("ALTER TABLE places_new RENAME TO places")
-                logger.info(f"Places are now unique per name and province ({after} places kept)")
-            except sqlite3.Error as e:
-                logger.warning(f"Could not make places unique per province: {e}")
-                return
-        self.conn.executescript(self.SCHEMA)
-        mixed = self.mixed_places()
-        if mixed:
-            names = ", ".join(f"{p['city']} ({p['km']:.0f} km)" for p in mixed)
-            logger.warning(
-                f"{len(mixed)} place(s) hold the streets of two same-named places in different provinces: "
-                f"{names}. Run Import BAG again for the provinces you imported to separate them."
-            )
-
-    def mixed_places(self, gap_km: float = 25.0) -> list[dict[str, Any]]:
-        """Places whose located streets form groups more than gap_km apart.
-
-        Versions before 1.4.11 stored same-named places in two provinces as one place, with
-        the streets of both. The streets are put on a grid of about 5 km; neighbouring cells
-        form one group, and a place with groups more than gap_km apart is reported, farthest
-        first. Returns dicts with id, city, province and km (the distance between the groups).
-        """
-        with self._lock:
-            rows = self._conn.execute(
-                "SELECT city_id, latitude, longitude FROM streets "
-                "WHERE city_id IS NOT NULL AND latitude IS NOT NULL AND longitude IS NOT NULL"
-            ).fetchall()
-            places = {row[0]: (row[1], row[2]) for row in self._conn.execute("SELECT id, city, province FROM places")}
-        cells: dict[int, set[tuple[int, int]]] = {}
-        for city_id, lat, lon in rows:
-            cells.setdefault(city_id, set()).add((int(lat // 0.05), int(lon // 0.08)))
-        mixed = []
-        for city_id, place_cells in cells.items():
-            if city_id not in places or len(place_cells) < 2:
-                continue
-            centres = []
-            todo = set(place_cells)
-            while todo:
-                stack = [todo.pop()]
-                group = []
-                while stack:
-                    cell = stack.pop()
-                    group.append(cell)
-                    for near in [(cell[0] + dy, cell[1] + dx) for dy in (-1, 0, 1) for dx in (-1, 0, 1)]:
-                        if near in todo:
-                            todo.remove(near)
-                            stack.append(near)
-                centres.append(
-                    (
-                        sum(c[0] + 0.5 for c in group) / len(group) * 0.05,
-                        sum(c[1] + 0.5 for c in group) / len(group) * 0.08,
-                    )
-                )
-            if len(centres) < 2:
-                continue
-            km = max(_km(a, b) for i, a in enumerate(centres) for b in centres[i + 1 :])
-            if km > gap_km:
-                city, province = places[city_id]
-                mixed.append({"id": city_id, "city": city, "province": province, "km": km})
-        return sorted(mixed, key=lambda p: -p["km"])
-
-    def _ensure_unique_streets(self) -> None:
-        """Deduplicate streets and add the UNIQUE (street, city_id) index."""
-        with self._lock:
-            exists = self._conn.execute(
-                "SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_streets_unique'"
-            ).fetchone()
-            if exists:
-                return
-            try:
-                with self._transaction() as conn:
-                    removed = conn.execute(
-                        "DELETE FROM streets WHERE id NOT IN (SELECT MIN(id) FROM streets GROUP BY street, city_id)"
-                    ).rowcount
-                    conn.execute("CREATE UNIQUE INDEX idx_streets_unique ON streets(street, city_id)")
-                if removed:
-                    logger.info(f"Removed {removed} duplicate streets")
-            except sqlite3.Error as e:
-                logger.warning(f"Could not add unique street index: {e}")
-
     def merge_case_duplicate_streets(self) -> int:
         """Merge streets of one place that only differ in capitalisation ("De Akkers" / "de Akkers").
 
         BAG has some streets in two spellings. Per place, the variant with a position is kept
         (the oldest one if several have it), it takes over a postcode it lacks from another
-        variant, and the others are removed. Runs at the end of a province import, so streets stored
-        in two spellings by versions before 1.4.0 are merged when the province is imported
-        again. Returns the number of streets removed.
+        variant, and the others are removed. Runs at the end of a province import. Returns the
+        number of streets removed.
         """
         with self._lock:
             rows = self._conn.execute(
@@ -1458,68 +1249,6 @@ class Database:
             )
         self.invalidate_text_caches()
         return added
-
-    def move_namesake_streets(
-        self, city_id: int, streets: list[dict[str, Any]], max_km: float = 1.0
-    ) -> list[dict[str, Any]]:
-        """Move streets of this place that are stored under a same-named place in another province.
-
-        Versions before 1.4.11 stored Velp (Gelderland) and Velp (Noord-Brabant) as one place
-        with the streets of both. When a province import fetches the streets of a place, a
-        street of that name on a namesake (same name, other province) is moved here when it
-        is the same street: its position lies within max_km of the fetched one or, without a
-        position, it has the same postcode area. A street that is already here as well is
-        removed from the namesake instead. The namesake's own street of that name (far away)
-        stays. Returns the namesakes that gave up streets, as dicts with id, province and moved
-        (the number of streets moved or removed): a street name both places have was stored only
-        once, so the namesake may now miss its own one and should get its streets again.
-        """
-        fetched = {}
-        for s in streets:
-            if s.get("street"):
-                fetched[s["street"].casefold()] = (
-                    *_nl_coordinates(s.get("latitude"), s.get("longitude")),
-                    s.get("postcode") or "",
-                )
-        moved: dict[int, int] = {}
-        with self._transaction() as conn:
-            namesakes = {
-                row[0]: row[1]
-                for row in conn.execute(
-                    "SELECT n.id, n.province FROM places p JOIN places n ON n.city = p.city AND n.id != p.id "
-                    "WHERE p.id = ?",
-                    (city_id,),
-                ).fetchall()
-            }
-            if not namesakes:
-                return []
-            own = {
-                row[0].casefold() for row in conn.execute("SELECT street FROM streets WHERE city_id = ?", (city_id,))
-            }
-            marks = ",".join("?" * len(namesakes))
-            for street_id, namesake_id, name, postcode, lat, lon in conn.execute(
-                f"SELECT id, city_id, street, postalcode, latitude, longitude FROM streets WHERE city_id IN ({marks})",
-                list(namesakes),
-            ).fetchall():
-                match = fetched.get(name.casefold())
-                if not match:
-                    continue
-                f_lat, f_lon, f_postcode = match
-                if lat is not None and f_lat is not None:
-                    same = _km((lat, lon), (f_lat, f_lon)) <= max_km
-                else:
-                    same = lat is None and bool(postcode) and postcode == f_postcode
-                if not same:
-                    continue
-                if name.casefold() in own:
-                    conn.execute("DELETE FROM streets WHERE id = ?", (street_id,))
-                else:
-                    conn.execute("UPDATE streets SET city_id = ? WHERE id = ?", (city_id, street_id))
-                    own.add(name.casefold())
-                moved[namesake_id] = moved.get(namesake_id, 0) + 1
-        if moved:
-            self.invalidate_text_caches()
-        return [{"id": i, "province": namesakes[i], "moved": n} for i, n in moved.items()]
 
     def update_street(
         self,
@@ -2540,30 +2269,26 @@ class Database:
             values[c] = values[c].upper()
         return values
 
-    def seed_defaults(self, table: str, rows: list[dict], added_later: set[str] | None = None) -> int:
+    def seed_defaults(self, table: str, rows: list[dict]) -> int:
         """Add the built-in rows that were never offered before. Returns the number added.
 
         Each row is offered once: a row you changed keeps your text and a row you deleted stays
-        deleted, also after updates (speech_seeded remembers what was offered). A table that
-        an older version filled without keeping track (it has rows but nothing is recorded)
-        only gets the keys in added_later; the other rows count as offered already.
+        deleted, also after updates (speech_seeded remembers what was offered).
         """
         spec = self._SEED_SPECS[table]
         added = 0
         with self._transaction() as conn:
             seeded = {r[0] for r in conn.execute("SELECT key FROM speech_seeded WHERE kind = ?", (table,))}
-            untracked = not seeded and conn.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone() is not None
             for row in rows:
                 values = self._seed_values(spec, row)
                 key = "\x1f".join(values[c] for c in spec["key"])
                 if key in seeded:
                     continue
-                if not untracked or key in (added_later or set()):
-                    cols = list(spec["cols"])
-                    added += conn.execute(
-                        f"INSERT OR IGNORE INTO {table} ({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)})",
-                        [values[c] for c in cols],
-                    ).rowcount
+                cols = list(spec["cols"])
+                added += conn.execute(
+                    f"INSERT OR IGNORE INTO {table} ({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)})",
+                    [values[c] for c in cols],
+                ).rowcount
                 conn.execute("INSERT OR IGNORE INTO speech_seeded (kind, key) VALUES (?, ?)", (table, key))
                 seeded.add(key)
         if added:
@@ -3255,6 +2980,8 @@ class Database:
             return "The file is not an SQLite database"
         if not {"messages", "places", "capcodes"} <= tables:
             return "The file is an SQLite database, but not a Meldkamer one"
+        if Database._older_than_supported(tables):
+            return f"The backup is from a Meldkamer version before {Database.OLDEST_SUPPORTED_VERSION}, which this version can't open"
         return None
 
     def replace_with(self, path: str) -> None:
@@ -3271,5 +2998,5 @@ class Database:
             self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
             self._conn.row_factory = sqlite3.Row
             self.conn = _LockedConnection(self._conn, self._lock)
-            self._migrate_schema()
+            self._create_schema()
             self.learn_vehicles_from_capcodes()

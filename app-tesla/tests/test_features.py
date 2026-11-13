@@ -7,11 +7,11 @@ import pytest
 from src import stats
 from src.billing import ChargingCosts
 from src.config import Config
-from src.database import Database, session_figures
+from src.database import session_figures
 from src.monitor import normalize
 from src.mqtt import state_payload
 
-from .conftest import LAT, LON, as_layout, feed, make_monitor, vehicle_data
+from .conftest import LAT, LON, feed, make_monitor, vehicle_data
 
 T0 = 1_700_000_000
 DAY = 86400
@@ -137,25 +137,6 @@ def test_hand_set_consumption_still_applies_to_all(database, car):
     database.apply_efficiency(car, 200.0)
     row = database.query_one("SELECT energy_kwh, efficiency_wh_km FROM drives WHERE id = ?", (drive,))
     assert row == {"energy_kwh": pytest.approx(4.0), "efficiency_wh_km": 200.0}
-
-
-def test_upgrade_fills_charge_figures_and_drive_consumption(tmp_path):
-    path = tmp_path / "tesla.db"
-    database = Database(path)
-    car = database.upsert_car(1, 2, "VIN1", "car")
-    database.update_car(car, efficiency_wh_km=155.0)
-    charge = _charge(database, car, T0, 30, 80, 75.0, 150.0)
-    drive = _drive(database, car, T0 + DAY)
-    database.close_drive(drive, 155.0)
-    database.close()
-    as_layout(path, 6)
-    database = Database(path)
-    row = database.query_one("SELECT capacity_kwh, rated_wh_km, estimated FROM charges WHERE id = ?", (charge["id"],))
-    assert row["capacity_kwh"] == pytest.approx(75.0, abs=0.1)
-    assert row["rated_wh_km"] == pytest.approx(150.0, abs=0.1)
-    assert row["estimated"] == 0
-    assert database.query_one("SELECT efficiency_wh_km FROM drives")["efficiency_wh_km"] == 155.0
-    database.close()
 
 
 def test_missed_charge_is_estimated(database):
