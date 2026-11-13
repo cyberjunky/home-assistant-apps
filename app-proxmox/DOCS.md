@@ -1,5 +1,7 @@
 # Home Assistant App: Proxmox
 
+> **Unofficial.** An independent project, not affiliated with, endorsed by or sponsored by Proxmox Server Solutions GmbH.
+
 Proxmox shows your [Proxmox VE](https://www.proxmox.com/en/proxmox-virtual-environment) cluster in a dashboard, served through ingress: the whole datacenter on one overview, a page per node and per guest, storage and backups, the network as a map and as VLAN lanes, the firewall as a flow, and the cluster's task log. It reads the cluster over its REST API with an API token.
 
 The app is read-only by default. Turn `read_only` off to start and stop guests, edit firewall rules and move a guest's network device to another VLAN from the dashboard.
@@ -149,3 +151,10 @@ Proxmox VE API ──every poll_seconds──▶ cluster status, resources, node
 - **Light on the cluster.** The live state is five small requests per `poll_seconds`. The configuration is a few requests per node and guest every 5 minutes.
 - **The backup server** is read every minute, its list of updates every 30 minutes, over its own API on port 8007.
 - **Not in this version:** consoles, migration, creating or deleting guests, and editing the host network or the firewall options.
+
+## Disclaimer
+
+This app is an independent project. It is not affiliated with, endorsed by or sponsored by
+Proxmox Server Solutions GmbH. Proxmox, Proxmox VE and Proxmox Backup Server are registered
+trademarks of Proxmox Server Solutions GmbH. With `read_only` off, the buttons in this app act on
+your cluster for real.

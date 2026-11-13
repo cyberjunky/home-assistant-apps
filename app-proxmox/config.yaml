@@ -1,7 +1,7 @@
 name: Proxmox
 version: "0.1.0"
 slug: app-proxmox
-description: "Dashboard for your Proxmox VE cluster - nodes, guests, storage, backups, Ceph and HA, the network and VLANs as a map, and the firewall as a flow with its log"
+description: "Unofficial dashboard for your Proxmox VE cluster - nodes, guests, storage, backups, Ceph and HA, the network and VLANs as a map, and the firewall as a flow with its log"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-proxmox"
 init: false
 arch:
