@@ -18,6 +18,8 @@ __all__ = ["Decoder", "ValidationError", "registry"]
 class Decoder:
     key = ""
     name = ""
+    # The mode button's label, when the name is too long for it
+    button = ""
     # "audio": the demodulated audio of the tuned channel; "iq": the samples around the tuned frequency
     input = "audio"
     # Settings on the Settings page, with their defaults; frequencies in Hz

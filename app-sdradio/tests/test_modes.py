@@ -365,3 +365,25 @@ def test_data_modes_are_decoded_but_not_heard(tmp_path, key):
     run(r, 2)
     assert [k for k, _ in r.events if k == "audio"]  # the radio is heard again
     r.db.close()
+
+
+def test_memory_skips_channels_this_receiver_cant_use(tmp_path):
+    """◀ ▶ on an RTL-SDR: past shortwave (out of range) and a Video channel (a HackRF mode)."""
+    r = _real_radio(tmp_path, [])
+    db = r.db
+    first = db.save_channel({"number": 1, "name": "2 m", "frequency": 145_500_000, "mode": "nfm"})
+    db.save_channel(
+        {"number": 2, "name": "1.2 GHz video", "frequency": 1_200_000_000, "mode": "wfm", "tags": "mode:video"}
+    )
+    db.save_channel({"number": 3, "name": "VOLMET", "frequency": 5_505_000, "mode": "usb"})
+    db.save_channel({"number": 4, "name": "PMR", "frequency": 446_006_250, "mode": "nfm"})
+    r.command("channel", id=first["id"])
+    run(r, 2)
+    assert r.frequency == 145_500_000
+    r.command("memory", direction=1)
+    run(r, 2)
+    assert r.frequency == 446_006_250 and r.decoder is None
+    r.command("memory", direction=1)
+    run(r, 2)
+    assert r.frequency == 145_500_000
+    r.db.close()

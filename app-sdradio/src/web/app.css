@@ -615,7 +615,8 @@ table.data tbody tr.on td { background: var(--hover-bg); }
 .ch-item .body small { display: block; font: 11px var(--mono); color: var(--secondary-text-color); }
 .ch-item .seen { font: 11px var(--mono); color: var(--muted-text-color); white-space: nowrap; }
 .ch-item.locked .num { color: var(--muted-text-color); }
-.ch-item.out { cursor: not-allowed; opacity: 0.45; }
+.ch-item.out, .fav.out { cursor: not-allowed; opacity: 0.45; }
+.fav.out:hover { background: none; }
 .ch-item.out:hover { background: none; }
 .ch-item.locked .body b { color: var(--secondary-text-color); }
 .ch-item .ch-lo { margin-left: 4px; padding: 0 4px; border: 1px solid currentColor; border-radius: 3px; font-size: 9.5px;

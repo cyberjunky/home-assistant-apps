@@ -96,6 +96,7 @@ def parse_events(text: str) -> list[dict]:
 class Digital(Decoder):
     key = "digital"
     name = "Digital voice"
+    button = "Digital"
     signal = "4FSK / GMSK"
     decoded_by = "DSD-FME"
     input = "audio"
