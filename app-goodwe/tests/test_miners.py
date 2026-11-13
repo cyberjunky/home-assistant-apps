@@ -249,7 +249,23 @@ def test_idle_draw_of_a_small_miner(tmp_path, clock):
     miners.on_data({"surplus": 0})
     state = miners.units[0].state()
     assert state["on"] is False and state["idle"] is True and state["watts"] == 18
-    ha.states["sensor.left_power"] = {"state": "2", "attributes": {"unit_of_measurement": "W"}}
+    # Any power at all is idle (a stopped NerdQAxe reports 0.06 W); only 0 is off
+    ha.states["sensor.left_power"] = {"state": "0.06", "attributes": {"unit_of_measurement": "W"}}
+    asyncio.run(miners.read())
+    miners.on_data({"surplus": 0})
+    assert miners.units[0].state()["idle"] is True
+    ha.states["sensor.left_power"] = {"state": "0", "attributes": {"unit_of_measurement": "W"}}
     asyncio.run(miners.read())
     miners.on_data({"surplus": 0})
     assert miners.units[0].state()["idle"] is False
+
+
+def test_mining_from_30_w(tmp_path, clock):
+    miners, ha = make(tmp_path, [{"name": "Nerd", "switch": "switch.nerd", "sensor": "sensor.nerd_power"}])
+    ha.states["switch.nerd"] = {"state": "on"}
+    for watts, mining in (("25", False), ("31", True)):
+        ha.states["sensor.nerd_power"] = {"state": watts, "attributes": {"unit_of_measurement": "W"}}
+        asyncio.run(miners.read())
+        miners.on_data({"surplus": 1})
+        state = miners.units[0].state()
+        assert state["on"] is mining and state["idle"] is (not mining)
