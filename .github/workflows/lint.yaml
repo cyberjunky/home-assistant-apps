@@ -61,6 +61,7 @@ jobs:
           - app-toon
           - app-nuclei
           - app-sdradio
+          - app-proxmox-bs
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v7.0.1

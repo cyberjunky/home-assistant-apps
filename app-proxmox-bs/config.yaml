@@ -1,0 +1,39 @@
+name: Proxmox Backup Server
+version: "0.1.0"
+slug: app-proxmox-bs
+description: "Unofficial: a real Proxmox Backup Server for your Proxmox VE backups, on the disks of this machine"
+url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-proxmox-bs"
+init: false
+arch:
+  - aarch64
+  - amd64
+# Prebuilt by the repository Builder workflow; bump `version` to publish a new image
+image: "ghcr.io/cyberjunky/app-proxmox-bs"
+# PBS's own web interface and console (its own login and certificate), on the machine's port 8007
+webui: "https://[HOST]:[PORT:8007]"
+# PBS listens on the machine's own network, as on a real PBS
+host_network: true
+# Every disk of the machine, for PBS's Disks page (needs Protection mode off); the commands that
+# write to a disk refuse the one Home Assistant runs from (rootfs/usr/local/lib/pbsapp/disk-guard)
+full_access: true
+# Disks' models, serials and file systems from the host's udev database
+udev: true
+# Mount the datastore disks (SYS_ADMIN) and read their SMART health (SYS_RAWIO)
+privileged:
+  - SYS_ADMIN
+  - SYS_RAWIO
+# Home Assistant's time zone for PBS's schedules, and whether Protection mode is on
+hassio_api: true
+timeout: 30
+# The backups live on the datastore disks, never in /data. Task logs are left out too; the
+# configuration, certificate, users, tokens and mount units are kept, so a restore gives the same server
+backup_exclude:
+  - pbs/log/**
+
+options:
+  root_password: ""
+  log_level: info
+
+schema:
+  root_password: password
+  log_level: list(debug|info|warning|error)?

@@ -1,0 +1,12 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Proxmox Backup Server - the proxy (user backup): port 8007, the web interface,
+# backups and restores. It needs the keys the API daemon makes on its first start.
+# ==============================================================================
+for _ in $(seq 1 60); do
+    [[ -e /etc/proxmox-backup/csrf.key && -e /etc/proxmox-backup/proxy.pem ]] && break
+    sleep 1
+done
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+bashio::log.info "Starting the PBS proxy on port 8007..."
+exec setpriv --reuid=backup --regid=backup --init-groups /usr/lib/*/proxmox-backup/proxmox-backup-proxy

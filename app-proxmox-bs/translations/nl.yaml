@@ -1,0 +1,9 @@
+configuration:
+  root_password:
+    name: Root-wachtwoord
+    description: >-
+      Het wachtwoord van root@pam, voor de webinterface en console van PBS en
+      voor Proxmox VE. Leeg: niemand kan inloggen.
+  log_level:
+    name: Logniveau
+    description: Hoeveel er gelogd wordt. De meldingen van PBS zelf staan ook in het log.
