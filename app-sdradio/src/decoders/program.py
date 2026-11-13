@@ -21,8 +21,10 @@ RESTART_DELAY = 5.0
 
 
 class Program:
-    def __init__(self, name: str, command: list[str], on_line: Callable[[str], None], backlog: int = 40):
+    def __init__(self, name: str, command: list[str], on_line: Callable, backlog: int = 40, binary: bool = False):
         self.name = name
+        # binary: the output is data (decoded audio), handed over in chunks as it comes, not in lines
+        self.binary = binary
         self.command = command
         self.on_line = on_line
         self.queue: queue.Queue = queue.Queue(maxsize=backlog)
@@ -104,6 +106,13 @@ class Program:
             process.stdin.close()
 
     def _read(self, process: subprocess.Popen) -> None:
+        if self.binary:
+            while chunk := process.stdout.read(8192):  # unbuffered: what is there, up to this
+                try:
+                    self.on_line(chunk)
+                except Exception:
+                    logger.exception(f"{self.name}: could not handle its output")
+            return
         for raw in process.stdout:
             line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
             if not line:

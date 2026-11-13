@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.0
+
+**After updating:** import the channel list again (without *Replace*) for the new modes' channels: radiosondes, VDL2, FT8 on 40, 20, 10 and 6 m, digital voice calling on 2 m and 70 cm, the DWD's and Northwood's weather fax.
+
+- **Radiosondes** (new mode): the weather balloons launched twice a day (De Bilt for the Netherlands), on a map with their track, altitude, climb, temperature, humidity and pressure, and in the history once they are down, with how high they got. Decoded by rs1729's RS decoders (RS41, DFM, M10, M20), now built into the app.
+- **VDL2** (new mode): ACARS's digital successor, busier than ACARS over Europe: ACARS messages and controller-pilot messages on the four European channels at once, decoded by dumpvdl2 (with libacars), now built in. The receiver runs at 2.1 MS/s in this mode.
+- **FT8 / FT4** (new mode): the radio amateurs' weak-signal modes, decoded by ft8_lib slot by slot on the UTC clock; the stations that give their grid square on a map, coloured by signal strength, and every decode in a list. 28.074 and 50.313 MHz with an RTL-SDR, 7.074 and 14.074 MHz with a HackRF.
+- **Digital voice** (new mode): DMR, D-STAR, YSF, NXDN, dPMR and P25 phase 1, decoded by DSD-FME (with mbelib), now built in. Each call is listed with its talkgroup and who spoke (and a text message, talker alias or GPS position when there is one), and Listen plays the decoded speech instead of the FM audio. Set the repeater or hotspot and the protocol under Settings → Modes.
+- **Weather fax** (new mode, HackRF): the weather charts the DWD (Pinneberg, 3855 / 7880 / 13882.5 kHz) and others send for ships on shortwave, decoded by SDRadio itself from start tone to stop tone, lined up on the phasing lines; they grow line by line and go into a gallery.
+- **Tones** on NFM: the line under the display shows the CTCSS tone or DCS code under a transmission and the DTMF digits keyed on it.
+- **HackRF or RTL-SDR:** the docs now say what each one can do and which modes need which.
+
 ## 0.4.1
 
 **After updating:** to give your stored channels their mode (P2000 and KPN to Pager, ISM 433 and SRD 868 to Sensors, AIS to Ships and so on), import the channel list again on the Channels page, without *Replace*: channels stored from an older list have no `mode:` tag, so picking them stays in the radio.

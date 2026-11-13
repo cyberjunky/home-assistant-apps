@@ -318,6 +318,8 @@ function renderLcd() {
         : `<span style="opacity:.6">${s.busy ? 'Signal · not stored' : 'Not stored'}</span>`;
     // A mode without sound (Video) has no RDS either
     renderRds(s.mode === 'wfm' && !(s.decoder && s.decoder.decoded_by && s.decoder.listen === false), rds);
+    // NFM in the Radio mode: the squelch tone or code and DTMF digits, when there are any
+    renderTones(s.mode === 'nfm' && (!s.decoder || s.decoder.key === 'radio'), s.tones);
     // S-meter: -120 to -20 dBFS over 24 segments
     const meter = document.getElementById('smeter');
     if (meter.children.length !== 24) meter.innerHTML = Array.from({length: 24}, (_, i) => `<i class="${i >= 18 ? 'hot' : ''}" style="height:${6 + i * 0.5}px"></i>`).join('');
@@ -346,6 +348,19 @@ function renderRds(wfm, rds) {
     }
     text.classList.toggle('dim', !value);
     document.getElementById('rds-pty').textContent = rds ? [rds.pty, rds.tp ? 'TP' : '', rds.ta ? 'TA' : ''].filter(Boolean).join(' · ') : '';
+}
+
+function renderTones(nfm, tones) {
+    const line = document.getElementById('lcd-tones');
+    if (line.hidden === nfm) { line.hidden = !nfm; fitWaterfall(); }
+    if (!nfm) return;
+    const parts = [];
+    if (tones && tones.ctcss) parts.push(`CTCSS ${tones.ctcss.toFixed(1)} Hz`);
+    if (tones && tones.dcs) parts.push(`DCS ${tones.dcs}`);
+    if (tones && tones.dtmf) parts.push(`DTMF ${tones.dtmf}`);
+    const text = document.getElementById('tones-text');
+    text.textContent = parts.length ? parts.join(' · ') : 'No CTCSS, DCS or DTMF';
+    text.classList.toggle('dim', !parts.length);
 }
 
 // A text longer than the line scrolls round, as on a car radio

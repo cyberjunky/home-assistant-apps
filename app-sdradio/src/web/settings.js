@@ -242,10 +242,19 @@ const PAGER_NETWORKS = [
     {name: 'DAPNET (radio amateurs)', frequency: 439_987_500, protocols: ['POCSAG1200']},
 ];
 
+const DIGITAL_PROTOCOLS = [['auto', 'Auto'], ['dmr', 'DMR'], ['dstar', 'D-STAR'], ['ysf', 'YSF (Fusion)'], ['nxdn48', 'NXDN 6.25 kHz'],
+    ['nxdn96', 'NXDN 12.5 kHz'], ['dpmr', 'dPMR'], ['p25', 'P25 phase 1']];
+
+// FT8's dial frequencies (MHz); FT4 is a few kHz up (14.080, 7.0475 …), typed in by hand
+const FT8_BANDS = [[3.573, '80 m'], [7.074, '40 m'], [10.136, '30 m'], [14.074, '20 m'], [18.1, '17 m'], [21.074, '15 m'],
+    [24.915, '12 m'], [28.074, '10 m'], [50.313, '6 m'], [144.174, '2 m']];
+
 function modeSettingsHtml(ha) {
     const pager = app.settings.mode_pager || {}, sensors = app.settings.mode_sensors || {}, aprs = app.settings.mode_aprs || {};
     const acars = app.settings.mode_acars || {}, sstv = app.settings.mode_sstv || {}, sats = app.settings.mode_satellites || {};
     const video = app.settings.mode_video || {}, dabSettings = app.settings.mode_dab || {};
+    const digital = app.settings.mode_digital || {};
+    const vdl2 = app.settings.mode_vdl2 || {}, sondes = app.settings.mode_sondes || {}, ft8 = app.settings.mode_ft8 || {}, wefax = app.settings.mode_wefax || {};
     const mhz = hz => +(hz / 1e6).toFixed(6);
     return `
         ${setRow('Pager network', 'sets the frequency and the protocols; or type your own below',
@@ -265,6 +274,21 @@ function modeSettingsHtml(ha) {
              <datalist id="aprs-frequencies"><option value="144.8"><option value="144.39"><option value="145.825"></datalist>`, 'mode-aprs-frequency')}
         ${setRow('ACARS channels', 'MHz, comma separated: 131.525, 131.725 and 131.825 in Europe; they must lie within 370 kHz of each other (one receiver)',
             `<input class="input mono" id="mode-acars-channels" value="${(acars.channels || []).map(mhz).join(', ')}">`, 'mode-acars-channels')}
+        ${setRow('Digital voice', 'MHz: the output of the repeater or hotspot; and the protocol, or Auto to find DMR, D-STAR, YSF and P25 by themselves',
+            `<input class="input mono" id="mode-digital-frequency" value="${mhz(digital.frequency)}" inputmode="decimal">
+             <select class="select" id="mode-digital-protocol" aria-label="Protocol">${DIGITAL_PROTOCOLS.map(([k, n]) => `<option value="${k}"${(digital.protocol || 'auto') === k ? ' selected' : ''}>${n}</option>`).join('')}</select>`, 'mode-digital-frequency')}
+        ${setRow('VDL2 channels', 'MHz, comma separated: 136.725, 136.775, 136.875 and 136.975 in Europe; within 800 kHz of each other',
+            `<input class="input mono" id="mode-vdl2-channels" value="${(vdl2.channels || []).map(mhz).join(', ')}">`, 'mode-vdl2-channels')}
+        ${setRow('Radiosonde frequency', 'MHz, 400 to 406; De Bilt\'s sondes change from launch to launch: radiosondy.info and sondehub.org show the last ones',
+            `<input class="input mono" id="mode-sondes-frequency" list="sonde-frequencies" value="${mhz(sondes.frequency)}" inputmode="decimal">
+             <datalist id="sonde-frequencies"><option value="403"><option value="402.7"><option value="404.1"><option value="405.1"></datalist>`, 'mode-sondes-frequency')}
+        ${setRow('FT8 band', 'MHz, the dial frequency (upper sideband); below 24 MHz with the HackRF only',
+            `<input class="input mono" id="mode-ft8-frequency" list="ft8-frequencies" value="${mhz(ft8.frequency)}" inputmode="decimal">
+             <datalist id="ft8-frequencies">${FT8_BANDS.map(([f, b]) => `<option value="${f}" label="${b}">`).join('')}</datalist>
+             <select class="select" id="mode-ft8-protocol" aria-label="FT8 or FT4">${['FT8', 'FT4'].map(p => `<option${(ft8.protocol || 'FT8') === p ? ' selected' : ''}>${p}</option>`).join('')}</select>`, 'mode-ft8-frequency')}
+        ${setRow('Weather fax frequency', 'MHz, the dial: 1.9 kHz below the station (HackRF). DWD Pinneberg: 3.8531, 7.8781, 13.8806',
+            `<input class="input mono" id="mode-wefax-frequency" list="wefax-frequencies" value="${mhz(wefax.frequency)}" inputmode="decimal">
+             <datalist id="wefax-frequencies"><option value="3.8531"><option value="7.8781"><option value="13.8806"><option value="2.6166" label="Northwood"><option value="4.6081" label="Northwood"><option value="8.0381" label="Northwood"></datalist>`, 'mode-wefax-frequency')}
         ${setRow('SSTV frequency', 'MHz; 145.8 the ISS, 144.5 on 2 m, 14.23 on HF (upper sideband, HackRF)',
             `<input class="input mono" id="mode-sstv-frequency" list="sstv-frequencies" value="${mhz(sstv.frequency)}" inputmode="decimal">
              <datalist id="sstv-frequencies"><option value="145.8"><option value="144.5"><option value="14.23"><option value="433.4"></datalist>`, 'mode-sstv-frequency')}
@@ -308,6 +332,20 @@ function bindModeSettings() {
     frequency('mode-aprs-frequency', 'aprs');
     frequency('mode-sstv-frequency', 'sstv');
     frequency('mode-video-frequency', 'video');
+    frequency('mode-sondes-frequency', 'sondes');
+    frequency('mode-digital-frequency', 'digital');
+    const digitalProtocol = document.getElementById('mode-digital-protocol');
+    if (digitalProtocol) digitalProtocol.addEventListener('change', () => saveMode('digital', {protocol: digitalProtocol.value}));
+    frequency('mode-ft8-frequency', 'ft8');
+    frequency('mode-wefax-frequency', 'wefax');
+    const ft8Protocol = document.getElementById('mode-ft8-protocol');
+    if (ft8Protocol) ft8Protocol.addEventListener('change', () => saveMode('ft8', {protocol: ft8Protocol.value}));
+    const vdl2 = document.getElementById('mode-vdl2-channels');
+    if (vdl2) vdl2.addEventListener('change', () => {
+        const channels = vdl2.value.split(/[,; ]+/).map(v => parseFloat(v)).filter(v => v > 0).map(v => Math.round(v * 1e6));
+        if (!channels.length) return toast('Type one or more frequencies in MHz', 'error');
+        saveMode('vdl2', {channels});
+    });
     const dabBlock = document.getElementById('mode-dab-block');
     if (dabBlock) dabBlock.addEventListener('change', () => saveMode('dab', {frequency: Math.round(+dabBlock.value * 1e6)}));
     const sats = () => ({...(app.settings.mode_satellites || {})});

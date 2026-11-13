@@ -51,6 +51,13 @@ them with RadioText+) or else its radio text, with the programme type on the rig
 from the 57 kHz RDS signal and takes a second or two after tuning; a weak station may not get
 that far.
 
+**Tones** (NFM, in the Radio mode): the line under the display shows the **CTCSS** tone (67 to
+254.1 Hz) or the **DCS** code a transmission carries under the speech, the way repeaters and groups
+of walkie-talkies tell their users apart, and the **DTMF** digits keyed on it. A tone takes a second
+to read and stays shown for two seconds after it stops; DTMF digits for ten. DCS codes that are
+each other's rotation are the same signal on air (023 and 047 inverted, for example), as on any
+radio; the lowest of them is shown, with N or I for normal or inverted.
+
 **Tuning**
 - Scroll over a digit of the frequency to change that digit.
 - Type a frequency in MHz on the keypad or keyboard and press **MHz** or Enter (CLR or Esc cancels).
@@ -118,11 +125,13 @@ editing it; in a CSV the tag `mode:<mode>`, e.g. `mode:dab`, `mode:pager`). Pick
 list, with ◀ ▶ or as a favourite) switches the radio to that mode on the channel's frequency; a
 channel without one switches back to the radio. A channel stored while in a mode belongs to it.
 In a mode the display shows how its signal is modulated (FSK for pagers, OOK/FSK for sensors,
-PPM for ADS-B, MSK on AM for ACARS, GMSK for AIS, AFSK for APRS) and what decodes it; the
+PPM for ADS-B, MSK on AM for ACARS, D8PSK for VDL2, GMSK for AIS, AFSK for APRS, GFSK for
+radiosondes, 8-FSK for FT8, 4FSK or GMSK for digital voice) and what decodes it; the
 demodulation beside it is only how it sounds with Listen. The modes whose decoder reads the
-receiver's samples and that carry no voice (Sensors, Aircraft, ACARS, Ships, Video) have no sound:
+receiver's samples and that carry no voice (Sensors, Aircraft, ACARS, VDL2, Ships, Video) have no sound:
 the radio doesn't demodulate audio for them, and the meter shows the level in the channel.
-Pager, APRS, SSTV and Satellites decode from the audio and can be listened to; DAB+ plays its
+Pager, APRS, Radiosondes, FT8, SSTV, Weather fax and Satellites decode from the audio and can be
+listened to; Digital voice plays the speech it decodes; DAB+ plays its
 stations in the page itself. What would take the mode off its
 frequency or change how it listens is off meanwhile: SCAN, HOLD, PRI, L/O, MODE, BAND, AUTO,
 the filter and the scan speed. Mode → Radio brings them back.
@@ -147,6 +156,12 @@ the filter and the scan speed. Mode → Radio brings them back.
   times, gate and weather requests), on up to three channels at once: 131.525, 131.725 and
   131.825 MHz in Europe (set under Modes). Decoded by SDRadio itself; each message shows the
   flight, the registration, its label and the text.
+- **VDL2**: VHF Data Link mode 2, ACARS's digital successor, over Europe busier than ACARS itself:
+  the same kind of messages, and controller-pilot messages (CPDLC) and position reports (ADS-C),
+  on 136.725, 136.775, 136.875 and 136.975 MHz, all at once (set under Modes; within 800 kHz).
+  Decoded by dumpvdl2 with libacars. The receiver runs at 2.1 MS/s in this mode (twenty times
+  VDL2's 105 kHz, as dumpvdl2 wants it). The frames that only keep the link up are counted, not
+  listed.
 - **Ships**: AIS on 161.975 and 162.025 MHz (both channels at once: the radio tunes between them),
   decoded by SDRadio itself. Ships on rivers, canals and the sea send their position every few
   seconds while under way and their name, call sign, kind and destination every few minutes; on
@@ -160,11 +175,48 @@ the filter and the scan speed. Mode → Radio brings them back.
   reports). Stations with a position are on the map with their symbol, moving ones with their
   trail; **Packets** lists everything heard.
 
+- **Radiosondes**: the weather balloons weather services launch twice a day (around 11:00 and
+  23:00 UTC; for the Netherlands the KNMI from De Bilt), on 400 to 406 MHz. Decoded by the
+  decoders of rs1729's RS project (as radiosonde_auto_rx uses them): Vaisala RS41, Graw DFM,
+  Meteomodem M10 and M20, all four side by side. Each sonde is on the map with its track, its
+  altitude and climb, the temperature, humidity and pressure it measures, and how far away it is;
+  it goes into the **History** when it has not been heard for ten minutes (usually when it has come
+  down), with the highest altitude it reached (where the balloon burst) and where it was last
+  heard. The frequency changes from launch to launch: sondehub.org and radiosondy.info show
+  the last ones from each site. A sonde can be heard 200 km and more away while it is high up.
+
+- **Digital voice**: DMR, D-STAR, YSF (System Fusion), NXDN, dPMR and P25 phase 1, decoded by
+  DSD-FME: the radio amateurs' digital repeaters and hotspots, and businesses, taxis and services
+  that talk digitally without encryption. Each call is listed when it ends: the system, the
+  talkgroup or call sign it went to and the radio ID or call sign that spoke, the colour code
+  (DMR), NAC (P25) or RAN (NXDN), and a text message, talker alias or GPS position when the call
+  carried one. **Listen** plays the decoded speech instead of the FM audio, so you hear the people,
+  not the digital noise. Set the repeater's or hotspot's output frequency and the protocol under
+  Modes (*Auto* finds DMR, D-STAR, YSF and P25 by themselves; NXDN and dPMR must be picked).
+  Encrypted calls are listed as encrypted and stay silent. The voice codecs (AMBE, IMBE) are
+  decoded by mbelib, a software implementation of them; whether using it is allowed where you
+  live is for you to check (the codecs are patented in some countries).
+
+- **FT8 / FT4**: the radio amateurs' weak-signal modes, the busiest on HF: call signs, grid
+  squares and signal reports in 15-second slots (FT4: 7.5 seconds) on the UTC clock, readable far
+  below the noise. Decoded by ft8_lib from the radio's upper-sideband audio, one slot at a time.
+  The stations that give their grid square are on the map, coloured by how strong they came in;
+  **Decodes** lists every message. Busiest on 14.074 MHz by day and 7.074 MHz by night (HackRF);
+  with an RTL-SDR 28.074 MHz (10 m) opens by day around the solar maximum, and 50.313 (6 m) in
+  summer. The app's clock must be right to the second (Home Assistant's is, through NTP).
+
 - **SSTV**: pictures sent as sound (slow-scan television), decoded by SDRadio itself: PD50 to
   PD290 (the ISS sends PD120 and PD180), Martin M1 and M2, and Robot 36. 145.800 MHz is the ISS
   during its SSTV events, 144.500 MHz radio amateurs on 2 m, 14.230 MHz on HF (upper sideband,
   HackRF). A picture grows line by line while it comes in and then goes into the gallery; the
   pictures are kept in the app's data folder as long as the other decoded data.
+- **Weather fax** (HackRF only): the weather charts that ships have received by radio for decades,
+  on shortwave: surface analyses, forecasts, sea state and ice charts, sent on a schedule day and
+  night. Decoded by SDRadio itself (120 lines a minute, IOC 576): a chart starts with the
+  station's start tone, is lined up on its phasing lines and ends with the stop tone; it grows
+  line by line on the page and then goes into the gallery. The frequency to set is the dial
+  frequency, 1.9 kHz below the station's: the DWD in Pinneberg sends on 3855, 7880 and 13882.5 kHz
+  (dial 3.8531, 7.8781, 13.8806 MHz), Northwood (UK) on 2618.5, 4610 and 8040 kHz.
 
 - **Satellites**: the passes over Home Assistant's home of the satellites you follow (Settings →
   Modes), worked out from their orbits (fetched from Celestrak once a day). During a pass the
@@ -198,11 +250,35 @@ the filter and the scan speed. Mode → Radio brings them back.
 
 A mode your receiver can't do is ghosted: hovering over it says why ("HackRF only: …").
 
-**The map** (Aircraft, Ships, APRS, Satellites) shows OpenStreetMap through Home Assistant's own map tile service (which
+**The map** (Aircraft, Ships, APRS, Radiosondes, FT8, Satellites) shows OpenStreetMap through Home Assistant's own map tile service (which
 needs Home Assistant 2026.9 or later), centred on Home Assistant's home location; the distances
 are from there. The map is darkened only with the dark theme.
 
 What the modes decode is kept in the database (30 days by default, set under Modes).
+
+## HackRF or RTL-SDR
+
+Both work for nearly everything; where they differ:
+
+| | RTL-SDR (R820T/R828D) | HackRF One |
+|---|---|---|
+| Frequencies | 24 MHz to 1.766 GHz | 1 MHz to 6 GHz |
+| Bandwidth | 2.4 MHz (up to 3.2, with lost samples) | up to 20 MHz |
+| Sensitivity | good from 50 MHz up; with the stock antenna weak below that | a little less on VHF and UHF; set the LNA and VGA gains (options) |
+| Frequency accuracy | 1 ppm with a TCXO (most current dongles); set `ppm_correction` otherwise | about 20 ppm: fine for most, a few hundred Hz off at UHF |
+| Antenna power | a bias tee on many (`bias_tee`) | its antenna port power is not switched by SDRadio |
+| Power | about 300 mA | about 500 mA: a powered USB hub helps on a Raspberry Pi |
+
+**Only with the HackRF**: everything below 24 MHz, so long, medium and shortwave broadcasts,
+the HF amateur bands (FT8 on 7.074 and 14.074 MHz, SSTV on 14.230 MHz) and **Weather fax**; above
+1.766 GHz the 2.4 and 5.8 GHz bands; and **Video**, which needs its 20 MHz. These modes are
+ghosted on an RTL-SDR, saying why.
+
+**Better with the RTL-SDR**: VHF and UHF listening, Pager, Sensors, Aircraft, ACARS, VDL2,
+Ships, APRS, Radiosondes, Digital voice, DAB+ and the satellites, which are within its range: it is a little more
+sensitive there, draws less power and is cheap enough to leave on one job. An RTL-SDR with
+direct sampling (an RTL-SDR Blog V3 or V4) hears HF too, but SDRadio doesn't use that mode: the
+HackRF is the receiver for shortwave here.
 
 ## Channels
 

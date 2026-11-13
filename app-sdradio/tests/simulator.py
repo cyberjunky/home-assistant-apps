@@ -8,6 +8,7 @@ bursts, and aircraft flying round Utrecht on 1090 MHz.
 import math
 import os
 import time
+from pathlib import Path
 
 import numpy as np
 
@@ -20,6 +21,7 @@ from tests import (
     rds_signal,
     sstv_signal,
     video_signal,
+    wefax_signal,
 )
 
 # frequency, mode, level (amplitude), on seconds, off seconds, tone Hz
@@ -44,7 +46,12 @@ SIGNALS = [
     (5_800_000_000, "video", 0.3, 0, 0, 0),
     # Ships sending AIS on both channels (the Ships mode, tuned between them)
     (162_000_000, "ais", 0.05, 0, 0, 0),
+    # A weather chart every two minutes, on upper sideband (the Weather fax mode, HackRF): DWD's 7880 kHz,
+    # its tones 1500 to 2300 Hz above the dial frequency (7878.1 kHz) given here
+    (7_878_100, "wefax", 0.05, 0, 0, 0),
 ]
+# NFM channels with a CTCSS tone under them (Hz): the Radio mode's tone readout
+CTCSS = {145_612_500: 88.5}
 # Channel offset from 131.725 MHz, mode, registration, label, block, text
 ACARS = [
     (-200_000, "2", ".PH-BXA", "H1", "3", "M01AKL1234REQUEST GATE INFO AMS"),
@@ -85,6 +92,19 @@ DAB_FILE = os.environ.get("SDRADIO_SIM_DAB")
 DAB_FREQUENCY = float(os.environ.get("SDRADIO_SIM_DAB_MHZ", "222.064")) * 1e6
 if DAB_FILE:
     SIGNALS = [*SIGNALS, (round(DAB_FREQUENCY), "dab", 1.0, 0, 0, 0)]
+# Recordings of the signals that external decoders read (only in the app's image, where those are):
+# SDRADIO_SIM_SONDE=<48 kHz WAV of an RS41's FM audio> on 403 MHz, SDRADIO_SIM_FT8=<folder of 15 s
+# 12 kHz WAVs> on 28.074 MHz, played on the UTC slots, SDRADIO_SIM_VDL2=<16-bit IQ at 1.05 MS/s,
+# centred on 136.975 MHz> (heard in the VDL2 mode, at its 2.1 MS/s)
+SONDE_FILE = os.environ.get("SDRADIO_SIM_SONDE")
+FT8_DIR = os.environ.get("SDRADIO_SIM_FT8")
+VDL2_FILE = os.environ.get("SDRADIO_SIM_VDL2")
+if SONDE_FILE:
+    SIGNALS = [*SIGNALS, (403_000_000, "sonde", 0.05, 0, 0, 0)]
+if FT8_DIR:
+    SIGNALS = [*SIGNALS, (28_074_000, "ft8", 0.02, 0, 0, 0)]
+if VDL2_FILE:
+    SIGNALS = [*SIGNALS, (136_975_000, "vdl2", 1.0, 0, 0, 0)]
 
 
 class SimulatedDevice:
@@ -173,6 +193,18 @@ class SimulatedDevice:
             if mode == "dab":
                 x += self._dab(rate, offset, count)
                 continue
+            if mode == "wefax":
+                x += self._audio("wefax", self._wefax_audio, start, rate, offset, level, count, usb=True)
+                continue
+            if mode == "sonde":
+                x += self._audio("sonde", self._sonde_audio, start, rate, offset, level, count, deviation=4_800)
+                continue
+            if mode == "ft8":
+                x += self._audio("ft8", self._ft8_audio, start, rate, offset, level, count, usb=True, utc=True)
+                continue
+            if mode == "vdl2":
+                x += self._vdl2(rate, offset, count)
+                continue
             period = on + off
             if off and (start % period) > on:
                 continue
@@ -182,6 +214,10 @@ class SimulatedDevice:
             else:
                 deviation = 75_000 if mode == "wfm" else 2_500
                 phase = 2 * math.pi * offset * t - deviation / tone * np.cos(2 * math.pi * tone * t)
+                if frequency in CTCSS:
+                    # The tone at 300 Hz deviation, under the speech
+                    ctcss = CTCSS[frequency]
+                    phase = phase - 300 / ctcss * np.cos(2 * math.pi * ctcss * t)
                 if mode == "wfm":
                     # RDS at 3 % of the deviation
                     rds = rds_signal.subcarrier(self.rds_bits, rate, start, count) * (
@@ -326,6 +362,92 @@ class SimulatedDevice:
         raw = self.dab_raw
         x = ((raw[2 * idx].astype(np.float32) - 127.5) + 1j * (raw[2 * idx + 1].astype(np.float32) - 127.5)) / 128
         return x.astype(np.complex64)
+
+    def _audio(self, name, make, start, rate, offset, level, count, usb=False, deviation=3_000, utc=False):
+        """Audio (48 kHz, made once and played round) as FM, or on upper sideband (the tones
+        offset above the dial frequency); utc: lined up on the wall clock (FT8's slots)."""
+        if not hasattr(self, f"{name}_audio"):
+            setattr(self, f"{name}_audio", make())
+            setattr(self, f"{name}_phase", 0.0)
+            setattr(self, f"{name}_wall", time.time() - start if utc else 0.0)
+        audio = getattr(self, f"{name}_audio")
+        into = start + getattr(self, f"{name}_wall")
+        # float64: the time since 1970 (FT8's slots) times 48 000 is far past what float32 can count in
+        idx = (into * 48_000 + np.arange(count) * (48_000 / rate)).astype(np.int64) % len(audio)
+        if usb:
+            # Upper sideband is the audio's analytic signal moved up to the dial frequency
+            analytic = getattr(self, f"{name}_analytic", None)
+            if analytic is None:
+                from scipy.signal import hilbert
+
+                analytic = hilbert(audio.astype(np.float64)).astype(np.complex64)
+                setattr(self, f"{name}_analytic", analytic)
+            return (level * 2) * analytic[idx] * self._carrier(offset, rate, count)
+        a = audio[idx].astype(np.float64)
+        phase = getattr(self, f"{name}_phase") + 2 * math.pi * np.cumsum(offset + deviation * a) / rate
+        setattr(self, f"{name}_phase", float(phase[-1] % (2 * math.pi)))
+        return (level * np.exp(1j * phase)).astype(np.complex64)
+
+    def _carrier(self, offset: float, rate: float, count: int) -> np.ndarray:
+        """exp(2πi·offset·t) for this block: made once per offset and block size, then only turned."""
+        cache = self.__dict__.setdefault("_carriers", {})
+        key = (offset, rate, count)
+        if key not in cache:
+            if len(cache) > 8:
+                cache.clear()
+            cache[key] = np.exp(2j * math.pi * offset * np.arange(count) / rate).astype(np.complex64)
+        turn = np.complex64(np.exp(2j * math.pi * ((offset * self.sample_index / rate) % 1.0)))
+        return cache[key] * turn
+
+    @staticmethod
+    def _wefax_audio() -> np.ndarray:
+        from scipy.signal import resample_poly
+
+        audio = wefax_signal.transmission(wefax_signal.chart(160), phasing=12)
+        gap = np.zeros(wefax_signal.RATE * 30, np.float32)
+        return resample_poly(np.concatenate([audio, gap]), 4, 1).astype(np.float32)
+
+    @staticmethod
+    def _wav(path: str) -> tuple[np.ndarray, int]:
+        import wave
+
+        with wave.open(path) as w:
+            return np.frombuffer(w.readframes(w.getnframes()), "<i2").astype(np.float32) / 32768, w.getframerate()
+
+    def _sonde_audio(self) -> np.ndarray:
+        from scipy.signal import resample_poly
+
+        audio, r = self._wav(SONDE_FILE)
+        return audio if r == 48_000 else resample_poly(audio, 48_000, r).astype(np.float32)
+
+    def _ft8_audio(self) -> np.ndarray:
+        """The folder's slots one after the other, each 15 s at 48 kHz."""
+        from scipy.signal import resample_poly
+
+        slots = []
+        for path in sorted(Path(FT8_DIR).glob("*.wav")):
+            audio, r = self._wav(str(path))
+            audio = resample_poly(audio, 48_000, r).astype(np.float32)[: 15 * 48_000]
+            slots.append(np.concatenate([audio, np.zeros(15 * 48_000 - len(audio), np.float32)]))
+        return np.concatenate(slots) * 0.5
+
+    def _vdl2(self, rate: float, offset: float, count: int) -> np.ndarray:
+        """The VDL2 recording, round and round, at the VDL2 mode's 2.1 MS/s (twice the file's rate)."""
+        if rate != 2_100_000 or abs(offset) > rate * 0.45:
+            return np.zeros(count, np.complex64)
+        if not hasattr(self, "vdl2_raw"):
+            self.vdl2_raw = np.memmap(VDL2_FILE, dtype="<i2", mode="r")
+            self.vdl2_pos = 0
+        n = len(self.vdl2_raw) // 2
+        half = count // 2 + 1
+        idx = (self.vdl2_pos + np.arange(half)) % n
+        self.vdl2_pos = (self.vdl2_pos + count // 2) % n
+        raw = self.vdl2_raw
+        x = (raw[2 * idx].astype(np.float32) + 1j * raw[2 * idx + 1].astype(np.float32)) / 32768
+        # Twice the rate: each sample and the mean with the next (good enough for D8PSK at 10x)
+        up = np.empty(2 * half - 1, np.complex64)
+        up[0::2], up[1::2] = x, (x[:-1] + x[1:]) / 2
+        return up[:count] * self._carrier(offset, rate, count)
 
     def _queue_burst(self, name: str, at: int, samples: np.ndarray) -> None:
         self.__dict__.setdefault(f"{name}_bursts", []).append([at, samples])

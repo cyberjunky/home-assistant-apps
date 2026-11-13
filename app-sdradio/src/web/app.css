@@ -544,6 +544,9 @@ button.ind.on:hover { opacity: 1; }
 .sstv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; padding: 10px 12px; }
 .sstv-grid figure, .sstv-live { margin: 0; }
 .sstv-grid img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 4px; border: 1px solid var(--divider-color); }
+.sstv-grid.fax { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.sstv-grid.fax img { aspect-ratio: auto; object-fit: contain; background: #fff; }
+.sstv-live.fax img { width: 100%; image-rendering: auto; }
 .sstv-grid figcaption, .sstv-live figcaption { font-size: 11.5px; color: var(--secondary-text-color); margin-top: 4px; }
 .msg.acars .msg-text { white-space: pre-wrap; font-family: var(--mono); font-size: 12px; }
 table.sensors td small { display: block; font-size: 11px; }
@@ -552,8 +555,8 @@ table.sensors td:last-child, table.sensors th:last-child { text-align: center; }
 
 /* The map of the modes with positions (aircraft): the map above, the list below */
 /* A mode with a map takes more of the width than the spectrum */
-#tab-radio:is([data-mode="aircraft"], [data-mode="ships"], [data-mode="aprs"], [data-mode="satellites"]) .spectrum-panel { flex: 1 1 340px; }
-#tab-radio:is([data-mode="aircraft"], [data-mode="ships"], [data-mode="aprs"], [data-mode="satellites"]) .mode-panel { flex: 1.8 1 560px; }
+#tab-radio:is([data-mode="aircraft"], [data-mode="ships"], [data-mode="aprs"], [data-mode="sondes"], [data-mode="ft8"], [data-mode="satellites"]) .spectrum-panel { flex: 1 1 340px; }
+#tab-radio:is([data-mode="aircraft"], [data-mode="ships"], [data-mode="aprs"], [data-mode="sondes"], [data-mode="ft8"], [data-mode="satellites"]) .mode-panel { flex: 1.8 1 560px; }
 /* The player stays at the top; the station list scrolls under it */
 .dab-view { display: flex; flex-direction: column; height: 100%; }
 #dab-list { flex: 1 1 0; min-height: 0; overflow: auto; padding-bottom: 8px; }
