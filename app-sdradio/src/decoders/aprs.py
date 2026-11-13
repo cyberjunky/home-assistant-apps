@@ -253,6 +253,8 @@ class Aprs(Decoder):
     signal = "AFSK"
     decoded_by = "multimon-ng"
     input = "audio"
+    # Data, not speech: decoded from the audio, but not sent to the page
+    audible = False
     # The European APRS frequency (North America: 144.390)
     defaults = {"frequency": 144_800_000}
     demod = ("nfm", 12_500)

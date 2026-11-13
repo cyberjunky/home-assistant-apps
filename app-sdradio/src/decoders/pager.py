@@ -65,6 +65,8 @@ class Pager(Decoder):
     signal = "FSK"
     decoded_by = "multimon-ng"
     input = "audio"
+    # Data, not speech: decoded from the audio, but not sent to the page
+    audible = False
     # P2000, the Dutch emergency services' FLEX network
     defaults = {"frequency": 169_650_000, "protocols": PROTOCOLS, "ha_events": False}
     demod = ("nfm", 16_000)

@@ -127,12 +127,12 @@ channel without one switches back to the radio. A channel stored while in a mode
 In a mode the display shows how its signal is modulated (FSK for pagers, OOK/FSK for sensors,
 PPM for ADS-B, MSK on AM for ACARS, D8PSK for VDL2, GMSK for AIS, AFSK for APRS, GFSK for
 radiosondes, 8-FSK for FT8, 4FSK or GMSK for digital voice) and what decodes it; the
-demodulation beside it is only how it sounds with Listen. The modes whose decoder reads the
-receiver's samples and that carry no voice (Sensors, Aircraft, ACARS, VDL2, Ships, Video) have no sound:
-the radio doesn't demodulate audio for them, and the meter shows the level in the channel.
-Pager, APRS, Radiosondes, FT8, SSTV, Weather fax and Satellites decode from the audio and can be
-listened to; Digital voice plays the speech it decodes; DAB+ plays its
-stations in the page itself. What would take the mode off its
+demodulation beside it is how the decoder gets it. The modes that carry data, not voice, have
+no sound: Sensors, Aircraft, ACARS, VDL2, Ships and Video read the receiver's samples, so the
+radio doesn't demodulate audio for them and the meter shows the level in the channel; Pager,
+APRS, Radiosondes, FT8, SSTV and Weather fax decode the audio, but it isn't sent to the page
+(bursts and tones nobody wants to hear). Satellites can be listened to (the ISS and SO-50 carry
+voice); Digital voice plays the speech it decodes; DAB+ plays its stations in the page itself. What would take the mode off its
 frequency or change how it listens is off meanwhile: SCAN, HOLD, PRI, L/O, MODE, BAND, AUTO,
 the filter and the scan speed. Mode → Radio brings them back.
 

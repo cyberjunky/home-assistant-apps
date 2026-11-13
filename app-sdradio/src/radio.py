@@ -381,7 +381,7 @@ class Radio:
 
     def _decoder_kind(self, cls) -> dict:
         return {"key": self.decoder_key, "name": cls.name, "decoded_by": cls.decoded_by, "input": cls.input,
-                "signal": cls.signal, "listen": cls.listen}  # fmt: skip
+                "signal": cls.signal, "listen": cls.listen and cls.audible}  # fmt: skip
 
     def _decoder_snapshot(self) -> dict:
         if self.decoder:
@@ -775,7 +775,9 @@ class Radio:
 
         # A mode that decodes speech (Digital voice) is heard by its decoded voice, not the FM audio
         voice = getattr(self.decoder, "take_voice", None) if self.decoder is not None else None
-        if voice is None and open_ and self.listeners and not self.settle and audio is not None:
+        # A data mode (Pager, APRS, FT8 ...) decodes the audio but the page doesn't hear it
+        audible = self.decoder is None or self.decoder.audible
+        if voice is None and audible and open_ and self.listeners and not self.settle and audio is not None:
             self.emit("audio", {"rate": self.demod.audio_rate, "pcm": to_pcm16(audio)})
 
         # The mode's decoder reads every block, squelch or not

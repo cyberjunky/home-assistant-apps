@@ -344,3 +344,24 @@ def test_every_mode_starts_and_stops(tmp_path):
     run(r, 2)
     assert r.decoder is None
     r.db.close()
+
+
+@pytest.mark.parametrize("key", ["pager", "aprs", "ft8", "sstv"])
+def test_data_modes_are_decoded_but_not_heard(tmp_path, key):
+    """Pager bursts, APRS packets, FT8 tones: the decoder gets the audio, a listening page doesn't."""
+    r = _real_radio(tmp_path, [], receiver="hackrf")
+    r.listeners = 1
+    r.command("decoder", key=key)
+    run(r, 1)
+    fed = []
+    r.decoder.feed_audio = lambda audio, rate: fed.append(len(audio))
+    r.events.clear()
+    run(r, 4)
+    assert fed and not [k for k, _ in r.events if k == "audio"]
+    assert r.snapshot()["decoder"]["listen"] is False  # the display says "no sound"
+    r.command("decoder", key="radio")
+    run(r, 2)
+    r.events.clear()
+    run(r, 2)
+    assert [k for k, _ in r.events if k == "audio"]  # the radio is heard again
+    r.db.close()

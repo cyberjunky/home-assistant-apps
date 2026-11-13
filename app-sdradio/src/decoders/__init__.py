@@ -34,6 +34,9 @@ class Decoder:
     receivers: tuple[str, ...] | None = None
     sample_rate: float | None = None
     listen = True
+    # Whether the page hears that audio: not for data (pager bursts, APRS packets, FT8 tones), which
+    # the decoder reads but nobody wants to listen to
+    audible = True
 
     def __init__(self, settings: dict, publish: Callable[[dict], None],
                  update: Callable[[dict], None] | None = None):  # fmt: skip
