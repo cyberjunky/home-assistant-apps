@@ -1,11 +1,11 @@
-"""A browser inside the add-on, for signing in to Tesla without leaving the dashboard.
+"""A browser inside the app, for signing in to Tesla without leaving the dashboard.
 
 Tesla's sign-in ends by sending the browser to an app link
 ("tesla://auth/callback?code=...") that an ordinary browser can't open and
-barely shows. So for the duration of a sign-in the add-on runs a normal
+barely shows. So for the duration of a sign-in the app runs a normal
 Chromium on a virtual display, opens Tesla's own sign-in page in it, shows its
 screen in the dashboard and passes on the user's mouse and keyboard. The user
-signs in as usual; the add-on sees the app link the moment Tesla issues it.
+signs in as usual; the app sees the app link the moment Tesla issues it.
 
 Nothing is automated or filled in: it is the user's own sign-in, in a remote
 window. The browser starts with an empty profile and is gone afterwards.
@@ -51,7 +51,7 @@ def find_browser() -> str | None:
 
 
 def available() -> bool:
-    """Whether the add-on can run its sign-in browser (the image has Chromium and a virtual display)."""
+    """Whether the app can run its sign-in browser (the image has Chromium and a virtual display)."""
     return bool(find_browser()) and (HEADLESS or bool(shutil.which("Xvfb")))
 
 
@@ -79,12 +79,12 @@ class SignInBrowser:
         """Start the browser and open the sign-in page."""
         browser = find_browser()
         if not browser:
-            raise RuntimeError("No browser installed in the add-on")
+            raise RuntimeError("No browser installed in the app")
         self._profile = Path(tempfile.mkdtemp(prefix="tesla-signin-"))
         environment = {**os.environ, "HOME": str(self._profile)}
         arguments = [
             browser,
-            # Home Assistant runs add-ons as root in a container, where Chromium's sandbox can't work
+            # Home Assistant runs apps as root in a container, where Chromium's sandbox can't work
             "--no-sandbox",
             "--disable-gpu",
             "--disable-dev-shm-usage",
@@ -202,7 +202,7 @@ class SignInBrowser:
             if (result.get("result") or {}).get("value") == f"complete {origin}":
                 return
             await asyncio.sleep(0.5)
-        raise RuntimeError(f"The add-on's browser did not reach a page on {origin}")
+        raise RuntimeError(f"The app's browser did not reach a page on {origin}")
 
     async def post_json(self, url: str, payload: dict) -> tuple[int, dict]:
         """POST JSON to a URL of the current page's own site, from the page, and return (status, answer).
@@ -227,10 +227,10 @@ class SignInBrowser:
         )
         value = (result.get("result") or {}).get("value")
         if result.get("exceptionDetails") or not isinstance(value, str):
-            raise RuntimeError("The add-on's browser could not run the token request")
+            raise RuntimeError("The app's browser could not run the token request")
         answer = json.loads(value)
         if not answer.get("ok"):
-            raise RuntimeError(f"The add-on's browser could not reach Tesla's sign-on service: {answer.get('error')}")
+            raise RuntimeError(f"The app's browser could not reach Tesla's sign-on service: {answer.get('error')}")
         try:
             body = json.loads(answer.get("text") or "")
         except ValueError:

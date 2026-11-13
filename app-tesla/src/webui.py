@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 WEB_DIR = Path(__file__).resolve().parent / "web"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
-# Home Assistant's ingress proxy: the only client allowed when running as an add-on
+# Home Assistant's ingress proxy: the only client allowed when running as an app
 INGRESS_ADDRESS = "172.30.32.2"
 MAP_MAX_ZOOM = 19
 MAP_TILE_MAX_AGE = 7 * 24 * 60 * 60
@@ -109,7 +109,7 @@ def _start_of_day(ts: float) -> int:
 
 
 class WebUI:
-    """The add-on's web server."""
+    """The app's web server."""
 
     def __init__(
         self,
@@ -203,7 +203,7 @@ class WebUI:
         await asyncio.Event().wait()
 
     def closing(self) -> None:
-        """The add-on is stopping: end the live streams of open dashboards."""
+        """The app is stopping: end the live streams of open dashboards."""
         self._stopping = True
 
     async def stop(self) -> None:
@@ -235,7 +235,7 @@ class WebUI:
         return web.Response(
             text=html,
             content_type="text/html",
-            # Never let the browser serve a stale cached page after an add-on update
+            # Never let the browser serve a stale cached page after an app update
             headers={"Cache-Control": "no-cache, must-revalidate"},
         )
 
@@ -406,7 +406,7 @@ class WebUI:
         return web.json_response({"started": True})
 
     async def _handle_auth_browser(self, request: web.Request) -> web.WebSocketResponse:
-        """Sign in through the add-on's own browser: its screen goes out, mouse and keyboard come in.
+        """Sign in through the app's own browser: its screen goes out, mouse and keyboard come in.
 
         The session ends when Tesla sends that browser to its app link (signed in),
         when the dashboard closes the connection, or after ten minutes.
@@ -762,7 +762,7 @@ class WebUI:
         """Rename the recorded places that lie inside a Home Assistant zone after the zone."""
         places = self.garage.places
         if not places.zones:
-            return _error("No Home Assistant zones are loaded; see the add-on log", 409)
+            return _error("No Home Assistant zones are loaded; see the app log", 409)
         result = await asyncio.to_thread(places.apply_zones)
         logger.info(f"Zones applied to recorded places: {result}")
         return web.json_response(result)

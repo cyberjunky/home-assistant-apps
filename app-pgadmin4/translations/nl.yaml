@@ -1,0 +1,51 @@
+configuration:
+  ssl:
+    name: HTTPS op de directe poort
+    description: >-
+      Lever de optionele directe poort via HTTPS (443) in plaats van HTTP (80),
+      met het certificaat hieronder. De zijbalk (ingress) verandert niet.
+  certfile:
+    name: Certificaatbestand
+    description: Het certificaat in de ssl-map van Home Assistant, gebruikt als HTTPS aan staat.
+  keyfile:
+    name: Bestand met de privésleutel
+    description: De privésleutel in de ssl-map van Home Assistant, gebruikt als HTTPS aan staat.
+  servers:
+    name: Databaseservers
+    description: >-
+      Servers die automatisch aan pgAdmin worden toegevoegd, als pgAdmin er nog
+      geen met die naam heeft. Wachtwoorden kunnen niet mee: vul ze één keer in
+      pgAdmin in en vink Save password aan.
+    fields:
+      name:
+        name: Naam
+        description: De naam in pgAdmin.
+      host:
+        name: Server
+        description: Hostnaam of IP-adres van de server.
+      port:
+        name: Poort
+        description: Standaard 5432.
+      username:
+        name: Gebruikersnaam
+        description: Standaard postgres.
+      database:
+        name: Onderhoudsdatabase
+        description: Standaard postgres.
+      group:
+        name: Groep
+        description: De servergroep in pgAdmin.
+  system_packages:
+    name: Extra pakketten
+    description: Alpine-pakketten om bij de start te installeren. Veel pakketten maken de start trager.
+  init_commands:
+    name: Opdrachten bij de start
+    description: Shell-opdrachten die bij de start worden uitgevoerd.
+  leave_front_door_open:
+    name: Voordeur open laten
+    description: >-
+      Lever pgAdmin zonder de login van Home Assistant. Een veiligheidsrisico:
+      laat dit uit tenzij je weet waarom je het nodig hebt.
+network:
+  80/tcp: pgAdmin via HTTP, zonder de login van Home Assistant (optioneel; alleen op een vertrouwd netwerk)
+  443/tcp: pgAdmin via HTTPS, zonder de login van Home Assistant (optioneel; alleen op een vertrouwd netwerk)

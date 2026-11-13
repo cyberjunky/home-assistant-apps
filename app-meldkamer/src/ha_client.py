@@ -105,7 +105,7 @@ class HAClient:
         return True
 
     async def get_addon_slug(self) -> str | None:
-        """This add-on's slug from the Supervisor (e.g. "1a2b3c4d_meldkamer"), None when unavailable."""
+        """This app's slug from the Supervisor (e.g. "1a2b3c4d_meldkamer"), None when unavailable."""
         try:
             status, body = await self._request("GET", f"{SUPERVISOR_URL}/addons/self/info")
         except HAClientError:

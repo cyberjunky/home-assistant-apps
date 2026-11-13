@@ -14,7 +14,7 @@
         await loadStatus();
         streamOk = true;
     } catch (e) {
-        toast('Cannot reach the add-on: ' + e.message, 'error');
+        toast('Cannot reach the app: ' + e.message, 'error');
     }
     switchTab(tab || 'dashboard');
     connectStream();

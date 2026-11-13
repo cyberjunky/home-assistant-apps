@@ -59,9 +59,11 @@ configuration:
     name: MQTT
     description: >-
       Publiceer de sensoren ook naar een MQTT-broker, naast de REST API van
-      Home Assistant. Laat host leeg om de Mosquitto-add-on te gebruiken.
+      Home Assistant. Laat host leeg om de Mosquitto-broker-app te gebruiken.
       ha_autodiscovery maakt de sensoren automatisch aan in Home Assistant;
       de tls_*-instellingen zijn voor een broker die TLS vereist.
   log_level:
     name: Logniveau
     description: Hoeveel details er in het logboek komen
+network:
+  5000/tcp: P2000-berichten via TCP, voor integraties (optioneel; onversleuteld en zonder login, alleen op een vertrouwd netwerk)

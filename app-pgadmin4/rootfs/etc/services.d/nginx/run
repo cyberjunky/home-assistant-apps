@@ -1,6 +1,6 @@
 #!/usr/bin/with-contenv bashio
 # ==============================================================================
-# Home Assistant Community Add-on: pgAdmin4
+# Home Assistant Community App: pgAdmin4
 # Runs the Nginx daemon
 # ==============================================================================
 

@@ -36,7 +36,7 @@ everything it shows) into the dialog and this app connects.
 Already have history in another logger that uses a PostgreSQL database? **Settings → Data
 → Import history** reads your drives, positions, charging sessions, states and software
 versions straight from it and adds them, matching cars by VIN. Enter the database host,
-name, user and password (from that add-on's configuration). The values are stored in
+name, user and password (from that app's configuration). The values are stored in
 metric km, so they carry over directly. It only reads; nothing in the source changes, and
 running it again never duplicates, and it fills in what trips and sessions already here are
 missing, such as tire pressures. Trips imported this way keep their GPS track; home charging
@@ -179,7 +179,7 @@ needs a longer `sleep_window_minutes`.
 
 ### MQTT
 
-With Home Assistant's Mosquitto add-on installed nothing needs to be set: the broker is
+With Home Assistant's Mosquitto broker app installed nothing needs to be set: the broker is
 found automatically. For another broker fill in `host`, `port`, `user` and `password`.
 `enabled: false` turns MQTT off.
 
@@ -282,7 +282,7 @@ network, as with Home Assistant's own login.
 - A Tesla account with at least one car
 - About 900 MB of disk space for the image (it includes the browser used for signing in)
   and about 300 MB of free memory while you sign in
-- For the entities: an MQTT broker (the Mosquitto add-on) and Home Assistant's MQTT
+- For the entities: an MQTT broker (the Mosquitto broker app) and Home Assistant's MQTT
   integration
 
 ## Development

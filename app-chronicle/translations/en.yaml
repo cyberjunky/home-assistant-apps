@@ -1,0 +1,21 @@
+configuration:
+  host:
+    name: Database host
+    description: >-
+      Where the database runs: the TimescaleDB app from this repository
+      (1b41fb55-timescaledb), or a host name or IP address.
+  port:
+    name: Port
+    description: The database's port, 5432 for PostgreSQL.
+  username:
+    name: Username
+    description: The database user, postgres for the TimescaleDB app.
+  password:
+    name: Password
+    description: The database user's password.
+  database:
+    name: Database
+    description: The database the Chronicle integration records into.
+  log_level:
+    name: Log level
+    description: Amount of logging.

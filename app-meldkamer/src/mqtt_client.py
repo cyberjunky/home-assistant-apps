@@ -87,7 +87,7 @@ class MQTTClient:
                 if self.config.mqtt_tls_insecure:
                     self._client.tls_insecure_set(True)
             except (OSError, ValueError, ssl.SSLError) as e:
-                # Missing/unreadable CA, cert or key file - don't take the whole add-on down
+                # Missing/unreadable CA, cert or key file - don't take the whole app down
                 logger.error(f"MQTT TLS setup failed (check CA/cert/key paths): {e} - MQTT disabled")
                 self._client = None
                 self.enabled = False
@@ -106,7 +106,7 @@ class MQTTClient:
             self.enabled = False
 
     async def _fetch_supervisor_mqtt(self) -> dict[str, Any] | None:
-        """Ask Supervisor for the MQTT add-on's broker details."""
+        """Ask Supervisor for the MQTT app's broker details."""
         token = os.environ.get("SUPERVISOR_TOKEN", "")
         if not token:
             return None

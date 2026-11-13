@@ -25,7 +25,7 @@ class HAClient:
 
     @property
     def available(self) -> bool:
-        """Whether the add-on runs under the Supervisor."""
+        """Whether the app runs under the Supervisor."""
         return bool(self._token)
 
     async def _get_session(self) -> aiohttp.ClientSession:
@@ -82,11 +82,11 @@ class HAClient:
             raise HAClientError(f"{type(e).__name__}: {e}") from e
 
     async def get_mqtt_service(self) -> dict | None:
-        """The broker of Home Assistant's MQTT service (Mosquitto add-on), None when there is none."""
+        """The broker of Home Assistant's MQTT service (Mosquitto broker app), None when there is none."""
         try:
             body = await self._get(f"{SUPERVISOR_URL}/services/mqtt")
         except HAClientError as e:
-            # Usually: no add-on provides the MQTT service (Mosquitto not installed or not running)
+            # Usually: no app provides the MQTT service (Mosquitto not installed or not running)
             logger.info(f"MQTT: Home Assistant has no MQTT broker to offer ({e})")
             return None
         data = body.get("data") if isinstance(body, dict) else None

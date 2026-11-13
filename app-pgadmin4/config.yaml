@@ -17,9 +17,6 @@ timeout: 20
 ports:
   80/tcp:
   443/tcp:
-ports_description:
-  80/tcp: Web interface (Not required for Ingress i.e. Sidebar)
-  443/tcp: Web interface SSL (Not required for Ingress i.e. Sidebar)
 auth_api: true
 map:
   - ssl

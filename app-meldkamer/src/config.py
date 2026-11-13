@@ -47,7 +47,7 @@ def in_quiet_hours(window: tuple[time, time] | None, now: datetime | None = None
 
 @dataclass
 class Config:
-    """Application configuration, read from the add-on options."""
+    """Application configuration, read from the app options."""
 
     # Receiver settings
     receiver_type: str  # rtl-sdr, hackrf, soapysdr, network
@@ -152,9 +152,9 @@ class Config:
             with open(Path(path)) as f:
                 data = json.load(f)
         except (OSError, ValueError) as e:
-            raise ValueError(f"Cannot read add-on options from {path}: {e}") from e
+            raise ValueError(f"Cannot read app options from {path}: {e}") from e
         if not isinstance(data, dict):
-            raise ValueError(f"Invalid add-on options in {path}: expected a JSON object")
+            raise ValueError(f"Invalid app options in {path}: expected a JSON object")
 
         receiver = data.get("receiver", {})
         geocoding = data.get("geocoding", {})

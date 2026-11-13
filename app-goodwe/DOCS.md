@@ -181,7 +181,7 @@ miners:
 
 ### MQTT
 
-With Home Assistant's Mosquitto add-on installed nothing needs to be set: the broker is
+With Home Assistant's Mosquitto broker app installed nothing needs to be set: the broker is
 found automatically. For another broker fill in `host`, `port`, `user` and `password`.
 `enabled: false` turns MQTT off; `base_topic` and `discovery_prefix` change the topics.
 
@@ -303,7 +303,7 @@ the data or change inverter settings.
 
 - Home Assistant with Supervisor, on a 64-bit system (`amd64` or `aarch64`)
 - A GoodWe inverter reachable on the local network (its Wi-Fi or LAN module, UDP port 8899)
-- For the entities: an MQTT broker (the Mosquitto add-on) and Home Assistant's MQTT
+- For the entities: an MQTT broker (the Mosquitto broker app) and Home Assistant's MQTT
   integration
 
 ## Development

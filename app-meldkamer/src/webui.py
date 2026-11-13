@@ -43,7 +43,7 @@ PHOTO_MIME_TYPES = ("image/jpeg", "image/png", "image/webp", "image/gif")
 
 
 def _addon_version() -> str:
-    """The add-on version from config.yaml (copied next to src/ in the image), so it can't drift."""
+    """The app version from config.yaml (copied next to src/ in the image), so it can't drift."""
     try:
         for line in (Path(__file__).resolve().parent.parent / "config.yaml").read_text(encoding="utf-8").splitlines():
             if line.startswith("version:"):
@@ -55,7 +55,7 @@ def _addon_version() -> str:
 
 ADDON_VERSION = _addon_version()
 
-# Front-end libraries bundled with the add-on (see static/vendor/README.md)
+# Front-end libraries bundled with the app (see static/vendor/README.md)
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 # The dashboard's map tiles come from Home Assistant's built-in map_tiles proxy:
@@ -893,7 +893,7 @@ class WebUI:
     def _start_bag_import(self, provinces: list[str]) -> web.Response:
         """Start the BAG import of the provinces, one after the other, in a background thread.
 
-        The add-on runs the whole list itself: the page only follows the progress,
+        The app runs the whole list itself: the page only follows the progress,
         so a reload or a dropped connection doesn't stop the remaining provinces.
         """
         unknown = [p for p in provinces if p not in bag_import.PROVINCES]
@@ -2495,7 +2495,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                         <div class="db-toolbar">
                             <span class="db-table-title">Database setup</span>
                         </div>
-                        <div class="panel-sub" style="margin-bottom: 14px;">Load the reference data in order - each step improves message parsing, badges and map pins. The add-on's options (receiver, geocoding, sensors, announcements) are on its Configuration tab in Home Assistant.</div>
+                        <div class="panel-sub" style="margin-bottom: 14px;">Load the reference data in order - each step improves message parsing, badges and map pins. The app's options (receiver, geocoding, sensors, announcements) are on its Configuration tab in Home Assistant.</div>
 
                         <div class="db-cards">
                             <div class="db-card">
@@ -2946,7 +2946,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             const c = map.getCenter();
             localStorage.setItem('p2000_map_view', JSON.stringify({lat: c.lat, lng: c.lng, zoom: map.getZoom()}));
         });
-        // Tiles come through the add-on (and Home Assistant's built-in map tile
+        // Tiles come through the app (and Home Assistant's built-in map tile
         // proxy); OSM blocks browsers requesting them directly from here.
         L.tileLayer(basePath + 'api/map-tiles/{z}/{x}/{y}.png', {
             attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
@@ -3061,7 +3061,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         let receiverState = null;  // [className, text, title] from the latest stats
         function renderStatus() {
             const [cls, text, title] = streamState || !receiverState
-                ? ['decoder-warn', streamState || 'CONNECTING…', 'No live connection to the add-on']
+                ? ['decoder-warn', streamState || 'CONNECTING…', 'No live connection to the app']
                 : receiverState;
             decoderEl.className = cls;
             decoderEl.textContent = '● ' + text;
@@ -3633,12 +3633,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         function renderSensorsTable(sensors) {
             const el = document.getElementById('sensors-table');
             if (!sensors.length) {
-                el.innerHTML = '<div class="panel-sub">No sensors configured. Define them under <code>sensors</code> in the add-on configuration (see the README).</div>';
+                el.innerHTML = '<div class="panel-sub">No sensors configured. Define them under <code>sensors</code> in the app configuration (see the README).</div>';
                 return;
             }
             el.innerHTML = '<table class="sensors-table"><thead><tr><th>Sensor</th><th>Entity</th><th>Filters</th><th>Announce</th><th class="num">Matches</th><th class="num">Last match</th></tr></thead><tbody>' +
                 sensors.map(s => `<tr><td>${escapeHtml(s.name)}</td><td class="mono">sensor.${escapeHtml(s.entity_id || '')}</td><td>${escapeHtml(sensorFilterSummary(s))}</td><td>${s.announce ? 'yes' : '—'}</td><td class="num">${s.matches || 0}</td><td class="num">${formatAgo(s.last_match)}</td></tr>`).join('') +
-                '</tbody></table><div class="panel-sub" style="margin-top: 8px;">Matches are counted since the add-on started. Sensors are set up under <code>sensors</code> in the add-on configuration; a change needs a restart.</div>';
+                '</tbody></table><div class="panel-sub" style="margin-top: 8px;">Matches are counted since the app started. Sensors are set up under <code>sensors</code> in the app configuration; a change needs a restart.</div>';
         }
 
         let receiverTimer = null;
@@ -4499,7 +4499,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 receiverState = ['decoder-warn', 'NO FLEX FRAMES',
                     'The decoder runs but has not decoded any FLEX frames recently - check the antenna, gain and ppm'];
             } else {
-                receiverState = ['decoder-ok', 'RX ONLINE', 'Receiving FLEX frames; live connection to the add-on'];
+                receiverState = ['decoder-ok', 'RX ONLINE', 'Receiving FLEX frames; live connection to the app'];
             }
             renderStatus();
 
@@ -5204,7 +5204,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         // ----- BAG import -----
         let bagProgressInterval = null;
 
-        // Follow a running BAG import. The add-on runs the whole list of provinces itself, so this
+        // Follow a running BAG import. The app runs the whole list of provinces itself, so this
         // only watches: a failed poll is retried, and after a reload the page picks it up again
         function bagWatch(btn) {
             if (bagProgressInterval) return;
@@ -5294,7 +5294,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                         if (!queue.length) return;
                         closeModal();
 
-                        // One request with the whole list: the add-on imports them one after the other
+                        // One request with the whole list: the app imports them one after the other
                         fetch(`${basePath}api/db/bag/import`, {
                             method: 'POST',
                             headers: {'Content-Type': 'application/json'},
@@ -5625,7 +5625,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
         // Load database node counts on page load
         setTimeout(dbLoadStats, 100);
-        // A BAG import that is still running in the add-on: show its progress again
+        // A BAG import that is still running in the app: show its progress again
         fetch(`${basePath}api/db/bag/progress`).then(r => r.json()).then(p => {
             if (p.running && p.batch_total) bagWatch(document.querySelector('[onclick="dbImportBAG(this)"]'));
         }).catch(() => {});

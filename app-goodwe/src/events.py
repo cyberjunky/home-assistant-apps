@@ -1,6 +1,6 @@
 """Events: what happened, kept in the database, shown in the dashboard and published to MQTT.
 
-Every notable thing the add-on does or notices goes through one bus, so the
+Every notable thing the app does or notices goes through one bus, so the
 dashboard's event list, the MQTT event entity (for Home Assistant automations,
 e.g. a Telegram message) and the log all see the same thing.
 """
@@ -12,7 +12,7 @@ from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
-# Every event type the add-on can raise, announced to Home Assistant as the event entity's types.
+# Every event type the app can raise, announced to Home Assistant as the event entity's types.
 # kind: (description)
 EVENT_TYPES = {
     "inverter_online": "Inverter reachable again",

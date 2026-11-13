@@ -4,10 +4,10 @@
 # Arguments: ${1} = exit code (256 when killed by a signal), ${2} = signal
 # ==============================================================================
 
-# Fatal error (e.g. invalid configuration): take down the add-on instead of
+# Fatal error (e.g. invalid configuration): take down the app instead of
 # restarting it in an endless loop
 if [[ "${1:-0}" -ne 0 ]] && [[ "${1:-0}" -ne 256 ]]; then
-    echo "[ERROR] Network failed with exit code ${1}, stopping add-on"
+    echo "[ERROR] Network failed with exit code ${1}, stopping app"
     echo "${1:-0}" > /run/s6-linux-init-container-results/exitcode
     exec /run/s6/basedir/bin/halt
 fi

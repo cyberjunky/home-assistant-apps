@@ -21,7 +21,7 @@ evening is covered by a full battery; otherwise it is released.
 
 Zero export. The grid export limit is kept at 0 W with the limit switch on, so
 solar that neither the house nor the battery can take is curtailed instead of
-exported. Checked once when enabled and when the add-on starts, then only read
+exported. Checked once when enabled and when the app starts, then only read
 back when the polled grid power shows sustained export.
 
 Solar surplus. A signal for Home Assistant (e.g. to start a miner): on when the

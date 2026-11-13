@@ -1,7 +1,7 @@
 """Tesla account sign-in and token upkeep.
 
 Signing in is a one-time step from the dashboard: Tesla's own login page is
-opened in the add-on's sign-in browser (signin_browser.py), where the user
+opened in the app's sign-in browser (signin_browser.py), where the user
 signs in. Tesla ends that by sending the browser to an app link carrying a
 one-time code, which is exchanged here for an access token and a refresh token
 (OAuth 2 authorization code flow with PKCE). From then on the tokens renew
@@ -57,12 +57,12 @@ _REFRESH_BANNER_RE = re.compile(r"REFRESH TOKEN[\s-]*([A-Za-z0-9._~+/=-]{20,})")
 
 
 def new_client() -> httpx.AsyncClient:
-    """The add-on's own HTTP client for Tesla's owner API (and for the token endpoint in development).
+    """The app's own HTTP client for Tesla's owner API (and for the token endpoint in development).
 
     HTTP/2 over TLS 1.3, with browser-like Accept headers.
     Note: Tesla's sign-on service judges a client by its TLS/HTTP handshake and
     gives a plain client tokens its owner API refuses, which is why tokens are
-    requested through the add-on's real browser (see signin_browser); this client
+    requested through the app's real browser (see signin_browser); this client
     makes the owner-API calls, which accept any valid token.
     """
     tls = httpx.create_ssl_context()
@@ -153,8 +153,8 @@ class TeslaAuth:
             "expires_at": int(time.time()) + int(body.get("expires_in", 28800)),
             "issuer": issuer,
             "email": claims.get("email") or self._tokens.get("email", ""),
-            # Who requested the token: "browser" (the add-on's browser), "app" (taken over
-            # from the Tesla Auth app) or "client" (the add-on's own HTTP client)
+            # Who requested the token: "browser" (the app's browser), "app" (taken over
+            # from the Tesla Auth app) or "client" (the app's own HTTP client)
             "source": source,
         }
         self._save()
@@ -373,7 +373,7 @@ class TeslaAuth:
         handshake, which Tesla's sign-on service answers with tokens its owner
         API accepts (a plain Python client gets tokens the owner API refuses).
         By an open sign-in browser when one is given, by a short-lived browser
-        otherwise, and only by the add-on's own HTTP client when no browser is
+        otherwise, and only by the app's own HTTP client when no browser is
         available (development). AuthError when Tesla refuses the code or token,
         SignOnUnavailable when the service can't be reached.
         """
@@ -388,11 +388,11 @@ class TeslaAuth:
                 via = "the sign-in browser"
             elif signin_browser.available():
                 status, body = await signin_browser.post_from_browser(f"{issuer}/authorize", url, payload)
-                via = "the add-on's browser"
+                via = "the app's browser"
             else:
                 source, status, body, via = await self._token_request_direct(url, payload)
         except (RuntimeError, OSError, TimeoutError) as e:
-            raise SignOnUnavailable(f"the add-on's browser could not request tokens: {e}") from e
+            raise SignOnUnavailable(f"the app's browser could not request tokens: {e}") from e
 
         if status == 200 and isinstance(body, dict) and body.get("access_token"):
             # Which services Tesla made the token for is worth a log line: a token for the
@@ -408,7 +408,7 @@ class TeslaAuth:
         raise SignOnUnavailable(f"Tesla's sign-on service answered HTTP {status}")
 
     async def _token_request_direct(self, url: str, payload: dict) -> tuple[str, int, dict, str]:
-        """Ask the sign-on service with the add-on's own HTTP client (no browser available)."""
+        """Ask the sign-on service with the app's own HTTP client (no browser available)."""
         client = await self._http()
         resp = await client.post(url, json=payload)
         try:

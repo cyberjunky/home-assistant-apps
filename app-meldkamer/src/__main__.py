@@ -35,7 +35,7 @@ async def main() -> int:
     try:
         config = Config.from_options_file()
     except ValueError as e:
-        logger.error(f"{e} - fix the add-on configuration and restart")
+        logger.error(f"{e} - fix the app configuration and restart")
         return 1
 
     if config.log_level == "debug":
@@ -76,14 +76,14 @@ async def main() -> int:
         db_stats["bytes"],
     )
 
-    # An invalid receiver config must not crash-loop the add-on: keep the web
+    # An invalid receiver config must not crash-loop the app: keep the web
     # UI up and show the error there instead of starting the decoder.
     decoder_ok = True
     try:
         decoder.validate()
     except RuntimeError as e:
         decoder_ok = False
-        decoder.last_error = f"{e} - fix the add-on configuration and restart"
+        decoder.last_error = f"{e} - fix the app configuration and restart"
         logger.error(decoder.last_error)
 
     def on_message(msg):
@@ -187,7 +187,7 @@ async def main() -> int:
         loop.add_signal_handler(sig, on_signal)
 
     # Start services. A service failing (e.g. port already in use) is fatal:
-    # exit non-zero so the finish script stops the add-on instead of
+    # exit non-zero so the finish script stops the app instead of
     # restarting it in a loop.
     exit_code = 0
     await publisher.start()

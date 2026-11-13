@@ -58,7 +58,7 @@ configuration:
     description: >-
       Publish the car to MQTT with Home Assistant discovery: sensors, binary
       sensors and a device tracker appear under a device named after the car.
-      Leave host empty to use Home Assistant's own broker (Mosquitto add-on).
+      Leave host empty to use Home Assistant's own broker (Mosquitto broker app).
   log_level:
     name: Log level
-    description: How much detail the add-on writes to its log.
+    description: How much detail the app writes to its log.

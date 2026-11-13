@@ -1,0 +1,34 @@
+configuration:
+  max_concurrent_hosts:
+    name: Gelijktijdige hosts
+    description: Hoeveel hosts naabu tegelijk op open poorten controleert.
+  requests_per_second:
+    name: Verzoeken per seconde
+    description: De snelheidsgrens voor naabu en nuclei samen. Verlaag hem om zachter te zijn voor een doel.
+  min_severity:
+    name: Minimale ernst
+    description: De laagste ernst die een ticket wordt.
+  nuclei_tags:
+    name: Alleen deze tags
+    description: Beperk nuclei tot templates met deze tags (komma's ertussen). Leeg draait alle templates die van toepassing zijn.
+  nuclei_exclude_tags:
+    name: Tags overslaan
+    description: Templates met deze tags worden overgeslagen. Houd dos, fuzzing en intrusive hier, tenzij je ze echt wilt draaien.
+  default_credentials:
+    name: Controle op standaardwachtwoorden
+    description: >-
+      Probeer een kleine ingebouwde lijst met standaardlogins op gevonden
+      diensten. Standaard uit: het kan accounts blokkeren en alarmen
+      afgaan. Er wordt niet met wachtwoordlijsten uit een bestand geprobeerd.
+  retention_days:
+    name: Gegevens bewaren (dagen)
+    description: Opgeloste tickets en afgeronde scans die ouder zijn worden verwijderd. Open tickets blijven altijd.
+  presence_interval_minutes:
+    name: Online-controle (minuten)
+    description: Hoe vaak bekende apparaten worden gecontroleerd op online zijn. 0 zet de controle uit.
+  update_templates:
+    name: Templates bijwerken
+    description: Haal voor een scan de nieuwste nuclei-templates op, zodat je altijd de laatste CVE-controles hebt.
+  log_level:
+    name: Logniveau
+    description: Hoeveelheid logging.

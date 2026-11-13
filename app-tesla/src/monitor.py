@@ -24,7 +24,7 @@ from .tesla_auth import AuthError, TeslaAuth
 logger = logging.getLogger(__name__)
 
 DRIVING_SHIFTS = ("D", "R", "N")
-# A drive (or charge) survives this long without data: tunnels, garages, add-on restarts
+# A drive (or charge) survives this long without data: tunnels, garages, app restarts
 DRIVE_GAP = 300
 CHARGE_GAP = 900
 # While parked a position is stored at most this often
@@ -491,7 +491,7 @@ class CarMonitor:
             return min(15 * 2 ** min(self._failures, 5), 300)
         except Exception:
             logger.exception(f"{self.label}: unexpected error")
-            self._fail("Internal error, see the add-on log")
+            self._fail("Internal error, see the app log")
             return 60
         self._failures = 0
         if self.last_error:

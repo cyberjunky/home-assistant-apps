@@ -63,7 +63,7 @@ configuration:
       Publiceer de auto via MQTT met Home Assistant-discovery: sensoren,
       binaire sensoren en een device tracker verschijnen onder een apparaat
       met de naam van de auto. Laat host leeg om de broker van Home Assistant
-      zelf te gebruiken (Mosquitto add-on).
+      zelf te gebruiken (Mosquitto broker app).
   log_level:
     name: Logniveau
-    description: Hoeveel detail de add-on naar het logboek schrijft.
+    description: Hoeveel detail de app naar het logboek schrijft.
