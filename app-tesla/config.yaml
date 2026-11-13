@@ -14,9 +14,8 @@ image: "ghcr.io/cyberjunky/app-tesla"
 ingress: true
 panel_icon: mdi:car-electric
 panel_title: Tesla
-# Zones (place names) and map tiles from Home Assistant; timezone and the MQTT broker from the Supervisor
+# Zones (place names) and map tiles from Home Assistant
 homeassistant_api: true
-hassio_api: true
 services:
   - mqtt:want
 

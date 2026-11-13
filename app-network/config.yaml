@@ -16,8 +16,6 @@ panel_icon: mdi:lan
 panel_title: Network
 # The device trackers, their devices and areas, renaming them, and the recorder's history
 homeassistant_api: true
-# Home Assistant's time zone from the Supervisor
-hassio_api: true
 
 options:
   history_days: 10

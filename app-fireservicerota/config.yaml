@@ -19,8 +19,6 @@ panel_icon: mdi:fire-truck
 panel_title: FireServiceRota
 # Everything is read from (and sent through) Home Assistant's FireServiceRota integration
 homeassistant_api: true
-# The time zone and this app's ingress path (for the dashboard_url in events) from the Supervisor
-hassio_api: true
 
 options:
   incidents_entity: ""

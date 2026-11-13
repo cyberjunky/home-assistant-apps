@@ -12,8 +12,6 @@ image: "ghcr.io/cyberjunky/app-toon"
 ingress: true
 panel_icon: mdi:thermostat
 panel_title: Toon
-# The MQTT broker from the Supervisor
-hassio_api: true
 # The sensors named under external_sensors and outside_temperature
 homeassistant_api: true
 services:
