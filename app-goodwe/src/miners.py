@@ -96,6 +96,10 @@ class MinerUnit:
             watts = self.sensor_w if self.fresh(self._sensor_at) else None
             if watts is None:
                 return None, None
+            # A switch that is off means not mining, whatever the sensor still says: it may lag a
+            # poll or two, and a miner whose switch only stops the mining keeps drawing some power
+            if self.cfg.switch and self.switch_on is False and self.fresh(self._switch_at):
+                return False, watts
             floor = max(RUNNING_MIN_W, (self.expected_w or 0) * RUNNING_SHARE)
             return watts >= floor, watts
         if self.cfg.switch:

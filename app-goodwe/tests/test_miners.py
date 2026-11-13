@@ -220,3 +220,22 @@ def test_stamps_and_daily_statistics(tmp_path, clock):
     got = {r["name"]: r for r in db.miner_totals("2026-11-10", "2026-11-11")}
     assert got["S19 left"]["hours"] == 1.0 and got["S19 left"]["kwh"] == 1.4
     assert "S19 right" not in got  # never ran
+
+
+def test_switched_off_is_not_running_whatever_the_sensor_says(tmp_path, clock):
+    miners, ha = make(tmp_path, TWO[:1])
+    ha.states["switch.left"] = {"state": "on"}
+    ha.states["sensor.left_power"] = {"state": "111", "attributes": {"unit_of_measurement": "W"}}
+    asyncio.run(miners.read())
+    miners.on_data({"surplus": 1})
+    unit = miners.units[0]
+    assert unit.on is True
+    learned = unit.learned_w
+    # Mining switched off; the sensor still reports the old power (lagging, or the idle draw)
+    ha.states["switch.left"] = {"state": "off"}
+    asyncio.run(miners.read())
+    data = {"surplus": 1}
+    miners.on_data(data)
+    assert unit.on is False and data["miner1_on"] == 0 and data["miner1_w"] == 111
+    assert unit.learned_w == learned, "nothing learned while switched off"
+    assert miners.events.items[-1][0] == "miners_stopped"
