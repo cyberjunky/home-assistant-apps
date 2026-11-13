@@ -1,0 +1,75 @@
+configuration:
+  postgres_password:
+    name: Password of the postgres user
+    description: >-
+      Set on every start, so it can be changed later. Without it a new
+      installation gets the password homeassistant (with a warning in the log)
+      and an existing one keeps its password.
+  databases:
+    name: Databases
+    description: Databases to create at start when they don't exist.
+  timescale_enabled:
+    name: TimescaleDB in these databases
+    description: Databases that get the TimescaleDB extension.
+  timescaledb:
+    name: TimescaleDB
+    description: TimescaleDB's telemetry and the budget its tuning works with.
+    fields:
+      telemetry:
+        name: Telemetry
+        description: off or basic.
+      maxmemory:
+        name: Memory
+        description: The memory budget for the tuning, for example 512MB.
+      maxcpus:
+        name: CPUs
+        description: The number of CPUs for the tuning.
+  max_connections:
+    name: Maximum connections
+    description: Client connections at once, at least 20.
+  vectorchord:
+    name: VectorChord
+    description: >-
+      Load VectorChord (vchord), the vector search extension Immich needs.
+      Databases that use it fail on their vector indexes when it is off again.
+  system_packages:
+    name: Extra packages
+    description: Alpine packages to install at start.
+  init_commands:
+    name: Commands at start
+    description: Shell commands to run at start.
+  retry_upgrade:
+    name: Retry the upgrade
+    description: Retry a failed PostgreSQL major-version upgrade on the next start.
+  postgresql_settings:
+    name: PostgreSQL settings
+    description: >-
+      name=value entries, for example work_mem=32MB. They win over the app's own
+      settings and are checked before PostgreSQL starts: when one is rejected,
+      all are ignored for that start and the error is in the log.
+  pg_hba_config:
+    name: Access rules (pg_hba.conf)
+    description: >-
+      Rules added to pg_hba.conf, first match wins. A wrong rule can lock you
+      out: keep one that works.
+    fields:
+      type:
+        name: Type
+        description: local, host, hostssl or hostnossl.
+      database:
+        name: Database
+        description: The database, or all.
+      user:
+        name: User
+        description: The user, or all.
+      address:
+        name: Address
+        description: For example 192.168.1.0/24.
+      method:
+        name: Method
+        description: For example scram-sha-256, md5, trust or reject.
+      options:
+        name: Options
+        description: For example clientcert=verify-full.
+network:
+  5432/tcp: "PostgreSQL, for database clients outside Home Assistant (optional). If the app won't start, this port may be in use already: pick another"

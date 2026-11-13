@@ -9,12 +9,13 @@ import asyncio
 import contextlib
 import logging
 import time
+from collections import deque
 from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
 from .ha_client import HAClientError, HAWebSocket
-from .kinds import guess_kind, is_random_mac, normalize_mac
+from .kinds import guess_kind, is_random_mac, mac_vendor, normalize_mac
 
 logger = logging.getLogger(__name__)
 
@@ -163,12 +164,14 @@ def build_hosts(
             "via_device_id": pick("via_device_id"),
             "device_ids": sorted({t["device_id"] for t in group if t["device_id"]}),
         }
+        # The maker from the MAC address, for trackers that don't say (Nmap, Ping, many routers)
+        host["vendor"] = "" if host["manufacturer"] else mac_vendor(host["mac"])
         host["guess"] = guess_kind(
             *(t["name"] for t in group),
             *(t["original_name"] for t in group),
             host["host_name"],
             host["model"],
-            manufacturer=host["manufacturer"],
+            manufacturer=host["manufacturer"] or host["vendor"],
         )
         for device_id in host["device_ids"]:
             device_hosts[device_id] = key
@@ -197,6 +200,9 @@ class Inventory:
         self.loaded_at: float | None = None
         self.error = ""
         self._hosts: list[dict] | None = None
+        # Goes up with every change of a tracker, a zone or the registries; the dashboard's stream follows it
+        self.version = 0
+        self.changed: deque[tuple[int, str]] = deque(maxlen=500)
         self._reload: asyncio.Task | None = None
         # Called with (entity_id, ts, up) for every change of a tracker between on and off the network
         self.on_change: Callable[[str, float, bool | None], None] | None = None
@@ -227,11 +233,20 @@ class Inventory:
         self.states = {s["entity_id"]: s for s in states or [] if s.get("entity_id", "").startswith(DOMAIN)}
         self.zones = {s["entity_id"]: s for s in states or [] if s.get("entity_id", "").startswith("zone.")}
         self._hosts = None
+        self._bump("*")
         self.loaded_at = time.time()
         self.error = ""
         logger.info(f"{len(self.states)} device trackers, {len(self.hosts())} hosts")
         if self.on_loaded:
             self.on_loaded()
+
+    def _bump(self, entity_id: str) -> None:
+        self.version += 1
+        self.changed.append((self.version, entity_id))
+
+    def changed_since(self, version: int) -> list[str]:
+        """The entities changed after `version` ("*" when everything was read again)."""
+        return sorted({e for v, e in self.changed if v > version})
 
     def hosts(self) -> list[dict]:
         if self._hosts is None:
@@ -280,6 +295,7 @@ class Inventory:
                 self.zones[entity_id] = data["new_state"]
             else:
                 self.zones.pop(entity_id, None)
+            self._bump(entity_id)
             return
         if not entity_id.startswith(DOMAIN):
             return
@@ -289,6 +305,7 @@ class Inventory:
         else:
             self.states[entity_id] = new
         self._hosts = None
+        self._bump(entity_id)
         before = is_up((old or {}).get("state"))
         after = is_up((new or {}).get("state"))
         if before != after and self.on_change:

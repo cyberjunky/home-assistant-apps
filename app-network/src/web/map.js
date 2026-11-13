@@ -144,8 +144,7 @@ function mapBuild() {
                 </div>
                 <div class="mp-list" id="mp-list"></div>
                 <div class="mp-section mp-shapes">
-                    <div class="section-title">Shapes</div>
-                    <div class="mp-shape-grid" id="mp-shapes"></div>
+                    <div id="mp-shapes"></div>
                 </div>
             </aside>
             <section class="map-main">
@@ -167,9 +166,11 @@ function mapBuild() {
             </section>
             <aside class="map-side" id="map-side"></aside>
         </div>`;
-    document.getElementById('mp-shapes').innerHTML = PALETTE_SHAPES.map(k => `<div class="mp-shape" draggable="true" data-drag="shape:${k}" title="Drag onto the map: ${attr(kindLabel(k))}">${kindIconHtml(k, 'small')}<span>${escapeHtml(kindLabel(k))}</span></div>`).join('')
+    const shape = k => `<div class="mp-shape" draggable="true" data-drag="shape:${k}" title="Drag onto the map: ${attr(kindLabel(k))}">${kindIconHtml(k, 'small')}<span>${escapeHtml(PALETTE_SHORT[k] || kindLabel(k))}</span></div>`;
+    document.getElementById('mp-shapes').innerHTML = '<div class="mp-shape-title">Drawing</div><div class="mp-shape-grid">'
         + '<div class="mp-shape" draggable="true" data-drag="group" title="Drag onto the map: a box to group devices, for a room, a rack or a VLAN"><span class="kicon small shape-box"></span><span>Group</span></div>'
-        + '<div class="mp-shape" draggable="true" data-drag="text" title="Drag onto the map: a note"><span class="kicon small shape-text">T</span><span>Text</span></div>';
+        + '<div class="mp-shape" draggable="true" data-drag="text" title="Drag onto the map: a note"><span class="kicon small shape-text">T</span><span>Text</span></div></div>'
+        + PALETTE_GROUPS.map(g => `<div class="mp-shape-title">${escapeHtml(g.title)}</div><div class="mp-shape-grid">${g.kinds.filter(k => app.kinds[k]).map(shape).join('')}</div>`).join('');
     const search = document.getElementById('mp-search');
     search.addEventListener('input', () => { mapState.search = search.value; mapPalette(); });
     const palette = document.getElementById('map-palette');
@@ -326,12 +327,11 @@ function mapDraw() {
         const sub = nodeSub(n);
         return `<g class="mnode ${state} fam-${kindFamily(kind)}${sel.has('n:' + n.id) ? ' sel' : ''}" data-node="${attr(n.id)}" transform="translate(${n.x} ${n.y})">
             <title>${escapeHtml([name, h ? `${h.ip || ''} ${h.mac || ''}`.trim() : '', h ? (h.up ? 'online' : h.up === false ? 'away ' + fmtAgo(h.last_changed) : 'unknown') : ''].filter(Boolean).join('\n'))}</title>
-            <rect class="mn-bg" width="${NODE_W}" height="${NODE_H}" rx="10"/>
-            <rect class="mn-ico" x="9" y="9" width="36" height="36" rx="9"/>
-            <svg class="mn-glyph" x="15" y="15" width="24" height="24" viewBox="0 0 24 24">${mdiSvg(nodeIcon(n))}</svg>
+            <rect class="mn-bg" x="0.75" y="0.75" width="${NODE_W - 1.5}" height="${NODE_H - 1.5}" rx="12"/>
+            <svg class="mn-glyph" x="13" y="13" width="28" height="28" viewBox="0 0 24 24">${mdiSvg(nodeIcon(n))}</svg>
             <text class="mn-name" x="54" y="${sub ? 24 : 32}">${escapeHtml(clip(name, 19))}</text>
             ${sub ? `<text class="mn-sub" x="54" y="41">${escapeHtml(clip(sub, 24))}</text>` : ''}
-            ${h || n.ref || n.page ? `<circle class="mn-dot" cx="${NODE_W - 12}" cy="12" r="4.5"/>` : ''}
+            ${h || n.ref || n.page ? `<circle class="mn-dot" cx="40" cy="40" r="5"/>` : ''}
             ${n.page ? `<rect class="mn-stack" x="4" y="${NODE_H}" width="${NODE_W - 8}" height="5" rx="2"/>` : ''}
             <circle class="mn-port" data-port="${attr(n.id)}" cx="${NODE_W}" cy="${NODE_H / 2}" r="6"><title>Drag to another device to connect them</title></circle>
         </g>`;

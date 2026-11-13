@@ -1,7 +1,7 @@
 #!/command/with-contenv bashio
 # shellcheck shell=bash
 # ==============================================================================
-# Home Assistant Add-on: TimescaleDb
+# Home Assistant App: TimescaleDb
 # Initializes the container during startup
 # ==============================================================================
 declare POSTGRES_DATA
@@ -19,7 +19,7 @@ NEW_INSTALL=false
 RESTORE_MODE=false
 BUILD_TIMESTAMP="$(cat /build-timestamp)"
 
-# Checks whether a SQL dump (compressed, or uncompressed from older add-on versions) is present
+# Checks whether a SQL dump (compressed, or uncompressed from older app versions) is present
 backupFileExists () {
 	[[ -f "${BACKUP_FILE}" ]] || [[ -f "${LEGACY_BACKUP_FILE}" ]]
 }
@@ -305,8 +305,8 @@ else
 	if [[ "${CURRENT_PG_VERSION}" =~ ^(12|13|14|15|16)$ ]]; then
 		bashio::log.notice "A database upgrade is required from Postgres ${CURRENT_PG_VERSION}."
 		bashio::log.error "Upgrade was not succesfull. This addon version does no longer support Postgres ${CURRENT_PG_VERSION}."
-		bashio::log.error "Please install add-on version 5.4.2 first to upgrade to Postgres 17, or restore a Home Assistant backup"
-		bashio::log.error "that contains a SQL dump (backup_db.sql) into a fresh installation of this add-on."
+		bashio::log.error "Please install app version 5.4.2 first to upgrade to Postgres 17, or restore a Home Assistant backup"
+		bashio::log.error "that contains a SQL dump (backup_db.sql) into a fresh installation of this app."
 		exit 1
 	fi
 
@@ -332,7 +332,7 @@ if bashio::var.false "${NEW_INSTALL}"; then
 		sed -r -i "s/(shared_preload_libraries\s*=\s*'[^']*)(timescaledb)([^']*')/\1\2,pg_stat_statements\3/" ${POSTGRES_DATA}/postgresql.conf
 		bashio::log.info "done"
 	fi
-	# Same for pg_cron (added in add-on 6.0.0)
+	# Same for pg_cron (added in app 6.0.0)
 	if ! grep -q "shared_preload_libraries.*pg_cron" ${POSTGRES_DATA}/postgresql.conf; then
 		bashio::log.info "Adding pg_cron to shared_preload_libraries.."
 		sed -r -i "s/(shared_preload_libraries\s*=\s*'[^']*)(timescaledb)([^']*')/\1\2,pg_cron\3/" ${POSTGRES_DATA}/postgresql.conf

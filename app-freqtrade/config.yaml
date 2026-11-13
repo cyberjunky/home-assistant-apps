@@ -12,8 +12,6 @@ image: "ghcr.io/cyberjunky/app-freqtrade"
 ingress: true
 panel_icon: mdi:robot-outline
 panel_title: Freqtrade
-# The MQTT broker from the Supervisor
-hassio_api: true
 services:
   - mqtt:want
 

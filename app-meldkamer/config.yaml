@@ -13,13 +13,11 @@ arch:
 image: "ghcr.io/cyberjunky/app-meldkamer"
 # MQTT TLS certificate files (mqtt.tls_ca / tls_cert / tls_keyfile)
 map:
-  - ssl:ro
+  - type: ssl
 udev: true
 usb: true
 ports:
   5000/tcp: null
-ports_description:
-  5000/tcp: P2000 TCP broadcast server for integrations (optional)
 ingress: true
 # Pass uploads (backups, imports, ROMs) straight to the app: without this the Supervisor reads
 # the whole request first and refuses anything over 16 MB (413 Content Too Large)
@@ -27,7 +25,6 @@ ingress_stream: true
 panel_icon: mdi:headset
 panel_title: Meldkamer
 homeassistant_api: true
-hassio_api: true
 services:
   - mqtt:want
 

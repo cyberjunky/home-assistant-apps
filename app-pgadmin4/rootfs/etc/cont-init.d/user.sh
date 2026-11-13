@@ -1,6 +1,6 @@
 #!/usr/bin/with-contenv bashio
 # ==============================================================================
-# Home Assistant Add-on: pgAdmin4
+# Home Assistant App: pgAdmin4
 # Executes user customizations on startup
 # ==============================================================================
 

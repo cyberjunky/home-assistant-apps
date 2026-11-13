@@ -1,6 +1,6 @@
 ---
 name: pgAdmin4
-version: 4.1.1
+version: "4.1.1"
 slug: pgadmin4
 description: A PostgreSQL Management and Query tool
 url: https://github.com/cyberjunky/home-assistant-apps/tree/main/app-pgadmin4
@@ -12,18 +12,15 @@ panel_icon: mdi:database
 panel_title: pgAdmin 4
 hassio_api: true
 init: false
-homeassistant: 0.92.0b2
 timeout: 20
 ports:
   80/tcp:
   443/tcp:
-ports_description:
-  80/tcp: Web interface (Not required for Ingress i.e. Sidebar)
-  443/tcp: Web interface SSL (Not required for Ingress i.e. Sidebar)
 auth_api: true
 map:
-  - ssl
-  - share:rw
+  - type: ssl
+  - type: share
+    read_only: false
 options:
   ssl: true
   certfile: fullchain.pem

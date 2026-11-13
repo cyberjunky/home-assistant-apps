@@ -525,9 +525,60 @@ async function loadStats(days) {
     return data;
 }
 async function refreshLive() {
+    const before = new Map(app.hosts.map(h => [h.key, h.up]));
     await Promise.all([loadStatus(), loadHosts()]);
+    // Someone came or went: the statistics (drops, online %, the latest comings and goings) too
+    const flipped = app.hosts.some(h => before.has(h.key) && before.get(h.key) !== h.up) || app.hosts.length !== before.size;
+    if (flipped) await refreshStats();
     if (activeTab && liveHooks[activeTab]) liveHooks[activeTab]();
 }
+// At most every 3 seconds; the server computes them again after a change
+let statsAt = 0;
+let statsTimer = null;
+async function refreshStats() {
+    const wait = statsAt + 3000 - Date.now();
+    if (wait > 0) {
+        clearTimeout(statsTimer);
+        statsTimer = setTimeout(() => refreshStats().then(() => { if (activeTab && liveHooks[activeTab]) liveHooks[activeTab](); }), wait);
+        return;
+    }
+    statsAt = Date.now();
+    const days = new Set([7, ...Object.keys(app.stats).map(Number)]);
+    await Promise.all([...days].map(d => loadStats(d).catch(() => {})));
+}
+
+// =====================================================================
+// Live: the app tells the page the moment a tracker changes (server-sent events);
+// without the stream the page asks every 10 seconds
+// =====================================================================
+const live = {source: null, ok: false, timer: null, changed: new Set()};
+function connectLive() {
+    if (live.source) live.source.close();
+    live.source = new EventSource('api/live');
+    live.source.addEventListener('hello', () => { live.ok = true; scheduleLive(); });
+    live.source.addEventListener('ping', () => { live.ok = true; });
+    live.source.onmessage = (e) => {
+        live.ok = true;
+        try { JSON.parse(e.data).changed.forEach(id => live.changed.add(id)); } catch (err) { /* only a hint */ }
+        scheduleLive();
+    };
+    live.source.onerror = () => {
+        live.ok = false;
+        // The browser retries by itself unless the connection was closed for good
+        if (live.source.readyState === EventSource.CLOSED) setTimeout(connectLive, 5000);
+    };
+}
+// Changes come in bursts (a rename touches several entities): read once, a moment after the last
+function scheduleLive() {
+    clearTimeout(live.timer);
+    live.timer = setTimeout(() => {
+        const changed = [...live.changed];
+        live.changed.clear();
+        refreshLive().then(() => liveListeners.forEach(fn => fn(changed))).catch(() => {});
+    }, 400);
+}
+const liveListeners = [];
+function onLive(fn) { liveListeners.push(fn); }
 
 function renderNotices() {
     const el = document.getElementById('notices');
@@ -555,6 +606,7 @@ function renderStatusbar() {
         if (s.backfill && !s.backfill.done) parts.push('<span class="sb-extra sb-warn">reading the history…</span>');
     }
     parts.push('<span class="sb-extra"><span id="save-state" class="save-state"></span></span>');
+    parts.push(`<span class="sb-extra" title="${live.ok ? 'Changes show the moment Home Assistant reports them' : 'No live connection: read every 10 seconds'}">${live.ok ? '<span class="sb-ok">●</span> live' : '<span class="sb-warn">●</span> every 10 s'}</span>`);
     parts.push(`<span class="spacer"></span><span class="sb-extra">Network app ${escapeHtml(s.version)}</span>`);
     const bar = document.getElementById('statusbar');
     const saveText = (document.getElementById('save-state') || {}).outerHTML;

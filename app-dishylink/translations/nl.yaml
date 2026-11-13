@@ -1,0 +1,43 @@
+configuration:
+  detect_host_identity:
+    name: Netwerkidentiteit van de host bepalen
+    description: >-
+      Vraag de Supervisor naar het LAN-adres en het MAC-adres van de Home
+      Assistant-host, zodat het dashboard weet welke client van de router "dit
+      apparaat" is. Daardoor pauzeert de app zijn eigen verbinding niet en telt
+      hij zijn eigen polling niet mee als dataverbruik van dat apparaat. Zet uit
+      om de waarden hieronder zelf in te vullen, of om ze leeg te laten.
+  history_flush_minutes:
+    name: Geschiedenis naar schijf schrijven elke (minuten)
+    description: >-
+      De recorder schrijft elke minuut enkele megabytes aan snapshots opnieuw.
+      Met een waarde boven 0 werkt hij in het geheugen en wordt de geschiedenis
+      met deze tussenpoos en bij het stoppen van de app naar de datamap
+      gekopieerd; dat spaart SD-kaarten en eMMC. Bij een stroomstoring gaan
+      hooguit zoveel minuten verloren. 0 schrijft direct naar schijf, zoals
+      Dishylink zelf doet.
+  host_lan_ip:
+    name: LAN-IP-adres van de host
+    description: >-
+      Het adres van de Home Assistant-host op het Starlink-LAN, bijvoorbeeld
+      192.168.1.45. Gaat voor de gevonden waarde. Meerdere adressen scheid je
+      met komma's.
+  host_mac:
+    name: MAC-adres van de host
+    description: >-
+      Het MAC-adres van de Home Assistant-host op het Starlink-LAN, bijvoorbeeld
+      aa:bb:cc:dd:ee:ff. Gaat voor de gevonden waarde.
+  dish_url:
+    name: Adres van de schotel
+    description: >-
+      Waar de grpc-web-API van de schotel bereikbaar is. Laat leeg voor de
+      standaard http://192.168.100.1:9201. Wijzig alleen als je netwerk de
+      schotel op een ander adres bereikt.
+  router_url:
+    name: Adres van de router
+    description: >-
+      Vast adres voor de API van de Starlink-router, bijvoorbeeld
+      http://192.168.1.1. Laat leeg voor de standaard, die je ook in de
+      instellingen van het dashboard kunt wijzigen.
+network:
+  8080/tcp: Direct naar het dashboard zonder ingress (optioneel, bijvoorbeeld vanaf een telefoon op het LAN)

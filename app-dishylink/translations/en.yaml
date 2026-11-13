@@ -39,4 +39,4 @@ configuration:
       Leave empty to use the default, which can also be changed from the
       dashboard's settings.
 network:
-  8080/TCP: Direct access to the dashboard without ingress (optional, e.g. from a phone on the LAN)
+  8080/tcp: Direct access to the dashboard without ingress (optional, e.g. from a phone on the LAN)

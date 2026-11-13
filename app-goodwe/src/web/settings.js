@@ -33,7 +33,7 @@ function renderInverterInfo() {
         infoRow('Connected', inv.connected_at ? fmtDateTime(inv.connected_at) : '–'),
         infoRow('Last read', inv.last_read ? `${fmtAgo(inv.last_read)} · ${num(inv.polls)} reads` : '–'),
         inv.last_error ? infoRow('Last error', `<span class="sb-warn">${escapeHtml(inv.last_error)}</span>`) : '',
-    ].join('') + '<p class="panel-sub" style="margin-top:10px">The address and the poll interval are set on the add-on\'s Configuration tab in Home Assistant.</p>';
+    ].join('') + '<p class="panel-sub" style="margin-top:10px">The address and the poll interval are set on the app\'s Configuration tab in Home Assistant.</p>';
 }
 
 // A row that does not apply right now (an Eco schedule outside Eco mode, say): shown greyed out
@@ -150,7 +150,7 @@ function renderForecastSettings() {
         infoRow('Fetched', f.fetched_at ? `${fmtDateTime(f.fetched_at)} <small>· next ${fmtTime(f.fetched_at + 1800)}</small>` : '–'),
         f.configured ? infoRow('Today · tomorrow', `${fmtKwh(f.today_kwh)} · ${fmtKwh(f.tomorrow_kwh)}`) : '',
         f.error ? infoRow('Problem', `<span class="sb-warn">${escapeHtml(f.error)}</span>`) : '',
-    ].join('') + `<p class="panel-sub" style="margin-top:10px">Forecast.Solar is asked once per panel group every 30 minutes, with Open-Meteo as a fallback. Location and panels are set on the add-on's Configuration tab; leave the location at 0 to use Home Assistant's home.</p>`
+    ].join('') + `<p class="panel-sub" style="margin-top:10px">Forecast.Solar is asked once per panel group every 30 minutes, with Open-Meteo as a fallback. Location and panels are set on the app's Configuration tab; leave the location at 0 to use Home Assistant's home.</p>`
         + (f.configured ? '<div class="detail-actions" style="margin-top:10px"><button type="button" class="btn btn-small" onclick="refreshForecast(this)">Fetch again</button></div>' : '');
 }
 

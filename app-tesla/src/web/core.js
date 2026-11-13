@@ -241,7 +241,7 @@ map.on('moveend', () => {
     localStorage.setItem(LS + 'map_view', JSON.stringify({lat: c.lat, lng: c.lng, zoom: map.getZoom()}));
 });
 
-// Tiles come through the add-on (and Home Assistant's built-in map tile
+// Tiles come through the app (and Home Assistant's built-in map tile
 // proxy); OSM blocks browsers requesting them directly from here.
 function tileLayer() {
     return L.tileLayer(basePath + 'api/map-tiles/{z}/{x}/{y}.png', {
@@ -665,7 +665,7 @@ function carVisual(car, height) {
     const sil = carSilhouette(car);
     const h = height || 88;
     if (car.image_url) {
-        // Tesla's picture, kept by the add-on; if it can't be had, the drawing in the car's paint
+        // Tesla's picture, kept by the app; if it can't be had, the drawing in the car's paint
         return `<div class="car-visual" style="height:${h}px">
             <img class="car-photo" src="${basePath}api/cars/${car.id}/image?v=${escapeHtml(car.image_key || '')}" alt="${escapeHtml(car.model_name || 'Tesla')}" style="transform:scale(${car.image_scale || 1})" loading="lazy"
                  onerror="var v=this.closest('.car-visual'); this.remove(); v.classList.add('no-photo')">

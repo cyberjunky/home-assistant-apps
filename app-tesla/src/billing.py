@@ -263,7 +263,7 @@ class ChargingCosts:
                 logger.info(f"Tesla charging history: {describe(answer)}")
                 self._described = True
             if sessions is None:
-                raise TeslaApiError("Tesla's charging history has an unexpected layout (see the add-on log)")
+                raise TeslaApiError("Tesla's charging history has an unexpected layout (see the app log)")
             self.state, self.detail = "ok", f"{len(sessions)} sessions in your Tesla charging history"
             for charge in charges:
                 self._last_try[charge["id"]] = now
@@ -291,7 +291,7 @@ class ChargingCosts:
                     logger.info(f"Tesla charging history: {describe(answer)}")
                     self._described = True
                 if sessions is None:
-                    raise TeslaApiError("Tesla's charging history has an unexpected layout (see the add-on log)")
+                    raise TeslaApiError("Tesla's charging history has an unexpected layout (see the app log)")
                 self.state, self.detail = "ok", f"{len(sessions)} sessions in your Tesla charging history"
                 mine = sessions_of_car(sessions, vin)
                 logger.info(f"Tesla charging history: {len(mine)} of {len(sessions)} sessions belong to this car")

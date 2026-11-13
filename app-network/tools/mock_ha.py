@@ -482,6 +482,40 @@ DEVICES = [
         {"ap": AP_UP, "ssid": "Thuis-IoT"},
     ),
     (
+        "Automower-430X",
+        "192.168.30.52",
+        "68:27:19:00:30:52",
+        ["unifi"],
+        "Husqvarna",
+        "Automower 430X",
+        "garden",
+        "daytime",
+        {"ap": AP_GARDEN, "ssid": "Thuis-IoT"},
+    ),
+    (
+        "BRWADS-1700W",
+        "192.168.1.132",
+        "3c:2a:f4:00:01:32",
+        ["unifi"],
+        "Brother",
+        "ADS-1700W",
+        "office",
+        "sleepy",
+        {"ap": AP_UP, "ssid": "Thuis"},
+    ),
+    (
+        "Denon-AVR-X2800H",
+        "192.168.1.122",
+        "00:05:cd:00:01:22",
+        ["unifi"],
+        "Denon",
+        "AVR-X2800H",
+        "living_room",
+        "evening",
+        {"wired": True, "sw": (SW_LIVING, 8)},
+    ),
+    ("", "192.168.10.50", "dc:a6:32:00:10:50", ["nmap"], "", "", "", "always", {}),
+    (
         "roborock-s8",
         "192.168.30.50",
         "b0:4a:39:00:30:50",
@@ -902,6 +936,7 @@ class MockHA:
         r.add_get("/core/api/history/period/{start}", self._history)
         r.add_get("/core/websocket", self._websocket)
         r.add_get("/core/api/map_tiles/raster/{z}/{x}/{y}.png", self._tile)
+        r.add_post("/mock/state/{entity_id}/{state}", self._mock_state)
         self._runner = web.AppRunner(app, access_log=None)
         await self._runner.setup()
         await web.TCPSite(self._runner, "127.0.0.1", self.port).start()
@@ -959,6 +994,14 @@ class MockHA:
             items += [{"state": s, "last_changed": iso(ts)} for ts, s in series[1:]]
             out.append(items)
         return web.json_response(out)
+
+    async def _mock_state(self, request: web.Request) -> web.Response:
+        """For tests: set a tracker's state, as an integration would."""
+        entity_id = request.match_info["entity_id"]
+        if entity_id not in self.states:
+            raise web.HTTPNotFound()
+        await self.set_state(entity_id, request.match_info["state"])
+        return web.json_response(self.states[entity_id])
 
     async def _tile(self, request: web.Request) -> web.Response:
         """For development only: the real OpenStreetMap tile, like Home Assistant's proxy fetches it."""

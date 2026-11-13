@@ -43,7 +43,7 @@ function devRows() {
     const q = devState.search.toLowerCase();
     let list = app.hosts.filter(h => (devState.filter === 'gps' || devState.filter === 'all' ? true : !h.gps_only) && f.test(h));
     if (q) {
-        list = list.filter(h => [hostName(h), h.name, h.ip, h.mac, h.host_name, h.manufacturer, h.model, h.area, kindLabel(kindOf(h)),
+        list = list.filter(h => [hostName(h), h.name, h.ip, h.mac, h.host_name, h.manufacturer, h.vendor, h.model, h.area, kindLabel(kindOf(h)),
             ...h.trackers.map(t => t.entity_id), (networkOf(h).net || {}).name, meta(h.key).notes].join(' ').toLowerCase().includes(q));
     }
     const val = {
@@ -87,7 +87,7 @@ function renderDevices() {
         const conn = connectionOf(h);
         return `<tr class="${h.up === false ? 'off' : ''}${devState.selected.has(h.key) ? ' selected' : ''}" data-key="${attr(h.key)}">
             <td class="tight" onclick="event.stopPropagation()"><input type="checkbox" ${devState.selected.has(h.key) ? 'checked' : ''} onclick="devSelect('${attr(h.key)}', this.checked)" aria-label="Select"></td>
-            <td><span class="host-label">${hostIconHtml(h, 'small')}<span><span class="name">${escapeHtml(hostName(h))}</span>${placed.has(h.key) ? '' : ' <span class="badge" title="Not on any page of the map">not on map</span>'}${isNew(h) ? ' <span class="badge ok">new</span>' : ''}<span class="sub">${escapeHtml([h.host_name && h.host_name !== h.name ? h.host_name : '', h.manufacturer, h.area].filter(Boolean).join(' · '))}</span></span></span></td>
+            <td><span class="host-label">${hostIconHtml(h, 'small')}<span><span class="name">${escapeHtml(hostName(h))}</span>${placed.has(h.key) ? '' : ' <span class="badge" title="Not on any page of the map">not on map</span>'}${isNew(h) ? ' <span class="badge ok">new</span>' : ''}<span class="sub">${escapeHtml([h.host_name && h.host_name !== h.name ? h.host_name : '', h.manufacturer || h.vendor, h.area].filter(Boolean).join(' · '))}</span></span></span></td>
             <td>${hostStateLabel(h)}</td>
             <td>${escapeHtml(kindLabel(kindOf(h)))}${meta(h.key).kind ? '' : ' <span class="muted" title="Guessed from its name and maker">?</span>'}</td>
             <td class="mono">${escapeHtml(h.ip || '–')}</td>
@@ -182,7 +182,8 @@ function hostEditorHtml(h, opts) {
         ['IP', h.ip ? `<span class="mono">${escapeHtml(h.ip)}</span>` : '–'],
         ['MAC', h.mac ? `<span class="mono">${escapeHtml(h.mac)}</span>${h.random_mac ? ' <span class="badge warn" title="Phones and laptops use a random address per Wi-Fi network: it shows up as a new device after a reset or on another network">private address</span>' : ''}` : '–'],
         ['Host name', escapeHtml(h.host_name || '–')],
-        ['Maker', escapeHtml([h.manufacturer, h.model].filter(Boolean).join(' · ') || '–')],
+        ['Maker', h.manufacturer || h.model ? escapeHtml([h.manufacturer, h.model].filter(Boolean).join(' · '))
+            : h.vendor ? `${escapeHtml(h.vendor)} <span class="muted">· from its MAC address</span>` : '–'],
         ['Area', escapeHtml(h.area || '–')],
         h.ssid ? ['Wi-Fi', `${escapeHtml(h.ssid)}${h.radio ? ` · ${escapeHtml(h.radio)}` : ''}${h.signal !== null && h.signal !== undefined ? ` · ${escapeHtml(h.signal)} dBm` : ''}`] : null,
         ap ? ['Access point', hostLink(ap)] : h.ap_mac ? ['Access point', `<span class="mono">${escapeHtml(h.ap_mac)}</span>`] : null,

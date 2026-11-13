@@ -33,7 +33,7 @@ function looksLikeToken(text) {
 
 const TESLA_AUTH_URL = 'https://github.com/adriankumpf/tesla_auth/releases/latest';
 
-// Sign in to Tesla. Two ways: in the add-on's own browser, shown here (nothing to copy),
+// Sign in to Tesla. Two ways: in the app's own browser, shown here (nothing to copy),
 // or with a refresh token made by the Tesla Auth app.
 function openSignIn() {
     const hasBrowser = Boolean(app.status && app.status.signin_browser);
@@ -48,7 +48,7 @@ function openSignIn() {
         bodyHTML: `
             <div class="tabs" id="signin-method" role="group" aria-label="How to sign in" style="align-self:flex-start"></div>
             <div id="signin-here" class="signin-here">
-                <p class="panel-sub">Tesla's own sign-in page, opened in a browser inside the add-on. Click in it and sign in as usual; this app connects when you are done.</p>
+                <p class="panel-sub">Tesla's own sign-in page, opened in a browser inside the app. Click in it and sign in as usual; this app connects when you are done.</p>
                 <canvas id="signin-screen" class="signin-screen" width="480" height="640" tabindex="0" aria-label="Tesla sign-in page"></canvas>
                 <div class="signin-status"><span id="signin-here-status">Starting…</span><button type="button" class="btn btn-small" id="signin-restart" hidden>Start again</button></div>
             </div>
@@ -76,11 +76,11 @@ function openSignIn() {
     const tokenField = overlay.querySelector('#signin-token');
     const error = overlay.querySelector('#signin-error');
     const NOTES = {
-        here: 'You type on Tesla\'s own page, shown from a browser inside the add-on. Your keystrokes travel through Home Assistant to that browser; this app does not store or log them, and the browser is discarded afterwards. This app only keeps the access and refresh token Tesla hands out.',
-        token: 'You type your password in the Tesla Auth app, on Tesla\'s own page, never into this app. This app only keeps the access and refresh token Tesla hands out, in the add-on\'s private storage.',
+        here: 'You type on Tesla\'s own page, shown from a browser inside the app. Your keystrokes travel through Home Assistant to that browser; this app does not store or log them, and the browser is discarded afterwards. This app only keeps the access and refresh token Tesla hands out.',
+        token: 'You type your password in the Tesla Auth app, on Tesla\'s own page, never into this app. This app only keeps the access and refresh token Tesla hands out, in the app\'s private storage.',
     };
 
-    // ----- "Sign in here": the add-on's browser, its screen on a canvas, our mouse and keyboard sent to it
+    // ----- "Sign in here": the app's browser, its screen on a canvas, our mouse and keyboard sent to it
     const screen = overlay.querySelector('#signin-screen');
     const hereStatus = overlay.querySelector('#signin-here-status');
     const restart = overlay.querySelector('#signin-restart');
@@ -270,7 +270,7 @@ function renderVehicles() {
                 ${car.on_account === false ? `<button type="button" class="btn btn-small btn-danger" onclick="removeCar(${car.id})">Remove car</button>` : ''}
             </div>
         </div>`).join('')
-        + '<p class="panel-sub">The rated consumption turns range into energy. It is learned from your charging sessions, or fixed with <span class="mono">efficiency_wh_km</span> in the add-on configuration.</p>';
+        + '<p class="panel-sub">The rated consumption turns range into energy. It is learned from your charging sessions, or fixed with <span class="mono">efficiency_wh_km</span> in the app configuration.</p>';
 }
 
 // A car Tesla no longer lists on the account, usually one that came in through an import
@@ -302,7 +302,7 @@ function openHistoryImport() {
         title: 'Import history',
         bodyHTML: `
             <p class="panel-sub">Reads your existing drives, charging sessions, positions, states and software history straight from another logger's PostgreSQL database and adds them here, matching cars by VIN. It only reads; nothing in that database changes. Safe to run again — it never duplicates.</p>
-            <div class="form-field"><label>Database host</label><input id="tm-host" class="input" placeholder="e.g. the database add-on's hostname" value="${escapeHtml(saved.host || '')}"></div>
+            <div class="form-field"><label>Database host</label><input id="tm-host" class="input" placeholder="e.g. the database app's hostname" value="${escapeHtml(saved.host || '')}"></div>
             <div style="display:flex; gap:10px">
                 <div class="form-field" style="flex:2"><label>Database name</label><input id="tm-db" class="input" value="${escapeHtml(saved.database || '')}" placeholder="database name"></div>
                 <div class="form-field" style="flex:1"><label>Port</label><input id="tm-port" class="input" type="number" value="${escapeHtml(saved.port || 5432)}"></div>
@@ -506,12 +506,12 @@ function renderAbout() {
         ${infoRow('Address lookup', status.geocoding ? 'OpenStreetMap Nominatim' : 'off')}
         ${infoRow('Home Assistant zones', (status.zones || []).length
             ? escapeHtml(status.zones.map(z => `${z.name} (${z.radius} m)`).join(', '))
-            : '<span class="sb-warn">none loaded</span> · see the add-on log')}
+            : '<span class="sb-warn">none loaded</span> · see the app log')}
         ${infoRow('Sleep', `left alone after ${num(polling.idle_minutes)} min idle`)}
         ${infoRow('MQTT', mqtt)}
         ${infoRow('Price per kWh', status.cost_per_kwh ? fmtMoney(status.cost_per_kwh) : 'not set')}
         ${infoRow('Supercharger costs', superchargerCostsText(status.supercharger_costs))}
-        <p class="panel-sub" style="margin-top:10px">These are set on the add-on's Configuration tab in Home Assistant.
+        <p class="panel-sub" style="margin-top:10px">These are set on the app's Configuration tab in Home Assistant.
         This app is an independent project and is not affiliated with or endorsed by Tesla, Inc.</p>`;
 }
 

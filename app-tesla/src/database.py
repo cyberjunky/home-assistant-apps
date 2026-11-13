@@ -449,7 +449,7 @@ class _Transaction:
 
 
 class Database:
-    """The add-on's SQLite database."""
+    """The app's SQLite database."""
 
     def __init__(self, path: Path | None = None):
         self.path = Path(path) if path else DATA_DIR / DB_FILE
@@ -473,7 +473,7 @@ class Database:
             self._conn.close()
             raise DatabaseLayoutError(
                 f"{self.path} was made by another version of this app (layout {version}, this version needs"
-                f" {SCHEMA_VERSION}). Remove that file (or uninstall and reinstall the add-on) to start with a new one"
+                f" {SCHEMA_VERSION}). Remove that file (or uninstall and reinstall the app) to start with a new one"
             )
         while version < SCHEMA_VERSION:
             with self.transaction():

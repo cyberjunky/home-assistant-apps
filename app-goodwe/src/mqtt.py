@@ -351,8 +351,8 @@ class MqttPublisher:
                 user, password = service.get("username") or "", service.get("password") or ""
         if not host:
             logger.info(
-                "MQTT: not publishing. Install and start the Mosquitto add-on, or set mqtt.host"
-                " (and user/password) in the add-on configuration, then restart"
+                "MQTT: not publishing. Install and start the Mosquitto broker app, or set mqtt.host"
+                " (and user/password) in the app configuration, then restart"
             )
             return
 

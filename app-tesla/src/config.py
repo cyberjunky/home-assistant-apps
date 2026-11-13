@@ -8,9 +8,9 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Add-on storage: options.json, the database and the token file live here.
+# App storage: options.json, the database and the token file live here.
 # The TESLA_* environment variables are for development only
-# (see tools/mock_tesla.py); the add-on itself never sets them.
+# (see tools/mock_tesla.py); the app itself never sets them.
 DATA_DIR = Path(os.environ.get("TESLA_DATA_DIR", "/data"))
 OPTIONS_FILE = Path(os.environ.get("TESLA_OPTIONS", str(DATA_DIR / "options.json")))
 WEB_PORT = int(os.environ.get("TESLA_PORT", "8099"))
@@ -19,7 +19,7 @@ KM_PER_MILE = 1.609344
 
 
 def addon_version() -> str:
-    """The add-on version from config.yaml (copied next to the sources in the image)."""
+    """The app version from config.yaml (copied next to the sources in the image)."""
     for path in (Path("/app/config.yaml"), Path(__file__).resolve().parent.parent / "config.yaml"):
         try:
             for line in path.read_text().splitlines():
@@ -44,7 +44,7 @@ def _clamp(value, default, minimum, maximum):
 
 @dataclass
 class Config:
-    """Application configuration, read from the add-on options."""
+    """Application configuration, read from the app options."""
 
     # Display units of the dashboard; everything is stored in metric
     units: str = "metric"
@@ -96,9 +96,9 @@ class Config:
             logger.warning(f"No options file at {path}, using defaults")
             return cls()
         except (OSError, ValueError) as e:
-            raise ValueError(f"Cannot read add-on options from {path}: {e}") from e
+            raise ValueError(f"Cannot read app options from {path}: {e}") from e
         if not isinstance(data, dict):
-            raise ValueError(f"Invalid add-on options in {path}: expected a JSON object")
+            raise ValueError(f"Invalid app options in {path}: expected a JSON object")
 
         polling = data.get("polling") or {}
         mqtt = data.get("mqtt") or {}

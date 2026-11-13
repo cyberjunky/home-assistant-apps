@@ -18,8 +18,8 @@ A fresh install only knows the P2000 abbreviations. Everything else the dashboar
 | 1. **Import capcodes** | Data → Capcodes → *Import Bommel* | Discipline (Brandweer/Ambulance/Politie), region and the units alerted, for every message. Needed for the Lanes view, discipline colours, vehicle types and for sensors that filter on `disciplines` or `region`. Also fills the Vehicles table from the capcode descriptions |
 | 2. **Import all places** | Data → Places → *Import All Places* | All ~2,500 Dutch towns with their centre position. Needed to recognise the town in a message, for `cities` sensor filters, and for a map pin at the town centre when no street is known |
 | 3. **Import streets** for your province(s) | Data → Streets → *Import BAG* (per province, 5–10 min for a large one) | Official street names with their position. A message naming one of these streets gets a street-level map pin, distance from home and an exact zone match, **without OpenCage**. Import every province you care about; streets outside them fall back to OpenCage or the town centre |
-| 4. *(optional)* **OpenCage** | Add-on configuration → `geocoding` | Street-level positions for streets that aren't imported. The free tier is 2,500 requests a day; receiving the whole country uses more, so set `only_sensor_matches: true` to only look up messages that match one of your sensors |
-| 5. **Sensors and home** | Add-on configuration → `sensors`; Home Assistant's home zone | Filtered Home Assistant sensors, events and announcements; distance from home on each message |
+| 4. *(optional)* **OpenCage** | App configuration → `geocoding` | Street-level positions for streets that aren't imported. The free tier is 2,500 requests a day; receiving the whole country uses more, so set `only_sensor_matches: true` to only look up messages that match one of your sensors |
+| 5. **Sensors and home** | App configuration → `sensors`; Home Assistant's home zone | Filtered Home Assistant sensors, events and announcements; distance from home on each message |
 
 Re-run *Import All Places* and *Import BAG* after updates that add data to them (the changelog says when). Re-imports keep your own edits to streets; empty values never wipe stored data.
 
@@ -45,7 +45,7 @@ Re-run *Import All Places* and *Import BAG* after updates that add data to them 
 5. **Incidents** — Messages for the same address within `incident_window_minutes` form one incident. It escalates when the GRIP level or priority goes up, or more units or disciplines are alerted.
 6. **Output** — Every message is stored (shown in the dashboard and its history), matched against your sensors (all of a sensor's filters must match) and published to Home Assistant through the REST API and/or MQTT. With `ha_events` a `meldkamer_message` event is fired; with `announce` configured, messages of sensors with `announce: true` are spoken on your speakers.
 
-All data lives in one SQLite database in the add-on's `/data` folder, so it is kept across updates and included in Home Assistant backups.
+All data lives in one SQLite database in the app's `/data` folder, so it is kept across updates and included in Home Assistant backups.
 
 ## Network
 
@@ -63,7 +63,7 @@ Access via Home Assistant sidebar → Meldkamer:
   - **Lanes** — one column per discipline (Brandweer, Ambulance, Politie, other) next to the map
 
   The message detail shows the full message, abbreviations, vehicle photo, incident timeline and earlier messages at the address, with Previous/Next to step through the list (or `j`/`k` and the arrow keys; `1`/`2`/`3` switch views, Escape closes the floating detail). Console docks it under the map; on the Wallboard and Lanes it floats in the map's corner. Drag the dividers between the panes to resize them (double-click resets). The sensor filter, sound, speech, browser-notification and auto-focus toggles sit in the top bar. Browser notifications (💬, asks the browser for permission once) show new messages of the current feed while the dashboard is in the background; clicking one opens that message. The map shows your home (from Home Assistant's home zone) and the zones your sensors filter on. A message's detail lists which of your sensors it matched, and selecting a message puts `#msg=<id>` in the URL: open the dashboard with that hash (for example from a notification, see the `dashboard_url` event field) and it shows that message, also one that has already left the live list. The theme follows Home Assistant's light/dark mode; the 🌓 button switches between automatic, light and dark.
-- **Data** — Imports, the tables below, backup and restore of the whole database, and the database reset (the add-on's own options are on its Configuration tab in Home Assistant)
+- **Data** — Imports, the tables below, backup and restore of the whole database, and the database reset (the app's own options are on its Configuration tab in Home Assistant)
 - **Info** — Receiver, device, locations and database status, reception quality, statistics (messages per hour and the busiest towns of the last 24 hours, totals by region and discipline) and an overview of your sensors with their filters, matches and last match
 
 ### Data Tab
@@ -102,7 +102,7 @@ Each table gets its own card with row counts and Manage/Import actions:
 
 Click "Manage" on any card to view/edit/delete that table's rows.
 
-**Backup and restore** — "Download backup" saves the whole database (messages, imports, your edits, filters and photos) as one `.sqlite3` file, taken as a consistent snapshot while the add-on keeps running. "Restore from backup" replaces the database with such a file, for example when moving to new hardware; the file is checked before anything is replaced. Home Assistant's own backups include the database as well. The **Danger zone** at the bottom holds "Reset database".
+**Backup and restore** — "Download backup" saves the whole database (messages, imports, your edits, filters and photos) as one `.sqlite3` file, taken as a consistent snapshot while the app keeps running. "Restore from backup" replaces the database with such a file, for example when moving to new hardware; the file is checked before anything is replaced. Home Assistant's own backups include the database as well. The **Danger zone** at the bottom holds "Reset database".
 
 ## Configuration
 
@@ -195,7 +195,7 @@ The Info tab shows FLEX frames per minute for the last hour, messages per hour, 
 
 ### Filters
 
-Global message filters are managed live from the dashboard's **Data** tab (no restart needed) rather than the add-on config:
+Global message filters are managed live from the dashboard's **Data** tab (no restart needed) rather than the app config:
 
 - **Ignore text** — wildcard patterns (e.g. `*TESTOPROEP*`); a message is dropped if its body matches any enabled pattern. Seeded by default with `*TESTOPROEP*` and `*MOB*` (system test calls and mobilofoon checks).
 - **Ignore capcodes** — exact capcodes to drop; a message is only dropped when **every** capcode on it is on this list (so a single ignored capcode can't kill a multi-capcode group call).
@@ -410,7 +410,7 @@ sensors:
 
 mqtt:
   enabled: true
-  host: ""              # leave empty to auto-discover the Mosquitto add-on via Supervisor
+  host: ""              # leave empty to auto-discover the Mosquitto broker app via Supervisor
   port: 1883
   user: ""
   password: ""
@@ -425,7 +425,7 @@ mqtt:
 | Option | Description |
 | ------ | ----------- |
 | `mqtt.enabled` | Enable MQTT publishing (additive to REST API sensors) |
-| `mqtt.host` / `mqtt.port` | Broker address. Leave `host` empty to auto-discover the Home Assistant Mosquitto add-on |
+| `mqtt.host` / `mqtt.port` | Broker address. Leave `host` empty to auto-discover the Home Assistant Mosquitto broker app |
 | `mqtt.user` / `mqtt.password` | Broker credentials, if required |
 | `mqtt.client_id` | MQTT client id |
 | `mqtt.base_topic` | Availability topic prefix (`{base_topic}/status`) |
@@ -506,7 +506,7 @@ Some things stay in the program because they are rules of the format or of the a
 
 - Home Assistant with Supervisor, on a 64-bit system (`amd64` or `aarch64`, e.g. a Raspberry Pi 4/5 running 64-bit Home Assistant OS)
 - RTL-SDR, HackRF One, or network access to rtl_tcp server
-- For zone filters, `distance_km`, events, announcements and health sensors: the add-on's Home Assistant API access (enabled by default)
+- For zone filters, `distance_km`, events, announcements and health sensors: the app's Home Assistant API access (enabled by default)
 - Home Assistant 2026.9 or newer: the dashboard map loads its OpenStreetMap tiles through Home Assistant's built-in map tile proxy
 
 ## Credits

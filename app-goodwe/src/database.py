@@ -53,7 +53,7 @@ DAY_KEYS = ("e_day", "e_day_imp", "e_day_exp", "e_load_day", "e_bat_charge_day",
 DERIVED_KEYS = ("surplus_hours", "e_surplus_day", "e_curtailed_day", "miners_hours", "e_miners_day")
 # Everything that is summed per period
 TOTAL_KEYS = (*DAY_KEYS, *DERIVED_KEYS)
-# A gap between snapshots longer than this is not integrated (the add-on or inverter was down)
+# A gap between snapshots longer than this is not integrated (the app or inverter was down)
 MAX_GAP = 120
 
 
