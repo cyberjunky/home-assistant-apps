@@ -1,6 +1,6 @@
 [![Version][version-shield]][changelog]
 [![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]](LICENSE)
+[![License][license-shield]](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-goodwe/LICENSE)
 ![Project Maintenance][maintenance-shield]
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
@@ -69,7 +69,7 @@ Alternatively:
 The inverter's address and poll interval, the solar forecast (location and panels) and
 the MQTT broker are set on the add-on's Configuration tab. The battery control (auto-hold,
 zero export, surplus signal) is set on the dashboard's Settings page. See
-[DOCS.md](DOCS.md) for every option, how the controller decides, the MQTT entities, the data
+[DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-goodwe/DOCS.md) for every option, how the controller decides, the MQTT entities, the data
 it handles, the requirements and development notes.
 
 ## Supported inverters
@@ -106,7 +106,7 @@ Every contribution, no matter the size, makes a difference and is greatly apprec
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-goodwe/LICENSE) file for
 details.
 
 ---

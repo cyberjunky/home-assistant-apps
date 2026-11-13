@@ -1,6 +1,6 @@
 [![Version][version-shield]][changelog]
 [![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]](LICENSE)
+[![License][license-shield]](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-pgadmin4/LICENSE)
 ![Project Maintenance][maintenance-shield]
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
@@ -15,7 +15,7 @@
 > **A port of [Expaso's pgAdmin 4 add-on](https://github.com/expaso/hassos-addon-pgadmin4)**
 > by Hans van Essen. That project has had no updates since March 2025 (v4.0.0), so it was
 > brought over here and kept up to date. The changes are open to be merged back into the
-> original whenever that suits its maintainer. See [NOTICE](NOTICE).
+> original whenever that suits its maintainer. See [NOTICE](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-pgadmin4/NOTICE).
 
 A Home Assistant app that runs [pgAdmin 4](https://www.pgadmin.org/), the web-based
 administration and development platform for PostgreSQL, and opens it from the sidebar.
@@ -109,9 +109,9 @@ Every contribution, no matter the size, makes a difference and is greatly apprec
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for
+This project is licensed under the Apache License 2.0 - see the [LICENSE](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-pgadmin4/LICENSE) file for
 details. It is derived from an Apache-licensed project by Hans van Essen; attribution is in
-the [NOTICE](NOTICE) file. pgAdmin 4 is licensed under the PostgreSQL licence by the pgAdmin
+the [NOTICE](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-pgadmin4/NOTICE) file. pgAdmin 4 is licensed under the PostgreSQL licence by the pgAdmin
 Development Team.
 
 ---

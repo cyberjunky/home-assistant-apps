@@ -1,6 +1,6 @@
 [![Version][version-shield]][changelog]
 [![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]](LICENSE)
+[![License][license-shield]](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-chronicle/LICENSE)
 ![Project Maintenance][maintenance-shield]
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
@@ -76,11 +76,11 @@ Alternatively:
 |---|---|---|
 | `host` | `1b41fb55-timescaledb` | The TimescaleDB app from this repository; or a host name or IP address |
 | `port` | `5432` | |
-| `username` | `postgres` | A read-only user is enough, see [DOCS.md](DOCS.md) |
+| `username` | `postgres` | A read-only user is enough, see [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-chronicle/DOCS.md) |
 | `password` | | |
 | `database` | `homeassistant` | The database the Chronicle integration records into |
 
-See [DOCS.md](DOCS.md) for every page, how the charts choose their data, the Query page and
+See [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-chronicle/DOCS.md) for every page, how the charts choose their data, the Query page and
 its limits, and a read-only database user.
 
 ## 💖 Support This Project
@@ -104,7 +104,7 @@ Every contribution, no matter the size, makes a difference and is greatly apprec
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-chronicle/LICENSE) file for
 details.
 
 ---

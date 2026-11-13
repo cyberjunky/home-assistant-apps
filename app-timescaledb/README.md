@@ -1,6 +1,6 @@
 [![Version][version-shield]][changelog]
 [![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]](LICENSE)
+[![License][license-shield]](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-timescaledb/LICENSE)
 ![Project Maintenance][maintenance-shield]
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
@@ -19,7 +19,7 @@
 > backups, `scram-sha-256` for new installations and the `postgres_password` option,
 > [credited](https://github.com/expaso/hassos-addon-timescaledb/issues/93)). More of the
 > changes here are open to be merged back. Moving over from the Expaso add-on is described
-> in [DOCS.md](DOCS.md#moving-from-the-expaso-add-on); see also [NOTICE](NOTICE).
+> in [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-timescaledb/DOCS.md#moving-from-the-expaso-add-on); see also [NOTICE](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-timescaledb/NOTICE).
 
 A Home Assistant app that runs [PostgreSQL](https://www.postgresql.org/) with the
 [TimescaleDB](https://www.timescale.com/) time-series extension, so you can keep your Home
@@ -185,9 +185,9 @@ Every contribution, no matter the size, makes a difference and is greatly apprec
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for
+This project is licensed under the Apache License 2.0 - see the [LICENSE](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-timescaledb/LICENSE) file for
 details. It is derived from an Apache-licensed project by Hans van Essen; attribution is in
-the [NOTICE](NOTICE) file. PostgreSQL, TimescaleDB and the bundled extensions keep their own
+the [NOTICE](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-timescaledb/NOTICE) file. PostgreSQL, TimescaleDB and the bundled extensions keep their own
 licenses.
 
 ---

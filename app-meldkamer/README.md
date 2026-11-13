@@ -1,6 +1,6 @@
 [![Version][version-shield]][changelog]
 [![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]](LICENSE)
+[![License][license-shield]](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-meldkamer/LICENSE)
 ![Project Maintenance][maintenance-shield]
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
@@ -80,14 +80,14 @@ Alternatively:
 6. Open **Meldkamer** from the sidebar
 
 Without the reference database, messages are decoded but have no discipline, town, street
-or map pin. See [DOCS.md](DOCS.md) for filling the database, every configuration option,
+or map pin. See [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-meldkamer/DOCS.md) for filling the database, every configuration option,
 the receiver setups, sensors, events, announcements, MQTT and troubleshooting.
 
 ## Configuration
 
 Meldkamer works once a receiver is configured; the options cover the receiver (RTL-SDR,
 HackRF, SoapySDR or network), geocoding, filters, Home Assistant sensors and events,
-announcements and MQTT. See [DOCS.md](DOCS.md) for every option and example.
+announcements and MQTT. See [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-meldkamer/DOCS.md) for every option and example.
 
 ## 💖 Support This Project
 
@@ -119,7 +119,7 @@ Questions, ideas or just want to chat? Join The Junkyard on Discord:
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-meldkamer/LICENSE) file for
 details.
 
 ---

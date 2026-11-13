@@ -1,6 +1,6 @@
 [![Version][version-shield]][changelog]
 [![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]](LICENSE)
+[![License][license-shield]](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-dishylink/LICENSE)
 ![Project Maintenance][maintenance-shield]
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
@@ -55,7 +55,7 @@ Alternatively:
 
 The app works without any configuration on a standard Starlink setup. The options cover
 the host's identity on the Starlink LAN, custom dish and router addresses, and how often
-recorded history is written to disk. See [DOCS.md](DOCS.md) for every option, the
+recorded history is written to disk. See [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-dishylink/DOCS.md) for every option, the
 requirements, the optional direct port and troubleshooting.
 
 ## Disclaimer
@@ -86,7 +86,7 @@ Every contribution, no matter the size, makes a difference and is greatly apprec
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-dishylink/LICENSE) file for
 details. Dishylink itself is MIT licensed as well; its license ships in the image as
 `LICENSE.dishylink`.
 

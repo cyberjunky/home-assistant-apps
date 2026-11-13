@@ -1,6 +1,6 @@
 [![Version][version-shield]][changelog]
 [![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]](LICENSE)
+[![License][license-shield]](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-toon/LICENSE)
 ![Project Maintenance][maintenance-shield]
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
@@ -56,14 +56,14 @@ Alternatively:
 ## Configuration
 
 Toon needs the SSH details of your Toon; the other options cover the history import, how long
-samples are kept and the MQTT broker. See [DOCS.md](DOCS.md) for every option, how it works
+samples are kept and the MQTT broker. See [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-toon/DOCS.md) for every option, how it works
 and what the dashboard shows.
 
 ## Toon tweaks
 
 Optional changes on the Toon itself, so that its Wi-Fi comes back by itself after a drop: a
 Wi-Fi watchdog in place of the daily reboot, and Wi-Fi driver options. See
-[toontweaks](toontweaks/README.md) for what they do and how to install them.
+[toontweaks](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-toon/toontweaks/README.md) for what they do and how to install them.
 
 ## Disclaimer
 
@@ -93,7 +93,7 @@ Every contribution, no matter the size, makes a difference and is greatly apprec
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-toon/LICENSE) file for
 details.
 
 ---

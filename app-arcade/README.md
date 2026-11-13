@@ -1,6 +1,6 @@
 [![Version][version-shield]][changelog]
 [![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]](LICENSE)
+[![License][license-shield]](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-arcade/LICENSE)
 ![Project Maintenance][maintenance-shield]
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
@@ -84,7 +84,7 @@ owners.
 
 ## Configuration
 
-The only option is the ROM folder (default `/share/arcade/roms`). See [DOCS.md](DOCS.md)
+The only option is the ROM folder (default `/share/arcade/roms`). See [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-arcade/DOCS.md)
 for how it works, which games the built-in MAME runs, the controls and the licenses.
 
 ## 💖 Support This Project
@@ -108,10 +108,10 @@ Every contribution, no matter the size, makes a difference and is greatly apprec
 
 ## License
 
-The app's own code is licensed under the MIT License, see [LICENSE](LICENSE). The MAME
+The app's own code is licensed under the MIT License, see [LICENSE](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-arcade/LICENSE). The MAME
 emulator it contains is licensed under the GNU GPL version 2 or later; its source is at
 [github.com/mamedev/mame](https://github.com/mamedev/mame) and the build is described in
-[mame/](mame/). See [DOCS.md](DOCS.md#legal-and-licenses).
+[mame/](https://github.com/cyberjunky/home-assistant-apps/tree/main/app-arcade/mame/). See [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-arcade/DOCS.md#legal-and-licenses).
 
 ---
 
