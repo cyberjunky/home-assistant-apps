@@ -29,7 +29,8 @@ So you know what is at stake:
 - **MAME runs in your browser**, inside the page's WebAssembly sandbox, not on the server.
 - **The page** is served through Home Assistant ingress, so it is reachable only to users
   already authenticated to Home Assistant. The app opens no ports and needs no Home
-  Assistant API access.
+  Assistant API access. Changes (uploads, renames, deletes, saves) are only
+  accepted through Home Assistant's ingress proxy, not from other apps on its network.
 - **No telemetry.** The app makes no analytics or tracking calls. The page loads its fonts
   from Google Fonts, like the other apps in this repository.
 

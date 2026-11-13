@@ -29,7 +29,9 @@ So you know what is at stake:
   configuration on your Home Assistant instance and used only to reach those
   services.
 - **The dashboard** is served through Home Assistant ingress, so it is reachable
-  only to users already authenticated to Home Assistant. The optional TCP
+  only to users already authenticated to Home Assistant. Changes (capcodes,
+  places, streets, imports, the database) are only accepted through Home
+  Assistant's ingress proxy, not from other apps on its network. The optional TCP
   broadcast port (5000) is plain and unauthenticated; only expose it on a trusted
   network.
 - **No telemetry.** The app makes no analytics or tracking calls.
