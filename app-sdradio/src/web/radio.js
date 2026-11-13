@@ -517,7 +517,7 @@ function renderChannelList(force) {
     el.innerHTML = rows.length ? rows.map(c => `
         <button type="button" class="ch-item${c.id === current ? ' on' : ''}${c.scan ? '' : ' locked'}" data-id="${c.id}">
             <span class="num">${chNum(c.number)}</span>
-            <span class="body"><b>${escapeHtml(c.name || 'Unnamed')}${c.favourite ? ' ★' : ''}</b><small>${fmtMHz(c.frequency)} · ${modeLabel(c.mode)}${channelMode(c) ? ` · <span class="ch-mode">${escapeHtml(modeName(channelMode(c)))}</span>` : ''}</small></span>
+            <span class="body"><b>${escapeHtml(c.name || 'Unnamed')}${c.favourite ? ' ★' : ''}</b><small>${fmtMHz(c.frequency)} · ${modeLabel(c.mode)}${channelMode(c) ? ` · <span class="ch-mode">${escapeHtml(modeName(channelMode(c)))}</span>` : ''}${c.scan ? '' : ' <span class="ch-lo" title="Locked out: the channel scan skips it">L/O</span>'}</small></span>
             <span class="seen" title="last heard">${c.last_heard ? fmtAgo(c.last_heard) : '—'}</span>
         </button>`).join('')
         : `<div class="empty-state">${app.channels.length ? 'No channel matches' : 'No channels stored yet. Tune to something and press Store current, or import a CSV on the Channels page.'}</div>`;

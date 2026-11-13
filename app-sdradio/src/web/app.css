@@ -591,7 +591,10 @@ table.data tbody tr.on td { background: var(--hover-bg); }
 .ch-item .body b { display: block; font-weight: 500; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ch-item .body small { display: block; font: 11px var(--mono); color: var(--secondary-text-color); }
 .ch-item .seen { font: 11px var(--mono); color: var(--muted-text-color); white-space: nowrap; }
-.ch-item.locked .body b { text-decoration: line-through; opacity: 0.7; }
+.ch-item.locked .num { color: var(--muted-text-color); }
+.ch-item.locked .body b { color: var(--secondary-text-color); }
+.ch-item .ch-lo { margin-left: 4px; padding: 0 4px; border: 1px solid currentColor; border-radius: 3px; font-size: 9.5px;
+    letter-spacing: 0.04em; color: var(--muted-text-color); vertical-align: 1px; }
 .chlist-foot { display: flex; gap: 6px; padding: 10px 12px; border-top: var(--card-border); }
 .chlist-foot .btn-primary { flex: 1; justify-content: center; }
 
