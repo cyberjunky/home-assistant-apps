@@ -2,8 +2,10 @@ configuration:
   root_password:
     name: Root-wachtwoord
     description: >-
-      Het wachtwoord van root@pam, voor de webinterface en console van PBS en
-      voor Proxmox VE. Leeg: niemand kan inloggen.
+      Wachtwoord van de root-gebruiker van deze backupserver (root@pam), om in
+      te loggen op zijn webinterface en console op poort 8007. Niet je
+      wachtwoord van Home Assistant of Proxmox VE. Leeg vergrendelt het account:
+      niemand kan inloggen.
   log_level:
     name: Logniveau
     description: Hoeveel er gelogd wordt. De meldingen van PBS zelf staan ook in het log.
