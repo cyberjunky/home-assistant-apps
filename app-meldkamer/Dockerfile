@@ -89,7 +89,7 @@ RUN pip3 install --no-cache-dir --break-system-packages aiohttp paho-mqtt==1.6.1
 
 # Copy S6 service and set permissions
 COPY rootfs /
-RUN chmod +x /etc/services.d/meldkamer/*
+RUN chmod +x /etc/s6-overlay/s6-rc.d/meldkamer/run /etc/s6-overlay/s6-rc.d/meldkamer/finish
 
 # Copy application code, and config.yaml for the add-on version shown in the dashboard
 COPY src /app/src

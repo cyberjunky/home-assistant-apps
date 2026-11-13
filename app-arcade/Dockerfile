@@ -37,7 +37,7 @@ RUN mkdir -p /app/hi2txt \
 
 # Copy S6 service and set permissions
 COPY rootfs /
-RUN chmod +x /etc/services.d/arcade/*
+RUN chmod +x /etc/s6-overlay/s6-rc.d/arcade/run /etc/s6-overlay/s6-rc.d/arcade/finish
 
 # Copy application code, and config.yaml for the app version shown in the page
 COPY src /app/src

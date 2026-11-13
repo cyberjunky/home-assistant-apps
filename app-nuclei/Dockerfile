@@ -42,7 +42,7 @@ COPY requirements.txt /tmp/requirements.txt
 RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements.txt
 
 COPY rootfs /
-RUN chmod +x /etc/services.d/nuclei/*
+RUN chmod +x /etc/s6-overlay/s6-rc.d/nuclei/run /etc/s6-overlay/s6-rc.d/nuclei/finish
 
 COPY src /app/src
 COPY config.yaml /app/config.yaml

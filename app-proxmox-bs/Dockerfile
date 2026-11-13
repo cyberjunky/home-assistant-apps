@@ -50,7 +50,7 @@ RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d && chmod +x /usr/sbin
 
 # S6 services, the start script, and the app's stand-ins for what a container lacks
 COPY rootfs /
-RUN chmod +x /etc/cont-init.d/* /etc/cont-finish.d/* /etc/services.d/*/* /usr/libexec/pbsapp/* \
+RUN chmod +x /etc/s6-overlay/s6-rc.d/*/run /etc/s6-overlay/s6-rc.d/*/finish /usr/libexec/pbsapp/* \
     # systemctl: there is no systemd; the app mounts the disks PBS sets up (src/systemctl.py)
     && mv /usr/bin/systemctl /usr/bin/systemctl.real \
     && ln -s /usr/libexec/pbsapp/systemctl /usr/bin/systemctl \

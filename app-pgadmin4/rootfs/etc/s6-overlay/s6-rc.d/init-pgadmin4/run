@@ -1,0 +1,138 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Home Assistant App: pgAdmin4
+# Configures pgAdmin4 before running (see pkg/docker/entrypoint.sh of pgAdmin)
+# ==============================================================================
+declare -r DATA_DIR=/data/pgadmin4
+declare -r PGADMIN_DB="${DATA_DIR}/pgadmin4.db"
+declare -r PGADMIN_USER=pgadmin4@pgadmin.org
+declare -r SERVERS_JSON=/tmp/servers.json
+
+# Populate config_distro.py. This has some default config, as well as anything
+# provided by the user through the PGADMIN_CONFIG_* environment variables.
+# Only update the file on first launch. The empty file is created during the
+# container build so it can have the required ownership.
+if [ "$(wc -m /pgadmin4/config_distro.py | awk '{ print $1 }')" = "0" ]; then
+    cat << EOF > /pgadmin4/config_distro.py
+CA_FILE = '/etc/ssl/certs/ca-certificates.crt'
+LOG_FILE = '/dev/null'
+HELP_PATH = '../../docs'
+DEFAULT_BINARY_PATHS = {
+        'pg': '/usr/libexec/postgresql18',
+        'pg-18': '/usr/libexec/postgresql18',
+        'pg-17': '/usr/libexec/postgresql17'
+}
+EOF
+
+    # This is a bit kludgy, but necessary as the container uses BusyBox/ash as
+    # it's shell and not bash which would allow a much cleaner implementation
+    for var in $(env | grep PGADMIN_CONFIG_ | cut -d "=" -f 1); do
+        echo "${var#PGADMIN_CONFIG_} = $(eval "echo \$$var")" >> /pgadmin4/config_distro.py
+    done
+fi
+
+# Ensure configuration exists
+if ! bashio::fs.directory_exists "${DATA_DIR}"; then
+    mkdir -p "${DATA_DIR}" \
+        || bashio::exit.nok "Failed to create data directory"
+fi
+
+cd /pgadmin4 || exit 1
+
+if [ ! -f "${PGADMIN_DB}" ]; then
+    # Initialize DB before starting Gunicorn
+    # Importing pgadmin4 (from this script) is enough
+    /venv/bin/python3 run_pgadmin.py || bashio::exit.nok "Failed to initialize Database"
+fi
+
+# ------------------------------------------------------------------------------
+# Register database servers in pgAdmin:
+# - the TimescaleDB app, when it is installed: the Supervisor is asked which
+#   apps are installed (so it is found whatever repository it came from),
+#   and its container must be reachable, i.e. the app must be started;
+# - the servers listed in the 'servers' option.
+# A server is only added when the pgAdmin user has no server with the same
+# name yet, so servers you remove or rename in pgAdmin are not re-added on
+# every start. Passwords cannot be imported; enter them once in pgAdmin and
+# save them there.
+# ------------------------------------------------------------------------------
+bashio::log.info "Registering database servers in pgAdmin.."
+if /venv/bin/python3 - "${PGADMIN_DB}" "${SERVERS_JSON}" "${PGADMIN_USER}" << 'EOF'
+import json, os, socket, sqlite3, sys, urllib.request
+
+db, out, user_email = sys.argv[1], sys.argv[2], sys.argv[3]
+candidates = []
+
+
+def add(name, host, group="Home Assistant", port=5432, database="postgres", username="postgres"):
+    if any(c["Host"] == host and c["Port"] == port for c in candidates):
+        return
+    candidates.append({"Name": name, "Group": group, "Host": host, "Port": port,
+                       "MaintenanceDB": database, "Username": username, "SSLMode": "prefer"})
+
+
+# TimescaleDB app. Its hostname is "<repository hash>-timescaledb", so ask the Supervisor
+# for the installed apps instead of guessing the repository; fall back to known names.
+hosts = []
+token = os.environ.get("SUPERVISOR_TOKEN")
+if token:
+    try:
+        request = urllib.request.Request("http://supervisor/addons", headers={"Authorization": f"Bearer {token}"})
+        with urllib.request.urlopen(request, timeout=10) as response:
+            addons = json.load(response).get("data", {}).get("addons", [])
+        for addon in addons:
+            slug = str(addon.get("slug") or "")
+            if slug.rsplit("_", 1)[-1] == "timescaledb":
+                hosts.append((slug.replace("_", "-"), addon.get("state") or "unknown"))
+        if not hosts:
+            print("  No TimescaleDB app is installed")
+    except Exception as e:
+        print(f"  Could not list the installed apps ({e}); trying the known TimescaleDB hostnames")
+if not hosts and not token:
+    hosts = [(h, None) for h in ("1b41fb55-timescaledb", "99fed3e4-timescaledb", "3c34fea8-timescaledb",
+                                 "local-timescaledb")]
+for host, state in hosts:
+    try:
+        socket.gethostbyname(host)
+    except OSError:
+        if state:
+            print(f"  TimescaleDB app ({host}) is {state}: start it and restart pgAdmin to register it")
+        continue
+    add("TimescaleDB app (local)" if host.startswith("local-") else "TimescaleDB app", host)
+
+# Servers from the app options
+try:
+    with open("/data/options.json", encoding="utf-8") as f:
+        options = json.load(f)
+except (OSError, ValueError):
+    options = {}
+for server in options.get("servers") or []:
+    add(server["name"], server["host"], group=server.get("group") or "Servers",
+        port=int(server.get("port") or 5432), database=server.get("database") or "postgres",
+        username=server.get("username") or "postgres")
+
+# Servers the pgAdmin user already has (a server owned by another user is invisible to it)
+connection = sqlite3.connect(db)
+existing = {row[0] for row in connection.execute(
+    'SELECT s.name FROM server s JOIN "user" u ON u.id = s.user_id WHERE u.email = ?', (user_email,))}
+connection.close()
+
+new = [c for c in candidates if c["Name"] not in existing]
+if candidates and not new:
+    print("  Already registered: " + ", ".join(c["Name"] for c in candidates))
+if not new:
+    sys.exit(1)
+
+with open(out, "w", encoding="utf-8") as f:
+    json.dump({"Servers": {str(i + 1): c for i, c in enumerate(new)}}, f)
+for c in new:
+    print(f"  Adding {c['Name']} ({c['Host']}:{c['Port']})")
+EOF
+then
+    /venv/bin/python3 setup.py load-servers "${SERVERS_JSON}" --user "${PGADMIN_USER}" \
+        || bashio::log.warning "Could not import the database servers into pgAdmin"
+    rm -f "${SERVERS_JSON}"
+else
+    bashio::log.info "No new database servers to register"
+fi

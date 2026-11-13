@@ -1,4 +1,4 @@
-#!/usr/bin/with-contenv bashio
+#!/command/with-contenv bashio
 # ==============================================================================
 # Copy the recorder's RAM data folder (/tmp/historian) to persistent storage
 # (/data/historian). Used by the historian-flush timer service and by the
