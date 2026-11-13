@@ -25,6 +25,21 @@ from .processor import MessageProcessor
 from .sensor_manager import SensorManager
 from .tts import SpeechRules
 
+# Home Assistant's ingress proxy: the only way in for changes when the app runs under the Supervisor
+INGRESS_ADDRESS = "172.30.32.2"
+READ_METHODS = ("GET", "HEAD", "OPTIONS")
+
+
+@web.middleware
+async def ingress_only(request: web.Request, handler):
+    """Changes only through Home Assistant's signed-in ingress proxy, not from other apps on its network."""
+    if request.method in READ_METHODS or not os.environ.get("SUPERVISOR_TOKEN"):
+        return await handler(request)
+    if request.remote != INGRESS_ADDRESS:
+        raise web.HTTPForbidden(text="Use Meldkamer from Home Assistant's sidebar")
+    return await handler(request)
+
+
 logger = logging.getLogger(__name__)
 
 MAX_MESSAGES = 500
@@ -171,7 +186,7 @@ class WebUI:
         self.decoder = decoder
         self.sensor_manager = sensor_manager
         self.ha_client = ha_client
-        self.app = web.Application(client_max_size=MAX_REQUEST_SIZE)
+        self.app = web.Application(client_max_size=MAX_REQUEST_SIZE, middlewares=[ingress_only])
         self.messages: deque = deque(maxlen=MAX_MESSAGES)
         # Per sensor since start, for the Info tab: matches and the epoch time of the last one
         self._sensor_matches: dict[str, int] = {}

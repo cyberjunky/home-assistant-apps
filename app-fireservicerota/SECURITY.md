@@ -34,6 +34,8 @@ So you know what is at stake:
   in your name, as anyone with access to that switch in Home Assistant already can.
 - **The dashboard** is served through Home Assistant ingress, so it is reachable
   only to users already authenticated to Home Assistant. The app opens no ports.
+  Changes (responding, restores, speech settings) are only accepted through
+  Home Assistant's ingress proxy, not from other apps on its network.
 - **No telemetry.** The app makes no analytics or tracking calls.
 
 When reporting or attaching logs, redact tokens, names and incident addresses.
