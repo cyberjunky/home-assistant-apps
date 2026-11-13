@@ -185,7 +185,7 @@ the filter and the scan speed. Mode → Radio brings them back.
   heard. The frequency changes from launch to launch: sondehub.org and radiosondy.info show
   the last ones from each site. A sonde can be heard 200 km and more away while it is high up.
 
-- **Digital voice**: DMR, D-STAR, YSF (System Fusion), NXDN, dPMR and P25 phase 1, decoded by
+- **Digital voice** (the *Digital* button): DMR, D-STAR, YSF (System Fusion), NXDN, dPMR and P25 phase 1, decoded by
   DSD-FME: the radio amateurs' digital repeaters and hotspots, and businesses, taxis and services
   that talk digitally without encryption. Each call is listed when it ends: the system, the
   talkgroup or call sign it went to and the radio ID or call sign that spoke, the colour code

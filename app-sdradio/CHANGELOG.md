@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.2
+
+**After updating:** nothing to do.
+
+- **Fixed: channels this receiver can't use** were clickable and only gave a message. They are faded now, as 0.4.1 meant them to be, and can't be picked; hovering one says why. That covers shortwave and other out-of-range channels on an RTL-SDR, and channels of a mode it can't do (Video, Weather fax). It applies in the channel list, the favourites row and the Channels page (tagged *out of range* or *not on this receiver*), and ◀ ▶ skips them. (A check of the same name for the band plan had silently replaced the channel check in the page.)
+- The Digital voice mode's button reads *Digital*, so it fits.
+
 ## 0.5.1
 
 **After updating:** nothing to do.

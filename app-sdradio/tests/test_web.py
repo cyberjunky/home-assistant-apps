@@ -110,3 +110,16 @@ def test_mp3_frame_start():
     assert mp3_frame_start(frame) == 0
     assert mp3_frame_start(b"gwu\xff\x12DB2" + frame) == 8  # a stray 0xFF is not a frame
     assert mp3_frame_start(b"no sync here") is None
+
+
+def test_no_function_is_defined_twice_in_the_page():
+    """The page's scripts share one global scope: a second `function x` silently replaces the first
+    (a band check once replaced the channel one, so no channel was ever faded)."""
+    import re
+    from collections import Counter
+    from pathlib import Path
+
+    names = Counter()
+    for path in (Path(__file__).parent.parent / "src" / "web").glob("*.js"):
+        names.update(re.findall(r"^(?:async )?function (\w+)\s*\(", path.read_text(), re.M))
+    assert [n for n, count in names.items() if count > 1] == []

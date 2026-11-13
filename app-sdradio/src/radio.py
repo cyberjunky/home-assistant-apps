@@ -375,7 +375,12 @@ class Radio:
         receiver = self.config.receiver
         span = self.device.frequency_range if self.device else None
         return [
-            {"key": k, "name": cls.name, "why_not": cls.why_not(receiver.type, span, receiver.name)}
+            {
+                "key": k,
+                "name": cls.name,
+                "button": cls.button or cls.name,
+                "why_not": cls.why_not(receiver.type, span, receiver.name),
+            }
             for k, cls in registry().items()
         ]
 
@@ -619,8 +624,8 @@ class Radio:
         self.emit("changed", {"what": "channels"})
 
     def _cmd_memory(self, direction) -> None:
-        """◀ ▶: the previous or next stored channel."""
-        channels = self.db.channels()
+        """◀ ▶: the previous or next stored channel this receiver can use."""
+        channels = [c for c in self.db.channels() if self._channel_usable(c)]
         if not channels:
             return
         direction = 1 if int(direction) > 0 else -1
@@ -637,6 +642,16 @@ class Radio:
         self._go_channel(target)
 
     # ================================================================ tuning
+
+    def _channel_usable(self, channel: dict) -> bool:
+        """Its frequency in the receiver's range, and its mode (if any) one this receiver can do."""
+        if not self._in_range(channel["frequency"]):
+            return False
+        mode = channel_mode(channel)
+        if not mode:
+            return True
+        span = self.device.frequency_range if self.device else None
+        return registry()[mode].usable(self.config.receiver.type, span)
 
     def _in_range(self, start: float, stop: float | None = None) -> bool:
         """Whether the receiver can tune here (any part of start..stop)."""

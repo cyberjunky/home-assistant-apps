@@ -36,7 +36,7 @@ function renderModePicker() {
     if (box.dataset.signature !== signature) {
         // A mode this receiver can't do stays, ghosted, saying why
         box.innerHTML = modes.map(m => `<button type="button" class="mode-btn${m.why_not ? ' ghost' : ''}" data-mode="${m.key}"
-            title="${escapeHtml(m.why_not ? `${MODE_TITLES[m.key] || m.name}. ${m.why_not}` : (MODE_TITLES[m.key] || m.name))}"${m.why_not ? ' aria-disabled="true"' : ''}>${escapeHtml(m.name)}</button>`).join('');
+            title="${escapeHtml(m.why_not ? `${MODE_TITLES[m.key] || m.name}. ${m.why_not}` : (MODE_TITLES[m.key] || m.name))}"${m.why_not ? ' aria-disabled="true"' : ''}>${escapeHtml(m.button || m.name)}</button>`).join('');
         box.dataset.signature = signature;
         box.onclick = (e) => {
             const b = e.target.closest('[data-mode]');
