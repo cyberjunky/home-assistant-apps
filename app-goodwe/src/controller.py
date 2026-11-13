@@ -72,9 +72,6 @@ GENERAL_MODE = 0
 GENERAL_RETRY_SECONDS = 3600
 # Nominal voltage of a 16-cell LFP pack, for the commissioned capacity (Ah) in kWh
 NOMINAL_PACK_V = 51.2
-# Charge current restored when a charge cap from an earlier version left charging braked
-# (the BMS clamps it to its own ceiling, so a high value is safe)
-RELEASE_CHARGE_A = 50
 
 
 @dataclass
@@ -94,7 +91,6 @@ class ControlSettings:
     surplus_debounce_s: int = 120  # the new state must hold this long before the signal flips
     # Controller state (persisted, not settings)
     battery_capacity_kwh: float = 0.0  # from the inverter's commissioned capacity, for the cycle count
-    release_charge_brake: bool = False  # an earlier version's charge cap left charging braked
     defaults_version: int = 0  # 1 = auto-hold was switched on once (0.3.5 made it the default)
 
 
@@ -108,7 +104,7 @@ SETTING_BOUNDS = {
     "surplus_off_import_w": (0, 50000),
     "surplus_debounce_s": (0, 3600),
 }
-STATE_FIELDS = ("battery_capacity_kwh", "release_charge_brake", "defaults_version")
+STATE_FIELDS = ("battery_capacity_kwh", "defaults_version")
 BOOL_FIELDS = ("auto_hold", "zero_export")
 
 
@@ -133,7 +129,6 @@ class BatteryController:
         self._settings_retry_at = 0.0
         self.settings_error: str | None = None  # why the last settings read failed, until one succeeds
         self.miners = None  # the surplus loads (miners.Miners), set by __main__
-        self._brake_retry_at = 0.0
         self._general_at = 0.0  # when the work mode was last put back to General
         # Surplus signal
         self.surplus = False
@@ -162,10 +157,6 @@ class BatteryController:
             if f.name in data:
                 with contextlib.suppress(TypeError, ValueError):
                     setattr(settings, f.name, f.type(data[f.name]) if f.type in (int, float, bool) else data[f.name])
-        # Up to 0.1.x a charge cap could brake charging (charge current 0 A); it is gone, so a brake
-        # that was on at the update is released once
-        if data.get("charge_cap_active"):
-            settings.release_charge_brake = True
         # Up to 0.3.4 auto-hold was off by default, so the forecast controlled nothing until switched
         # on: switch it on once
         if settings.defaults_version < 1:
@@ -261,7 +252,6 @@ class BatteryController:
             self.last_dod = None
             return
         await self._settings_check()
-        await self._release_charge_brake()
         if self.settings.auto_hold:
             await self._auto_hold_tick()
         await self._zero_export_tick()
@@ -342,21 +332,6 @@ class BatteryController:
         if ah > 0 and kwh != self.settings.battery_capacity_kwh:
             self.settings.battery_capacity_kwh = kwh
             self._save()
-
-    async def _release_charge_brake(self) -> None:
-        """An earlier version's charge cap may have left the charge current at 0 A: restore it once."""
-        if not self.settings.release_charge_brake or not self.link.fresh or time.time() < self._brake_retry_at:
-            return
-        amps = max(RELEASE_CHARGE_A, int(float(self.link.data.get("battery_charge_limit") or 0)))
-        try:
-            await self.link.apply("charge_i", amps, "update")
-        except Exception as e:
-            self._brake_retry_at = time.time() + SETTINGS_RETRY_SECONDS
-            logger.warning(f"Releasing the old charge cap failed ({e}); trying again in 30 minutes")
-            return
-        self.settings.release_charge_brake = False
-        self._save()
-        logger.info("The charge cap of an earlier version had braked charging: charging released")
 
     # ------------------------------------------------------------------
     # Discharge hold

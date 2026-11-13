@@ -8,7 +8,7 @@ import pytest
 from src import default_data, message_fields, vehicle_types
 from src.database import Database
 from src.message import P2000Message
-from src.parser import Parser, is_street_name_word, looks_like_street
+from src.parser import Parser, looks_like_street
 from src.tts import SpeechRules
 
 NEW_TABLES = [
@@ -70,27 +70,6 @@ def test_abbreviations_and_ignore_text_deletions_stay_deleted(tmp_path):
     assert not [r for r in db.list_abbreviations(search="GHOR")["items"] if r["abbreviation"] == "GHOR"]
     defaults = [r["pattern"] for r in default_data.read("ignore_text")]
     assert [r["pattern"] for r in db.list_ignore_text()["items"]] == [p for p in defaults if p != "*MOB*"]
-    db.close()
-
-
-def test_pm_gets_its_sourced_meaning_unless_edited(tmp_path):
-    path = str(tmp_path / "meldkamer.sqlite3")
-    db = Database(path)
-    # An install from before 1.4.16: the old meanings, PM-90 edited by the user
-    db.import_abbreviations(
-        [
-            {"abbreviation": "PM", "full_text": "Personeel / Materieelwagen"},
-            {"abbreviation": "PM-90", "full_text": "eigen tekst"},
-        ]
-    )
-    db.cursor.execute("DELETE FROM speech_seeded WHERE kind = 'migration'")
-    db._commit()
-    _new_version(db)
-    db.seed_all_defaults()
-    meanings = {r["abbreviation"]: r["full_text"] for r in db.list_abbreviations(search="PM")["items"]}
-    assert meanings["PM"] == "Personeel- en materieelvoertuig"
-    assert meanings["PM-90"] == "eigen tekst"
-    assert {r["abbreviation"]: r["full_text"] for r in default_data.read("abbreviations")}["PM"] == meanings["PM"]
     db.close()
 
 
@@ -165,17 +144,17 @@ def test_backup_and_restore(tmp_path, db):
     assert message_fields.region_of_vehicle("99-1") == "Testregio"
 
 
-def test_restoring_an_old_backup_seeds_the_tables(tmp_path, db):
+def test_a_database_from_before_1_4_16_is_not_opened(tmp_path, caplog):
     old = str(tmp_path / "old.sqlite3")
     Database(old).close()
     conn = sqlite3.connect(old)
-    conn.executescript("".join(f"DROP TABLE {t};" for t in NEW_TABLES) + "DELETE FROM speech_seeded;")
+    conn.executescript("".join(f"DROP TABLE {t};" for t in NEW_TABLES))
     conn.commit()
     conn.close()
-    db.replace_with(old)
-    assert db.list_lookup("incident_rules")["total"] == len(default_data.read("incident_rules"))
-    assert message_fields.classify_incident("P 1 Woningbrand")[0] == "fire"
-    assert is_street_name_word("van")
+    assert "before 1.4.16" in Database.check_backup(old)
+    with pytest.raises(SystemExit):
+        Database(old)
+    assert f"The database {old} is from a Meldkamer version before 1.4.16" in caplog.text
 
 
 def test_speech_defaults(db):
@@ -189,3 +168,15 @@ def test_speech_defaults(db):
     assert "Li" in say("P 2 Li Kerkstraat")  # not after a hectometer marker: as written
     assert "O M" in say("P 2 assistentie OM Kerkstraat")
     assert " om " in say("P 2 brand om de hoek")
+
+
+def test_a_distance_without_a_street_is_kept(db):
+    # A message placed by its full postcode has no street, but its distance from home is real
+    msg = P2000Message(timestamp=datetime.now(UTC), body="P 1 BDH-01 Brand 3512AB Utrecht", raw_message="x")
+    msg.city, msg.postalcode, msg.latitude, msg.longitude = "Utrecht", "3512AB", 52.09, 5.12
+    msg.location_accuracy, msg.distance_km = "postcode", 4.2
+    message_id = db.save_message(msg)
+    assert db.get_message_by_id(message_id)["distance_km"] == 4.2
+    # The dashboard's list: the latest messages, and older ones when scrolling back
+    assert db.get_messages_since(3600)[0]["distance_km"] == 4.2
+    assert db.get_messages_before(limit=10)[0]["distance_km"] == 4.2

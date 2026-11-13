@@ -2,9 +2,9 @@
 
 import pytest
 
-from src.database import SCHEMA_VERSION, Database, counter_energy
+from src.database import counter_energy
 
-from .conftest import LAT, as_layout, feed, make_monitor
+from .conftest import feed, make_monitor
 
 T0 = 1_700_000_000
 
@@ -85,59 +85,3 @@ def test_counter_energy():
     assert counter_energy([5.2, 7.0, 9.0], fragment=True) == pytest.approx(3.8)
     assert counter_energy([None, 1.0, None, 2.0]) == pytest.approx(2.0)
     assert counter_energy([]) == 0.0
-
-
-def _old_split_session(database: Database, car_id: int) -> tuple[int, int]:
-    """Two sessions as 0.7.0 recorded a paused charge: the second booked the counter from zero."""
-    ids = []
-    for start, kwh_from, kwh_to, booked in ((T0, 0.0, 5.2, 5.2), (T0 + 3600, 5.2, 9.0, 9.0)):
-        charge_id = database.execute(
-            "INSERT INTO charges (car_id, start_ts, end_ts, lat, lon, kind, energy_added_kwh, energy_used_kwh, cost)"
-            " VALUES (?, ?, ?, ?, ?, 'AC', ?, ?, ?)",
-            (car_id, start, start + 1800, LAT, 5.1214, booked, booked * 1.1, round(booked * 1.1 * 0.3, 2)),
-        )
-        for i in range(31):
-            database.add_charge_sample(
-                charge_id,
-                {"ts": start + i * 60, "power_kw": 11.0, "energy_added_kwh": kwh_from + (kwh_to - kwh_from) * i / 30},
-            )
-        ids.append(charge_id)
-    return ids[0], ids[1]
-
-
-def test_repair_of_stored_split_sessions(database):
-    car_id = database.upsert_car(1, 2, "VIN1", "car")
-    first, second = _old_split_session(database, car_id)
-    assert database.repair_resumed_charges() == 1
-    rows = {c["id"]: c for c in _charges(database)}
-    assert rows[first]["energy_added_kwh"] == pytest.approx(5.2)
-    assert rows[second]["energy_added_kwh"] == pytest.approx(3.8)
-    # Power over time (11 kW for 30 min) is what the cost goes by; it was raised to the double count before
-    assert rows[second]["energy_used_kwh"] == pytest.approx(5.5)
-    assert rows[second]["cost"] == pytest.approx(round(2.97 * 5.5 / 9.9, 2))
-    # Once is enough: again changes nothing
-    assert database.repair_resumed_charges() == 0
-
-
-def test_repair_runs_once_on_upgrade(tmp_path):
-    path = tmp_path / "tesla.db"
-    database = Database(path)
-    car_id = database.upsert_car(1, 2, "VIN1", "car")
-    _, second = _old_split_session(database, car_id)
-    database.close()
-    as_layout(path, 5)
-    database = Database(path)
-    assert database.query_one("PRAGMA user_version")["user_version"] == SCHEMA_VERSION
-    assert database.query_one("SELECT energy_added_kwh FROM charges WHERE id = ?", (second,))[
-        "energy_added_kwh"
-    ] == pytest.approx(3.8)
-    database.close()
-
-
-def test_repair_leaves_sessions_after_a_drive_alone(database):
-    car_id = database.upsert_car(1, 2, "VIN1", "car")
-    _old_split_session(database, car_id)
-    database.execute(
-        "INSERT INTO drives (car_id, start_ts, end_ts, distance_km) VALUES (?, ?, ?, 3)", (car_id, T0 + 2000, T0 + 2500)
-    )
-    assert database.repair_resumed_charges() == 0

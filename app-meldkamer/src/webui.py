@@ -1113,7 +1113,7 @@ class WebUI:
                 return web.json_response({"error": problem}, status=400)
 
             await asyncio.to_thread(self.database.replace_with, path)
-            # A backup from before 1.4.13 gets the default TTS rules, place-name and talk group codes
+            # Load the restored TTS rules and lookups (and add this version's new built-in rows)
             self.speech.seed()
             self._ignore_changed()
             self.messages.clear()
@@ -1173,7 +1173,7 @@ class WebUI:
             self.database.conn.commit()
 
             # Recreate schema and drop cached text-matching data
-            self.database._migrate_schema()
+            self.database._create_schema()
             self.database.invalidate_text_caches()
             # The defaults come back after a reset
             self.speech.seed()
