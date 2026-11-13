@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.4
+
+**After updating:** nothing to do.
+
+- **The top bar fits a phone:** the app's name and buttons on top with the theme button last, the menu full width below. When the menu doesn't fit it scrolls sideways instead of losing a tab; on a laptop it gives way the same way and the clock goes first (below 860 px). With its many buttons this app switches to two rows from 860 px.
+
 ## 0.2.3
 
 **After updating:** nothing to do. Your abbreviations, rules, place codes and talk groups and your edits are kept, and a built-in row you deleted stays deleted.
