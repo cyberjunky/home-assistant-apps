@@ -560,6 +560,20 @@ async function powerGuest(vmid, action) {
         toast(e.message);
     }
 }
+// Proxmox's own console for a guest, in its web interface: noVNC for a VM, xterm.js for a container.
+// It opens on the node this app reads through; Proxmox asks for a login there if the browser has none.
+function consoleUrl(g) {
+    const host = (app.status && app.status.host) || '';
+    if (!host || !g || g.template) return '';
+    const kind = g.type === 'qemu' ? {console: 'kvm', novnc: '1'} : {console: 'lxc', xtermjs: '1'};
+    const query = new URLSearchParams({...kind, vmid: String(g.vmid), vmname: guestName(g), node: g.node, resize: 'off', cmd: ''});
+    return `${host}/?${query}`;
+}
+function consoleButton(g) {
+    const url = consoleUrl(g);
+    return url ? `<a class="btn btn-small" href="${attr(url)}" target="_blank" rel="noopener" title="Opens Proxmox's own console in a new tab. Log in to Proxmox there if it asks; it needs your browser to reach ${attr(app.status.host)}">Console ↗</a>` : '';
+}
+
 function powerButtons(g) {
     if (g.template) return '';
     const off = readOnly() ? ' disabled title="This app is set to read-only"' : '';
