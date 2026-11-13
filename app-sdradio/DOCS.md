@@ -35,6 +35,11 @@ signal-to-noise ratio. Along the top: SCAN, HOLD and PRI light up while they are
 (automatic gain for AM, SSB and CW), **NB** (noise blanker) and **MUTE** switch with a click;
 **L/O** shows that this channel is locked out of scans.
 
+In the channel list beside the radio, a channel locked out of scans is greyed with an **L/O** tag;
+a channel outside the receiver's range (shortwave on an RTL-SDR, for example) is faded, tagged
+*out of range* and can't be picked. The Channels page marks it *out of range* too, so you can still
+edit or delete it there.
+
 **Power**: the button at the top left of the display switches the radio off and on. Off, the
 receiver is closed and nothing is processed, so SDRadio uses next to no CPU and another program
 can use the receiver meanwhile. It stays off after a restart until you switch it on again; the

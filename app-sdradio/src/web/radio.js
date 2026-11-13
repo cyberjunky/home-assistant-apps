@@ -295,7 +295,7 @@ function renderLcd() {
     // In a mode: what decodes it (the mode and filter shown are only how it sounds with Listen)
     const d = s.decoder || {};
     document.getElementById('lcd-bw').textContent = d.key && d.key !== 'radio' && d.decoded_by
-        ? `decoded by ${d.decoded_by} · ${d.listen === false ? 'no sound' : `listen as ${modeLabel(s.mode)}`}`
+        ? `decoded by ${d.decoded_by} · ${d.listen === false ? (d.key === 'dab' ? 'click a station to listen' : 'no sound') : `listen as ${modeLabel(s.mode)}`}`
         : `BW ${fmtKHz(s.bandwidth)} · STEP ${fmtKHz(s.step)}`;
     const set = (id, on) => document.getElementById(id).classList.toggle('on', !!on);
     set('ind-scan', s.scan);
@@ -496,12 +496,19 @@ async function favouriteCurrent() {
     }
 }
 
+// Whether the receiver can tune to a channel; null when it can, otherwise why not
+function outOfRange(c) {
+    const r = app.state && app.state.device && app.state.device.frequency_range;
+    if (!r || (c.frequency >= r[0] && c.frequency <= r[1])) return null;
+    return `Out of range: the ${app.state.device.receiver || 'receiver'} tunes ${fmtMHz(r[0])} to ${fmtMHz(r[1])} MHz`;
+}
+
 function renderChannelList(force) {
     const s = app.state || {};
     const search = document.getElementById('chlist-search').value.trim().toLowerCase();
     const filter = document.getElementById('chlist-filter').value;
     const current = s.channel ? s.channel.id : null;
-    const key = JSON.stringify([search, filter, s.band, current, app.channels.length]);
+    const key = JSON.stringify([search, filter, s.band, current, app.channels.length, s.device && s.device.frequency_range]);
     if (!force && key === radio.listKey) return;
     radio.listKey = key;
     let rows = app.channels;
@@ -514,16 +521,16 @@ function renderChannelList(force) {
     }
     document.getElementById('chlist-count').textContent = `${filter === 'band' && s.band ? s.band + ' · ' : ''}${rows.length} of ${app.channels.length}`;
     const el = document.getElementById('chlist-items');
-    el.innerHTML = rows.length ? rows.map(c => `
-        <button type="button" class="ch-item${c.id === current ? ' on' : ''}${c.scan ? '' : ' locked'}" data-id="${c.id}">
+    el.innerHTML = rows.length ? rows.map(c => { const out = outOfRange(c); return `
+        <button type="button" class="ch-item${c.id === current ? ' on' : ''}${c.scan ? '' : ' locked'}${out ? ' out' : ''}" data-id="${c.id}"${out ? ` disabled title="${escapeHtml(out)}"` : ''}>
             <span class="num">${chNum(c.number)}</span>
-            <span class="body"><b>${escapeHtml(c.name || 'Unnamed')}${c.favourite ? ' ★' : ''}</b><small>${fmtMHz(c.frequency)} · ${modeLabel(c.mode)}${channelMode(c) ? ` · <span class="ch-mode">${escapeHtml(modeName(channelMode(c)))}</span>` : ''}</small></span>
+            <span class="body"><b>${escapeHtml(c.name || 'Unnamed')}${c.favourite ? ' ★' : ''}</b><small>${fmtMHz(c.frequency)} · ${modeLabel(c.mode)}${channelMode(c) ? ` · <span class="ch-mode">${escapeHtml(modeName(channelMode(c)))}</span>` : ''}${out ? ' <span class="ch-lo">out of range</span>' : c.scan ? '' : ' <span class="ch-lo" title="Locked out: the channel scan skips it">L/O</span>'}</small></span>
             <span class="seen" title="last heard">${c.last_heard ? fmtAgo(c.last_heard) : '—'}</span>
-        </button>`).join('')
+        </button>`; }).join('')
         : `<div class="empty-state">${app.channels.length ? 'No channel matches' : 'No channels stored yet. Tune to something and press Store current, or import a CSV on the Channels page.'}</div>`;
     el.onclick = (e) => {
         const b = e.target.closest('[data-id]');
-        if (b) radioCommand('channel', {id: Number(b.dataset.id)});
+        if (b && !b.disabled) radioCommand('channel', {id: Number(b.dataset.id)});
     };
     const on = el.querySelector('.ch-item.on');
     if (on && force !== true) on.scrollIntoView({block: 'nearest'});

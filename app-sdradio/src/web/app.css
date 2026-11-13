@@ -105,6 +105,10 @@ a { color: var(--primary-color); }
     white-space: nowrap;
 }
 .topbar > * { flex-shrink: 0; }
+/* The menu gives way when the bar is full: it scrolls sideways, no tab falls off */
+.topbar > nav.tabs { flex-shrink: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.topbar > nav.tabs::-webkit-scrollbar { display: none; }
+.topbar > nav.tabs .tab { flex-shrink: 0; }
 .brand { display: flex; align-items: center; gap: 8px; }
 .brand svg { width: 20px; height: 20px; color: var(--primary-color); }
 .brand-name { font-weight: 600; letter-spacing: 0.04em; }
@@ -283,16 +287,23 @@ details.advanced[open] summary { margin-bottom: 12px; }
     .brand-sub { display: none; }
     .clock { font-size: 18px; }
 }
+@media (max-width: 860px) {
+    .clock { display: none; }
+}
 @media (max-width: 1000px) {
     .stats-grid { grid-template-columns: 1fr; }
     .info-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 700px) {
     .container { padding: 12px 12px 28px; }
-    .topbar { flex-wrap: wrap; gap: 6px 8px; padding: 6px 8px; }
-    .topbar > .brand, .topbar > .spacer, .clock { display: none; }
+    /* Phone: the name, the buttons and the theme (last) on top; the menu full width below,
+       scrolling sideways rather than losing a tab */
+    .topbar { flex-wrap: wrap; gap: 6px 8px; padding: 6px 10px; }
+    .topbar > .spacer, .clock { display: none; }
+    .topbar > .brand { flex: 1 1 0; min-width: 0; }
+    .brand-name { overflow: hidden; text-overflow: ellipsis; }
     .topbar > nav.tabs { order: 1; flex: 1 1 100%; }
-    nav.tabs .tab { flex: 1; padding: 0 6px; }
+    nav.tabs .tab { flex: 1 0 auto; padding: 0 8px; }
     nav.tabs .tab[data-tab="info"] { flex: 0 0 36px; }
     nav.tabs .tab[data-tab="info"] .tab-label { display: none; }
     nav.tabs .tab[data-tab="info"] .tab-icon { display: inline; font-size: 15px; }
@@ -365,7 +376,8 @@ table.data .ent small { display: block; font-family: var(--mono); font-size: 11p
 .front .knob-row { grid-area: knobs; }
 .front-dial { grid-area: dial; align-self: start; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 /* The modes as toggle buttons under the tune dial */
-.mode-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; width: 100%; }
+/* Always the same size, whatever room the column has */
+.mode-buttons { display: grid; grid-template-columns: repeat(2, 88px); gap: 4px; justify-content: center; }
 .mode-btn { height: 26px; padding: 0 4px; border: 1px solid var(--key-edge); border-radius: 5px; background: linear-gradient(var(--key-top), var(--key-bottom));
     color: var(--primary-text-color); font: 600 11.5px var(--mono); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mode-btn:hover { border-color: var(--primary-color); }
@@ -377,8 +389,16 @@ table.data .ent small { display: block; font-family: var(--mono); font-size: 11p
 .scan-keys { grid-area: scan; align-self: end; display: flex; flex-direction: column; gap: 6px; }
 .scan-keys .tabs { display: flex; }
 .scan-keys .tab { flex: 1; }
+/* Narrower: the display across the top; below it the dial with the modes, the knobs in a block, the keys */
 @media (max-width: 1100px) {
+    .front { grid-template-columns: 180px minmax(0, 1fr) 260px; grid-template-areas: "lcd lcd lcd" "dial knobs keys" "dial knobs scan"; }
+    .front .knob-row { justify-content: center; gap: 16px 0; align-self: center; }
+    .front .knob-row .knob { width: 33%; }
+}
+@media (max-width: 860px) {
     .front { grid-template-columns: minmax(0, 1fr) 260px; grid-template-areas: "lcd lcd" "knobs knobs" "dial keys" "dial scan"; }
+    .front .knob-row { justify-content: space-around; }
+    .front .knob-row .knob { width: auto; }
 }
 @media (max-width: 700px) {
     .front { grid-template-columns: minmax(0, 1fr); grid-template-areas: "lcd" "knobs" "dial" "keys" "scan"; }
@@ -591,7 +611,12 @@ table.data tbody tr.on td { background: var(--hover-bg); }
 .ch-item .body b { display: block; font-weight: 500; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ch-item .body small { display: block; font: 11px var(--mono); color: var(--secondary-text-color); }
 .ch-item .seen { font: 11px var(--mono); color: var(--muted-text-color); white-space: nowrap; }
-.ch-item.locked .body b { text-decoration: line-through; opacity: 0.7; }
+.ch-item.locked .num { color: var(--muted-text-color); }
+.ch-item.out { cursor: not-allowed; opacity: 0.45; }
+.ch-item.out:hover { background: none; }
+.ch-item.locked .body b { color: var(--secondary-text-color); }
+.ch-item .ch-lo { margin-left: 4px; padding: 0 4px; border: 1px solid currentColor; border-radius: 3px; font-size: 9.5px;
+    letter-spacing: 0.04em; color: var(--muted-text-color); vertical-align: 1px; }
 .chlist-foot { display: flex; gap: 6px; padding: 10px 12px; border-top: var(--card-border); }
 .chlist-foot .btn-primary { flex: 1; justify-content: center; }
 

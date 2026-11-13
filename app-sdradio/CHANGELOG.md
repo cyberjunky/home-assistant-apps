@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.1
+
+**After updating:** to give your stored channels their mode (P2000 and KPN to Pager, ISM 433 and SRD 868 to Sensors, AIS to Ships and so on), import the channel list again on the Channels page, without *Replace*: channels stored from an older list have no `mode:` tag, so picking them stays in the radio.
+
+- **Channels outside the receiver's range** (shortwave on an RTL-SDR) are faded in the channel list, tagged *out of range* and can't be picked; the Channels page marks them too, where they can still be edited or deleted.
+- **Locked-out channels** are greyed with a small L/O tag instead of struck through.
+- **DAB+:** the display says *click a station to listen* instead of *no sound*.
+- **Phone:** the top bar shows the name, Listen and the theme button (last) on top and the menu full width below, scrolling sideways instead of losing a tab. On a laptop the menu gives way the same way and the clock goes first.
+- **Front panel:** the mode buttons keep their width at every screen size; below 1100 px the dial with the modes, the knobs and the keys sit side by side under the display.
+
 ## 0.4.0
 
 **After updating:** nothing to do.

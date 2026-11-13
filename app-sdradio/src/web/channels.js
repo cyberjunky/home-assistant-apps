@@ -54,7 +54,7 @@ async function renderChannelsPage() {
             <td class="num">${chNum(c.number)}</td>
             <td class="star">${c.favourite ? '★' : ''}</td>
             <td class="mono"><b>${fmtMHz(c.frequency)}</b></td>
-            <td>${escapeHtml(c.name || '')}${c.scan ? '' : ' <span class="badge warn">L/O</span>'}${c.priority ? ' <span class="badge">PRI</span>' : ''}</td>
+            <td>${escapeHtml(c.name || '')}${c.scan ? '' : ' <span class="badge warn">L/O</span>'}${outOfRange(c) ? ` <span class="badge bad" title="${escapeHtml(outOfRange(c))}">out of range</span>` : ''}${c.priority ? ' <span class="badge">PRI</span>' : ''}</td>
             <td>${c.band ? `<span class="badge">${escapeHtml(c.band)}</span>` : ''}</td>
             <td class="mono">${modeLabel(c.mode)}</td>
             <td class="mono muted">${fmtKHz(c.bandwidth)}</td>
