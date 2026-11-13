@@ -1,6 +1,6 @@
 ---
 name: TimescaleDB
-version: 5.6.0
+version: "5.6.0"
 slug: timescaledb
 description: "An open-source database built on PostgreSQL for
   analyzing time-series data with the power and convenience of SQL"
@@ -12,9 +12,12 @@ startup: system
 init: false
 tmpfs: true
 map:
-  - share:rw
-  - backup:rw
-  - media:rw
+  - type: share
+    read_only: false
+  - type: backup
+    read_only: false
+  - type: media
+    read_only: false
 timeout: 60
 backup_pre: /usr/share/timescaledb/backup_pre.sh
 backup_post: /usr/share/timescaledb/backup_post.sh
