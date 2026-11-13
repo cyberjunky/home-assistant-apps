@@ -4,8 +4,9 @@
 # ==============================================================================
 set -e
 
-# Home Assistant's time zone: PBS runs its schedules (garbage collection, jobs) by it
-TZ_NAME=$(bashio::info.timezone 2>/dev/null || true)
+# Home Assistant's time zone, which it gives every app as TZ: PBS runs its schedules (garbage
+# collection, jobs) by it
+TZ_NAME="${TZ:-}"
 if [[ -n "${TZ_NAME}" && -f "/usr/share/zoneinfo/${TZ_NAME}" ]]; then
     ln -sf "/usr/share/zoneinfo/${TZ_NAME}" /etc/localtime
     echo "${TZ_NAME}" > /etc/timezone
@@ -29,12 +30,13 @@ chmod 700 /data/pbs/etc /data/pbs/lib /data/pbs/log
 rm -f /data/pbs/etc/.*.lck /data/pbs/etc/*.lock
 
 # PBS keeps its shared memory in /run/proxmox-backup and insists that it is a tmpfs, which an
-# app's /run is not
-if ! mountpoint -q /run/proxmox-backup; then
-    mkdir -p /run/proxmox-backup
-    mount -t tmpfs -o mode=0755,nosuid,nodev,size=64m tmpfs /run/proxmox-backup
-fi
-chown backup:backup /run/proxmox-backup
+# app's /run is not. /dev/shm is one, so no mount is needed (AppArmor refuses that one under
+# Home Assistant)
+mkdir -p /dev/shm/proxmox-backup
+chmod 755 /dev/shm/proxmox-backup
+chown backup:backup /dev/shm/proxmox-backup
+rm -rf /run/proxmox-backup
+ln -s /dev/shm/proxmox-backup /run/proxmox-backup
 
 # The login for the PBS web interface and for Proxmox VE: root@pam, with the password from the options
 ROOT_PASSWORD=$(python3 -c 'import json; print(json.load(open("/data/options.json")).get("root_password") or "", end="")')
@@ -53,7 +55,8 @@ mkdir -p /run/systemd/journal
 mkdir -p /mnt/datastore
 
 # The disks are only visible with full access, which Home Assistant grants only without protection mode
-if bashio::var.true "$(bashio::app.protected 2>/dev/null || echo false)"; then
-    bashio::log.warning "Protection mode is on, so this app can't see the disks of this machine."
+if ! compgen -G "/dev/sd[a-z]" > /dev/null && ! compgen -G "/dev/nvme[0-9]*n[0-9]*" > /dev/null \
+    && ! compgen -G "/dev/mmcblk[0-9]" > /dev/null; then
+    bashio::log.warning "This app can't see any disk of this machine: Protection mode is probably on."
     bashio::log.warning "Turn off Protection mode on the app's Info tab and restart the app to use a disk for a datastore."
 fi

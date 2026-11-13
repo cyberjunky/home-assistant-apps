@@ -465,45 +465,6 @@ def _fetch_woonplaatsen_for_province(province: str) -> dict[str, tuple[float | N
     return result
 
 
-def _fetch_woonplaats_codes(woonplaats: str, province: str) -> list[str]:
-    """The woonplaatscode(s) of a woonplaats name in a province ([] when PDOK has none or failed)."""
-    docs, _ = _pdok_search(
-        {
-            "q": "type:woonplaats",
-            "fq": f"provincienaam:{_solr_quote(PDOK_PROVINCE_NAMES.get(province, province))} "
-            f"AND woonplaatsnaam:{_solr_quote(woonplaats)}",
-            "fl": "woonplaatsnaam,woonplaatscode",
-        },
-        f"woonplaats {woonplaats} in {province}",
-    )
-    codes = []
-    for doc in docs:
-        code = str(doc.get("woonplaatscode", "")).strip()
-        if doc.get("woonplaatsnaam", "").strip() == woonplaats and code.isdigit() and code not in codes:
-            codes.append(code)
-    return codes
-
-
-def _refill_namesake(database, woonplaats: str, place_id: int, province: str) -> None:
-    """Add the streets of a same-named place in another province again, after streets moved away from it.
-
-    The place held the streets of both (versions before 1.4.11), where a street name both
-    have was stored once. Moving that street to the place it belongs to leaves the namesake
-    without its own one, which this fetches from BAG again, so the provinces can be imported
-    in any order.
-    """
-    if province not in PROVINCES:
-        return
-    try:
-        codes = _fetch_woonplaats_codes(woonplaats, province)
-        if codes:
-            added = database.add_streets(place_id, _fetch_streets_for_woonplaats(woonplaats, codes))
-            if added:
-                logger.info(f"Added {added} streets of {woonplaats} ({province}) again")
-    except Exception as e:
-        _warn(f"Failed to refill streets of {woonplaats} ({province}): {e}")
-
-
 def import_province_data(province: str, database) -> dict[str, Any]:
     """
     Import all woonplaatsen and streets for a Dutch province.
@@ -565,17 +526,9 @@ def import_province_data(province: str, database) -> dict[str, Any]:
                 _warn(f"Failed to store woonplaats {woonplaats}: {e}")
                 continue
 
-            # Fetch and add streets (one transaction per woonplaats). A place is its name in this
-            # province: versions before 1.4.11 stored same-named places of two provinces as one,
-            # so streets of this place found under its namesake are moved here first
+            # Fetch and add streets (one transaction per woonplaats)
             try:
                 streets = _fetch_streets_for_woonplaats(woonplaats, codes)
-                for namesake in database.move_namesake_streets(city_id, streets):
-                    logger.info(
-                        f"Moved {namesake['moved']} streets of {woonplaats} ({province}) "
-                        f"from {woonplaats} ({namesake['province'] or 'no province'})"
-                    )
-                    _refill_namesake(database, woonplaats, namesake["id"], namesake["province"])
                 streets_added += database.add_streets(city_id, streets)
             except Exception as e:
                 _warn(f"Failed to import streets for {woonplaats}: {e}")

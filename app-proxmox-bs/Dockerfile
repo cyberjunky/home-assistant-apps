@@ -11,6 +11,9 @@ ENV LANG=C.UTF-8
 ENV DEBIAN_FRONTEND=noninteractive
 # Time for the services to close cleanly on shutdown
 ENV S6_SERVICES_GRACETIME=15000
+# Mount the datastore disks with the classic mount call, which the app's AppArmor profile checks
+# (file system, disk, mount point); the newer fd-based one passes through other checks it refuses
+ENV LIBMOUNT_FORCE_MOUNT2=always
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 

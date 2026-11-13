@@ -11,7 +11,7 @@ This app runs a real [Proxmox Backup Server](https://pbs.proxmox.com/docs/) (PBS
 3. On the **Configuration** tab, set a `root_password`.
 4. Start the app and choose **Open Web UI**. Log in as `root` with the realm **Linux PAM**. The browser warns once about PBS's self-signed certificate.
 5. In PBS, go to **Administration → Storage / Disks → Directory → Create: Directory**: choose the disk, a name (for example `backups`), ext4 or xfs, and keep **Add as Datastore** on. PBS partitions and formats the disk, and the app mounts it. This erases the disk; for a disk that already holds backups, see [A disk with backups on it](#a-disk-with-backups-on-it).
-6. In Proxmox VE, add the datastore under **Datacenter → Storage → Add → Proxmox Backup Server**. PBS shows the server, datastore and fingerprint under the datastore's **Summary → Show Connection Information**.
+6. Give Proxmox VE its own token and add the datastore in Proxmox VE: see [Connect Proxmox VE](#connect-proxmox-ve).
 
 ## Configuration
 
@@ -22,27 +22,29 @@ log_level: info
 
 | Option | Default | What it does |
 |---|---|---|
-| `root_password` | | The password of `root@pam`: the login for PBS's web interface and console, and for Proxmox VE. Empty: nobody can log in |
+| `root_password` | | Password of this backup server's own root user (`root@pam`), to log in to its web interface and console. It is not your Home Assistant or Proxmox VE password, and Proxmox VE doesn't need it (it gets its own token, below). Set at every start; empty locks the account, so nobody can log in |
 | `log_level` | `info` | Amount of logging. PBS's own messages appear in the app's log too |
 
 Everything else (datastores, users, API tokens, permissions, jobs, notifications, retention) is set in PBS's web interface and kept by the app.
 
 ## Connect Proxmox VE
 
-In Proxmox VE, **Datacenter → Storage → Add → Proxmox Backup Server**: an ID, the Home Assistant machine's address, a user and password, the datastore and the fingerprint. Or on a node, as root:
+Give Proxmox VE its own user and API token, with backup rights on the datastore only, rather than the root login. In PBS's **Shell** (or under **Configuration → Access Control**), for a datastore called `backups`:
 
 ```sh
-pvesm add pbs homeassistant --server 192.168.1.20 --datastore backups --username root@pam --fingerprint AB:CD:… --password
-```
-
-Rather than root, give Proxmox VE its own user: in PBS under **Configuration → Access Control**, or in its **Shell**:
-
-```sh
-proxmox-backup-manager user create pve@pbs --password 'a-long-password'
+proxmox-backup-manager user create pve@pbs --comment "Proxmox VE backups"
+proxmox-backup-manager user generate-token pve@pbs backup
 proxmox-backup-manager acl update /datastore/backups DatastoreBackup --auth-id pve@pbs
+proxmox-backup-manager acl update /datastore/backups DatastoreBackup --auth-id 'pve@pbs!backup'
 ```
 
-`DatastoreBackup` may back up and restore its own backups. Give `DatastoreAdmin` instead if Proxmox VE should prune them with the storage's retention settings.
+The second command prints the token's secret, once. A token never has more rights than its user, so both get the role. `DatastoreBackup` may back up and restore its own backups and nothing else. Give `DatastorePowerUser` instead if Proxmox VE should also prune them with the storage's retention settings; or leave pruning to a prune job in PBS.
+
+Then in Proxmox VE, **Datacenter → Storage → Add → Proxmox Backup Server**: an ID, Home Assistant's address as the server, `pve@pbs!backup` as the user name, the token's secret as the password, the datastore, and the fingerprint (PBS shows it under the datastore's **Summary → Show Connection Information**). Or on a node, as root:
+
+```sh
+pvesm add pbs homeassistant --server 192.168.1.20 --datastore backups --username 'pve@pbs!backup' --password 'the-token-secret' --fingerprint AB:CD:…
+```
 
 ## What is different in an app
 

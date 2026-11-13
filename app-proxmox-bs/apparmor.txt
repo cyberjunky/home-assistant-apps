@@ -3,8 +3,7 @@
 # Proxmox Backup Server runs as root and as the backup user, reads and writes its configuration,
 # the datastores and its task logs, partitions and formats disks from its Disks page, and logs
 # users in through PAM, so files, network and capabilities are broad. What this profile narrows is
-# mounting: only a tmpfs for PBS's shared memory and datastore disks under /mnt/datastore; no other
-# mount, and no changes to the kernel.
+# mounting: only datastore disks under /mnt/datastore; no other mount, and no changes to the kernel.
 profile app-proxmox-bs flags=(attach_disconnected,mediate_deleted) {
   #include <abstractions/base>
 
@@ -14,10 +13,6 @@ profile app-proxmox-bs flags=(attach_disconnected,mediate_deleted) {
   signal,
   unix,
   ptrace (read, readby, trace, tracedby) peer=app-proxmox-bs,
-
-  # PBS insists its shared memory is on a tmpfs; an app's /run is not one
-  mount fstype=tmpfs -> /run/proxmox-backup/,
-  umount /run/proxmox-backup/,
 
   # Datastore disks, where PBS's Disks page puts them, and nothing else
   mount fstype=(ext4,xfs,btrfs) /dev/** -> /mnt/datastore/**,

@@ -19,7 +19,7 @@ MAKERS = re.compile(
     r"nintendo|sony interactive|microsoft|valve|roku|lg electronics|vizio|hisense|tcl|bose|denon|sound united|"
     r"yamaha|bluesound|seiko epson|brother industries|canon|kyocera|lexmark|xerox|ricoh|fujifilm|"
     r"roborock|irobot|ecovacs|dreame|husqvarna|positec|bitmain|canaan|tesla|goodwe|solaredge|enphase|growatt|"
-    r"fronius|sma solar|homewizard|nabu casa|hardkernel|proxmox|nest labs|ecobee|tado|netatmo|miele|bsh hausger|"
+    r"fronius|sma solar|homewizard|space exploration|nabu casa|hardkernel|proxmox|nest labs|ecobee|tado|netatmo|miele|bsh hausger|"
     r"wiz connected|lifx|nanoleaf",
     re.I,
 )

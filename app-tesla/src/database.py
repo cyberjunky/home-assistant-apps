@@ -91,7 +91,7 @@ NEW_COLUMNS = {
     "charge_samples": tuple(f"{column} REAL" for column in SAMPLE_EXTRA_COLUMNS),
 }
 # Added in layout 7 (0.8.0): what each charge tells about the battery, the consumption each drive's energy
-# was worked out with, and charges estimated afterwards. In SCHEMA for a new database, added by the migration.
+# was worked out with, and charges estimated afterwards.
 LAYOUT7_COLUMNS = {
     "charges": ("capacity_kwh REAL", "rated_wh_km REAL", "estimated INTEGER NOT NULL DEFAULT 0"),
     "drives": ("efficiency_wh_km REAL",),
@@ -268,43 +268,9 @@ INSERT INTO charge_tags (name, price_per_kwh, pos) VALUES ('Home', NULL, 0), ('F
 INSERT INTO location_tags (place_key, tag) VALUES ('home', 'Home');
 """
 
-# Stored in the database file. A database of an older layout is brought up to date at
-# start by the steps below; one of a newer layout (or one so old there is no step for it)
-# is refused with a message instead of failing on a missing column later.
+# Stored in the database file. A database of another layout is refused at start with a
+# message instead of failing on a missing column later.
 SCHEMA_VERSION = 7
-
-
-def _statements(sql: str) -> list[str]:
-    """The statements of a schema snippet, one by one, without the comment lines."""
-    code = "\n".join(line for line in sql.splitlines() if not line.lstrip().startswith("--"))
-    return [statement.strip() for statement in code.split(";") if statement.strip()]
-
-
-MIGRATIONS = {
-    # 3 -> 4 (0.6.0): the visited cells behind the Stats map, and everything else Tesla reports
-    3: [
-        "ALTER TABLE drives ADD COLUMN cell_count INTEGER",
-        *_statements(VISITED_CELLS_SQL),
-        *[f"ALTER TABLE {table} ADD COLUMN {column}" for table, columns in NEW_COLUMNS.items() for column in columns],
-        POSITIONS_TPMS_INDEX,
-    ],
-    # 4 -> 5 (0.6.1): cars removed by hand
-    4: [REMOVED_CARS_SQL],
-    # 5 -> 6 (0.7.1): no new layout; sessions that resumed a paused charge counted its first part twice
-    5: [lambda db: db.repair_resumed_charges()],
-    # 6 -> 7 (0.8.0): battery capacity and consumption per charge, consumption per drive, estimated charges
-    6: [
-        *[
-            f"ALTER TABLE {table} ADD COLUMN {column}"
-            for table, columns in LAYOUT7_COLUMNS.items()
-            for column in columns
-        ],
-        # Until now every drive was worked out with the car's one consumption figure
-        "UPDATE drives SET efficiency_wh_km = (SELECT efficiency_wh_km FROM cars WHERE cars.id = drives.car_id)"
-        " WHERE energy_kwh IS NOT NULL",
-        lambda db: db.fill_charge_figures(),
-    ],
-}
 
 POSITION_COLUMNS = (
     "ts",
@@ -468,24 +434,18 @@ class Database:
             with self._lock:
                 self._conn.executescript(f"BEGIN;{SCHEMA}PRAGMA user_version={SCHEMA_VERSION};COMMIT;")
             logger.info(f"Created database {self.path}")
-            version = SCHEMA_VERSION
-        elif version > SCHEMA_VERSION or version < min(MIGRATIONS):
+        elif version < SCHEMA_VERSION:
+            self._conn.close()
+            raise DatabaseLayoutError(
+                f"{self.path} was made by a version of this app before 0.8.0 (layout {version}, this version needs"
+                f" {SCHEMA_VERSION}). Remove that file (or uninstall and reinstall the app) to start with a new one"
+            )
+        elif version > SCHEMA_VERSION:
             self._conn.close()
             raise DatabaseLayoutError(
                 f"{self.path} was made by another version of this app (layout {version}, this version needs"
                 f" {SCHEMA_VERSION}). Remove that file (or uninstall and reinstall the app) to start with a new one"
             )
-        while version < SCHEMA_VERSION:
-            with self.transaction():
-                for step in MIGRATIONS[version]:
-                    # A step is SQL, or a function correcting data the way that version records it
-                    if callable(step):
-                        step(self)
-                    else:
-                        self._conn.execute(step)
-                self._conn.execute(f"PRAGMA user_version={version + 1}")
-            logger.info(f"Database layout {version} brought up to {version + 1}")
-            version += 1
 
     def close(self) -> None:
         with self._lock:
@@ -1077,35 +1037,6 @@ class Database:
                 )
             return self.query_one("SELECT * FROM charges WHERE id = ?", (charge_id,))
 
-    def repair_resumed_charges(self) -> int:
-        """Correct sessions recorded before 0.7.1 that continued a paused charge: they booked the car's
-        counter from zero, so the kWh charged before the pause counted twice. Only their kWh (and an
-        estimated cost, in proportion) change; a session that would end up with nothing is left as it is.
-        Returns how many were corrected. Running it again changes nothing."""
-        fixed = 0
-        with self._lock:
-            for charge in self.query("SELECT * FROM charges WHERE end_ts IS NOT NULL ORDER BY car_id, start_ts"):
-                first_counter = self._counter_at(charge["id"], last=False)
-                if not self.previous_plugged_charge(
-                    charge["car_id"], charge["start_ts"], charge["lat"], charge["lon"], first_counter
-                ):
-                    continue
-                added, used = self._charge_totals(self.charge_samples(charge["id"]), fragment=True)
-                if added < MIN_CHARGE_KWH or (charge["energy_added_kwh"] or 0.0) - added < MIN_CHARGE_KWH:
-                    continue
-                cost = charge["cost"]
-                if cost is not None and not charge["cost_manual"] and charge["billed_amount"] is None:
-                    old_used = charge["energy_used_kwh"] or 0.0
-                    cost = round(cost * used / old_used, 2) if old_used > 0 else cost
-                self.execute(
-                    "UPDATE charges SET energy_added_kwh = ?, energy_used_kwh = ?, cost = ? WHERE id = ?",
-                    (added, used, cost, charge["id"]),
-                )
-                fixed += 1
-        if fixed:
-            logger.info(f"Corrected {fixed} charging session(s) that counted the energy before a pause twice")
-        return fixed
-
     def add_estimated_charge(
         self, car_id: int, before: dict, after: dict, capacity_kwh: float | None, efficiency_wh_km: float
     ) -> int | None:
@@ -1354,24 +1285,6 @@ class Database:
             (car_id, before_ts if before_ts is not None else 2**40),
         )
         return statistics.median(row["capacity_kwh"] for row in rows) if rows else None
-
-    def fill_charge_figures(self) -> int:
-        """Work out the capacity and consumption figures of every finished charge with samples that has none."""
-        filled = 0
-        with self._lock:
-            for charge in self.query(
-                "SELECT id FROM charges WHERE end_ts IS NOT NULL AND capacity_kwh IS NULL AND rated_wh_km IS NULL"
-            ):
-                capacity, rated = session_figures(self.charge_samples(charge["id"]))
-                if capacity is not None or rated is not None:
-                    self.execute(
-                        "UPDATE charges SET capacity_kwh = ?, rated_wh_km = ? WHERE id = ?",
-                        (capacity, rated, charge["id"]),
-                    )
-                    filled += 1
-        if filled:
-            logger.info(f"Worked out battery capacity and consumption for {filled} charging session(s)")
-        return filled
 
     def apply_efficiency(self, car_id: int, efficiency_wh_km: float) -> None:
         """A consumption figure set by hand: store it and recalculate the energy of every drive with it."""

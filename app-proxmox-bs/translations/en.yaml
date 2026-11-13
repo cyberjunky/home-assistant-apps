@@ -2,8 +2,9 @@ configuration:
   root_password:
     name: Root password
     description: >-
-      The password of root@pam, for PBS's web interface and console and for
-      Proxmox VE. Empty: nobody can log in.
+      Password of the root user of this backup server (root@pam), to log in to
+      its web interface and console on port 8007. Not your Home Assistant or
+      Proxmox VE password. Empty locks the account: nobody can log in.
   log_level:
     name: Log level
     description: Amount of logging. PBS's own messages appear in the log too.

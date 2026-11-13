@@ -3,7 +3,6 @@ in CSV export/import and in backup/restore."""
 
 import csv
 import io
-import sqlite3
 from datetime import UTC, datetime
 
 import pytest
@@ -80,45 +79,6 @@ def test_seeded_once_and_your_edits_survive_a_restart(tmp_path):
     db.close()
 
 
-def test_old_talkgroup_rules_are_removed_unless_changed(tmp_path):
-    """A database from before 1.4.13: the rules untracked, with the old talk group rules,
-    one changed by the user, one default rule deleted by the user and a rule of their own."""
-    path = str(tmp_path / "meldkamer.sqlite3")
-    old_rules = [r for r in default_data.read("previous") if r["table"] == "tts_replacements"]
-    later = {r["key"] for r in default_data.read("added_later") if r["table"] == "tts_replacements"}
-    shipped = [r for r in default_data.read("tts_replacements") if r["pattern"] not in later]
-    deleted = r"\bGHOR\b"
-    conn = sqlite3.connect(path)
-    conn.executescript(
-        "CREATE TABLE tts_replacements (id INTEGER PRIMARY KEY AUTOINCREMENT, pattern TEXT UNIQUE NOT NULL, "
-        "replacement TEXT NOT NULL DEFAULT '', enabled INTEGER NOT NULL DEFAULT 1);"
-    )
-    for rule in shipped:
-        if rule["pattern"] != deleted:
-            conn.execute(
-                "INSERT INTO tts_replacements (pattern, replacement) VALUES (?, ?)",
-                (rule["pattern"], rule["replacement"]),
-            )
-    for rule in old_rules:
-        replacement = "Brandweer Zeeland-West-Brabant" if rule["key"].startswith("BZB") else rule["value"]
-        conn.execute("INSERT INTO tts_replacements (pattern, replacement) VALUES (?, ?)", (rule["key"], replacement))
-    conn.execute("INSERT INTO tts_replacements (pattern, replacement) VALUES ('MYCODE', 'mijn code')")
-    conn.commit()
-    conn.close()
-
-    db = Database(path)
-    speech = SpeechRules(db)
-    patterns = {r["pattern"]: r["replacement"] for r in db.get_all_tts_replacements()}
-    assert patterns[r"BZB\-[0-9]+"] == "Brandweer Zeeland-West-Brabant"  # changed by the user: kept
-    assert r"BRT\-[0-9]+" not in patterns
-    assert patterns["MYCODE"] == "mijn code"
-    assert deleted not in patterns  # deleted by the user: stays deleted
-    assert later <= set(patterns)  # rules new since then are added
-    assert all(r["pattern"] in patterns for r in shipped if r["pattern"] != deleted)
-    assert spoken(speech, "P 1 BRT-01 Brand") == "Prio 1 gespreksgroep Brandweer Rotterdam 0 1 Brand"
-    db.close()
-
-
 def test_parser_and_tags_use_the_place_table(db):
     assert db.city_from_abbreviation("SGRAVH") == "'s-Gravenhage"
     db.save_lookup("city_abbreviations", {"abbreviation": "ztest", "city": "Zandtest"})
@@ -177,22 +137,3 @@ def test_backup_and_restore(tmp_path, db, speech):
     speech.seed()
     assert spoken(speech, "P 1 BRT-01 Brand") == "Prio 1 gespreksgroep Brandweer Rotterdam-Rijnmond 0 1 Brand"
     assert db.city_from_abbreviation("ZTEST") == "Zandtest"
-
-
-def test_restoring_an_old_backup_seeds_the_tables(tmp_path, db, speech):
-    # A backup made before 1.4.13: the same database without the new tables
-    old = str(tmp_path / "old.sqlite3")
-    Database(old).close()
-    conn = sqlite3.connect(old)
-    conn.executescript(
-        "DROP TABLE city_abbreviations; DROP TABLE talkgroup_codes; DROP TABLE speech_seeded;"
-        "DELETE FROM tts_replacements;"
-    )
-    conn.commit()
-    conn.close()
-    assert Database.check_backup(old) is None
-    db.replace_with(old)
-    speech.seed()
-    assert db.list_lookup("talkgroup_codes")["total"] == len(default_data.read("talkgroup_codes"))
-    assert db.city_from_abbreviation("UTRECH") == "Utrecht"
-    assert spoken(speech, "P 1 BRT-01 Brand") == "Prio 1 gespreksgroep Brandweer Rotterdam 0 1 Brand"

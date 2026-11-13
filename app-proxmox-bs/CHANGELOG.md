@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+
+- **Starts under Home Assistant**: 0.1.0 stopped right after starting, because Home Assistant's AppArmor refused the tmpfs it mounted for PBS's shared memory. PBS now keeps that in `/dev/shm`, so nothing needs mounting at start
+- Datastore disks are mounted with the classic mount call, which the app's AppArmor profile checks against its rules
+- PBS's schedules follow Home Assistant's time zone again; a warning in the log when no disk is visible (Protection mode on)
+- `root_password` is described as this backup server's own login. The Documentation tab shows how to give Proxmox VE its own token with backup rights only, instead of root's password
+
 ## 0.1.0
 
 **After installing:** turn **Protection mode** off (the app needs it to see the disks), set a `root_password`, start the app and open the web UI. Set up a disk under Administration → Storage / Disks → Directory.
