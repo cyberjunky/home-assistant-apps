@@ -121,6 +121,8 @@ class MinerUnit:
             "auto": self.auto if self.controllable else None,
             "switch_on": self.switch_on,
             "on": self.on,
+            # Powered but not mining (its switch only stops the mining): shown as idle, not off
+            "idle": self.on is False and (self.watts or 0) >= RUNNING_MIN_W,
             "watts": None if self.watts is None else round(self.watts),
             "since": self.since,
             "error": self.error,

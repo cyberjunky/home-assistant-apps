@@ -238,4 +238,5 @@ def test_switched_off_is_not_running_whatever_the_sensor_says(tmp_path, clock):
     miners.on_data(data)
     assert unit.on is False and data["miner1_on"] == 0 and data["miner1_w"] == 111
     assert unit.learned_w == learned, "nothing learned while switched off"
+    assert unit.state()["idle"] is True
     assert miners.events.items[-1][0] == "miners_stopped"
