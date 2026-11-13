@@ -741,17 +741,43 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; line-height:
 .tab-icon { display: none; }
 @media (max-width: 700px) {
     .topbar { flex-wrap: wrap; gap: 6px 8px; padding: 6px 8px; }
-    .topbar > .brand, .topbar > .spacer, .clock { display: none; }
+    .topbar > .spacer, .clock { display: none; }
     .topbar > nav.tabs { order: 1; flex: 1 1 100%; }
-    nav.tabs .tab { flex: 1; padding: 0 6px; }
     nav.tabs .tab[data-tab="stats"], nav.tabs .tab[data-tab="data"], nav.tabs .tab[data-tab="info"] { flex: 0 0 36px; }
     .tab-label { display: none; }
     nav.tabs .tab[data-tab="console"] .tab-label, nav.tabs .tab[data-tab="wallboard"] .tab-label { display: inline; }
     .tab-icon { display: inline; font-size: 15px; }
-    .topbar > .tabs[role="group"] { order: 4; }
     .statusbar { gap: 12px; padding: 0 8px; }
     .statusbar .sb-extra { display: none; }
 }
 
 /* Info: long entity ids shorten instead of overflowing the card */
 .info-row .info-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The top bar on smaller screens, the same in every app. The menu gives way when the bar is full: it
+   scrolls sideways, no tab falls off. On a phone: the name, the buttons and the theme (last) on top,
+   the menu full width below. */
+.topbar > nav.tabs { flex-shrink: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.topbar > nav.tabs::-webkit-scrollbar { display: none; }
+.topbar > nav.tabs > * { flex-shrink: 0; }
+@media (max-width: 860px) {
+    .clock { display: none; }
+}
+@media (max-width: 700px) {
+    .topbar { flex-wrap: wrap; gap: 6px 8px; padding: 6px 10px; }
+    .topbar > .brand { display: flex; flex: 1 1 0; min-width: 0; }
+    .brand-sub { display: none; }
+    .brand-name { overflow: hidden; text-overflow: ellipsis; }
+    .topbar > .spacer { display: none; }
+    .topbar > nav.tabs { order: 1; flex: 1 1 100%; }
+    nav.tabs .tab { flex: 1 0 auto; padding: 0 8px; }
+}
+/* This app has more buttons than the others: two rows from 860 px down */
+@media (max-width: 860px) {
+    .topbar { flex-wrap: wrap; gap: 6px 8px; padding: 6px 10px; }
+    .topbar > .brand { flex: 1 1 0; min-width: 0; }
+    .brand-name { overflow: hidden; text-overflow: ellipsis; }
+    .topbar > .spacer { display: none; }
+    .topbar > nav.tabs { order: 1; flex: 1 1 100%; }
+    nav.tabs .tab { flex: 1 0 auto; padding: 0 8px; }
+}

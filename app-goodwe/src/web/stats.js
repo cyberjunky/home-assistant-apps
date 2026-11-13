@@ -58,6 +58,9 @@ function renderStatTiles(s) {
         ...(miners ? [
             tile(`${miners.name} ran`, withUnit(num(s.miners_hours || 0, 1), 'h'), s.days ? `${num((s.miners_hours || 0) / s.days, 1)} h per day` : '', 'miners'),
             tile(`${miners.name} used`, energyUnit(s.e_miners_day || 0), s.e_load_day ? `${fmtPct((s.e_miners_day || 0) / s.e_load_day * 100)} of the home's energy` : '', 'miners'),
+            // Each miner, when there is more than one
+            ...((s.miners || []).length > 1 ? s.miners.map(m => tile(escapeHtml(m.name), withUnit(num(m.hours, 1), 'h'),
+                `${fmtKwh(m.kwh, 1)} used${s.days ? ` · ${num(m.hours / s.days, 1)} h per day` : ''}`, 'miners')) : []),
         ] : []),
     ].join('');
 }
@@ -175,6 +178,7 @@ async function loadDayDetail() {
             tile('Battery', `${energyUnit(s.e_bat_charge_day, 2)} <small>in</small>`, `${fmtKwh(s.e_bat_discharge_day, 2)} out · SoC ${num(s.soc_min)}–${num(s.soc_max)}%`, 'charging'),
             tile('Solar surplus', withUnit(num(s.surplus_hours, 1), 'h'), `${fmtKwh(s.e_surplus_day, 2)} used · ≈ ${fmtKwh(s.e_curtailed_day, 2)} curtailed`, 'surplus'),
             ...(miners ? [tile(miners.name, withUnit(num(s.miners_hours || 0, 1), 'h'), `${fmtKwh(s.e_miners_day || 0, 2)} used`, 'miners')] : []),
+            ...(miners && (day.miners || []).length > 1 ? day.miners.map(m => tile(escapeHtml(m.name), withUnit(num(m.hours, 1), 'h'), `${fmtKwh(m.kwh, 2)} used`, 'miners')) : []),
         ].join('') : '';
     } catch (e) {
         emptyChart(el, e.message);

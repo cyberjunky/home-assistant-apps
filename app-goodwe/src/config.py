@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -53,6 +54,49 @@ class Plane:
         return {"name": self.name, "kwp": self.kwp, "tilt": self.tilt, "azimuth": self.azimuth}
 
 
+ENTITY_RE = re.compile(r"^[a-z_]+\.[a-z0-9_]+$")
+MAX_MINERS = 8
+
+
+@dataclass
+class Miner:
+    """One surplus load (a bitcoin miner): the switch that starts and stops it, the sensor with its
+    power, and its rated power (optional with a sensor: the app learns the draw from it)."""
+
+    name: str = "Miner"
+    switch: str = ""
+    sensor: str = ""
+    power_w: int = 0
+
+    def as_dict(self) -> dict:
+        return {"name": self.name, "switch": self.switch, "sensor": self.sensor, "power_w": self.power_w}
+
+
+def _miners(items) -> list[Miner]:
+    """The miners from the options: a list, each with a switch or a sensor (or a rated power)."""
+    out: list[Miner] = []
+    for item in items if isinstance(items, list) else []:
+        if not isinstance(item, dict) or len(out) >= MAX_MINERS:
+            continue
+        switch = str(item.get("switch") or "").strip()
+        sensor = str(item.get("sensor") or "").strip()
+        for entity in (switch, sensor):
+            if entity and not ENTITY_RE.match(entity):
+                raise ValueError(f"miners: {entity!r} is not an entity id (like switch.miner_1)")
+        miner = Miner(
+            name=str(item.get("name") or "").strip()[:40] or f"Miner {len(out) + 1}",
+            switch=switch,
+            sensor=sensor,
+            power_w=_clamp(item.get("power_w"), 0, 0, 100000),
+        )
+        if miner.switch or miner.sensor or miner.power_w:
+            out.append(miner)
+    names = [m.name for m in out]
+    if len(set(names)) != len(names):
+        raise ValueError("miners: give every miner its own name")
+    return out
+
+
 @dataclass
 class Config:
     """Application configuration, read from the add-on options."""
@@ -76,11 +120,9 @@ class Config:
     mqtt_base_topic: str = "goodwe"
     mqtt_discovery_prefix: str = "homeassistant"
 
-    # The surplus loads (bitcoin miners) switched on by the surplus signal: their name, total rated
-    # power, and optionally the Home Assistant entity that says whether they run (or what they draw)
-    miners_name: str = "BTC miners"
-    miners_power_w: int = 0
-    miners_entity: str = ""
+    # The surplus loads (bitcoin miners): each with the Home Assistant switch that starts and stops
+    # it, the power sensor that says what it draws, and its rated power
+    miners: list["Miner"] = field(default_factory=list)
 
     log_level: str = "info"
 
@@ -107,7 +149,6 @@ class Config:
         inverter = data.get("inverter") or {}
         forecast = data.get("forecast") or {}
         mqtt = data.get("mqtt") or {}
-        miners = data.get("miners") or {}
         defaults = cls()
         planes = []
         # "planes" was the option's name in 0.1.0 and 0.1.1
@@ -139,8 +180,6 @@ class Config:
             mqtt_password=str(mqtt.get("password") or ""),
             mqtt_base_topic=str(mqtt.get("base_topic") or defaults.mqtt_base_topic).strip("/"),
             mqtt_discovery_prefix=str(mqtt.get("discovery_prefix") or defaults.mqtt_discovery_prefix).strip("/"),
-            miners_name=str(miners.get("name") or defaults.miners_name).strip()[:40] or defaults.miners_name,
-            miners_power_w=_clamp(miners.get("power_w"), 0, 0, 100000),
-            miners_entity=str(miners.get("entity") or "").strip(),
+            miners=_miners(data.get("miners")),
             log_level=str(data.get("log_level") or "info"),
         )

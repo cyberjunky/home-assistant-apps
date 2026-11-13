@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.12
+
+**After updating:** `miners` is now a list, one entry per miner, and the old `name` / `power_w` / `entity` block no longer fits. Replace it on the Configuration tab with your miners, each with its switch and power sensor (see the documentation, *Miners*), and remove any automation that switched them with the Solar surplus sensor: the app does that now.
+
+- **The app switches the miners itself**, one by one through their Home Assistant switches. The next miner starts while the surplus signal is on and the estimated surplus covers its draw; the one that started last stops once the house imports from the grid or drains the battery for the debounce time, then the next. At most one switch per debounce period, and a stopped miner stays off at least five minutes.
+- **Each miner on the dashboard**: running or not, its power, today's hours and energy, and a switch for *auto* (the app switches it) or *manual* (left alone, with Start and Stop by hand). The panel says what the app is doing or waiting for.
+- **The rated power is optional** with a power sensor: the app learns each miner's draw while it runs.
+- **Stats per miner**: hours and energy of each miner per period and per day, next to the totals.
+- **MQTT:** a power sensor and a *running* binary sensor per miner, besides the totals. The `miners_started` / `miners_stopped` events name the miner; new `miner_switch_failed` event.
+
+## 0.3.11
+
+**After updating:** nothing to do.
+
+- **The top bar fits a phone:** the app's name and buttons on top with the theme button last, the menu full width below. When the menu doesn't fit it scrolls sideways instead of losing a tab; on a laptop it gives way the same way and the clock goes first (below 860 px).
+
 ## 0.3.10
 
 **After updating:** nothing to do.

@@ -452,9 +452,8 @@ pre.json { font-family: var(--mono); font-size: 11.5px; white-space: pre-wrap; o
 @media (max-width: 700px) {
     .container { padding: 12px 12px 28px; }
     .topbar { flex-wrap: wrap; gap: 6px 8px; padding: 6px 8px; }
-    .topbar > .brand, .topbar > .spacer, .clock { display: none; }
+    .topbar > .spacer, .clock { display: none; }
     .topbar > nav.tabs { order: 1; flex: 1 1 100%; }
-    nav.tabs .tab { flex: 1; padding: 0 6px; }
     nav.tabs .tab[data-tab="settings"] { flex: 0 0 36px; }
     nav.tabs .tab[data-tab="settings"] .tab-label { display: none; }
     nav.tabs .tab[data-tab="settings"] .tab-icon { display: inline; font-size: 15px; }
@@ -468,3 +467,34 @@ pre.json { font-family: var(--mono); font-size: 11.5px; white-space: pre-wrap; o
     .facts.three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .sankey svg { min-height: 200px; }
 }
+
+/* The top bar on smaller screens, the same in every app. The menu gives way when the bar is full: it
+   scrolls sideways, no tab falls off. On a phone: the name, the buttons and the theme (last) on top,
+   the menu full width below. */
+.topbar > nav.tabs { flex-shrink: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.topbar > nav.tabs::-webkit-scrollbar { display: none; }
+.topbar > nav.tabs > * { flex-shrink: 0; }
+@media (max-width: 860px) {
+    .clock { display: none; }
+}
+@media (max-width: 700px) {
+    .topbar { flex-wrap: wrap; gap: 6px 8px; padding: 6px 10px; }
+    .topbar > .brand { display: flex; flex: 1 1 0; min-width: 0; }
+    .brand-sub { display: none; }
+    .brand-name { overflow: hidden; text-overflow: ellipsis; }
+    .topbar > .spacer { display: none; }
+    .topbar > nav.tabs { order: 1; flex: 1 1 100%; }
+    nav.tabs .tab { flex: 1 0 auto; padding: 0 8px; }
+}
+
+/* The miners on the dashboard */
+.miners-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.miners-table th { text-align: left; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--secondary-text-color); padding: 0 8px 6px 0; }
+.miners-table td { padding: 7px 8px 7px 0; border-top: 1px solid var(--divider-color); vertical-align: top; line-height: 1.35; }
+.miners-table td small { color: var(--secondary-text-color); }
+.miners-table .miner-mode { white-space: nowrap; text-align: right; padding-right: 0; }
+.miners-table th:last-child { text-align: right; padding-right: 0; }
+.miner-auto { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; vertical-align: middle; }
+.state.miners::before { background: var(--miners); }
+.miners-table .muted { color: var(--muted-text-color); }

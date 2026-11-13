@@ -527,9 +527,8 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; line-height:
 }
 @media (max-width: 700px) {
     .topbar { flex-wrap: wrap; gap: 6px 8px; padding: 6px 8px; }
-    .topbar > .brand, .topbar > .spacer, .clock { display: none; }
+    .topbar > .spacer, .clock { display: none; }
     .topbar > nav.tabs { order: 1; flex: 1 1 100%; }
-    nav.tabs .tab { flex: 1; padding: 0 6px; }
     nav.tabs .tab[data-tab="settings"] { flex: 0 0 36px; }
     nav.tabs .tab[data-tab="settings"] .tab-label { display: none; }
     nav.tabs .tab[data-tab="settings"] .tab-icon { display: inline; font-size: 15px; }
@@ -557,3 +556,22 @@ textarea.input { height: auto; padding: 8px 10px; resize: vertical; line-height:
 .car-head .ch-right .car-visual { width: 180px; max-width: 46vw; margin-top: -10px; margin-bottom: -4px; }
 @media (max-width: 1100px) { .car-head .ch-right .car-visual { width: 150px; } }
 .dash-side .block:first-child { padding-top: 12px; padding-bottom: 8px; }
+
+/* The top bar on smaller screens, the same in every app. The menu gives way when the bar is full: it
+   scrolls sideways, no tab falls off. On a phone: the name, the buttons and the theme (last) on top,
+   the menu full width below. */
+.topbar > nav.tabs { flex-shrink: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.topbar > nav.tabs::-webkit-scrollbar { display: none; }
+.topbar > nav.tabs > * { flex-shrink: 0; }
+@media (max-width: 860px) {
+    .clock { display: none; }
+}
+@media (max-width: 700px) {
+    .topbar { flex-wrap: wrap; gap: 6px 8px; padding: 6px 10px; }
+    .topbar > .brand { display: flex; flex: 1 1 0; min-width: 0; }
+    .brand-sub { display: none; }
+    .brand-name { overflow: hidden; text-overflow: ellipsis; }
+    .topbar > .spacer { display: none; }
+    .topbar > nav.tabs { order: 1; flex: 1 1 100%; }
+    nav.tabs .tab { flex: 1 0 auto; padding: 0 8px; }
+}

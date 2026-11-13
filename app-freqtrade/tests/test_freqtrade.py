@@ -348,3 +348,15 @@ async def test_changes(dashboard):
     config.read_only = True
     assert (await client.post("/api/bot/test/control", json={"action": "start"})).status == 403
     assert (await client.post("/api/bot/test/forceexit", json={"trade_id": trade_id})).status == 403
+
+
+def test_startup_messages_are_plain_text():
+    text, _ = describe_event({"type": "startup", "status": "*Exchange:* `binance`\n*Strategy:* `OPT7_NFILite`"})
+    assert text == "Exchange: binance · Strategy: OPT7_NFILite"
+    text, _ = describe_event(
+        {
+            "type": "startup",
+            "status": "Pairs from [{'VolumePairList': 'VolumePairList - top 200 volume pairs.'}, {'AgeFilter': 'AgeFilter - min 10 days'}]",
+        }
+    )
+    assert text == "Pairs from VolumePairList - top 200 volume pairs.; AgeFilter - min 10 days"

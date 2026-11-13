@@ -61,6 +61,7 @@ jobs:
           - app-toon
           - app-nuclei
           - app-sdradio
+          - app-proxmox
           - app-proxmox-bs
     steps:
       - name: Check out code from GitHub

@@ -110,6 +110,8 @@ class WebUI:
         get("/api/control", self._handle_control)
         post("/api/control", self._handle_control_update)
         post("/api/control/dod", self._handle_control_dod)
+        post("/api/miners/auto", self._handle_miner_auto)
+        post("/api/miners/switch", self._handle_miner_switch)
         get("/api/inverter/settings", self._handle_inverter_settings)
         post("/api/inverter/write", self._handle_inverter_write)
         get("/api/events", self._handle_events)
@@ -225,6 +227,8 @@ class WebUI:
         day = _date(request.query.get("date"), date.today()).isoformat()
         result = await asyncio.to_thread(self.database.day_series, day)
         result["summary"] = self.database.day_row(day)
+        next_day = (date.fromisoformat(day) + timedelta(days=1)).isoformat()
+        result["miners"] = self.database.miner_totals(day, next_day)
         result["forecast"] = self.forecast.hourly(date.fromisoformat(day)) if self.forecast.configured else []
         return _json(result)
 
@@ -248,6 +252,7 @@ class WebUI:
         for item in (*periods, summary):
             item["cycles"] = round(float(item.get("e_bat_discharge_day") or 0) / capacity, 2) if capacity else None
         summary["battery_capacity_kwh"] = capacity or None
+        summary["miners"] = await asyncio.to_thread(self.database.miner_totals, start.isoformat(), end.isoformat())
         return _json(
             {"from": start.isoformat(), "to": end.isoformat(), "bucket": bucket, "periods": periods, "summary": summary}
         )
@@ -307,6 +312,28 @@ class WebUI:
         except (InverterError, ValueError, OSError, TimeoutError) as e:
             return _error(f"The inverter did not accept the command: {e}", 502)
         return _json({"result": result, "control": self.controller.state()})
+
+    async def _handle_miner_auto(self, request: web.Request) -> web.Response:
+        """A miner on auto (the app switches it with the surplus) or manual (left alone)."""
+        body = await _json_body(request)
+        miners = self.controller.miners
+        try:
+            if miners is None:
+                raise ValueError("No miners configured")
+            return _json(miners.set_auto(str(body.get("name") or ""), bool(body.get("auto"))))
+        except ValueError as e:
+            return _error(str(e))
+
+    async def _handle_miner_switch(self, request: web.Request) -> web.Response:
+        """Switch a miner on manual by hand."""
+        body = await _json_body(request)
+        miners = self.controller.miners
+        try:
+            if miners is None:
+                raise ValueError("No miners configured")
+            return _json(await miners.switch(str(body.get("name") or ""), bool(body.get("on"))))
+        except ValueError as e:
+            return _error(str(e))
 
     async def _handle_inverter_settings(self, request: web.Request) -> web.Response:
         if request.query.get("cached") == "1":

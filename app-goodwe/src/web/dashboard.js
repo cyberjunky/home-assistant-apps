@@ -37,18 +37,76 @@ function notReadText(c, what) {
     return c.settings_error ? `${what} unknown: settings read failed, retrying` : `${what} not read yet`;
 }
 
-// The miners (surplus loads): null when not configured
+// The miners (surplus loads) together: null when none are configured
 function minersInfo(c) {
     const m = (c && c.miners) || {};
     if (!m.enabled) return null;
     const name = escapeHtml(m.name || 'Miners');
+    const count = (m.miners || []).length;
     if (m.on === null || m.on === undefined) {
         return {name, on: null, text: m.error ? '<span class="sb-warn">unknown</span>' : '<small>waiting for data</small>', detail: m.error ? escapeHtml(m.error) : ''};
     }
-    const since = m.since ? `since ${fmtTime(m.since)}` : '';
+    const share = count > 1 ? `${m.running} of ${count} ` : '';
     return m.on
-        ? {name, on: true, text: `running <small>≈ ${fmtW(m.watts)}${since ? ' · ' + since : ''}</small>`, detail: ''}
-        : {name, on: false, text: `off <small>${since}</small>`, detail: ''};
+        ? {name, on: true, text: `${share}running <small>≈ ${fmtW(m.watts)}</small>`, detail: m.error ? escapeHtml(m.error) : ''}
+        : {name, on: false, text: `${count > 1 ? 'all ' : ''}off`, detail: m.error ? escapeHtml(m.error) : ''};
+}
+
+// Each miner: running or not, its power, today, and auto (the app switches it) or manual
+function renderDashMiners() {
+    const c = app.control || {}, m = c.miners || {};
+    const panel = document.getElementById('dash-miners-panel');
+    panel.hidden = !m.enabled;
+    if (!m.enabled) return;
+    const today = Object.fromEntries(((todayDay && todayDay.miners) || []).map(r => [r.name, r]));
+    const rows = (m.miners || []).map((u, i) => {
+        const t = today[u.name] || {};
+        const since = u.since ? ` <small>since ${fmtTime(u.since)}</small>` : '';
+        const state = u.on === null || u.on === undefined
+            ? `<span class="${u.error ? 'sb-warn' : 'muted'}">${u.error ? 'unknown' : 'waiting'}</span>`
+            : u.on ? `<span class="state miners">running</span>${since}` : `<span class="muted">off</span>${since}`;
+        const draw = u.expected_w ? `<small>${u.power_w ? 'rated' : 'learned'} ${fmtW(u.expected_w)}</small>` : '';
+        const mode = u.auto === null
+            ? '<small class="muted" title="No switch configured: only read">read only</small>'
+            : `<label class="miner-auto" title="Auto: the app starts and stops it with the surplus">${switchHtml(`miner-auto-${i}`, u.auto, `minerAuto(${i}, ${!u.auto})`)} <small>${u.auto ? 'auto' : 'manual'}</small></label>`
+              + (u.auto ? '' : ` <button type="button" class="btn btn-small" onclick="minerSwitch(${i}, ${!u.switch_on})">${u.switch_on ? 'Stop' : 'Start'}</button>`);
+        return `<tr>
+            <td title="${escapeHtml([u.switch, u.sensor].filter(Boolean).join(' · '))}"><b>${escapeHtml(u.name)}</b>${u.error ? `<br><small class="sb-warn">${escapeHtml(u.error)}</small>` : ''}</td>
+            <td>${state}</td>
+            <td class="mono">${u.on ? fmtW(u.watts) : u.on === false ? '0 W' : '–'}<br>${draw}</td>
+            <td class="mono">${num(t.hours || 0, 1)} h<br><small>${fmtKwh(t.kwh || 0, 2)}</small></td>
+            <td class="miner-mode">${mode}</td>
+        </tr>`;
+    }).join('');
+    setHtml('dash-miners', `
+        <div class="block-title"><span>Miners</span><span>${m.on ? `${m.running} running · ${fmtW(m.watts)}` : ''}</span></div>
+        <table class="miners-table"><thead><tr><th>Miner</th><th>State</th><th>Power</th><th>Today</th><th>Switching</th></tr></thead>
+        <tbody>${rows}</tbody></table>
+        ${m.action ? `<div class="live-note">${escapeHtml(m.action)}</div>` : ''}`);
+}
+
+async function minerAuto(i, auto) {
+    const u = ((app.control.miners || {}).miners || [])[i];
+    if (!u) return;
+    try {
+        Object.assign(u, await api('miners/auto', {method: 'POST', body: {name: u.name, auto}}));
+        renderDashMiners();
+        toast(`${u.name}: ${auto ? 'auto, switched with the solar surplus' : 'manual, the app leaves it alone'}`, 'success');
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+async function minerSwitch(i, on) {
+    const u = ((app.control.miners || {}).miners || [])[i];
+    if (!u) return;
+    try {
+        Object.assign(u, await api('miners/switch', {method: 'POST', body: {name: u.name, on}}));
+        renderDashMiners();
+        toast(`${u.name} switched ${on ? 'on' : 'off'}`, 'success');
+    } catch (e) {
+        toast(e.message, 'error');
+    }
 }
 
 // Equivalent full cycles since recording began, from the commissioned capacity
@@ -172,7 +230,6 @@ function renderDashControl() {
                 fact(`${miners.name} today`, `${num(d.miners_hours || 0, 1)} h <small>${fmtKwh(d.e_miners_day || 0, 1)}</small>`),
             ] : []),
         ])}</div>
-        ${miners && miners.detail ? `<div class="live-note sb-warn">${miners.name}: ${miners.detail}</div>` : ''}
         ${decision ? `<div class="live-note">${escapeHtml(decision)}${c.last_tick ? ` <small>· checked ${fmtAgo(c.last_tick)}</small>` : ''}</div>` : ''}
         <div class="detail-actions" style="margin-top:10px"><button type="button" class="btn btn-small" onclick="switchTab('settings')">Battery control settings</button></div>`);
 }
@@ -203,6 +260,7 @@ function renderDashboard() {
         renderDashSolar();
     }
     renderDashControl();
+    renderDashMiners();
     if (activeTab !== 'dashboard') return;
     if (Date.now() - sankeyLoadedAt > 120000) loadDashSankey();
     if (Date.now() - todayLoadedAt > 300000) loadToday();
@@ -309,6 +367,7 @@ async function loadToday() {
         renderSolarToday(todayDay);
         renderBatteryToday(todayDay);
         renderDashSolar();
+        renderDashMiners();
     } catch (e) {
         emptyChart(document.getElementById('chart-solar-today'), e.message);
         emptyChart(document.getElementById('chart-battery-day'), e.message);

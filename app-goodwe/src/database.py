@@ -14,6 +14,8 @@ import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+from .config import MAX_MINERS
+
 logger = logging.getLogger(__name__)
 
 # Full-resolution snapshots for this many days; older ones are averaged per minute
@@ -41,6 +43,8 @@ SNAPSHOT_KEYS = (
     # Stamped by the miners module: whether the surplus loads run, and their power
     "miners_on",
     "miners_w",
+    # ... and each miner, by its place in the configuration
+    *(f"miner{i}_{k}" for i in range(1, MAX_MINERS + 1) for k in ("on", "w")),
 )
 DAY_KEYS = ("e_day", "e_day_imp", "e_day_exp", "e_load_day", "e_bat_charge_day", "e_bat_discharge_day")
 # Daily statistics that only exist as derived from the snapshots: hours the surplus signal was on,
@@ -105,6 +109,7 @@ class Database:
         self.con.row_factory = sqlite3.Row
         self.con.execute("PRAGMA journal_mode=WAL")
         self._inserts = 0
+        self.miner_names: list[str] = []  # the configured miners, in order (set by __main__)
         self._migrate()
 
     def _migrate(self) -> None:
@@ -133,6 +138,13 @@ class Database:
                 e_curtailed_day     REAL DEFAULT 0,
                 miners_hours        REAL DEFAULT 0,
                 e_miners_day        REAL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS miner_days (
+                date  TEXT NOT NULL,
+                name  TEXT NOT NULL,
+                hours REAL DEFAULT 0,
+                kwh   REAL DEFAULT 0,
+                PRIMARY KEY (date, name)
             );
             CREATE TABLE IF NOT EXISTS forecast_log (
                 date         TEXT PRIMARY KEY,
@@ -277,6 +289,7 @@ class Database:
         }
         imp_by_hour = [0.0] * 24
         extra = {"surplus_s": 0.0, "surplus_solar_wh": 0.0, "curtailed_wh": 0.0, "miners_s": 0.0, "miners_wh": 0.0}
+        each = {i: [0.0, 0.0] for i in range(1, MAX_MINERS + 1)}  # per miner: seconds running, Wh
         prev = None
         for row in rows:
             ts = row["ts"]
@@ -315,7 +328,12 @@ class Database:
                 extra["miners_s"] += (ts - prev) * _share(d.get("miners_on"))
                 # miners_w is 0 while off, so its (averaged) power is the energy as it is
                 extra["miners_wh"] += max(float(d.get("miners_w") or 0), 0) * h
+                for i, acc in each.items():
+                    if f"miner{i}_w" in d:
+                        acc[0] += (ts - prev) * _share(d.get(f"miner{i}_on"))
+                        acc[1] += max(float(d.get(f"miner{i}_w") or 0), 0) * h
             prev = ts
+        extra["each"] = each
         return links, imp_by_hour, len(rows), extra
 
     def energy_flow(self, day: str | None = None) -> dict:
@@ -390,7 +408,25 @@ class Database:
                 day,
             ),
         )
+        # Each miner under its name (the snapshots know it only by its place in the configuration)
+        for i, name in enumerate(self.miner_names, 1):
+            seconds, wh = extra["each"][i]
+            if seconds or wh:
+                self.con.execute(
+                    "INSERT INTO miner_days(date, name, hours, kwh) VALUES (?, ?, ?, ?)"
+                    " ON CONFLICT(date, name) DO UPDATE SET hours = MAX(hours, excluded.hours), kwh = MAX(kwh, excluded.kwh)",
+                    (day, name, round(seconds / 3600, 2), round(wh / 1000, 3)),
+                )
         self.con.commit()
+
+    def miner_totals(self, start: str, end: str) -> list[dict]:
+        """Hours and energy of each miner with start <= date < end."""
+        rows = self.con.execute(
+            "SELECT name, ROUND(SUM(hours), 2) AS hours, ROUND(SUM(kwh), 3) AS kwh, COUNT(*) AS days"
+            " FROM miner_days WHERE date >= ? AND date < ? GROUP BY name ORDER BY name",
+            (start, end),
+        ).fetchall()
+        return [dict(r) for r in rows]
 
     def snapshot_dates(self, since: int = 0) -> list[str]:
         """The local dates that have snapshots (from `since`, a timestamp, on)."""
@@ -639,7 +675,7 @@ class Database:
         """Empty every table: the Settings danger zone. Returns what was there. The file stays, and the
         space is given back. The options and the inverter are not touched."""
         removed = self.counts()
-        for table in ("events", "forecast_log", "daily_summary", "snapshots"):
+        for table in ("events", "forecast_log", "miner_days", "daily_summary", "snapshots"):
             self.con.execute(f"DELETE FROM {table}")
         self.con.commit()
         self.con.execute("VACUUM")

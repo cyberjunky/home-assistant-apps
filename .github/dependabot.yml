@@ -22,6 +22,7 @@ updates:
       - /app-goodwe
       - /app-meldkamer
       - /app-pgadmin4
+      - /app-proxmox
       - /app-tesla
       - /app-timescaledb
     schedule:
@@ -32,13 +33,14 @@ updates:
         update-types:
           - version-update:semver-major
 
-  # The Python packages of Arcade, Chronicle, Tesla, GoodWe and FireServiceRota, pinned in their requirements.txt.
+  # The Python packages of Arcade, Chronicle, Tesla, GoodWe, FireServiceRota and Proxmox, pinned in their requirements.txt.
   - package-ecosystem: pip
     directories:
       - /app-arcade
       - /app-chronicle
       - /app-fireservicerota
       - /app-goodwe
+      - /app-proxmox
       - /app-tesla
     schedule:
       interval: monthly
