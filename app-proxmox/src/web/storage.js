@@ -7,15 +7,14 @@ let stForecasts = {};
 let stForecastAt = 0;
 let stHistory = null;
 let stHistoryKey = '';
-let stBkFilter = '';
-const ST_SECTIONS = [{key: 'storage', label: 'Storage'}, {key: 'backups', label: 'Backups'}, {key: 'jobs', label: 'Jobs'}, {key: 'replication', label: 'Replication'}];
+const ST_SECTIONS = [{key: 'storage', label: 'Storage'}, {key: 'replication', label: 'Replication'}];
 
 function showStorage(sub) {
     if (ST_SECTIONS.some(s => s.key === sub)) stSection = sub;
+    if (!ST_SECTIONS.some(s => s.key === stSection)) stSection = 'storage';
     setSub(stSection);
     delete document.getElementById('tab-storage').dataset.built;
     renderStorage();
-    if (stSection === 'backups') loadGsBackups(false);
     loadForecasts(false);
 }
 
@@ -39,29 +38,17 @@ function renderStorage() {
                     <p class="panel-sub" id="st-chart-note" style="margin-top:8px"></p>
                 </div></div>
             </div>
-            <div class="section" data-section="backups">
-                <div id="bk-tiles" class="tiles kpi-tiles"></div>
-                <div class="filters"><input class="input" id="bk-search" type="search" placeholder="Guest, ID or storage" aria-label="Search backups"></div>
-                ${panel('Per guest', 'the latest backup of every guest', '<div id="bk-guests" class="table-wrap"></div>')}
-            </div>
-            <div class="section" data-section="jobs">
-                ${panel('Backup jobs', 'Datacenter → Backup in Proxmox', '<div id="jb-backup" class="table-wrap"></div>')}
-            </div>
             <div class="section" data-section="replication">
                 ${panel('Replication', 'storage replication jobs (ZFS)', '<div id="jb-repl" class="table-wrap"></div>')}
             </div>`;
         bindChips('st-sections', (key) => {
             stSection = key; store('st_section', key); setSub(key); markStSection();
-            if (key === 'backups') loadGsBackups(false);
             renderStorage();
         });
         bindChips('st-tf', (key) => { stTimeframe = key; store('st_tf', key); loadStHistory(true); });
-        document.getElementById('bk-search').addEventListener('input', (e) => { stBkFilter = e.target.value.trim().toLowerCase(); renderBackups(); });
         markStSection();
     }
     if (stSection === 'storage') renderStorageList();
-    else if (stSection === 'backups') renderBackups();
-    else if (stSection === 'jobs') renderJobs();
     else renderReplication();
 }
 
@@ -179,79 +166,8 @@ function drawStHistory(s) {
 }
 
 // ---------------------------------------------------------------------
-// Backups
+// Replication
 // ---------------------------------------------------------------------
-function renderBackups() {
-    const el = document.getElementById('bk-guests');
-    if (gsBackups === null) { el.innerHTML = '<div class="empty-state">Reading the backups of every backup storage…</div>'; return; }
-    const all = gsBackups;
-    const byGuest = new Map();
-    all.forEach(b => { const k = String(b.vmid); if (!byGuest.has(k)) byGuest.set(k, []); byGuest.get(k).push(b); });
-    const gs = guests({noTemplates: true});
-    const notBacked = new Set(((app.conf && app.conf.not_backed_up) || []).map(x => String(x.vmid)));
-    const day = 86400, now = Date.now() / 1000;
-    const failed = all.filter(b => b.verification && b.verification.state && b.verification.state !== 'ok');
-    const total = all.reduce((a, b) => a + (b.size || 0), 0);
-    const stale = gs.filter(g => { const l = byGuest.get(String(g.vmid)); return !l || now - Math.max(...l.map(b => b.ctime)) > 2 * day; });
-    document.getElementById('bk-tiles').innerHTML = [
-        tile('Backups', num(all.length), `${byGuest.size} guests · ${fmtBytes(total)}`),
-        tile('Not in a job', num(notBacked.size), notBacked.size ? 'guests no backup job includes' : 'every guest is in a job', notBacked.size ? 'warn' : ''),
-        tile('Older than 2 days', num(stale.length), 'or no backup at all', stale.length ? 'warn' : ''),
-        tile('Failed verification', num(failed.length), failed.length ? 'backups to look at' : 'on PBS, where verified', failed.length ? 'bad' : ''),
-    ].join('');
-    const rows = gs.filter(g => !stBkFilter || `${g.vmid} ${guestName(g)} ${(byGuest.get(String(g.vmid)) || []).map(b => b.storage).join(' ')}`.toLowerCase().includes(stBkFilter))
-        .map(g => {
-            const list = (byGuest.get(String(g.vmid)) || []).sort((a, b) => b.ctime - a.ctime);
-            const latest = list[0];
-            const age = latest ? now - latest.ctime : null;
-            const bad = list.filter(b => b.verification && b.verification.state && b.verification.state !== 'ok').length;
-            const verified = list.filter(b => b.verification && b.verification.state === 'ok').length;
-            return {age: age === null ? Infinity : age, html: `<tr onclick="openGuest(${g.vmid})">
-                ${td(guestLabel(g))}
-                ${td(latest ? `<span class="${age > 7 * day ? 'neg' : age > 2 * day ? 'warn-text' : ''}">${escapeHtml(fmtAgo(latest.ctime))}</span><span class="sub">${escapeHtml(fmtDateTime(latest.ctime))}</span>` : '<span class="neg">none</span>')}
-                ${td(num(list.length), 'n')}
-                ${td(list.length ? escapeHtml(fmtAgo(list[list.length - 1].ctime)) : '–', 'n')}
-                ${td(latest ? escapeHtml(fmtBytes(latest.size)) : '–', 'n')}
-                ${td([...new Set(list.map(b => b.storage))].map(escapeHtml).join(', ') || '–')}
-                ${td(bad ? stateLabel('bad', `${bad} failed`) : verified ? stateLabel('ok', `${verified} OK`) : '<span class="muted">–</span>')}
-                ${td(notBacked.has(String(g.vmid)) ? badge('NOT IN A JOB', 'bad') : list.some(b => b.protected) ? '🔒 protected' : '')}
-            </tr>`};
-        }).sort((a, b) => b.age - a.age).map(r => r.html);
-    el.innerHTML = permissionNote('backups', 'Backups') + table([
-        {label: 'Guest'}, {label: 'Latest'}, {label: 'Count', n: true}, {label: 'Oldest', n: true}, {label: 'Size', n: true, title: 'of the latest backup'},
-        {label: 'Storage'}, {label: 'Verified'}, {label: ''},
-    ], rows, {cls: 'hover', empty: 'No guest matches'});
-}
-
-// ---------------------------------------------------------------------
-// Jobs
-// ---------------------------------------------------------------------
-function renderJobs() {
-    const el = document.getElementById('jb-backup');
-    if (!app.conf) { el.innerHTML = '<div class="empty-state">Reading the configuration…</div>'; return; }
-    const tasks = (app.status.tasks || []).filter(t => t.type === 'vzdump');
-    const lastRun = tasks.filter(t => !t.id)[0] || tasks[0];
-    const rows = (app.conf.backup_jobs || []).map(j => {
-        const enabled = j.enabled === undefined || Number(j.enabled);
-        const sel = j.all ? `all${j.exclude ? ` except ${j.exclude}` : ''}` : j.pool ? `pool ${j.pool}` : j.vmid || '';
-        return `<tr class="${enabled ? '' : 'off'}">
-            ${td(enabled ? stateLabel('ok', 'on') : stateLabel('', 'off'))}
-            ${td(`<span class="mono">${escapeHtml(j.schedule || j.starttime || '')}</span>${j.dow ? `<span class="sub">${escapeHtml(j.dow)}</span>` : ''}`)}
-            ${td(escapeHtml(j.storage || ''))}
-            ${td(escapeHtml(sel), 'wrap-cell')}
-            ${td(escapeHtml(j.node || 'all nodes'))}
-            ${td(escapeHtml(j.mode || 'snapshot'))}
-            ${td(escapeHtml(j['prune-backups'] || j.maxfiles || 'storage default'), 'mono wrap-cell muted')}
-            ${td(escapeHtml(j['next-run'] ? `${fmtDateTime(j['next-run'])} · ${fmtAgo(j['next-run'])}` : '–'), 'n')}
-            ${td(escapeHtml(j.comment || ''), 'muted wrap-cell')}
-        </tr>`;
-    });
-    el.innerHTML = permissionNote('backup', 'Backup jobs') + table([
-        {label: ''}, {label: 'Schedule'}, {label: 'Storage'}, {label: 'Guests'}, {label: 'Node'}, {label: 'Mode'}, {label: 'Keep'}, {label: 'Next run', n: true}, {label: 'Comment'},
-    ], rows, {empty: 'No backup jobs'}) + (lastRun ? `<p class="panel-sub" style="margin-top:10px">Last backup task: ${escapeHtml(fmtDateTime(lastRun.starttime))} on ${escapeHtml(lastRun.node)} · ${taskState(lastRun)}
-        <a href="#tasks" onclick="showTask('${attr(lastRun.node)}', '${attr(lastRun.upid)}', 'Backup');return false">its log →</a></p>` : '');
-}
-
 function renderReplication() {
     const el = document.getElementById('jb-repl');
     if (!app.conf) { el.innerHTML = '<div class="empty-state">Reading the configuration…</div>'; return; }

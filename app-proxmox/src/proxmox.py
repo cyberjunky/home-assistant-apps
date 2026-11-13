@@ -58,6 +58,13 @@ RULE_ACTIONS = ("ACCEPT", "DROP", "REJECT")
 RULE_OPTIONAL = ("macro", "source", "dest", "proto", "dport", "sport", "iface", "log", "comment")
 LOG_LINE = re.compile(r"^(\d+) (\d+) (\S+) (\d{1,2}/\w{3}/\d{4}:\d{2}:\d{2}:\d{2} [+-]\d{4}) (.*)$")
 PACKET_FIELD = re.compile(r"\b([A-Z]+)=(\S*)")
+BACKUP_DAYS = 14
+BACKUP_START = re.compile(r"Starting Backup of VM (\d+) \((qemu|lxc|openvz)\)")
+BACKUP_AT = re.compile(r"Backup started at (\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)")
+BACKUP_DONE = re.compile(r"Finished Backup of VM (\d+) \((\d+):(\d\d):(\d\d)\)")
+BACKUP_FAILED = re.compile(r"ERROR: Backup of VM (\d+) failed - (.*)")
+BACKUP_TRANSFERRED = re.compile(r"transferred ([\d.]+) ([KMGT]i?B|B) in (\d+) seconds")
+BACKUP_ARCHIVE_SIZE = re.compile(r"archive file size: ([\d.]+)([KMGT]?)B")
 
 
 class ProxmoxError(Exception):
@@ -206,6 +213,57 @@ def parse_firewall_log(lines: list, node: str) -> list[dict]:
             }
         )
     return entries
+
+
+def _amount(value: str, unit: str) -> int:
+    """'12.4', 'GiB' -> bytes."""
+    return int(float(value) * 1024 ** " KMGT".index(unit[:1] if unit[:1] in "KMGT" else " "))
+
+
+def parse_backup_log(lines: list, task: dict) -> list[dict]:
+    """What a vzdump task did per guest: one run each, ok or failed, with how long it took and what it moved.
+
+    A job task covers many guests; a manual backup one. A guest that started but neither finished nor
+    failed (the task was stopped) counts as failed."""
+    runs: list[dict] = []
+    current: dict | None = None
+    for item in lines:
+        text = item.get("t", "") if isinstance(item, dict) else str(item)
+        if m := BACKUP_START.search(text):
+            if current:
+                current.update(ok=False, error=current.get("error") or "did not finish")
+                runs.append(current)
+            current = {
+                "vmid": int(m.group(1)),
+                "ts": task.get("starttime", 0),
+                "ok": None,
+                "duration": None,
+                "error": "",
+                "transferred": None,
+                "node": task.get("node", ""),
+                "upid": task.get("upid", ""),
+            }
+            continue
+        if current is None:
+            continue
+        if m := BACKUP_AT.search(text):
+            with contextlib.suppress(ValueError):
+                current["ts"] = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S").timestamp()
+        elif (m := BACKUP_TRANSFERRED.search(text)) or (m := BACKUP_ARCHIVE_SIZE.search(text)):
+            current["transferred"] = _amount(m.group(1), m.group(2))
+        elif (m := BACKUP_DONE.search(text)) and int(m.group(1)) == current["vmid"]:
+            current.update(ok=True, duration=int(m.group(2)) * 3600 + int(m.group(3)) * 60 + int(m.group(4)))
+            runs.append(current)
+            current = None
+        elif (m := BACKUP_FAILED.search(text)) and int(m.group(1)) == current["vmid"]:
+            current.update(ok=False, error=m.group(2).strip())
+            runs.append(current)
+            current = None
+    if current:
+        running = not task.get("endtime") and not task.get("status")
+        current.update(ok=None if running else False, error="" if running else "did not finish")
+        runs.append(current)
+    return runs
 
 
 def _port_in(spec: str, port: int) -> bool:
@@ -768,6 +826,50 @@ class Cluster:
             return {"backups": [b for part in parts for b in part], "read_at": time.time()}
 
         return await self.cached("backups", 60, make)
+
+    async def backup_history(self, days: int = BACKUP_DAYS) -> dict:
+        """The backup tasks of the last days on every node, and per guest what each run did, from their logs."""
+
+        async def make():
+            since = int(time.time() - days * 86400)
+            nodes = self.online_nodes()
+            lists = await asyncio.gather(
+                *(
+                    self._try(
+                        f"backuptasks:{n}",
+                        self.api.get(
+                            f"/nodes/{_quote(n)}/tasks", typefilter="vzdump", since=since, limit=500, source="all"
+                        ),
+                        [],
+                    )
+                    for n in nodes
+                )
+            )
+            tasks = sorted(
+                ({**t, "node": t.get("node") or n} for n, part in zip(nodes, lists, strict=True) for t in part or []),
+                key=lambda t: t.get("starttime", 0),
+                reverse=True,
+            )
+
+            async def runs_of(task):
+                lines = await self._try(
+                    f"backuplog:{task['node']}",
+                    self.api.get(f"/nodes/{_quote(task['node'])}/tasks/{_quote(task['upid'])}/log", limit=50000),
+                    [],
+                )
+                return parse_backup_log(lines or [], task)
+
+            parts = await asyncio.gather(*(runs_of(t) for t in tasks[:200]))
+            runs = sorted((r for part in parts for r in part), key=lambda r: r["ts"], reverse=True)
+            keep = ("upid", "node", "id", "user", "starttime", "endtime", "status")
+            return {
+                "days": days,
+                "tasks": [{k: t.get(k) for k in keep} for t in tasks],
+                "runs": runs,
+                "read_at": time.time(),
+            }
+
+        return await self.cached("backuphistory", 300, make)
 
     async def task(self, node: str, upid: str) -> dict:
         base = f"/nodes/{_quote(node)}/tasks/{_quote(upid)}"

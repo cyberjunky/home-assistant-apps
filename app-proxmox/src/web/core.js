@@ -189,7 +189,7 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', app
 // onTab(name, show(sub, changed), live()): show when the tab opens or its sub changes,
 // live after every new status (every few seconds) and new configuration.
 // =====================================================================
-const TABS = ['overview', 'nodes', 'guests', 'storage', 'network', 'firewall', 'tasks', 'info'];
+const TABS = ['overview', 'nodes', 'guests', 'storage', 'backups', 'network', 'firewall', 'tasks', 'info'];
 const tabHooks = {};
 const liveHooks = {};
 let activeTab = null;

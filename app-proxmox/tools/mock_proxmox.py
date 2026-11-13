@@ -11,7 +11,7 @@ import copy
 import math
 import random
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 
 from aiohttp import web
 
@@ -80,7 +80,7 @@ STORAGES = [
     ("local", "dir", "iso,vztmpl,backup", False, 100, 38, None),
     ("local-lvm", "lvmthin", "images,rootdir", False, 1800, 640, None),
     ("ceph-vm", "rbd", "images,rootdir", True, 5400, 2310, None),
-    ("pbs", "pbs", "backup", True, 8000, 3420, None),
+    ("pbs", "pbs", "backup", True, 8000, 790, None),
     ("nas-iso", "nfs", "iso,vztmpl", True, 4000, 1280, None),
 ]
 
@@ -335,7 +335,6 @@ class MockCluster:
             self._task(
                 self.rng.choice(
                     [
-                        "vzdump",
                         "qmstart",
                         "vzstart",
                         "qmigrate",
@@ -348,7 +347,6 @@ class MockCluster:
                 ),
                 ago=self.rng.uniform(60, 6 * 86400),
             )
-        self._task("vzdump", ago=4000, status="job errors", vmid="")
         self._task("qmigrate", ago=50, running=True, vmid=104)
         self.backups = self._backups()
 
@@ -603,36 +601,90 @@ class MockCluster:
         return ifaces
 
     def _backups(self):
+        """Nightly backup jobs at 02:00 on every node for two weeks, with their logs, and what they left on PBS.
+
+        105 failed once (two nights ago); 106 fails every night, its last good backups are three weeks old."""
         out = []
         now = time.time()
-        for vmid, g in self.guests.items():
+        today = datetime.fromtimestamp(now).replace(hour=2, minute=0, second=0, microsecond=0)
+        if today.timestamp() > now:
+            today = datetime.fromtimestamp(today.timestamp() - 86400)
+        base = {v: g["maxdisk"] * self.rng.uniform(0.12, 0.4) for v, g in self.guests.items()}
+        speed = {v: self.rng.uniform(80, 400) * 1024**2 for v in self.guests}
+
+        def point(vmid, ts, k):
+            g = self.guests[vmid]
+            kind = "vm" if g["type"] == "qemu" else "ct"
+            stamp = datetime.fromtimestamp(ts, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+            state = "failed" if vmid == 102 and k == 5 else "ok" if k < 4 else None
+            return {
+                "volid": f"pbs:backup/{kind}/{vmid}/{stamp}",
+                "content": "backup",
+                "format": "pbs-" + kind,
+                "vmid": vmid,
+                "ctime": int(ts),
+                "size": int(base[vmid] * (1 - k * 0.004)),
+                "notes": g["name"],
+                "protected": 1 if vmid in (101, 107) and k == 13 else 0,
+                "verification": {"state": state, "upid": "x"} if state else None,
+                "encrypted": "" if vmid != 101 else "2c:9f:..:1a",
+                "subtype": g["type"],
+            }
+
+        for day in range(13, -1, -1):
+            run_at = today.timestamp() - day * 86400
+            for n_index, node in enumerate(NODES):
+                t0 = run_at + n_index * 30
+                log = [
+                    f"INFO: starting new backup job: vzdump --mode snapshot --storage pbs --all 1 --exclude 108,209,9000 --node {node} --notes-template '{{{{guestname}}}}'"
+                ]
+                clock, failed = t0, False
+                for vmid, g in sorted(self.guests.items()):
+                    if g["node"] != node or vmid in (108, 209, 9000):
+                        continue
+                    kind = g["type"]
+                    stamp = datetime.fromtimestamp(clock).strftime("%Y-%m-%d %H:%M:%S")
+                    log += [
+                        f"INFO: Starting Backup of VM {vmid} ({kind})",
+                        f"INFO: Backup started at {stamp}",
+                        "INFO: status = running",
+                    ]
+                    if (vmid == 105 and day == 2) or vmid == 106:
+                        reason = (
+                            "unable to open file '/etc/pve/nodes/pve3/qemu-server/105.conf.tmp' - Device or resource busy"
+                            if vmid == 105
+                            else "backup of TPM state needs the VM to run or a storage that supports it"
+                        )
+                        log.append(f"ERROR: Backup of VM {vmid} failed - {reason}")
+                        failed = True
+                        clock += 4
+                        continue
+                    changed = base[vmid] * (0.05 + 0.04 * self.rng.random())
+                    seconds = max(3, int(changed / speed[vmid] + self.rng.uniform(2, 12)))
+                    log += [
+                        f"INFO: creating Proxmox Backup Server archive '{'vm' if kind == 'qemu' else 'ct'}/{vmid}/{datetime.fromtimestamp(clock, UTC).strftime('%Y-%m-%dT%H:%M:%SZ')}'",
+                        f"INFO: transferred {changed / 1024**3:.2f} GiB in {seconds} seconds ({changed / seconds / 1024**2:.1f} MiB/s)",
+                        f"INFO: Finished Backup of VM {vmid} ({seconds // 3600:02d}:{seconds % 3600 // 60:02d}:{seconds % 60:02d})",
+                    ]
+                    clock += seconds + 2
+                    k = day
+                    if day < 7:
+                        out.append(point(vmid, clock - seconds, k))
+                log.append(
+                    "INFO: Backup job finished with errors" if failed else "INFO: Backup job finished successfully"
+                )
+                self._task("vzdump", ago=now - t0, vmid="", node=node)
+                task = self.tasks[-1]
+                task["status"] = "job errors" if failed else "OK"
+                task["endtime"] = int(clock + 3)
+                task["log"] = log
+        # Weekly restore points kept from before, and 106's last good ones
+        for vmid in self.guests:
             if vmid in (108, 209, 9000):
                 continue
-            count = 6 if vmid != 106 else 2
-            for k in range(count):
-                age = (k * 1 + (0 if vmid != 106 else 19)) * 86400 + 3600 * 2 + vmid
-                ts = int(now - age)
-                stamp = datetime.fromtimestamp(ts).strftime("%Y-%m-%dT%H:%M:%SZ")
-                kind = "vm" if g["type"] == "qemu" else "ct"
-                out.append(
-                    {
-                        "volid": f"pbs:backup/{kind}/{vmid}/{stamp}",
-                        "content": "backup",
-                        "format": "pbs-" + kind,
-                        "vmid": vmid,
-                        "ctime": ts,
-                        "size": int(g["maxdisk"] * self.rng.uniform(0.15, 0.45)),
-                        "notes": f"{g['name']}",
-                        "protected": 1 if k == count - 1 and vmid in (101, 107) else 0,
-                        "verification": {
-                            "state": "ok" if k < 4 else "failed" if vmid == 102 and k == 5 else "ok",
-                            "upid": "x",
-                        }
-                        if k < 5
-                        else None,
-                        "subtype": g["type"],
-                    }
-                )
+            weeks = (21, 28) if vmid == 106 else (7, 14, 21, 28)
+            for k, days in enumerate(weeks):
+                out.append(point(vmid, today.timestamp() - days * 86400 + 600 + vmid, 6 + k))
         return out
 
     def _task(self, kind, ago=0.0, status="OK", vmid=None, running=False, node=None, user="root@pam"):
@@ -969,7 +1021,8 @@ def build_app(cluster: MockCluster) -> web.Application:
         return cluster.resources()
 
     async def tasks(_):
-        return sorted(cluster.tasks, key=lambda t: t["starttime"], reverse=True)[:50]
+        recent = sorted(cluster.tasks, key=lambda t: t["starttime"], reverse=True)[:50]
+        return [{k: v for k, v in t.items() if k != "log"} for t in recent]
 
     async def ha_status(_):
         out = [
@@ -1468,9 +1521,26 @@ def build_app(cluster: MockCluster) -> web.Application:
             "exitstatus": t.get("status"),
         }
 
+    async def node_tasks(request):
+        node = request.match_info["node"]
+        q = request.query
+        since = float(q.get("since", 0))
+        out = [
+            {k: v for k, v in t.items() if k != "log"}
+            for t in cluster.tasks
+            if t["node"] == node
+            and t["starttime"] >= since
+            and (not q.get("typefilter") or t["type"] == q["typefilter"])
+        ]
+        out.sort(key=lambda t: t["starttime"], reverse=True)
+        return out[: int(q.get("limit", 50))]
+
     async def task_log(request):
         upid = request.match_info["upid"]
         t = next(t for t in cluster.tasks if t["upid"] == upid)
+        if "log" in t:
+            lines = [f"TASK {'OK' if t['status'] == 'OK' else 'ERROR: ' + t['status']}"]
+            return [{"n": i + 1, "t": line} for i, line in enumerate(t["log"] + lines)]
         lines = [
             "task started by HA resource agent"
             if t["type"].startswith(("qm", "vz")) and t["id"] in ("101", "107")
@@ -1643,6 +1713,7 @@ def build_app(cluster: MockCluster) -> web.Application:
         ("DELETE", "/nodes/{node}/firewall/rules/{pos}", rule_delete),
         ("GET", "/nodes/{node}/firewall/options", fw_options),
         ("GET", "/nodes/{node}/firewall/log", fw_log),
+        ("GET", "/nodes/{node}/tasks", node_tasks),
         ("GET", "/nodes/{node}/tasks/{upid}/status", task_status),
         ("GET", "/nodes/{node}/tasks/{upid}/log", task_log),
         ("GET", "/nodes/{node}/{kind}/{vmid}/config", guest_config),

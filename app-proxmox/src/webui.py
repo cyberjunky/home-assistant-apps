@@ -57,6 +57,7 @@ class WebUI:
         r.add_get("/api/guest/{vmid}", self._guest)
         r.add_get("/api/firewall/log", self._firewall_log)
         r.add_get("/api/backups", self._backups)
+        r.add_get("/api/backups/history", self._backup_history)
         r.add_get("/api/task", self._task)
         r.add_get("/api/layout", self._layout)
         r.add_post("/api/layout", self._save_layout)
@@ -151,6 +152,12 @@ class WebUI:
     async def _backups(self, request: web.Request) -> web.Response:
         try:
             return web.json_response(await self.cluster.backups())
+        except ProxmoxError as e:
+            return self._error(e)
+
+    async def _backup_history(self, request: web.Request) -> web.Response:
+        try:
+            return web.json_response(await self.cluster.backup_history())
         except ProxmoxError as e:
             return self._error(e)
 

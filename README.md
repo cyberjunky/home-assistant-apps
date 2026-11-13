@@ -150,8 +150,8 @@ app automatically. Apache 2.0, derived from an earlier add-on (see its NOTICE).
 ![Supports amd64 Architecture][amd64-shield]
 
 Unofficial dashboard for your Proxmox VE cluster, opened from the sidebar. The datacenter on one
-overview with health checks, a page per node and guest, storage with a fill-up forecast and every
-backup, the network as a map and as VLAN lanes to drag guests between, and the firewall as a flow
+overview with health checks, a page per node and guest, storage with a fill-up forecast, backups
+with RPO and RTO at a glance, the network as a map and as VLAN lanes to drag guests between, and the firewall as a flow
 per guest with drag-and-drop rules and the log with statistics. Read-only unless you allow changes.
 
 [:books: Documentation](app-proxmox/DOCS.md) · [:memo: Changelog](app-proxmox/CHANGELOG.md) · [:lock: Security](app-proxmox/SECURITY.md)

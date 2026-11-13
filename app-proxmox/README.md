@@ -16,7 +16,7 @@
 
 Dashboard for your [Proxmox VE](https://www.proxmox.com/en/proxmox-virtual-environment) cluster in
 Home Assistant, with all the nitty gritty. The whole datacenter on one overview with health
-checks, a page per node and per guest, storage with a fill-up forecast and every backup, the
+checks, a page per node and per guest, storage with a fill-up forecast, backups with RPO and RTO at a glance, the
 network as a map and as VLAN lanes you drag guests between, and the firewall as a flow per guest,
 node or security group, with its rules, IP sets, aliases and the log with its statistics.
 
@@ -33,6 +33,12 @@ twice.
 
 <details>
 <summary>More screenshots</summary>
+
+**Backups at a glance** — protected guests, RPO, last night, restore points, the longest restore, a 14-day calendar per guest and what needs a look
+![Backups at a glance](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-proxmox/screenshots/backups-light.webp)
+
+**Backups per guest** — RPO and its target, runs, restore points, sizes, backup time and estimated restore time
+![Backups per guest](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-proxmox/screenshots/backups-guests-dark.webp)
 
 **Firewall flow** — what may reach a target and where it may go, every rule an arrow; drag an alias, IP set or security group onto it to add a rule
 ![Firewall flow](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-proxmox/screenshots/firewall-flow-dark.webp)
@@ -68,7 +74,8 @@ twice.
 - 🏢 **Datacenter at a glance** — Quorum, nodes, guests, CPU, memory and storage, Ceph and HA, and the cluster's history from an hour to a year
 - 🩺 **Health checks** — Failing or worn disks, degraded or full ZFS pools, stopped services, failed tasks and replication, guests in no backup job, updates
 - 🖥️ **Nodes and guests** — Every number Proxmox has, with history; hardware, disks, services and updates per node; network devices, addresses, disks, snapshots and backups per guest
-- 💾 **Storage and backups** — Usage with a forecast of when it is full, every backup with its age and verification, backup and replication jobs
+- 💾 **Storage** — Usage with a forecast of when it is full, replication jobs
+- 🗄️ **Backups** — At a glance whether every guest is protected and on time: RPO against the job's schedule, estimated restore time (RTO), a 14-day calendar, each night's job runs from their logs, restore points, verification, and what backups take on storage with PBS deduplication
 - 🌐 **Network** — A map per node, VLAN lanes to drag guests between, every interface, pending changes and SDN
 - 🛡️ **Firewall** — A flow per guest, node or group, drag-and-drop rules, the rule tables, groups, IP sets and aliases with where they are used, which guests the firewall doesn't cover, and the log with statistics
 - 📋 **Tasks** — The cluster's task log, with each task's own log

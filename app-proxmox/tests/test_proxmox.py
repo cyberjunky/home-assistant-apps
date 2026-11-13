@@ -12,6 +12,7 @@ from src.proxmox import (
     ProxmoxError,
     guest_devices,
     lockout_risk,
+    parse_backup_log,
     parse_firewall_log,
     parse_nic,
     set_nic_tag,
@@ -141,6 +142,29 @@ def test_firewall_log():
     assert first["ts"] == datetime(2026, 11, 13, 8, 1, 2, tzinfo=UTC).timestamp()
 
 
+def test_backup_log():
+    task = {"upid": "UPID:pve1:x", "node": "pve1", "starttime": 1000, "endtime": 2000, "status": "job errors"}
+    lines = [
+        {"n": 1, "t": "INFO: starting new backup job: vzdump --all 1 --storage pbs"},
+        {"n": 2, "t": "INFO: Starting Backup of VM 100 (qemu)"},
+        {"n": 3, "t": "INFO: Backup started at 2026-11-13 02:00:04"},
+        {"n": 4, "t": "INFO: transferred 12.4 GiB in 6 seconds (2.1 GiB/s)"},
+        {"n": 5, "t": "INFO: Finished Backup of VM 100 (00:01:08)"},
+        {"n": 6, "t": "INFO: Starting Backup of VM 201 (lxc)"},
+        {"n": 7, "t": "ERROR: Backup of VM 201 failed - unable to acquire lock"},
+        {"n": 8, "t": "INFO: Starting Backup of VM 202 (lxc)"},
+        {"n": 9, "t": "INFO: archive file size: 1.5GB"},
+        {"n": 10, "t": "Starting Backup of VM 203 (lxc)"},
+    ]
+    runs = parse_backup_log(lines, task)
+    assert [(r["vmid"], r["ok"]) for r in runs] == [(100, True), (201, False), (202, False), (203, False)]
+    assert runs[0]["duration"] == 68 and runs[0]["transferred"] == int(12.4 * 1024**3)
+    assert runs[0]["ts"] == datetime(2026, 11, 13, 2, 0, 4).timestamp()
+    assert runs[1]["error"] == "unable to acquire lock" and runs[1]["ts"] == 1000
+    assert runs[2]["error"] == "did not finish" and runs[2]["transferred"] == int(1.5 * 1024**3)
+    assert parse_backup_log(lines[:3], {"starttime": 5})[0]["ok"] is None
+
+
 @pytest.mark.parametrize(
     "scope, rule, risky",
     [
@@ -249,6 +273,11 @@ async def test_details(cluster):
     assert log["entries"] and log["entries"][0]["ts"] >= log["entries"][-1]["ts"]
     backups = await cluster.backups()
     assert {b["storage"] for b in backups["backups"]} == {"pbs"}
+    history = await cluster.backup_history()
+    assert len(history["tasks"]) == 14 * 3
+    failed = {(r["vmid"], r["ok"]) for r in history["runs"] if r["ok"] is False}
+    assert failed == {(105, False), (106, False)}
+    assert sum(1 for r in history["runs"] if r["vmid"] == 106) == 14
     with pytest.raises(KeyError):
         await cluster.guest_details(4242)
 
@@ -315,6 +344,7 @@ async def test_pages(client):
         "/api/rrd?node=pve1&timeframe=hour",
         "/api/rrd?vmid=101&timeframe=week",
         "/api/rrd/cluster?timeframe=day",
+        "/api/backups/history",
     ):
         assert (await client.get(path)).status == 200, path
     assert (await client.get("/api/rrd?node=pve1&timeframe=decade")).status == 400

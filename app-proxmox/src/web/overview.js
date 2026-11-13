@@ -160,7 +160,7 @@ function healthChecks() {
     const upd = nodes().filter(n => n.conf && Array.isArray(n.conf.updates) && n.conf.updates.length);
     if (upd.length) add('info', `Updates available on ${upd.map(n => `<b>${escapeHtml(n.name)}</b> (${n.conf.updates.length})`).join(', ')}`, `nodes/${upd[0].name}`);
     const notBacked = (app.conf && app.conf.not_backed_up) || [];
-    if (notBacked.length) add('warn', `${notBacked.length} guest${notBacked.length > 1 ? 's are' : ' is'} in no backup job: ${notBacked.map(g => `<span class="mono">${escapeHtml(g.vmid)}</span> ${escapeHtml(g.name || '')}`).join(', ')}`, 'storage/backups');
+    if (notBacked.length) add('warn', `${notBacked.length} guest${notBacked.length > 1 ? 's are' : ' is'} in no backup job: ${notBacked.map(g => `<span class="mono">${escapeHtml(g.vmid)}</span> ${escapeHtml(g.name || '')}`).join(', ')}`, 'backups');
     const dayAgo = Date.now() / 1000 - 86400;
     const failedTasks = ((app.status && app.status.tasks) || []).filter(t => t.endtime && t.status && t.status !== 'OK' && !/^WARNINGS/.test(t.status) && t.starttime >= dayAgo);
     if (failedTasks.length) add('bad', `${failedTasks.length} task${failedTasks.length > 1 ? 's' : ''} failed in the last 24 hours: ${[...new Set(failedTasks.map(taskName))].map(escapeHtml).join(', ')}`, 'tasks');

@@ -73,7 +73,12 @@ Datacenter and node firewall rules need `Sys.Modify`, which the role already has
 - **Overview.** Quorum, nodes, guests, CPU, memory, storage, Ceph, HA and the Proxmox version as tiles; the cluster's CPU, IO wait, memory and network over an hour to a year; every node with its load, memory, root disk, updates and subscription; **health checks** (failing SMART, worn SSDs, degraded or full ZFS pools, stopped services, pending network changes, failed replication, guests in no backup job, failed tasks, updates); storage; the busiest guests; Ceph's OSDs, placement groups, IO and health checks; HA's resources and nodes; the latest tasks.
 - **Nodes.** Per node: CPU, IO wait, load, memory, swap, root disk and KSM, their history, the hardware (CPU, cores, boot mode, secure boot), the software (versions, kernel), its guests; disks with SMART and SSD wear, ZFS pools, storage; updates, services, subscription, replication; and its tasks.
 - **Guests.** Every VM and container to search (name, ID, tag, VLAN, MAC), filter and sort, with CPU, memory, disk, VLANs, firewall, uptime and the age of its last backup; vCPU overcommit and assigned memory as tiles. Per guest: history of CPU, memory, network and disk IO; its network devices with the addresses the guest agent reports; disks; its firewall and whether it actually applies; snapshots; backups with their verification; its configuration, pending changes and notes; and the power buttons.
-- **Storage.** Every storage, shared ones once, with its growth over the last month and when it would be full at that pace; the history of one; the backups per guest (latest, count, oldest, size, verification, guests in no job); backup jobs with their schedule, retention and next run; replication jobs.
+- **Storage.** Every storage, shared ones once, with its growth over the last month and when it would be full at that pace; the history of one; replication jobs.
+- **Backups.**
+  - **At a glance:** how many guests a job protects, how many meet their RPO, the worst RPO, what last night's jobs did, the restore points, the longest restore, failed verifications and the next run; a calendar of the last 14 days per guest (backed up, failed, nothing), and what needs a look.
+  - **Per guest:** state, RPO and its target, the last run, how many runs of the last 14 days worked, restore points, the oldest, sizes, how long a backup takes, the estimated restore time (RTO), verification and storage. A guest's own page has its restore points, every run with its duration, size and speed (and the log), and charts of both.
+  - **Storage:** what the backups take per storage, Proxmox Backup Server's deduplication, the data the jobs moved per night and the largest guests.
+  - **Jobs:** every backup job with its schedule, retention, the guests it covers and its next run, and each node's job runs of the last 14 days.
 - **Network.**
   - **VLANs:** a lane per bridge and VLAN, with the SDN VNet, subnet, gateway and host addresses that belong to it, and a card for every guest network device on it. Drag a card to another lane of the same bridge to put it on that VLAN; the dialog shows the line of the guest's configuration before and after.
   - **Map:** per node, the physical ports, bonds, bridges, VLAN interfaces and the guests on them, connected. Drag the boxes where you like them; the layout is kept by the app.
@@ -87,6 +92,12 @@ Datacenter and node firewall rules need `Sys.Modify`, which the role already has
   - **Options:** the datacenter's and nodes' firewall options, and per guest whether its firewall is on, which network devices bypass it, its policies and filters.
 - **Tasks.** The cluster's task log per day, to filter by node, type and status; click one for its log.
 - **Info.** The connection, the options, what the token can't read, how to make a token.
+
+## RPO and RTO
+
+- **RPO** (how much you could lose) is the age of a guest's latest good backup: the newest restore point that didn't fail verification. Its **target** is how often the guest's backup job runs, from the job's schedule (`02:00` is a day, `sat 04:00` a week, `*/6:00` six hours); or pick one target for every guest at the top of the page. A guest is **late** when its latest good backup is more than a quarter over the target, and has **missed** its RPO at more than twice the target.
+- **RTO** (how long a restore takes) is estimated as the size of the latest backup divided by the restore speed you enter at the top of the page (150 MB/s to start with), not counting the time the guest needs to boot. Measure one real restore and enter its speed for a better estimate. The setting is kept in your browser.
+- **Runs** come from the logs of the backup tasks of the last 14 days: per guest whether it worked, how long it took and what it moved. Proxmox keeps those logs on each node.
 
 ## Changes, and what stops a mistake
 
@@ -103,7 +114,8 @@ With `read_only: false`:
 Proxmox VE API ──every poll_seconds──▶ cluster status, resources, node status, tasks, HA, Ceph
 (any node)     ──every 5 minutes─────▶ network, disks, ZFS, services, updates, firewall, SDN,
                                        guest configurations, backup and replication jobs
-               ──when a page asks────▶ history (RRD), a guest's details, backups, firewall log, task logs
+               ──when a page asks────▶ history (RRD), a guest's details, backups, backup job logs,
+                                       firewall log, task logs
 ```
 
 - **One cluster through any node.** Every Proxmox node answers for the whole cluster. The app uses the first node in `hosts` that answers and switches when it stops answering.

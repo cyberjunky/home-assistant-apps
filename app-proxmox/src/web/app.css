@@ -552,3 +552,24 @@ table.data.compact-rows td { padding-top: 5px; padding-bottom: 5px; }
 .meter.low .meter-bar i { background: var(--danger-color); }
 .guest-notes { white-space: pre-wrap; font-size: 12.5px; line-height: 1.55; overflow-wrap: anywhere; }
 table.data tr.selected td { background: var(--selected-bg); }
+
+/* Backups */
+.bk-settings { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bk-speed { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--secondary-text-color); }
+.bk-speed .input { width: 76px; height: 28px; }
+table.data.bk-cal th.bk-day { text-align: center; padding: 4px 2px; font-size: 10px; line-height: 1.2; letter-spacing: 0; }
+table.data.bk-cal td.bk-cell { text-align: center; padding: 4px 2px; }
+.bk-dot { display: inline-block; width: 14px; height: 14px; border-radius: 3px; background: var(--grid-color); border: 1px solid var(--divider-color); cursor: default; vertical-align: middle; }
+.bk-dot.ok { background: var(--success-color); border-color: transparent; }
+.bk-dot.bad { background: var(--danger-color); border-color: transparent; cursor: pointer; }
+.bk-dot.warn { background: var(--warning-color); border-color: transparent; }
+.bk-dot.run { background: var(--primary-color); border-color: transparent; }
+.bk-dot[onclick] { cursor: pointer; }
+.bk-runs { display: flex; flex-wrap: wrap; gap: 3px; }
+.bk-legend { display: inline-flex; align-items: center; gap: 6px; }
+.bk-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-left: 6px; background: var(--grid-color); border: 1px solid var(--divider-color); }
+.bk-legend i.ok { background: var(--success-color); border-color: transparent; }
+.bk-legend i.bad { background: var(--danger-color); border-color: transparent; }
+@media (max-width: 700px) {
+    .bk-settings { margin-left: 0; }
+}

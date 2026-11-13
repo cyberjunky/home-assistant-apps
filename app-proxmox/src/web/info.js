@@ -6,7 +6,7 @@ const NOTE_LABELS = {
     replication: 'Replication', fwopt: 'Firewall options', fwrules: 'Firewall rules', fwgroups: 'Security groups', fwipsets: 'IP sets', fwaliases: 'Aliases',
     fwmacros: 'Firewall macros', fwgroup: 'Security group', ipset: 'IP set', config: 'Guest configuration', fw: 'Guest firewall rules', fwopt_guest: 'Guest firewall options',
     fwalias: 'Guest aliases', fwipset: 'Guest IP sets', sdn: 'SDN', backup: 'Backup jobs', backupinfo: 'Guests in no backup job', haresources: 'HA resources',
-    hagroups: 'HA groups', pools: 'Pools', fwlog: 'Firewall log (needs Sys.Modify)', backups: 'Backups on storage', current: 'Guest status', snapshots: 'Snapshots', pending: 'Pending changes',
+    hagroups: 'HA groups', pools: 'Pools', fwlog: 'Firewall log (needs Sys.Modify)', backups: 'Backups on storage', backuptasks: 'Backup tasks', backuplog: 'Backup job logs', current: 'Guest status', snapshots: 'Snapshots', pending: 'Pending changes',
 };
 
 function renderInfo() {

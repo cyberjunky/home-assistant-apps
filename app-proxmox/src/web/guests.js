@@ -160,7 +160,7 @@ async function loadGsBackups(force) {
         gsBackups = [];
     }
     if (activeTab === 'guests') renderGuests();
-    else if (activeTab === 'storage') renderStorage();
+    else if (activeTab === 'backups') renderBackupsPage();
 }
 
 // =====================================================================
@@ -321,7 +321,8 @@ function renderGdBackups(g) {
     if (gsBackups === null) { el.innerHTML = '<div class="empty-state">Reading the backups…</div>'; return; }
     const list = gsBackups.filter(b => String(b.vmid) === String(g.vmid)).sort((a, b) => b.ctime - a.ctime);
     const notBacked = ((app.conf && app.conf.not_backed_up) || []).some(x => String(x.vmid) === String(g.vmid));
-    document.getElementById('gd-backup-hint').innerHTML = notBacked ? '<span class="neg">in no backup job</span>' : list.length ? `latest ${escapeHtml(fmtAgo(list[0].ctime))}` : '';
+    document.getElementById('gd-backup-hint').innerHTML = (notBacked ? '<span class="neg">in no backup job</span>' : list.length ? `latest ${escapeHtml(fmtAgo(list[0].ctime))}` : '')
+        + ` · <a href="#backups/${g.vmid}" onclick="switchTab('backups', '${g.vmid}');return false">RPO, RTO and runs →</a>`;
     el.innerHTML = table([{label: 'Taken'}, {label: 'Storage'}, {label: 'Size', n: true}, {label: 'Verified'}, {label: 'Notes'}], list.slice(0, 20).map(b => {
         const v = b.verification && b.verification.state;
         return `<tr>${td(`${escapeHtml(fmtDateTime(b.ctime))}<span class="sub">${escapeHtml(fmtAgo(b.ctime))}</span>`)}${td(escapeHtml(b.storage))}${td(escapeHtml(fmtBytes(b.size)), 'n')}

@@ -142,7 +142,7 @@ function barChart(el, opts) {
         const grouped = Boolean(opts.grouped);
         const maxima = data.map(d => grouped ? Math.max(...d.values.map(v => v || 0)) : d.values.reduce((a, b) => a + (b || 0), 0));
         const scale = axis(0, Math.max(...maxima), 4);
-        const {svg, plot, y} = chartFrame(el, opts.height || 190, scale);
+        const {svg, plot, y} = chartFrame(el, opts.height || 190, scale, opts.formatTick);
         const slot = plot.w / data.length;
         const n = grouped ? opts.series.length : 1;
         const barWidth = Math.max(2, Math.min(grouped ? 16 : 24, (slot - 2) / n - (grouped ? 1 : 0)));
