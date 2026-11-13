@@ -157,6 +157,8 @@ class Wefax(Decoder):
     name = "Weather fax"
     signal = "FM on USB"
     input = "audio"
+    # Data, not speech: decoded from the audio, but not sent to the page
+    audible = False
     # DWD Pinneberg on 7880 kHz: the radio 1.9 kHz below it, on upper sideband
     defaults = {"frequency": 7_878_100}
     demod = ("usb", 3_000)

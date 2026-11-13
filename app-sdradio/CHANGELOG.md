@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1
+
+**After updating:** nothing to do.
+
+- **No sound in the data modes:** Pager, APRS, Radiosondes, FT8, SSTV and Weather fax still decode the audio, but Listen no longer plays their bursts and tones; the display says *no sound*. Satellites (voice from the ISS and SO-50), Digital voice and DAB+ keep theirs.
+
 ## 0.5.0
 
 **After updating:** import the [channel list](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/sdradio-channels.csv) again (without *Replace*) for the new modes' channels: radiosondes, VDL2, FT8 on 40, 20, 10 and 6 m, digital voice calling on 2 m and 70 cm, the DWD's and Northwood's weather fax.

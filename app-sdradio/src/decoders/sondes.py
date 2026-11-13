@@ -68,6 +68,8 @@ class Sondes(Decoder):
     signal = "GFSK"
     decoded_by = "rs1729's RS"
     input = "audio"
+    # Data, not speech: decoded from the audio, but not sent to the page
+    audible = False
     # KNMI's sondes from De Bilt are on 400-406 MHz; the frequency changes from launch to launch
     defaults = {"frequency": 403_000_000}
     demod = ("nfm", 16_000)

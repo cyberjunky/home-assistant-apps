@@ -70,6 +70,8 @@ class Ft8(Decoder):
     signal = "8-FSK"
     decoded_by = "ft8_lib"
     input = "audio"
+    # Data, not speech: decoded from the audio, but not sent to the page
+    audible = False
     # 10 m FT8: open by day in a solar maximum, and within the RTL-SDR's range
     defaults = {"frequency": 28_074_000, "protocol": "FT8"}
     demod = ("usb", 3_000)

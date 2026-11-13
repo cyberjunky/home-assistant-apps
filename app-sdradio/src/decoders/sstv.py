@@ -300,6 +300,8 @@ class Sstv(Decoder):
     name = "SSTV"
     signal = "SSTV"
     input = "audio"
+    # Data, not speech: decoded from the audio, but not sent to the page
+    audible = False
     # The ISS sends SSTV on 145.800 MHz during its SSTV events; 14.230 MHz on HF (HackRF)
     defaults = {"frequency": 145_800_000}
 
