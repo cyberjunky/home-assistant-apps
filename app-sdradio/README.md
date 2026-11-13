@@ -95,7 +95,7 @@ satellite passes, and with a HackRF weather fax charts and analog FPV video.
 - 📝 **RDS** — On FM broadcast: the station's name, its radio text, and the artist and title when the station sends them
 - 🔍 **Scanning** — The stored channels or the band you are in; HOLD, lock-out and priority channels; every transmission logged, and unknown signals listed as new finds
 - 🗂️ **Channels** — Name, frequency, mode, filter, step, squelch, gain, band, tags, notes, favourite, scan and priority; favourites one click away on the radio
-- 📄 **CSV** — Export, and import from SDRadio or CHIRP-style lists
+- 📄 **CSV** — Export, and import from SDRadio or CHIRP-style lists; a [ready list of 113 channels](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/sdradio-channels.csv) for every band and mode
 - 📊 **Stats** — Hits by hour and band, recently heard, the most active channels, listening time
 - 💾 **Backups** — The database every night and on request; download, upload and restore
 - 🏠 **Home Assistant** — Optional sensors for the frequency, signal and scan, and an `sdradio_signal` event for automations

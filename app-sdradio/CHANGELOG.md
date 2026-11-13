@@ -2,7 +2,7 @@
 
 ## 0.5.0
 
-**After updating:** import the channel list again (without *Replace*) for the new modes' channels: radiosondes, VDL2, FT8 on 40, 20, 10 and 6 m, digital voice calling on 2 m and 70 cm, the DWD's and Northwood's weather fax.
+**After updating:** import the [channel list](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/sdradio-channels.csv) again (without *Replace*) for the new modes' channels: radiosondes, VDL2, FT8 on 40, 20, 10 and 6 m, digital voice calling on 2 m and 70 cm, the DWD's and Northwood's weather fax.
 
 - **Radiosondes** (new mode): the weather balloons launched twice a day (De Bilt for the Netherlands), on a map with their track, altitude, climb, temperature, humidity and pressure, and in the history once they are down, with how high they got. Decoded by rs1729's RS decoders (RS41, DFM, M10, M20), now built into the app.
 - **VDL2** (new mode): ACARS's digital successor, busier than ACARS over Europe: ACARS messages and controller-pilot messages on the four European channels at once, decoded by dumpvdl2 (with libacars), now built in. The receiver runs at 2.1 MS/s in this mode.

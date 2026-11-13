@@ -293,6 +293,14 @@ row: SDRadio's own export, or lists from CHIRP and similar programs. The columns
 whose number, or frequency and mode, is already stored updates that channel. With *Replace*, the
 stored channels are replaced. A file with errors imports nothing and says which lines are wrong.
 
+**A ready channel list**: [sdradio-channels.csv](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/sdradio-channels.csv) has 113 channels for every band and mode,
+each with a description and often a fact: broadcast, air, marine, radio amateurs, satellites,
+shortwave and odd signals (number stations, the Buzzer, over-the-horizon radar), and a channel for
+each mode, tagged `mode:<mode>`, so picking it switches to that mode. Download it and import it on
+the Channels page without *Replace*: your own channels stay. Channels outside your receiver's
+range (shortwave on an RTL-SDR) are kept but faded, and tagged `hackrf`. Import it again after an
+update to get the new channels.
+
 ## Backups
 
 The database (`/data/sdradio.db`) is backed up every night (the time and how many are kept are on
