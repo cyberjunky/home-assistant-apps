@@ -7,6 +7,7 @@ import signal
 import sys
 
 from .config import APP_VERSION, DATA_DIR, WEB_PORT, Config
+from .pbs import PBSServer
 from .proxmox import Cluster
 from .webui import WebUI
 
@@ -29,10 +30,12 @@ async def main() -> int:
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     cluster = Cluster(config)
-    webui = WebUI(WEB_PORT, config, cluster)
+    backup_servers = [PBSServer(server) for server in config.pbs]
+    webui = WebUI(WEB_PORT, config, cluster, backup_servers)
     services = [
         asyncio.create_task(webui.start(), name="webui"),
         asyncio.create_task(cluster.run(), name="cluster"),
+        *(asyncio.create_task(server.run(), name=f"pbs-{server.name}") for server in backup_servers),
     ]
 
     stop = asyncio.Event()

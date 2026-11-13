@@ -7,14 +7,16 @@ let bkHistoryAt = 0;
 let bkHistoryError = '';
 let bkGuest = '';
 const bkSort = {key: stored('bk_sort', 'status'), dir: stored('bk_dir', 'desc')};
-const BK_SECTIONS = [{key: 'glance', label: 'At a glance'}, {key: 'guests', label: 'Per guest'}, {key: 'storage', label: 'Storage'}, {key: 'jobs', label: 'Jobs'}];
+const BK_SECTIONS_ALL = [{key: 'glance', label: 'At a glance'}, {key: 'guests', label: 'Per guest'}, {key: 'storage', label: 'Storage'}, {key: 'jobs', label: 'Jobs'}, {key: 'server', label: 'Backup server'}];
+// The backup server's section only when there is one
+const bkSections = () => BK_SECTIONS_ALL.filter(s => s.key !== 'server' || pbsVisible());
 const BK_RPO = [{key: 'auto', label: 'Target: from the job'}, {key: '4', label: 'Target: 4 hours'}, {key: '12', label: 'Target: 12 hours'},
     {key: '24', label: 'Target: 1 day'}, {key: '48', label: 'Target: 2 days'}, {key: '168', label: 'Target: 1 week'}];
 const bkSettings = () => ({rpo: stored('bk_rpo', 'auto'), speed: Math.max(1, Number(stored('bk_speed', '150')) || 150)});
 
 function showBackups(sub) {
     if (sub && /^\d+$/.test(sub) && guestById(sub)) { bkGuest = sub; }
-    else { bkGuest = ''; if (BK_SECTIONS.some(s => s.key === sub)) bkSection = sub; setSub(bkSection); }
+    else { bkGuest = ''; if (BK_SECTIONS_ALL.some(s => s.key === sub)) bkSection = sub; setSub(bkSection); }
     delete document.getElementById('tab-backups').dataset.view;
     renderBackupsPage();
     loadGsBackups(false);
@@ -152,12 +154,14 @@ function renderBackupsPage() {
         return;
     }
     if (bkGuest) return renderBkGuest(el);
-    if (el.dataset.view !== 'main') {
-        el.dataset.view = 'main';
+    if (!bkSections().some(s => s.key === bkSection)) bkSection = 'glance';
+    const view = `main:${bkSections().length}`;
+    if (el.dataset.view !== view) {
+        el.dataset.view = view;
         const set = bkSettings();
         el.innerHTML = `
             <div class="filters">
-                ${chipsHtml('bk-sections', BK_SECTIONS, bkSection, 'Section')}
+                ${chipsHtml('bk-sections', bkSections(), bkSection, 'Section')}
                 <span class="bk-settings">
                     <select class="select" id="bk-rpo" aria-label="RPO target">${BK_RPO.map(o => `<option value="${o.key}"${o.key === set.rpo ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}</select>
                     <label class="bk-speed" title="How fast a restore reads and writes; used for the restore time estimate">Restore speed <input class="input" id="bk-speed" type="number" min="1" max="10000" value="${set.speed}"> MB/s</label>
@@ -184,6 +188,7 @@ function renderBackupsPage() {
                     ${panel('Largest guests', 'all restore points together', '<div id="bk-largest" class="chart"></div>')}
                 </div>
             </div>
+            <div class="section" data-section="server"><div id="bk-server"></div></div>
             <div class="section" data-section="jobs">
                 ${panel('Backup jobs', 'Datacenter → Backup in Proxmox', '<div id="bk-jobs" class="table-wrap"></div>')}
                 ${panel('Job runs per node', 'every backup task of the last 14 days; click one for its log', '<div id="bk-runs" class="table-wrap"></div>')}
@@ -211,6 +216,7 @@ function renderBackupsPage() {
     if (bkSection === 'glance') { renderBkTiles(model); renderBkCalendar(model); renderBkAttention(model); }
     else if (bkSection === 'guests') renderBkTable(model);
     else if (bkSection === 'storage') renderBkStorage(model);
+    else if (bkSection === 'server') renderPbsSection(document.getElementById('bk-server'));
     else renderBkJobs(model);
 }
 
@@ -243,6 +249,10 @@ function renderBkTiles(model) {
         tile('Longest restore', longest ? escapeHtml(fmtRto(longest.rto)) : '–', longest ? `${escapeHtml(guestName(longest.g))} · ${fmtBytes(longest.size)}` : ''),
         tile('Verification', failedVerify ? `${failedVerify}<small> failed</small>` : 'OK', failedVerify ? 'restore points to look at' : 'no failed verification', failedVerify ? 'bad' : ''),
         tile('Next job', next ? escapeHtml(fmtTime(next)) : '–', next ? escapeHtml(fmtAgo(next)) : 'no scheduled job'),
+        ...pbsServers().map(s => {
+            const issues = pbsAlerts().filter(a => a.kind !== 'info' && a.text.includes(`<b>${escapeHtml(s.name)}</b>`)).length;
+            return tile('Backup server', !s.connected ? 'offline' : issues ? `${issues}<small> to look at</small>` : 'OK', escapeHtml(s.name), !s.connected ? 'bad' : issues ? 'warn' : 'pos');
+        }),
     ].join('');
 }
 
@@ -289,6 +299,7 @@ function renderBkAttention(model) {
     model.filter(m => m.points.length && !m.verified && m.points.some(b => String(b.format || '').startsWith('pbs'))).forEach(m => add('info', `<b>${escapeHtml(guestName(m.g))}</b>: no restore point is verified yet`, m.g.vmid));
     const disabled = ((app.conf && app.conf.backup_jobs) || []).filter(j => j.enabled !== undefined && !Number(j.enabled));
     disabled.forEach(j => add('info', `Backup job <span class="mono">${escapeHtml(j.schedule || j.id)}</span> to ${escapeHtml(j.storage || '')} is switched off`));
+    pbsAlerts().forEach(a => items.push(`<a class="check ${a.kind}" href="#backups/server" onclick="${a.upid ? `showTask('${attr(a.server)}', '${attr(a.upid)}', 'Backup server', '${attr(a.server)}')` : `switchTab('backups', 'server')`};return false"><span class="sdot ${a.kind === 'info' ? '' : a.kind}"></span><span>${a.text}</span></a>`));
     document.getElementById('bk-attention').innerHTML = items.length ? `<div class="checks-list">${items.join('')}</div>`
         : '<div class="all-good"><span class="sdot ok"></span> Every guest has a recent, good backup.</div>';
 }

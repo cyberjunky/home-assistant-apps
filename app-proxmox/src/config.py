@@ -13,6 +13,8 @@ DATA_DIR = Path(os.environ.get("PROXMOX_DATA_DIR", "/data"))
 OPTIONS_FILE = Path(os.environ.get("PROXMOX_OPTIONS", str(DATA_DIR / "options.json")))
 WEB_PORT = int(os.environ.get("PROXMOX_PORT", "8099"))
 DEFAULT_PORT = 8006
+PBS_PORT = 8007
+FINGERPRINT = re.compile(r"^([0-9A-Fa-f]{2}:){31}[0-9A-Fa-f]{2}$")
 TOKEN_ID = re.compile(r"^[^@\s!]+@[^@\s!]+![A-Za-z0-9][A-Za-z0-9_.-]*$")
 
 
@@ -31,7 +33,7 @@ def app_version() -> str:
 APP_VERSION = app_version()
 
 
-def normalize_host(text: str) -> str:
+def normalize_host(text: str, default_port: int = DEFAULT_PORT) -> str:
     """An address of a node's API: https and port 8006 unless given, without a path.
 
     Accepts "pve1", "192.168.1.10", "pve1.lan:8443" and "https://pve1:8006/api2/json".
@@ -45,7 +47,47 @@ def normalize_host(text: str) -> str:
     if parts.scheme not in ("http", "https") or not parts.hostname:
         raise ValueError(f"{text!r} is not an address of a Proxmox node")
     host = parts.hostname if ":" not in parts.hostname else f"[{parts.hostname}]"
-    return f"{parts.scheme}://{host}:{parts.port or DEFAULT_PORT}"
+    return f"{parts.scheme}://{host}:{parts.port or default_port}"
+
+
+@dataclass
+class PBSConfig:
+    """A Proxmox Backup Server, read with its own API token."""
+
+    name: str
+    host: str
+    token_id: str
+    token_secret: str
+    # SHA-256 fingerprint of its certificate, as Proxmox VE's storage settings show it: pins that certificate
+    fingerprint: str = ""
+    verify_ssl: bool = False
+
+
+def parse_pbs(items: list) -> list[PBSConfig]:
+    """The backup servers. Raises ValueError for one that can't be used."""
+    servers: list[PBSConfig] = []
+    for number, item in enumerate(items or [], 1):
+        try:
+            host = normalize_host(str(item.get("host") or ""), PBS_PORT)
+        except ValueError as e:
+            raise ValueError(f"pbs: server {number}: {e}") from e
+        token_id = str(item.get("token_id") or "").strip()
+        if not TOKEN_ID.match(token_id):
+            raise ValueError(
+                f"pbs: {host}: token_id {token_id!r} must look like user@realm!tokenname, "
+                "for example homeassistant@pbs!dashboard"
+            )
+        secret = str(item.get("token_secret") or "").strip()
+        if not secret:
+            raise ValueError(f"pbs: {host}: enter the token's secret")
+        fingerprint = str(item.get("fingerprint") or "").strip()
+        if fingerprint and not FINGERPRINT.match(fingerprint):
+            raise ValueError(f"pbs: {host}: fingerprint must be 32 pairs of hex digits separated by colons")
+        name = str(item.get("name") or "").strip() or urlsplit(host).hostname or host
+        if any(s.name == name for s in servers):
+            raise ValueError(f"pbs: two servers are called {name!r}; give each its own name")
+        servers.append(PBSConfig(name, host, token_id, secret, fingerprint, bool(item.get("verify_ssl", False))))
+    return servers
 
 
 @dataclass
@@ -62,6 +104,7 @@ class Config:
     # Leave out everything that can change the cluster
     read_only: bool = True
     log_level: str = "info"
+    pbs: list[PBSConfig] = field(default_factory=list)
 
     @property
     def configured(self) -> bool:
@@ -101,4 +144,5 @@ class Config:
             poll_seconds=min(300, max(5, int(options.get("poll_seconds") or 10))),
             read_only=bool(options.get("read_only", True)),
             log_level=str(options.get("log_level") or "info"),
+            pbs=parse_pbs(options.get("pbs") or []),
         )

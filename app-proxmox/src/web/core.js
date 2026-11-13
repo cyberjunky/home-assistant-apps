@@ -490,7 +490,8 @@ function taskTarget(t) {
 }
 
 // Show a task's log, read again every 2 seconds while it runs
-async function showTask(node, upid, title) {
+// pbsServer: read the task from that backup server instead of the cluster
+async function showTask(node, upid, title, pbsServer) {
     const root = document.getElementById('modal-root');
     root.innerHTML = `
         <div class="modal-overlay">
@@ -509,7 +510,8 @@ async function showTask(node, upid, title) {
     });
     while (open) {
         try {
-            const t = await api(`task?node=${encodeURIComponent(node)}&upid=${encodeURIComponent(upid)}`);
+            const t = await api(pbsServer ? `pbs/task?server=${encodeURIComponent(pbsServer)}&upid=${encodeURIComponent(upid)}`
+                : `task?node=${encodeURIComponent(node)}&upid=${encodeURIComponent(upid)}`);
             if (!open) return;
             const running = t.status.status === 'running';
             root.querySelector('[data-head]').innerHTML = `${running ? stateLabel('warn', 'running') : t.status.exitstatus === 'OK' ? stateLabel('ok', 'OK') : stateLabel('bad', t.status.exitstatus || 'stopped')}

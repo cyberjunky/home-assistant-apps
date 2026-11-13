@@ -21,6 +21,11 @@ token_secret: 3f1c2a6e-0000-0000-0000-000000000000
 verify_ssl: false
 poll_seconds: 10
 read_only: true
+pbs:
+  - host: 192.168.1.20
+    token_id: homeassistant@pbs!dashboard
+    token_secret: 7c1d0b2e-0000-0000-0000-000000000000
+    fingerprint: "AB:CD:...:EF"
 ```
 
 | Option | Default | What it does |
@@ -31,6 +36,12 @@ read_only: true
 | `verify_ssl` | `false` | Check the nodes' certificates. Proxmox's own are self-signed; turn this on when your nodes have a trusted certificate |
 | `poll_seconds` | `10` | How often the cluster's state is read. The configuration (network, firewall, disks, updates) is read every 5 minutes and right after a change |
 | `read_only` | `true` | Change nothing. Off: the power buttons, the firewall editing and the VLAN moves work (the token needs the rights for it too) |
+| `pbs` | | Optional: Proxmox Backup Servers to show on the Backups page, each with its own token (see [A Proxmox Backup Server](#a-proxmox-backup-server)) |
+| `pbs[].host` | | Its address; without a port it is `8007` |
+| `pbs[].token_id`, `pbs[].token_secret` | | Its API token, `user@realm!tokenname` and the secret |
+| `pbs[].fingerprint` | | Optional: the SHA-256 fingerprint of its certificate, `AB:CD:…` (32 pairs). The app then only talks to that exact certificate. Proxmox VE shows it under Datacenter → Storage → your PBS storage |
+| `pbs[].verify_ssl` | `false` | Check its certificate against trusted authorities instead; for a server with a trusted certificate |
+| `pbs[].name` | host name | Its name on the pages |
 | `log_level` | `info` | Amount of logging |
 
 ## The token
@@ -68,6 +79,20 @@ Datacenter and node firewall rules need `Sys.Modify`, which the role already has
 
 `--privsep 0` gives the token the user's rights. With `--privsep 1` the token needs its own: `pveum acl modify / --tokens 'homeassistant@pve!dashboard' --roles HADashboard`.
 
+## A Proxmox Backup Server
+
+Optional. With a backup server under `pbs`, the Backups page gets a **Backup server** section. Make its token on the backup server, as root:
+
+```sh
+proxmox-backup-manager user create homeassistant@pbs --comment "Home Assistant dashboard"
+proxmox-backup-manager user generate-token homeassistant@pbs dashboard
+proxmox-backup-manager acl update / Audit --auth-id 'homeassistant@pbs!dashboard'
+```
+
+The second command prints the secret, once. The `Audit` role only reads. A PBS token always needs its own permission, so the ACL is for the token (`--auth-id`), not the user.
+
+Without a token the app still knows which backup servers the cluster uses (from Proxmox VE's storage settings), and says so on the Backups page, with their fingerprints to copy.
+
 ## What the dashboard shows
 
 - **Overview.** Quorum, nodes, guests, CPU, memory, storage, Ceph, HA and the Proxmox version as tiles; the cluster's CPU, IO wait, memory and network over an hour to a year; every node with its load, memory, root disk, updates and subscription; **health checks** (failing SMART, worn SSDs, degraded or full ZFS pools, stopped services, pending network changes, failed replication, guests in no backup job, failed tasks, updates); storage; the busiest guests; Ceph's OSDs, placement groups, IO and health checks; HA's resources and nodes; the latest tasks.
@@ -79,6 +104,7 @@ Datacenter and node firewall rules need `Sys.Modify`, which the role already has
   - **Per guest:** state, RPO and its target, the last run, how many runs of the last 14 days worked, restore points, the oldest, sizes, how long a backup takes, the estimated restore time (RTO), verification and storage. A guest's own page has its restore points, every run with its duration, size and speed (and the log), and charts of both.
   - **Storage:** what the backups take per storage, Proxmox Backup Server's deduplication, the data the jobs moved per night and the largest guests.
   - **Jobs:** every backup job with its schedule, retention, the guests it covers and its next run, and each node's job runs of the last 14 days.
+  - **Backup server** (with `pbs`): the server's state, version, CPU, memory, root disk and updates; per datastore its usage, free space, when it is full (the server's own estimate), the deduplication factor, the snapshots of VMs, containers and hosts, garbage collection (last run, what it freed and what is pending) and bad chunks; a month of datastore usage; every garbage collection, verify, prune and sync job with its last run, how long it took and the next run; and its tasks. A failed job, bad chunks, a nearly full datastore or a server that can't be reached also show on the Overview's health checks.
 - **Network.**
   - **VLANs:** a lane per bridge and VLAN, with the SDN VNet, subnet, gateway and host addresses that belong to it, and a card for every guest network device on it. Drag a card to another lane of the same bridge to put it on that VLAN; the dialog shows the line of the guest's configuration before and after.
   - **Map:** per node, the physical ports, bonds, bridges, VLAN interfaces and the guests on them, connected. Drag the boxes where you like them; the layout is kept by the app.
@@ -121,4 +147,5 @@ Proxmox VE API ──every poll_seconds──▶ cluster status, resources, node
 - **One cluster through any node.** Every Proxmox node answers for the whole cluster. The app uses the first node in `hosts` that answers and switches when it stops answering.
 - **History from Proxmox.** The charts use Proxmox's own RRD data (hour, day, week, month, year), so there is history from the start and the app keeps no database.
 - **Light on the cluster.** The live state is five small requests per `poll_seconds`. The configuration is a few requests per node and guest every 5 minutes.
-- **Not in this version:** Proxmox Backup Server's own datastores and jobs, consoles, migration, creating or deleting guests, and editing the host network or the firewall options.
+- **The backup server** is read every minute, its list of updates every 30 minutes, over its own API on port 8007.
+- **Not in this version:** consoles, migration, creating or deleting guests, and editing the host network or the firewall options.

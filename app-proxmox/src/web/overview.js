@@ -166,6 +166,7 @@ function healthChecks() {
     if (failedTasks.length) add('bad', `${failedTasks.length} task${failedTasks.length > 1 ? 's' : ''} failed in the last 24 hours: ${[...new Set(failedTasks.map(taskName))].map(escapeHtml).join(', ')}`, 'tasks');
     const ha = (app.status.ha || []).filter(h => h.type === 'service' && ['error', 'fence', 'recovery', 'freeze'].includes(h.state));
     ha.forEach(h => add('bad', `HA ${escapeHtml(h.sid)} is <b>${escapeHtml(h.state)}</b>`, 'overview'));
+    pbsAlerts().forEach(a => add(a.kind, a.text, 'backups/server'));
     const fw = app.conf && app.conf.firewall && app.conf.firewall.options;
     if (fw && !Number(fw.enable)) add('info', 'The datacenter firewall is off: no host or guest firewall rules are applied', 'firewall/options');
     return out;

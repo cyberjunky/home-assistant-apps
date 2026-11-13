@@ -320,11 +320,19 @@ def lockout_risk(scope: dict, rule: dict, options: dict | None = None) -> str:
 class ProxmoxAPI:
     """Talks to one cluster over any of its nodes, with an API token."""
 
-    def __init__(self, config: Config):
-        self.config = config
-        self.hosts = list(config.hosts)
+    def __init__(self, hosts: list[str], authorization: str, ssl=False):
+        """ssl: False (don't check the certificate), None (check it) or an aiohttp.Fingerprint (pin it)."""
+        self.hosts = list(hosts)
+        self.authorization = authorization
+        self.ssl = ssl
         self.current = 0
         self._session: aiohttp.ClientSession | None = None
+
+    @classmethod
+    def for_cluster(cls, config: Config) -> "ProxmoxAPI":
+        return cls(
+            config.hosts, f"PVEAPIToken={config.token_id}={config.token_secret}", None if config.verify_ssl else False
+        )
 
     @property
     def host(self) -> str:
@@ -334,8 +342,8 @@ class ProxmoxAPI:
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession(
                 timeout=TIMEOUT,
-                headers={"Authorization": f"PVEAPIToken={self.config.token_id}={self.config.token_secret}"},
-                connector=aiohttp.TCPConnector(ssl=None if self.config.verify_ssl else False, limit=16),
+                headers={"Authorization": self.authorization},
+                connector=aiohttp.TCPConnector(ssl=self.ssl, limit=16),
             )
         return self._session
 
@@ -346,7 +354,7 @@ class ProxmoxAPI:
     async def request(self, method: str, path: str, params: dict | None = None, data: dict | None = None, full=False):
         """The answer's data (or the whole answer with full). Tries the next node when one can't be reached."""
         if not self.hosts:
-            raise ProxmoxError("No Proxmox node configured")
+            raise ProxmoxError("No address configured")
         session = await self.session()
         last = ""
         for attempt in range(len(self.hosts)):
@@ -404,7 +412,7 @@ class Cluster:
 
     def __init__(self, config: Config, api: ProxmoxAPI | None = None):
         self.config = config
-        self.api = api or ProxmoxAPI(config)
+        self.api = api or ProxmoxAPI.for_cluster(config)
         self.live: dict = {}
         self.conf: dict = {}
         self.live_at = 0.0
@@ -593,6 +601,7 @@ class Cluster:
         macros = self.conf.get("firewall", {}).get("macros") or await self._try(
             "fwmacros", api.get("/cluster/firewall/macros"), []
         )
+        storage_config = await self._try("storageconfig", api.get("/storage"), [])
         zones, vnets, backup_jobs, not_backed_up, replication, ha_resources, ha_groups, pools = await asyncio.gather(
             self._try("sdn", api.get("/cluster/sdn/zones"), []),
             self._try("sdn", api.get("/cluster/sdn/vnets"), []),
@@ -641,6 +650,24 @@ class Cluster:
             "ha_resources": ha_resources or [],
             "ha_groups": ha_groups or [],
             "pools": pools or [],
+            # Proxmox Backup Servers the cluster backs up to: where, which datastore, its certificate
+            "pbs_storages": [
+                {
+                    k: s.get(k)
+                    for k in (
+                        "storage",
+                        "server",
+                        "port",
+                        "datastore",
+                        "namespace",
+                        "fingerprint",
+                        "username",
+                        "disable",
+                    )
+                }
+                for s in storage_config or []
+                if s.get("type") == "pbs"
+            ],
         }
         self.conf_at = time.time()
 

@@ -27,11 +27,14 @@ So you know what is at stake:
   app, and the app talks to Proxmox. Give the token only the rights it needs
   (DOCS.md lists them); a read-only token can't change anything, whatever this
   app does.
+- **A token for a Proxmox Backup Server** (optional), kept and used the same
+  way, only sent to that server. The `Audit` role DOCS.md gives it only reads.
 - **Certificates.** Proxmox nodes use self-signed certificates, so by default
   the app does not check them (`verify_ssl: false`). Anyone who can intercept
   traffic between Home Assistant and the nodes could then read the token. Keep
   them on a trusted network, or give the nodes a trusted certificate and turn
-  `verify_ssl` on.
+  `verify_ssl` on. For a backup server you can pin its certificate with
+  `fingerprint`.
 - **What it can change.** Nothing while `read_only` is on, which is the
   default. With it off, only through the fixed calls in `src/proxmox.py`:
   start, shut down, reboot, pause, resume and stop a guest; add, change,

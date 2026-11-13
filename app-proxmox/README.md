@@ -37,6 +37,9 @@ twice.
 **Backups at a glance** — protected guests, RPO, last night, restore points, the longest restore, a 14-day calendar per guest and what needs a look
 ![Backups at a glance](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-proxmox/screenshots/backups-light.webp)
 
+**Backup server** — a Proxmox Backup Server's datastores, jobs and tasks
+![Backup server](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-proxmox/screenshots/backup-server-light.webp)
+
 **Backups per guest** — RPO and its target, runs, restore points, sizes, backup time and estimated restore time
 ![Backups per guest](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-proxmox/screenshots/backups-guests-dark.webp)
 
@@ -76,6 +79,7 @@ twice.
 - 🖥️ **Nodes and guests** — Every number Proxmox has, with history; hardware, disks, services and updates per node; network devices, addresses, disks, snapshots and backups per guest
 - 💾 **Storage** — Usage with a forecast of when it is full, replication jobs
 - 🗄️ **Backups** — At a glance whether every guest is protected and on time: RPO against the job's schedule, estimated restore time (RTO), a 14-day calendar, each night's job runs from their logs, restore points, verification, and what backups take on storage with PBS deduplication
+- 🛡️ **Proxmox Backup Server** — Optional: its datastores with their forecast, deduplication, garbage collection and bad chunks, its verify, prune, sync and garbage collection jobs, and its tasks
 - 🌐 **Network** — A map per node, VLAN lanes to drag guests between, every interface, pending changes and SDN
 - 🛡️ **Firewall** — A flow per guest, node or group, drag-and-drop rules, the rule tables, groups, IP sets and aliases with where they are used, which guests the firewall doesn't cover, and the log with statistics
 - 📋 **Tasks** — The cluster's task log, with each task's own log
@@ -85,6 +89,7 @@ twice.
 
 - A Proxmox VE 8 or 9 node or cluster, reachable from Home Assistant on port 8006
 - An API token (DOCS.md shows the four commands to make one)
+- Optional: a Proxmox Backup Server with its own read-only token
 
 ## Installation
 

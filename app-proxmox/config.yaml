@@ -22,6 +22,7 @@ options:
   verify_ssl: false
   poll_seconds: 10
   read_only: true
+  pbs: []
   log_level: info
 
 schema:
@@ -32,4 +33,11 @@ schema:
   verify_ssl: bool
   poll_seconds: int(5,300)?
   read_only: bool?
+  pbs:
+    - name: str?
+      host: str
+      token_id: str
+      token_secret: password
+      fingerprint: str?
+      verify_ssl: bool?
   log_level: list(debug|info|warning|error)?

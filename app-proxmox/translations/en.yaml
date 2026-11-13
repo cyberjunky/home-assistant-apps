@@ -27,6 +27,34 @@ configuration:
       Change nothing on the cluster. Turn off to start and stop guests, edit
       firewall rules and move guests to another VLAN from the dashboard (the
       token needs the rights for it too).
+  pbs:
+    name: Proxmox Backup Servers
+    description: >-
+      Optional. A Proxmox Backup Server to show on the Backups page: its
+      datastores, jobs and tasks. It needs its own API token; the Info page
+      tells how to make one.
+    fields:
+      name:
+        name: Name
+        description: Its name on the pages. Empty uses the host name.
+      host:
+        name: Address
+        description: For example 192.168.1.20 or https://pbs.lan:8007. Without a port it is 8007.
+      token_id:
+        name: API token ID
+        description: The token's full ID, for example homeassistant@pbs!dashboard.
+      token_secret:
+        name: API token secret
+        description: The secret PBS showed once when the token was made.
+      fingerprint:
+        name: Certificate fingerprint
+        description: >-
+          Optional. The SHA-256 fingerprint of its certificate (as Proxmox VE's
+          storage settings show it). The app then only talks to that exact
+          certificate.
+      verify_ssl:
+        name: Check the certificate
+        description: Check the certificate against trusted authorities. Leave off for PBS's own self-signed certificate.
   log_level:
     name: Log level
     description: Amount of logging.

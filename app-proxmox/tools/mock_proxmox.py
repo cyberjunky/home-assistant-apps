@@ -1186,6 +1186,22 @@ def build_app(cluster: MockCluster) -> web.Application:
             }
         ]
 
+    async def storage_config(_):
+        out = [
+            {"storage": st, "type": kind, "content": content, "shared": int(shared)}
+            for st, kind, content, shared, *_ in STORAGES
+        ]
+        for item in out:
+            if item["type"] == "pbs":
+                item.update(
+                    server="127.0.0.1",
+                    port=18007,
+                    datastore="main",
+                    username="root@pam!pve",
+                    fingerprint="AB:" * 31 + "CD",
+                )
+        return out
+
     async def pools(_):
         return [{"poolid": "core", "comment": "Things the house needs"}]
 
@@ -1679,6 +1695,7 @@ def build_app(cluster: MockCluster) -> web.Application:
         ("GET", "/cluster/backup-info/not-backed-up", not_backed_up),
         ("GET", "/cluster/replication", replication),
         ("GET", "/pools", pools),
+        ("GET", "/storage", storage_config),
         ("GET", "/cluster/sdn/zones", sdn_zones),
         ("GET", "/cluster/sdn/vnets", sdn_vnets),
         ("GET", "/cluster/sdn/vnets/{vnet}/subnets", sdn_subnets),

@@ -2,11 +2,13 @@
 
 from datetime import UTC, datetime
 
+import aiohttp
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
 from src import webui
 from src.config import Config, normalize_host
+from src.pbs import PBSServer, dedup_factor, fingerprint_ssl
 from src.proxmox import (
     Cluster,
     ProxmoxError,
@@ -19,7 +21,7 @@ from src.proxmox import (
     size_bytes,
 )
 from src.webui import WebUI
-from tools import mock_proxmox
+from tools import mock_pbs, mock_proxmox
 
 
 # ---------------------------------------------------------------------
@@ -379,3 +381,97 @@ async def test_changes_through_the_api(client, cluster):
 async def test_only_ingress_may_change(client, monkeypatch):
     monkeypatch.setenv("SUPERVISOR_TOKEN", "x")
     assert (await client.post("/api/guest/106/power", json={"action": "start"})).status == 403
+
+
+# ---------------------------------------------------------------------
+# Proxmox Backup Server
+# ---------------------------------------------------------------------
+def test_pbs_options():
+    fp = ":".join(["AB"] * 32)
+    config = Config.from_options(
+        {
+            "pbs": [
+                {"host": "192.168.1.20", "token_id": "ha@pbs!dash", "token_secret": "s", "fingerprint": fp},
+                {"name": "offsite", "host": "https://pbs2.lan:8443", "token_id": "ha@pbs!dash", "token_secret": "s"},
+            ]
+        }
+    )
+    first, second = config.pbs
+    assert (first.name, first.host, first.fingerprint) == ("192.168.1.20", "https://192.168.1.20:8007", fp)
+    assert (second.name, second.host) == ("offsite", "https://pbs2.lan:8443")
+    assert isinstance(fingerprint_ssl(fp), aiohttp.Fingerprint)
+    for bad, message in (
+        ({"host": "pbs", "token_id": "ha@pbs", "token_secret": "s"}, "user@realm!tokenname"),
+        ({"host": "pbs", "token_id": "ha@pbs!d", "token_secret": ""}, "secret"),
+        ({"host": "pbs", "token_id": "ha@pbs!d", "token_secret": "s", "fingerprint": "AB:CD"}, "32 pairs"),
+    ):
+        with pytest.raises(ValueError, match=message):
+            Config.from_options({"pbs": [bad]})
+    assert dedup_factor({"index-data-bytes": 300, "disk-bytes": 100}) == 3
+    assert dedup_factor({}) is None
+
+
+@pytest.fixture
+async def pbs_server():
+    server = TestServer(mock_pbs.build_app(mock_pbs.MockPBS()))
+    await server.start_server()
+    config = Config.from_options(
+        {
+            "pbs": [
+                {
+                    "name": "pbs",
+                    "host": f"http://127.0.0.1:{server.port}",
+                    "token_id": "homeassistant@pbs!dashboard",
+                    "token_secret": "secret",
+                }
+            ]
+        }
+    )
+    pbs = PBSServer(config.pbs[0])
+    await pbs.refresh()
+    yield pbs
+    await pbs.api.close()
+    await server.close()
+
+
+async def test_pbs_is_read(pbs_server):
+    s = pbs_server.summary()
+    assert s["version"]["version"] == "4.0.18" and s["notes"] == {}
+    stores = {d["store"]: d for d in s["datastores"]}
+    assert set(stores) == {"main", "archive"}
+    assert round(stores["main"]["dedup"], 2) == 2.64
+    assert stores["main"]["estimated_full"] > stores["archive"]["estimated_full"] > 0
+    assert stores["main"]["counts"]["host"]["snapshots"] == 14
+    assert stores["main"]["gc_job"]["last-run-state"] == "ok"
+    assert [j["id"] for j in s["jobs"]["verify"]] == ["v-daily", "v-weekly"]
+    assert s["jobs"]["verify"][1]["last-run-state"].startswith("verification failed")
+    assert s["jobs"]["sync"][0]["remote-store"] == "main"
+    assert s["updates"][0]["Package"] == "proxmox-backup-server"
+    task = await pbs_server.task(s["jobs"]["verify"][1]["last-run-upid"])
+    assert task["log"][-1].startswith("TASK ERROR")
+
+
+async def test_pbs_bad_token():
+    server = TestServer(mock_pbs.build_app(mock_pbs.MockPBS()))
+    await server.start_server()
+    config = Config.from_options(
+        {"pbs": [{"host": f"http://127.0.0.1:{server.port}", "token_id": "ha@pbs!x", "token_secret": "wrong"}]}
+    )
+    pbs = PBSServer(config.pbs[0])
+    with pytest.raises(ProxmoxError, match="token was refused"):
+        await pbs.refresh()
+    await pbs.api.close()
+    await server.close()
+
+
+async def test_pbs_through_the_api(cluster, pbs_server, tmp_path, monkeypatch):
+    monkeypatch.setattr(webui, "LAYOUT_FILE", tmp_path / "layout.json")
+    web = WebUI(0, cluster.config, cluster, [pbs_server])
+    async with TestClient(TestServer(web.app)) as c:
+        status = await (await c.get("/api/status")).json()
+        assert status["pbs"][0]["name"] == "pbs" and status["pbs"][0]["connected"] is False
+        upid = status["pbs"][0]["tasks"][0]["upid"]
+        assert (await c.get("/api/pbs/task", params={"server": "pbs", "upid": upid})).status == 200
+        assert (await c.get("/api/pbs/task", params={"server": "nope", "upid": upid})).status == 404
+        conf = await (await c.get("/api/config")).json()
+        assert conf["pbs_storages"][0]["datastore"] == "main"

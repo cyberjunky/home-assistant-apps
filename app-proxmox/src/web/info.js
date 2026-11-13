@@ -48,6 +48,10 @@ function renderInfo() {
                 infoRow('Read every', `${c.poll_seconds} s`),
                 infoRow('Read-only', c.read_only ? 'on <span class="muted">· this app changes nothing</span>' : '<span class="warn-text">off</span> <span class="muted">· power, firewall rules and VLANs can be changed</span>'),
                 infoRow('Log level', escapeHtml(c.log_level)),
+                infoRow('Backup servers', (c.pbs || []).length ? c.pbs.map(b => {
+                    const live = pbsServers().find(x => x.name === b.name) || {};
+                    return `${escapeHtml(b.name)} <span class="mono muted">${escapeHtml(b.host)}</span> ${live.connected ? stateLabel('ok', 'connected') : `<span class="state bad" title="${attr(live.error || '')}">not reachable</span>`}<br><span class="muted">${escapeHtml(b.token_id)} · ${b.pinned ? 'certificate pinned' : b.verify_ssl ? 'certificate checked' : 'certificate not checked'}</span>`;
+                }).join('<br>') : '<span class="muted">none</span>'),
             ].join(''))}
         </div>
         <div class="page-section"><span>What the token can't read</span><small>the rest of the dashboard works without these</small></div>
@@ -65,6 +69,13 @@ pveum acl modify / --users homeassistant@pve --roles HADashboard
 pveum user token add homeassistant@pve dashboard --privsep 0</pre>
             <p class="panel-sub" style="margin:10px 0">For the buttons as well (power, firewall rules, VLANs), add <span class="mono">VM.PowerMgmt,VM.Config.Network</span> to the role with <span class="mono">pveum role modify HADashboard --append 1 --privs "VM.PowerMgmt,VM.Config.Network"</span>, and set <span class="mono">read_only: false</span>.</p>
             <p class="panel-sub">Then fill in <span class="mono">token_id: homeassistant@pve!dashboard</span> and the secret the last command printed (it is shown once).</p>
+        </div></div>
+        <div class="page-section"><span>A Proxmox Backup Server</span><small>optional, on the backup server, as root</small></div>
+        <div class="panel"><div class="panel-body">
+            <pre class="task-log" style="min-height:0">proxmox-backup-manager user create homeassistant@pbs --comment "Home Assistant dashboard"
+proxmox-backup-manager user generate-token homeassistant@pbs dashboard
+proxmox-backup-manager acl update / Audit --auth-id 'homeassistant@pbs!dashboard'</pre>
+            <p class="panel-sub" style="margin-top:10px">Then add it under <span class="mono">pbs</span>: its address, <span class="mono">token_id: homeassistant@pbs!dashboard</span> and the secret the second command printed. The <span class="mono">Audit</span> role only reads. To pin its certificate, copy the fingerprint from the PBS storage in Proxmox VE (Datacenter → Storage) or the PBS dashboard into <span class="mono">fingerprint</span>.</p>
         </div></div>
         <div class="page-section"><span>About</span></div>
         <div class="info-grid">

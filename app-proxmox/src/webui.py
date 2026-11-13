@@ -16,6 +16,7 @@ from aiohttp import web
 
 from .config import APP_VERSION, DATA_DIR, Config
 from .donate import DonatePrompt
+from .pbs import PBSServer
 from .proxmox import POWER_ACTIONS, TIMEFRAMES, Cluster, ProxmoxError, lockout_risk
 
 logger = logging.getLogger(__name__)
@@ -37,16 +38,27 @@ def public_config(config: Config) -> dict:
         "read_only": config.read_only,
         "log_level": config.log_level,
         "configured": config.configured,
+        "pbs": [
+            {
+                "name": s.name,
+                "host": s.host,
+                "token_id": s.token_id,
+                "pinned": bool(s.fingerprint),
+                "verify_ssl": s.verify_ssl,
+            }
+            for s in config.pbs
+        ],
     }
 
 
 class WebUI:
     """The dashboard's page and its JSON API."""
 
-    def __init__(self, port: int, config: Config, cluster: Cluster):
+    def __init__(self, port: int, config: Config, cluster: Cluster, backup_servers: list[PBSServer] | None = None):
         self.port = port
         self.config = config
         self.cluster = cluster
+        self.backup_servers = {s.name: s for s in backup_servers or []}
         self.app = web.Application()
         r = self.app.router
         r.add_get("/", self._index)
@@ -59,6 +71,7 @@ class WebUI:
         r.add_get("/api/backups", self._backups)
         r.add_get("/api/backups/history", self._backup_history)
         r.add_get("/api/task", self._task)
+        r.add_get("/api/pbs/task", self._pbs_task)
         r.add_get("/api/layout", self._layout)
         r.add_post("/api/layout", self._save_layout)
         r.add_post("/api/guest/{vmid}/power", self._power)
@@ -93,7 +106,13 @@ class WebUI:
     # ------------------------------------------------------------------
     async def _status(self, request: web.Request) -> web.Response:
         return web.json_response(
-            {"version": APP_VERSION, "now": time.time(), "config": public_config(self.config), **self.cluster.summary()}
+            {
+                "version": APP_VERSION,
+                "now": time.time(),
+                "config": public_config(self.config),
+                **self.cluster.summary(),
+                "pbs": [s.summary() for s in self.backup_servers.values()],
+            }
         )
 
     async def _conf(self, request: web.Request) -> web.Response:
@@ -167,6 +186,18 @@ class WebUI:
             raise web.HTTPBadRequest(text="node and upid are needed")
         try:
             return web.json_response(await self.cluster.task(node, upid))
+        except ProxmoxError as e:
+            return self._error(e)
+
+    async def _pbs_task(self, request: web.Request) -> web.Response:
+        server = self.backup_servers.get(request.query.get("server", ""))
+        upid = request.query.get("upid", "")
+        if server is None:
+            raise web.HTTPNotFound(text="no such backup server")
+        if not upid.startswith("UPID:"):
+            raise web.HTTPBadRequest(text="upid is needed")
+        try:
+            return web.json_response(await server.task(upid))
         except ProxmoxError as e:
             return self._error(e)
 

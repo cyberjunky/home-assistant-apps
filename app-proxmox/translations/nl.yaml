@@ -28,6 +28,34 @@ configuration:
       Verander niets aan het cluster. Zet uit om vanaf het dashboard guests te
       starten en stoppen, firewallregels te wijzigen en guests naar een ander
       VLAN te verplaatsen (het token heeft daar ook de rechten voor nodig).
+  pbs:
+    name: Proxmox Backup Servers
+    description: >-
+      Optioneel. Een Proxmox Backup Server om op de Backups-pagina te tonen:
+      zijn datastores, jobs en taken. Hij heeft een eigen API-token nodig; de
+      Info-pagina legt uit hoe je er een maakt.
+    fields:
+      name:
+        name: Naam
+        description: De naam op de pagina's. Leeg gebruikt de hostnaam.
+      host:
+        name: Adres
+        description: Bijvoorbeeld 192.168.1.20 of https://pbs.lan:8007. Zonder poort is het 8007.
+      token_id:
+        name: API-token-ID
+        description: De volledige ID van het token, bijvoorbeeld homeassistant@pbs!dashboard.
+      token_secret:
+        name: API-token-geheim
+        description: Het geheim dat PBS één keer liet zien toen het token werd gemaakt.
+      fingerprint:
+        name: Certificaat-vingerafdruk
+        description: >-
+          Optioneel. De SHA-256-vingerafdruk van zijn certificaat (zoals de
+          opslaginstellingen van Proxmox VE die tonen). De app praat dan alleen
+          met precies dat certificaat.
+      verify_ssl:
+        name: Certificaat controleren
+        description: Controleer het certificaat tegen vertrouwde instanties. Laat uit voor het eigen, zelfondertekende certificaat van PBS.
   log_level:
     name: Logniveau
     description: Hoeveelheid logging.
