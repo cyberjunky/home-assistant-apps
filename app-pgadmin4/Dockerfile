@@ -251,9 +251,7 @@ RUN date +%Y%m%d%H%M%S > /build-timestamp
 
 # Copy data
 COPY rootfs /
-RUN chmod +x /etc/cont-init.d/* \
-    && chmod +x /etc/services.d/nginx/* \
-    && chmod +x /etc/services.d/pgadmin4/*
+RUN chmod +x /etc/s6-overlay/s6-rc.d/*/run /etc/s6-overlay/s6-rc.d/*/finish
 
 # Disabled the special user, because we need to have a lot more in place to move away from ROOT
 # USER pgadmin

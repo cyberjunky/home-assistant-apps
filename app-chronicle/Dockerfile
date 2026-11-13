@@ -15,7 +15,7 @@ RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements.txt
 
 # Copy S6 service and set permissions
 COPY rootfs /
-RUN chmod +x /etc/services.d/chronicle/*
+RUN chmod +x /etc/s6-overlay/s6-rc.d/chronicle/run /etc/s6-overlay/s6-rc.d/chronicle/finish
 
 # Copy application code, and config.yaml for the app version shown in the dashboard
 COPY src /app/src

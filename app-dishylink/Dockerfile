@@ -76,7 +76,7 @@ COPY --from=build /src/LICENSE ./LICENSE.dishylink
 # Copy root filesystem
 COPY rootfs /
 # Git on Windows does not record the executable bit reliably; set it here.
-RUN chmod a+x /etc/services.d/*/run /etc/services.d/*/finish /usr/bin/historian-flush
+RUN chmod a+x /etc/s6-overlay/s6-rc.d/*/run /etc/s6-overlay/s6-rc.d/*/finish /usr/bin/historian-flush
 
 # /api/health is answered by the embedded history recorder. The Supervisor
 # watchdog acts on this health status.

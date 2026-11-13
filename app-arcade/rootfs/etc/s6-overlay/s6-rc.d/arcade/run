@@ -1,0 +1,8 @@
+#!/command/with-contenv bashio
+# ==============================================================================
+# Arcade - S6 Service Runner
+# ==============================================================================
+
+echo "[INFO] Starting Arcade..."
+cd /app
+exec python3 -m src

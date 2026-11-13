@@ -1,0 +1,7 @@
+#!/command/with-contenv bashio
+# ==============================================================================
+# Proxmox Backup Server - the app's own part: PBS's log, and the disks PBS set up
+# ==============================================================================
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+cd /app
+exec python3 -m src

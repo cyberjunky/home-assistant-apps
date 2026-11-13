@@ -1,0 +1,62 @@
+#!/command/with-contenv bashio
+# ==============================================================================
+# Proxmox Backup Server - prepare PBS before its services start
+# ==============================================================================
+set -e
+
+# Home Assistant's time zone, which it gives every app as TZ: PBS runs its schedules (garbage
+# collection, jobs) by it
+TZ_NAME="${TZ:-}"
+if [[ -n "${TZ_NAME}" && -f "/usr/share/zoneinfo/${TZ_NAME}" ]]; then
+    ln -sf "/usr/share/zoneinfo/${TZ_NAME}" /etc/localtime
+    echo "${TZ_NAME}" > /etc/timezone
+    bashio::log.info "Time zone: ${TZ_NAME}"
+fi
+
+# PBS's configuration, certificate, users, tokens, history and task logs live in /data, so they
+# survive updates. Proxmox VE pins the certificate's fingerprint: a new one would lock it out.
+# The mount units PBS writes for the disks it sets up (Disks → Directory) are kept there too.
+for part in etc lib log systemd; do
+    mkdir -p "/data/pbs/${part}"
+done
+for pair in "etc:/etc/proxmox-backup" "lib:/var/lib/proxmox-backup" "log:/var/log/proxmox-backup" "systemd:/etc/systemd/system"; do
+    target="${pair#*:}"
+    rm -rf "${target}"
+    ln -s "/data/pbs/${pair%%:*}" "${target}"
+done
+chown backup:backup /data/pbs/etc /data/pbs/lib /data/pbs/log
+chmod 700 /data/pbs/etc /data/pbs/lib /data/pbs/log
+# Locks left behind when the app was stopped hard
+rm -f /data/pbs/etc/.*.lck /data/pbs/etc/*.lock
+
+# PBS keeps its shared memory in /run/proxmox-backup and insists that it is a tmpfs, which an
+# app's /run is not. /dev/shm is one, so no mount is needed (AppArmor refuses that one under
+# Home Assistant)
+mkdir -p /dev/shm/proxmox-backup
+chmod 755 /dev/shm/proxmox-backup
+chown backup:backup /dev/shm/proxmox-backup
+rm -rf /run/proxmox-backup
+ln -s /dev/shm/proxmox-backup /run/proxmox-backup
+
+# The login for the PBS web interface and for Proxmox VE: root@pam, with the password from the options
+ROOT_PASSWORD=$(python3 -c 'import json; print(json.load(open("/data/options.json")).get("root_password") or "", end="")')
+if [[ -n "${ROOT_PASSWORD}" ]]; then
+    printf 'root:%s\n' "${ROOT_PASSWORD}" | chpasswd
+    unset ROOT_PASSWORD
+else
+    passwd -l root > /dev/null
+    bashio::log.warning "root_password is empty: nobody can log in to PBS until you set one"
+fi
+
+# The app relays PBS's log from systemd's journal socket, which lives here
+mkdir -p /run/systemd/journal
+
+# Where PBS mounts its datastore disks
+mkdir -p /mnt/datastore
+
+# The disks are only visible with full access, which Home Assistant grants only without protection mode
+if ! compgen -G "/dev/sd[a-z]" > /dev/null && ! compgen -G "/dev/nvme[0-9]*n[0-9]*" > /dev/null \
+    && ! compgen -G "/dev/mmcblk[0-9]" > /dev/null; then
+    bashio::log.warning "This app can't see any disk of this machine: Protection mode is probably on."
+    bashio::log.warning "Turn off Protection mode on the app's Info tab and restart the app to use a disk for a datastore."
+fi
