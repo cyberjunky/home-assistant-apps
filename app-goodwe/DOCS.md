@@ -116,8 +116,9 @@ folder. The Dashboard shows what the controller is doing.
     can start and stop it there by hand. A miner without a switch is only read; one with
     neither switch nor sensor counts as running whenever the surplus signal is on.
 
-  The dashboard shows each miner (running, *idle* when its switch is off but it still draws
-  power, or off; its power, today, auto or manual) and what the app
+  The dashboard shows each miner: *running* (mining: drawing 30 W or more with its switch
+  on), *idle* (powered but not mining: any power below that, or its switch off) or *off*
+  (0 W); its power, today, and auto or manual and what the app
   is doing or waiting for; Stats counts each miner's hours and energy.
 
 The charge cap of 0.1.x ("stop charging at") is gone: with zero export it only threw solar

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.14
+
+**After updating:** nothing to do.
+
+- **Running, idle or off by power:** a miner is *running* (mining) from 30 W with its switch on; any power below that, or with its switch off, is *idle* (powered, not mining; a stopped NerdQAxe reports 0.06 W); only 0 W is *off*.
+
 ## 0.3.13
 
 **After updating:** nothing to do.

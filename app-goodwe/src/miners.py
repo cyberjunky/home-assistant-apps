@@ -42,9 +42,10 @@ ON_STATES = {"on", "true", "home", "open", "running", "mining", "active"}
 OFF_STATES = {"off", "false", "not_home", "closed", "idle", "stopped", "standby"}
 # A power sensor counts as "running" above this share of the miner's draw (and at least RUNNING_MIN_W)
 RUNNING_SHARE = 0.05
-RUNNING_MIN_W = 20
-# Switched off but drawing at least this: idle (powered, not mining; a NerdQAxe idles at about 18 W)
-IDLE_MIN_W = 5
+RUNNING_MIN_W = 30
+# Not mining but drawing more than this: idle (powered, not mining). Any power at all: a
+# NerdQAxe stopped reports 0.06 W of its own, a Lucky Miner about 18 W
+IDLE_MIN_W = 0
 # Report an entity as unreadable only after this long without a good reading
 STALE_SECONDS = 300
 # A miner that was stopped stays off at least this long
@@ -124,7 +125,7 @@ class MinerUnit:
             "switch_on": self.switch_on,
             "on": self.on,
             # Powered but not mining (its switch only stops the mining): shown as idle, not off
-            "idle": self.on is False and (self.watts or 0) >= IDLE_MIN_W,
+            "idle": self.on is False and (self.watts or 0) > IDLE_MIN_W,
             "watts": None if self.watts is None else round(self.watts),
             "since": self.since,
             "error": self.error,
