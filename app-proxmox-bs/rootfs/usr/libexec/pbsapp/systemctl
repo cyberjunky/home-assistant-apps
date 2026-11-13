@@ -1,0 +1,3 @@
+#!/bin/sh
+# Proxmox Backup Server - the app has no systemd; this answers what PBS asks of it (see src/systemctl.py)
+exec python3 /app/src/systemctl.py "$@"

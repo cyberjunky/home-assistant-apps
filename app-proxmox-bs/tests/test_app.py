@@ -222,6 +222,6 @@ def test_systemctl_reports_a_failed_mount(monkeypatch, tmp_path, capsys):
 
 
 def test_guard_script_refuses_home_assistants_disk():
-    guard = Path(__file__).resolve().parent.parent / "rootfs/usr/local/lib/pbsapp/disk-guard"
+    guard = Path(__file__).resolve().parent.parent / "rootfs/usr/libexec/pbsapp/disk-guard"
     text = guard.read_text()
     assert "hassos" in text and "exec -a" in text

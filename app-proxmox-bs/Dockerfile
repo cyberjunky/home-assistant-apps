@@ -50,20 +50,20 @@ RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d && chmod +x /usr/sbin
 
 # S6 services, the start script, and the app's stand-ins for what a container lacks
 COPY rootfs /
-RUN chmod +x /etc/cont-init.d/* /etc/cont-finish.d/* /etc/services.d/*/* /usr/local/lib/pbsapp/* \
+RUN chmod +x /etc/cont-init.d/* /etc/cont-finish.d/* /etc/services.d/*/* /usr/libexec/pbsapp/* \
     # systemctl: there is no systemd; the app mounts the disks PBS sets up (src/systemctl.py)
     && mv /usr/bin/systemctl /usr/bin/systemctl.real \
-    && ln -s /usr/local/lib/pbsapp/systemctl /usr/bin/systemctl \
+    && ln -s /usr/libexec/pbsapp/systemctl /usr/bin/systemctl \
     # The commands that write to a disk go through the guard first, which refuses Home Assistant's own
     # disk. It takes their place, as PBS runs them by their own path
     && for cmd in /usr/sbin/wipefs /usr/bin/dd /usr/sbin/sgdisk /usr/sbin/mkfs /usr/sbin/mke2fs \
                   /usr/sbin/mkfs.ext4 /usr/sbin/mkfs.xfs /usr/sbin/blkdiscard; do \
-        mv "${cmd}" "${cmd}.real" && ln -s /usr/local/lib/pbsapp/disk-guard "${cmd}"; done \
+        mv "${cmd}" "${cmd}.real" && ln -s /usr/libexec/pbsapp/disk-guard "${cmd}"; done \
     # mkfs.ext4 was a link to mke2fs: now to the real one
     && ln -sf mke2fs.real /usr/sbin/mkfs.ext4.real \
     # No ZFS in Home Assistant's kernel: empty answers for PBS's Disks page
-    && ln -s /usr/local/lib/pbsapp/zfs-missing /usr/sbin/zpool \
-    && ln -s /usr/local/lib/pbsapp/zfs-missing /usr/sbin/zfs
+    && ln -s /usr/libexec/pbsapp/zfs-missing /usr/sbin/zpool \
+    && ln -s /usr/libexec/pbsapp/zfs-missing /usr/sbin/zfs
 
 # Application code, and config.yaml for the app version in the log
 COPY src /app/src

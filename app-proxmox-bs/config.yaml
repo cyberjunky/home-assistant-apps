@@ -14,7 +14,7 @@ webui: "https://[HOST]:[PORT:8007]"
 # PBS listens on the machine's own network, as on a real PBS
 host_network: true
 # Every disk of the machine, for PBS's Disks page (needs Protection mode off); the commands that
-# write to a disk refuse the one Home Assistant runs from (rootfs/usr/local/lib/pbsapp/disk-guard)
+# write to a disk refuse the one Home Assistant runs from (rootfs/usr/libexec/pbsapp/disk-guard)
 full_access: true
 # Disks' models, serials and file systems from the host's udev database
 udev: true
