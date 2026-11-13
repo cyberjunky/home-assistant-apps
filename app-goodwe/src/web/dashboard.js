@@ -64,7 +64,9 @@ function renderDashMiners() {
         const since = u.since ? ` <small>since ${fmtTime(u.since)}</small>` : '';
         const state = u.on === null || u.on === undefined
             ? `<span class="${u.error ? 'sb-warn' : 'muted'}">${u.error ? 'unknown' : 'waiting'}</span>`
-            : u.on ? `<span class="state miners">running</span>${since}` : `<span class="muted">off</span>${since}`;
+            : u.on ? `<span class="state miners">running</span>${since}`
+            : u.idle ? `<span class="state" title="Switched off, still drawing power: on, not mining">idle</span>${since}`
+            : `<span class="muted">off</span>${since}`;
         const draw = u.expected_w ? `<small>${u.power_w ? 'rated' : 'learned'} ${fmtW(u.expected_w)}</small>` : '';
         const mode = u.auto === null
             ? '<small class="muted" title="No switch configured: only read">read only</small>'
@@ -73,7 +75,7 @@ function renderDashMiners() {
         return `<tr>
             <td title="${escapeHtml([u.switch, u.sensor].filter(Boolean).join(' · '))}"><b>${escapeHtml(u.name)}</b>${u.error ? `<br><small class="sb-warn">${escapeHtml(u.error)}</small>` : ''}</td>
             <td>${state}</td>
-            <td class="mono">${u.on ? fmtW(u.watts) : u.on === false ? '0 W' : '–'}<br>${draw}</td>
+            <td class="mono">${u.on || u.idle ? fmtW(u.watts) : u.on === false ? '0 W' : '–'}<br>${draw}</td>
             <td class="mono">${num(t.hours || 0, 1)} h<br><small>${fmtKwh(t.kwh || 0, 2)}</small></td>
             <td class="miner-mode">${mode}</td>
         </tr>`;

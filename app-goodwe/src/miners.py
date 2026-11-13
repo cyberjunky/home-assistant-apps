@@ -43,6 +43,8 @@ OFF_STATES = {"off", "false", "not_home", "closed", "idle", "stopped", "standby"
 # A power sensor counts as "running" above this share of the miner's draw (and at least RUNNING_MIN_W)
 RUNNING_SHARE = 0.05
 RUNNING_MIN_W = 20
+# Switched off but drawing at least this: idle (powered, not mining; a NerdQAxe idles at about 18 W)
+IDLE_MIN_W = 5
 # Report an entity as unreadable only after this long without a good reading
 STALE_SECONDS = 300
 # A miner that was stopped stays off at least this long
@@ -96,6 +98,10 @@ class MinerUnit:
             watts = self.sensor_w if self.fresh(self._sensor_at) else None
             if watts is None:
                 return None, None
+            # A switch that is off means not mining, whatever the sensor still says: it may lag a
+            # poll or two, and a miner whose switch only stops the mining keeps drawing some power
+            if self.cfg.switch and self.switch_on is False and self.fresh(self._switch_at):
+                return False, watts
             floor = max(RUNNING_MIN_W, (self.expected_w or 0) * RUNNING_SHARE)
             return watts >= floor, watts
         if self.cfg.switch:
@@ -117,6 +123,8 @@ class MinerUnit:
             "auto": self.auto if self.controllable else None,
             "switch_on": self.switch_on,
             "on": self.on,
+            # Powered but not mining (its switch only stops the mining): shown as idle, not off
+            "idle": self.on is False and (self.watts or 0) >= IDLE_MIN_W,
             "watts": None if self.watts is None else round(self.watts),
             "since": self.since,
             "error": self.error,
