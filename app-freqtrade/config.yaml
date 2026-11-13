@@ -1,5 +1,5 @@
 name: Freqtrade
-version: "0.1.0"
+version: "0.1.1"
 slug: app-freqtrade
 description: "Dashboard for your Freqtrade trading bots - every bot's balance, profit and trades on one overview, a page per bot, live events over the bots' WebSocket"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-freqtrade"

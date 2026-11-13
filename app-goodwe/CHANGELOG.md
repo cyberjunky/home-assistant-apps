@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.11
+
+**After updating:** nothing to do.
+
+- **The top bar fits a phone:** the app's name and buttons on top with the theme button last, the menu full width below. When the menu doesn't fit it scrolls sideways instead of losing a tab; on a laptop it gives way the same way and the clock goes first (below 860 px).
+
 ## 0.3.10
 
 **After updating:** nothing to do.

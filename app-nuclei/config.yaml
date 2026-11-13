@@ -1,6 +1,6 @@
 # https://developers.home-assistant.io/docs/apps/configuration
 name: Nuclei Scanner
-version: "0.1.8"
+version: "0.1.9"
 slug: app-nuclei
 description: "Internal vulnerability scanner - CVEs, exposed services and open ports, as tickets you work through"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-nuclei"

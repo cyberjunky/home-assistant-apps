@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.1
+
+**After updating:** nothing to do.
+
+- **The top bar fits a phone:** the app's name and buttons on top with the theme button last, the menu full width below. When the menu doesn't fit it scrolls sideways instead of losing a tab; on a laptop it gives way the same way and the clock goes first (below 860 px).
+
 ## 0.8.0
 
 **After updating:** nothing to do. The first start upgrades the database: it works out the battery capacity of the charging sessions recorded so far and gives each trip the consumption of its own time, which can change the energy of older trips a little. To compare battery health with the capacity from the car's specifications, set **Battery capacity when new** in the app configuration.

@@ -6,10 +6,12 @@ trades are only in the REST API. So the state is read over REST every poll_secon
 on the WebSocket reads it again at once: a trade shows up within seconds, not at the next poll.
 """
 
+import ast
 import asyncio
 import contextlib
 import json
 import logging
+import re
 import time
 from collections import deque
 from collections.abc import Callable
@@ -120,6 +122,21 @@ def _amount(value: Any, currency: Any) -> str:
         return ""
 
 
+def _plain(text: str) -> str:
+    """A bot message without its Telegram formatting, and with a pairlist as names, not Python."""
+
+    def listing(match: re.Match) -> str:
+        try:
+            items = ast.literal_eval(match.group(0))
+            return "; ".join(str(v) for item in items for v in (item.values() if isinstance(item, dict) else [item]))
+        except (ValueError, SyntaxError, AttributeError):
+            return match.group(0)
+
+    text = re.sub(r"\[\{.*\}\]", listing, text, flags=re.S)
+    text = re.sub(r"[*`]", "", text)
+    return " · ".join(" ".join(line.split()) for line in text.splitlines() if line.strip())
+
+
 def describe_event(message: dict) -> tuple[str, str]:
     """What an event says, as one line, and its level: ok, bad, warn or info."""
     kind = message.get("type", "")
@@ -159,7 +176,7 @@ def describe_event(message: dict) -> tuple[str, str]:
         return str(message.get("msg", "")), "info"
     if kind == "exception":
         return str(message.get("data") or message.get("status") or "Exception"), "bad"
-    text = str(message.get("status", ""))
+    text = _plain(str(message.get("status", "")))
     return text, "warn" if kind == "warning" else "info"
 
 

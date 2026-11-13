@@ -1,5 +1,5 @@
 name: Tesla
-version: "0.8.0"
+version: "0.8.1"
 slug: app-tesla
 description: "Unofficial Tesla logger and dashboard for Home Assistant - live map, trips, charging sessions and statistics"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-tesla"
