@@ -240,3 +240,16 @@ def test_switched_off_is_not_running_whatever_the_sensor_says(tmp_path, clock):
     assert unit.learned_w == learned, "nothing learned while switched off"
     assert unit.state()["idle"] is True
     assert miners.events.items[-1][0] == "miners_stopped"
+
+
+def test_idle_draw_of_a_small_miner(tmp_path, clock):
+    miners, ha = make(tmp_path, TWO[:1])
+    ha.states["sensor.left_power"] = {"state": "18", "attributes": {"unit_of_measurement": "W"}}
+    asyncio.run(miners.read())
+    miners.on_data({"surplus": 0})
+    state = miners.units[0].state()
+    assert state["on"] is False and state["idle"] is True and state["watts"] == 18
+    ha.states["sensor.left_power"] = {"state": "2", "attributes": {"unit_of_measurement": "W"}}
+    asyncio.run(miners.read())
+    miners.on_data({"surplus": 0})
+    assert miners.units[0].state()["idle"] is False

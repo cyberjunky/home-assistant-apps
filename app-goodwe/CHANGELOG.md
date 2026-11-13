@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.13
+
+**After updating:** nothing to do.
+
+- **A miner whose switch is off no longer shows as running** while its power sensor still reports the old draw (sensors can lag a few minutes); it counts as stopped at once.
+- **Idle:** a miner that is switched off but still draws power (5 W or more, like a NerdQAxe at about 18 W) shows as *idle* with that draw, instead of *off* with 0 W. Idle is not counted as running, and no draw is learned from it.
+
 ## 0.3.12
 
 **After updating:** `miners` is now a list, one entry per miner, and the old `name` / `power_w` / `entity` block no longer fits. Replace it on the Configuration tab with your miners, each with its switch and power sensor (see the documentation, *Miners*), and remove any automation that switched them with the Solar surplus sensor: the app does that now.
