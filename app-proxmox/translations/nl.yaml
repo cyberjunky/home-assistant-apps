@@ -1,0 +1,33 @@
+configuration:
+  hosts:
+    name: Nodes
+    description: >-
+      Eén of meer nodes van je cluster, bijvoorbeeld 192.168.1.11 of
+      https://pve1.lan:8006. De app leest het hele cluster via de eerste die
+      antwoordt; geef er twee of drie, dan blijft hij werken als er één uit ligt.
+  token_id:
+    name: API-token-ID
+    description: >-
+      De volledige ID van het token, gebruiker@realm!tokennaam, bijvoorbeeld
+      homeassistant@pve!dashboard. De Info-pagina legt uit hoe je er een maakt.
+  token_secret:
+    name: API-token-geheim
+    description: Het geheim dat Proxmox één keer liet zien toen het token werd gemaakt.
+  verify_ssl:
+    name: Certificaat controleren
+    description: >-
+      Controleer de certificaten van de nodes. Laat uit voor de eigen,
+      zelfondertekende certificaten van Proxmox; zet aan als de nodes een
+      vertrouwd certificaat hebben.
+  poll_seconds:
+    name: Lees elke (seconden)
+    description: Hoe vaak de toestand van het cluster wordt gelezen. De configuratie wordt elke 5 minuten gelezen.
+  read_only:
+    name: Alleen lezen
+    description: >-
+      Verander niets aan het cluster. Zet uit om vanaf het dashboard guests te
+      starten en stoppen, firewallregels te wijzigen en guests naar een ander
+      VLAN te verplaatsen (het token heeft daar ook de rechten voor nodig).
+  log_level:
+    name: Logniveau
+    description: Hoeveelheid logging.

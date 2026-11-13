@@ -1,0 +1,32 @@
+configuration:
+  hosts:
+    name: Nodes
+    description: >-
+      One or more nodes of your cluster, for example 192.168.1.11 or
+      https://pve1.lan:8006. The app reads the whole cluster through the first
+      that answers; give two or three so it keeps working when one is down.
+  token_id:
+    name: API token ID
+    description: >-
+      The token's full ID, user@realm!tokenname, for example
+      homeassistant@pve!dashboard. The Info page tells how to make one.
+  token_secret:
+    name: API token secret
+    description: The secret Proxmox showed once when the token was made.
+  verify_ssl:
+    name: Check the certificate
+    description: >-
+      Check the nodes' certificates. Leave off for Proxmox's own self-signed
+      certificates; turn on when the nodes have a trusted one.
+  poll_seconds:
+    name: Read every (seconds)
+    description: How often the state of the cluster is read. The configuration is read every 5 minutes.
+  read_only:
+    name: Read-only
+    description: >-
+      Change nothing on the cluster. Turn off to start and stop guests, edit
+      firewall rules and move guests to another VLAN from the dashboard (the
+      token needs the rights for it too).
+  log_level:
+    name: Log level
+    description: Amount of logging.
