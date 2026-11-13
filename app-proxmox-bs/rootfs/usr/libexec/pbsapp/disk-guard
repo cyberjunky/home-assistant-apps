@@ -1,0 +1,59 @@
+#!/bin/bash
+# ==============================================================================
+# Proxmox Backup Server - guard in front of the commands that write to a disk
+# (wipefs, dd, sgdisk, mkfs, ...), in their place, so PBS goes through it
+# whatever PATH it runs them with. The app can see every disk of the machine,
+# including the one Home Assistant runs from, which PBS's Disks page would not
+# know to leave alone. Any device on that disk is refused; everything else goes
+# to the real command unchanged.
+# ==============================================================================
+name="${0##*/}"
+
+# Is $1 (a device or partition) on the disk Home Assistant uses?
+system_disk() {
+    local real dev parent part majmin label
+    real=$(readlink -f "$1" 2>/dev/null) || return 1
+    dev="${real##*/}"
+    [[ -e "/sys/class/block/${dev}" ]] || return 1
+    if [[ -e "/sys/class/block/${dev}/partition" ]]; then
+        parent=$(basename "$(readlink -f "/sys/class/block/${dev}/..")")
+    else
+        parent="${dev}"
+    fi
+    for part in "/sys/class/block/${parent}" "/sys/class/block/${parent}/${parent}"*; do
+        [[ -e "${part}/dev" ]] || continue
+        # Home Assistant OS labels its partitions hassos-boot, hassos-data, ...
+        label=$(blkid -o value -s LABEL "/dev/${part##*/}" 2>/dev/null; blkid -o value -s PARTLABEL "/dev/${part##*/}" 2>/dev/null)
+        if [[ "${label,,}" == *hassos* ]]; then
+            return 0
+        fi
+        # Mounted in this app anywhere but a datastore: Home Assistant's own data (/data, /share, ...)
+        majmin=$(<"${part}/dev")
+        if awk -v d="${majmin}" '$3 == d && $5 !~ "^/mnt/datastore(/|$)" { found = 1 } END { exit !found }' /proc/self/mountinfo; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+for arg in "$@"; do
+    case "${arg}" in
+        of=/dev/*) target="${arg#of=}" ;;
+        /dev/*) target="${arg}" ;;
+        *) continue ;;
+    esac
+    if system_disk "${target}"; then
+        echo "${name}: ${target} is on the disk Home Assistant runs from; the app refuses to change it" >&2
+        exit 1
+    fi
+done
+
+# The real command was moved aside to <name>.real (see the Dockerfile). It keeps its own name:
+# mke2fs, for one, picks the file system from it (mkfs.ext4)
+for dir in /usr/sbin /usr/bin; do
+    if [[ -x "${dir}/${name}.real" ]]; then
+        exec -a "${name}" "${dir}/${name}.real" "$@"
+    fi
+done
+echo "${name}: not found" >&2
+exit 127

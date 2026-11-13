@@ -1,0 +1,9 @@
+configuration:
+  root_password:
+    name: Root password
+    description: >-
+      The password of root@pam, for PBS's web interface and console and for
+      Proxmox VE. Empty: nobody can log in.
+  log_level:
+    name: Log level
+    description: Amount of logging. PBS's own messages appear in the log too.

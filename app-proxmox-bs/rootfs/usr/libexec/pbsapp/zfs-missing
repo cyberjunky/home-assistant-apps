@@ -1,0 +1,8 @@
+#!/bin/sh
+# Proxmox Backup Server - Home Assistant OS has no ZFS. PBS lists ZFS pools on its
+# Disks page; an empty list keeps that page working, anything else says why not.
+case "$1" in
+    list) exit 0 ;;
+esac
+echo "ZFS is not available: Home Assistant's kernel has no ZFS. Use ext4 or xfs (Disks → Directory)." >&2
+exit 1

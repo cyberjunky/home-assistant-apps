@@ -1,0 +1,7 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Proxmox Backup Server - the API daemon (root): configuration, users, tasks
+# ==============================================================================
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+bashio::log.info "Starting the PBS API daemon..."
+exec /usr/lib/*/proxmox-backup/proxmox-backup-api

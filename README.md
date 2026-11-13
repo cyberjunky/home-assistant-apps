@@ -157,6 +157,20 @@ rules and the log with statistics. Read-only unless you allow changes.
 
 [:books: Documentation](app-proxmox/DOCS.md) · [:memo: Changelog](app-proxmox/CHANGELOG.md) · [:lock: Security](app-proxmox/SECURITY.md)
 
+### <img src="app-proxmox-bs/icon.png" alt="" width="36" align="absmiddle"> [Proxmox Backup Server](app-proxmox-bs/)
+
+![Version][proxmox-bs-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+Unofficial: a real Proxmox Backup Server for your Proxmox VE backups, to put an unused Home
+Assistant Blue, Green or Raspberry Pi to work as a low-power backup box. PBS's own packages,
+unchanged: the original API, web interface and console on port 8007, and PBS's Disks page for
+SATA, NVMe or USB disks. The app mounts them, follows them when unplugged and protects Home
+Assistant's own disk.
+
+[:books: Documentation](app-proxmox-bs/DOCS.md) · [:memo: Changelog](app-proxmox-bs/CHANGELOG.md) · [:lock: Security](app-proxmox-bs/SECURITY.md)
+
 ### <img src="app-sdradio/icon.png" alt="" width="36" align="absmiddle"> [SDRadio](app-sdradio/)
 
 ![Version][sdradio-version-shield]
@@ -279,3 +293,4 @@ software each app packages keeps its own license, noted in the app's README.
 [nuclei-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-nuclei%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [sdradio-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-sdradio%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [proxmox-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-proxmox%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[proxmox-bs-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-proxmox-bs%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
