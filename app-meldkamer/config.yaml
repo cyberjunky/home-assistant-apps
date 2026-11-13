@@ -13,7 +13,7 @@ arch:
 image: "ghcr.io/cyberjunky/app-meldkamer"
 # MQTT TLS certificate files (mqtt.tls_ca / tls_cert / tls_keyfile)
 map:
-  - ssl:ro
+  - type: ssl
 udev: true
 usb: true
 ports:

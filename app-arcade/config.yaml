@@ -17,8 +17,10 @@ panel_icon: mdi:gamepad-variant
 panel_title: Arcade
 # The ROM folder lives in /share (reachable over Samba) or /media
 map:
-  - share:rw
-  - media:rw
+  - type: share
+    read_only: false
+  - type: media
+    read_only: false
 
 options:
   rom_folder: /share/arcade/roms

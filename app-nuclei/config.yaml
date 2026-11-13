@@ -16,7 +16,8 @@ panel_title: Nuclei
 host_network: true
 hassio_api: true
 map:
-  - addon_config:rw
+  - type: app_config
+    read_only: false
 options:
   # Scans only ever run against the objects you register in the app, after acknowledging you are allowed
   # to scan them. Nothing here opens that up.
