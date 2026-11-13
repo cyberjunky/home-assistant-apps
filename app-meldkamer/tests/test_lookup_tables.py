@@ -168,3 +168,15 @@ def test_speech_defaults(db):
     assert "Li" in say("P 2 Li Kerkstraat")  # not after a hectometer marker: as written
     assert "O M" in say("P 2 assistentie OM Kerkstraat")
     assert " om " in say("P 2 brand om de hoek")
+
+
+def test_a_distance_without_a_street_is_kept(db):
+    # A message placed by its full postcode has no street, but its distance from home is real
+    msg = P2000Message(timestamp=datetime.now(UTC), body="P 1 BDH-01 Brand 3512AB Utrecht", raw_message="x")
+    msg.city, msg.postalcode, msg.latitude, msg.longitude = "Utrecht", "3512AB", 52.09, 5.12
+    msg.location_accuracy, msg.distance_km = "postcode", 4.2
+    message_id = db.save_message(msg)
+    assert db.get_message_by_id(message_id)["distance_km"] == 4.2
+    # The dashboard's list: the latest messages, and older ones when scrolling back
+    assert db.get_messages_since(3600)[0]["distance_km"] == 4.2
+    assert db.get_messages_before(limit=10)[0]["distance_km"] == 4.2
