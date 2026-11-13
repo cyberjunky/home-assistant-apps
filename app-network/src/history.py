@@ -163,8 +163,8 @@ def host_stats(
 ) -> dict:
     """Availability, drops, sessions and the daily pattern of one host."""
     up = sum(b - a for a, b in intervals)
-    # A drop is an end of being up before the end of the window
-    drops = [b for _a, b in intervals if b < until - 1]
+    # A drop is an end of being up before the end of the window (still up: it ends exactly at `until`)
+    drops = [b for _a, b in intervals if b < until]
     downs = [(intervals[i][1], intervals[i + 1][0]) for i in range(len(intervals) - 1)]
     hours = [0.0] * 24
     week = [[0.0] * 24 for _ in range(7)]
@@ -210,9 +210,9 @@ def host_events(
     events = []
     for key, iv in per_host.items():
         for a, b in iv:
-            if a > since + 1:
+            if a > since:
                 events.append({"ts": a, "key": key, "up": True})
-            if b < until - 1:
+            if b < until:
                 events.append({"ts": b, "key": key, "up": False})
     events.sort(key=lambda e: -e["ts"])
     return events[:limit]

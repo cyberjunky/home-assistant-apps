@@ -389,3 +389,15 @@ async def test_mobile_api(app):
     zones = (await (await test.get("/api/hosts")).json())["zones"]
     assert {z["state"] for z in zones} >= {"home", "work"}
     assert (await test.get("/api/mobile?entity_id=device_tracker.nope&days=7")).status == 404
+
+
+def test_a_device_that_just_left_counts():
+    # Left half a second before the statistics were made: still a drop, and an event
+    until = 10 * HOUR
+    iv, known = up_intervals(True, [(until - 0.5, False)], 0.0, until)
+    assert host_stats(iv, known, 0.0, until)["drops"] == 1
+    assert [e["up"] for e in host_events({"a": iv}, 0.0, until)] == [False]
+    # Still online: no drop
+    iv, known = up_intervals(True, [], 0.0, until)
+    assert host_stats(iv, known, 0.0, until)["drops"] == 0
+    assert host_events({"a": iv}, 0.0, until) == []

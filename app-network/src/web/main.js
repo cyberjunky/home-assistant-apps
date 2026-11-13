@@ -15,10 +15,18 @@
     }
     const [tab, sub] = parseHash();
     switchTab(tab || stored('tab', 'overview'), sub);
-    setInterval(() => refreshLive().catch(() => {
-        document.getElementById('statusbar').innerHTML = '<span class="sb-bad">● dashboard disconnected</span>';
-    }), 10000);
-    setInterval(() => loadStats(7).catch(() => {}), 120000);
+    connectLive();
+    // A safety net: every 10 seconds without the stream, every minute with it
+    let lastPoll = Date.now();
+    setInterval(() => {
+        if (live.ok && Date.now() - lastPoll < 60000) return;
+        lastPoll = Date.now();
+        refreshLive().catch(() => {
+            document.getElementById('statusbar').innerHTML = '<span class="sb-bad">● dashboard disconnected</span>';
+        });
+    }, 10000);
+    // The statistics move with time too (the last 24 hours shift)
+    setInterval(() => refreshStats().then(() => { if (activeTab && liveHooks[activeTab]) liveHooks[activeTab](); }), 120000);
 })();
 
 window.addEventListener('hashchange', () => {
