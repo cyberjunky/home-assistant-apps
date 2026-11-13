@@ -1,0 +1,32 @@
+name: Network
+version: "0.1.0"
+slug: app-network
+description: "Every device tracker in Home Assistant as a map of your network: drag them onto pages, group them per room or VLAN, connect them, rename them, and see who drops off the network"
+url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-network"
+# The Mobile map uses core's map_tiles proxy (added in 2026.9)
+homeassistant: "2026.9.0"
+init: false
+arch:
+  - aarch64
+  - amd64
+# Prebuilt by the repository Builder workflow; bump `version` to publish a new image
+image: "ghcr.io/cyberjunky/app-network"
+ingress: true
+panel_icon: mdi:lan
+panel_title: Network
+# The device trackers, their devices and areas, renaming them, and the recorder's history
+homeassistant_api: true
+# Home Assistant's time zone from the Supervisor
+hassio_api: true
+
+options:
+  history_days: 10
+  keep_days: 365
+  include_disabled: false
+  log_level: info
+
+schema:
+  history_days: int(0,90)?
+  keep_days: int(7,3650)?
+  include_disabled: bool?
+  log_level: list(debug|info|warning|error)?

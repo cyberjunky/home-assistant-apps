@@ -1,0 +1,16 @@
+configuration:
+  history_days:
+    name: Geschiedenis bij de start (dagen)
+    description: >-
+      Hoeveel dagen van de recorder van Home Assistant bij de start worden
+      gelezen voor de statistieken. De recorder bewaart standaard 10 dagen;
+      0 leest niets.
+  keep_days:
+    name: Bewaren (dagen)
+    description: Hoe lang de app zijn eigen lijst bijhoudt van elke keer dat een apparaat op of van het netwerk ging.
+  include_disabled:
+    name: Uitgeschakelde trackers
+    description: Laat ook device trackers zien die in Home Assistant zijn uitgeschakeld.
+  log_level:
+    name: Logniveau
+    description: Hoeveelheid logging.

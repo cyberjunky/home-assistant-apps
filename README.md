@@ -119,6 +119,19 @@ street-level pins, statistics, Home Assistant sensors, events and text-to-speech
 
 [:books: Documentation](app-meldkamer/DOCS.md) · [:memo: Changelog](app-meldkamer/CHANGELOG.md) · [:lock: Security](app-meldkamer/SECURITY.md)
 
+### <img src="app-network/icon.png" alt="" width="36" align="absmiddle"> [Network](app-network/)
+
+![Version][network-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+Every device tracker in Home Assistant as a map of your network, like Visio but live. Drag
+devices onto pages, group them per room or VLAN, connect them, give them the icon that fits and
+rename them in Home Assistant from there. Overview pages that zoom in, networks and VLANs with
+every address, who drops off the network and when, and your phones' tracks and heatmap.
+
+[:books: Documentation](app-network/DOCS.md) · [:memo: Changelog](app-network/CHANGELOG.md) · [:lock: Security](app-network/SECURITY.md)
+
 ### <img src="app-nuclei/icon.png" alt="" width="36" align="absmiddle"> [Nuclei Scanner](app-nuclei/)
 
 ![Version][nuclei-version-shield]
@@ -292,5 +305,6 @@ software each app packages keeps its own license, noted in the app's README.
 [freqtrade-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-freqtrade%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [nuclei-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-nuclei%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [sdradio-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-sdradio%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[network-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-network%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [proxmox-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-proxmox%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [proxmox-bs-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-proxmox-bs%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
