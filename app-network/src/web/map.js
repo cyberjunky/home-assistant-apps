@@ -327,12 +327,11 @@ function mapDraw() {
         const sub = nodeSub(n);
         return `<g class="mnode ${state} fam-${kindFamily(kind)}${sel.has('n:' + n.id) ? ' sel' : ''}" data-node="${attr(n.id)}" transform="translate(${n.x} ${n.y})">
             <title>${escapeHtml([name, h ? `${h.ip || ''} ${h.mac || ''}`.trim() : '', h ? (h.up ? 'online' : h.up === false ? 'away ' + fmtAgo(h.last_changed) : 'unknown') : ''].filter(Boolean).join('\n'))}</title>
-            <rect class="mn-bg" width="${NODE_W}" height="${NODE_H}" rx="10"/>
-            <rect class="mn-ico" x="9" y="9" width="36" height="36" rx="9"/>
-            <svg class="mn-glyph" x="15" y="15" width="24" height="24" viewBox="0 0 24 24">${mdiSvg(nodeIcon(n))}</svg>
+            <rect class="mn-bg" x="0.75" y="0.75" width="${NODE_W - 1.5}" height="${NODE_H - 1.5}" rx="12"/>
+            <svg class="mn-glyph" x="13" y="13" width="28" height="28" viewBox="0 0 24 24">${mdiSvg(nodeIcon(n))}</svg>
             <text class="mn-name" x="54" y="${sub ? 24 : 32}">${escapeHtml(clip(name, 19))}</text>
             ${sub ? `<text class="mn-sub" x="54" y="41">${escapeHtml(clip(sub, 24))}</text>` : ''}
-            ${h || n.ref || n.page ? `<circle class="mn-dot" cx="${NODE_W - 12}" cy="12" r="4.5"/>` : ''}
+            ${h || n.ref || n.page ? `<circle class="mn-dot" cx="40" cy="40" r="5"/>` : ''}
             ${n.page ? `<rect class="mn-stack" x="4" y="${NODE_H}" width="${NODE_W - 8}" height="5" rx="2"/>` : ''}
             <circle class="mn-port" data-port="${attr(n.id)}" cx="${NODE_W}" cy="${NODE_H / 2}" r="6"><title>Drag to another device to connect them</title></circle>
         </g>`;

@@ -108,20 +108,22 @@ table.data.dev-table .meter { min-width: 120px; }
 .mnode.fam-user { --fam: var(--series-5); }
 .mnode.fam-media { --fam: var(--series-4); }
 .mnode.fam-home { --fam: var(--series-2); }
-.mn-bg { fill: var(--ha-card-background); stroke: var(--divider-color); stroke-width: 1.2; }
-.mnode:hover .mn-bg { stroke: var(--secondary-text-color); }
-.mnode.sel .mn-bg { stroke: var(--primary-color); stroke-width: 2.2; }
-.mn-ico { fill: color-mix(in srgb, var(--fam) 16%, transparent); }
+/* A thin outline in the kind's colour, the icon without a box, the status dot on the icon. The fill is the
+   canvas's own colour, mostly see-through, so a group's tint shows and a cable behind a card doesn't */
+.mn-bg { fill: color-mix(in srgb, var(--ha-background) 93%, transparent); stroke: color-mix(in srgb, var(--fam) 55%, transparent); stroke-width: 1.5; }
+.mnode:hover .mn-bg { stroke: var(--fam); }
+.mnode.sel .mn-bg { fill: color-mix(in srgb, var(--primary-color) 12%, var(--ha-background)); stroke: var(--primary-color); stroke-width: 2; }
 .mn-glyph { fill: var(--fam); }
 .mn-name { font-size: 12.5px; font-weight: 600; fill: var(--primary-text-color); }
 .mn-sub { font-size: 10.5px; font-family: var(--mono); fill: var(--secondary-text-color); }
-.mn-dot { fill: var(--idle); }
+.mn-dot { fill: var(--idle); stroke: var(--ha-background); stroke-width: 2; }
 .mnode.up .mn-dot { fill: var(--success-color); }
 .mnode.unknown .mn-dot { fill: var(--warning-color); }
 .mnode.gone .mn-dot { fill: var(--danger-color); }
-.mnode.down .mn-bg { stroke-dasharray: 4 3; }
-.mnode.down .mn-ico, .mnode.down .mn-glyph, .mnode.down .mn-name { opacity: 0.55; }
-.mnode.shape .mn-bg { fill: color-mix(in srgb, var(--fam) 6%, var(--ha-card-background)); }
+.mnode.down .mn-bg { stroke: var(--idle); stroke-dasharray: 5 4; }
+.mnode.down .mn-glyph { fill: var(--idle); }
+.mnode.down .mn-name { fill: var(--secondary-text-color); }
+.mnode.shape .mn-bg { stroke-dasharray: none; }
 .mn-port { fill: var(--primary-color); stroke: var(--ha-card-background); stroke-width: 2; opacity: 0; cursor: crosshair; transition: opacity 0.1s; }
 .mnode:hover .mn-port, .mnode.sel .mn-port { opacity: 1; }
 
@@ -205,7 +207,7 @@ table.data.dev-table .meter { min-width: 120px; }
 .bars .row .bar { height: 8px; border-radius: 4px; background: var(--series-1); min-width: 2px; }
 .bars .row .n { font-family: var(--mono); text-align: right; color: var(--secondary-text-color); }
 .bars .row .name { display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mnode.pagenode .mn-bg { stroke-width: 1.8; stroke: var(--series-1); }
+.mnode.pagenode .mn-bg { stroke-width: 2; stroke: var(--series-1); }
 .mn-stack { fill: color-mix(in srgb, var(--series-1) 30%, transparent); }
 .back-btn { margin-right: 8px; }
 .map-tabs { display: flex; align-items: center; }
