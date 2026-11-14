@@ -7,26 +7,15 @@ PostgreSQL client tools come from the Alpine packages.
 
 ## Build with docker
 
-In this folder run:
+In this folder:
 
 ```
-./build.sh
+docker buildx build --platform linux/amd64 --build-arg BUILD_ARCH=amd64 \
+    --tag local/app-pgadmin4:dev --load .
 ```
 
-which builds and pushes `ghcr.io/cyberjunky/pgadmin4/<arch>:<version>` for the architectures
-in `config.yaml`, tagged with the version from `config.yaml`. Set `REGISTRY` to push elsewhere, or `--version` to use another tag:
-
-```
-REGISTRY=ghcr.io/<your-user>/pgadmin4 ./build.sh --version 4.1.0-test
-```
-
-A single architecture can also be built directly:
-
-```
-docker buildx build --platform linux/amd64 \
-    --build-arg BUILD_ARCH=amd64 \
-    --tag ghcr.io/cyberjunky/pgadmin4/amd64:4.1.0 .
-```
+Use `linux/arm64` and `BUILD_ARCH=aarch64` for the other architecture. The published image
+comes only from the Builder workflow below.
 
 ## Build with GitHub Actions
 
@@ -43,10 +32,11 @@ CHANGELOG entry. Check the release notes for changes in
 the supported PostgreSQL versions; the bundled client tools are the Alpine
 `postgresql<major>-client` packages listed in the Dockerfile.
 
-## Run the app with an interactive shell
+## A shell in the running app
 
-From a system SSH session (port 22222) on the Home Assistant host:
+From a system SSH session (port 22222) on the Home Assistant host, `docker ps` shows the
+app's container (`addon_<repository>_pgadmin4`); then:
 
 ```
-docker run -it --entrypoint "/bin/sh" -v /mnt/data/supervisor/addons/data/local_pgadmin4/:/data:rw ghcr.io/cyberjunky/pgadmin4/aarch64:4.1.0
+docker exec -it addon_<repository>_pgadmin4 /bin/sh
 ```
