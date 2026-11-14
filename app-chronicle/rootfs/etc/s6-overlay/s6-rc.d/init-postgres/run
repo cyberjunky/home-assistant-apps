@@ -1,0 +1,372 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Chronicle - prepares the database before PostgreSQL starts:
+#   - a new cluster on the first start, or after restoring a Home Assistant backup the
+#     cluster from that backup's dump
+#   - an upgrade when the cluster is of an older PostgreSQL major version
+#   - the configuration, the access rules, the roles and the Chronicle database
+#   - TimescaleDB updated to the release of this image
+# All of it runs on a private server (local socket only); the postgres service starts the
+# real one afterwards.
+# ==============================================================================
+# shellcheck source=/dev/null
+source /usr/share/chronicle/common.sh
+
+declare RESTORE=false
+declare UPGRADED=false
+
+# Creates a new, empty cluster
+# $@: extra initdb arguments
+initCluster() {
+    bashio::log.info "Creating a new PostgreSQL ${PG_MAJOR} cluster.."
+    mkdir -p "${PGDATA}"
+    chown postgres:postgres "${PGDATA}"
+    chmod 700 "${PGDATA}"
+    # Its output only matters when it fails (it warns about musl having no system locales,
+    # which the builtin locale provider does not need)
+    if ! asPostgres "${PGBIN}/initdb" -D "${PGDATA}" -U postgres \
+        --auth-local=peer --auth-host=scram-sha-256 "$@" > /tmp/initdb.log 2>&1; then
+        cat /tmp/initdb.log >&2
+        return 1
+    fi
+}
+
+# Upgrades a cluster of an older PostgreSQL major version with pg_upgrade --link.
+# The old cluster is moved to ${PGDATA}<old version> first. When anything fails, the new
+# cluster is removed and the old one moved back, so the data is never lost; the marker file
+# makes the next start do the same when the app was stopped halfway.
+# $1: the major version of the cluster
+upgradeCluster() {
+    local from="${1}"
+    local olddata="${PGDATA}${from}"
+    local oldbin="/usr/local/postgresql${from}/bin"
+    local controldata
+    local -a initdb_args=()
+
+    if [[ ! -x "${oldbin}/postgres" ]]; then
+        bashio::log.error "The database is of PostgreSQL ${from}, and this app version cannot upgrade it to PostgreSQL ${PG_MAJOR}."
+        bashio::log.error "Install the previous app version again, or restore a Home Assistant backup made with this one."
+        return 1
+    fi
+
+    bashio::log.notice "Upgrading the database from PostgreSQL ${from} to ${PG_MAJOR}. This can take a while.."
+    echo "${from}" > "${UPGRADE_MARKER}"
+    mv "${PGDATA}" "${olddata}"
+
+    # TimescaleDB of the old cluster first: pg_upgrade needs the same release on both sides.
+    # And the locale of the old cluster, which the new one must have as well.
+    startPrivate "${oldbin}" "${olddata}" || { rollbackUpgrade "${from}"; return 1; }
+    local locale
+    if ! updateTimescaleDB \
+        || ! locale="$(psqlAdmin -tA -d postgres -F ' ' -c "SELECT pg_encoding_to_char(encoding), datlocprovider, datcollate, datctype, coalesce(datlocale, '') FROM pg_database WHERE datname = 'template0'")"; then
+        stopPrivate "${oldbin}" "${olddata}" || true
+        rollbackUpgrade "${from}"
+        return 1
+    fi
+    stopPrivate "${oldbin}" "${olddata}"
+
+    local encoding provider collate ctype builtin
+    read -r encoding provider collate ctype builtin <<< "${locale}"
+    initdb_args+=("--encoding=${encoding}" "--lc-collate=${collate}" "--lc-ctype=${ctype}")
+    case "${provider}" in
+        b) initdb_args+=("--locale-provider=builtin" "--builtin-locale=${builtin}") ;;
+        i) initdb_args+=("--locale-provider=icu" "--icu-locale=${builtin}") ;;
+        *) initdb_args+=("--locale-provider=libc") ;;
+    esac
+
+    # Data checksums must match as well (PostgreSQL 18 enables them by default)
+    if ! controldata="$("${oldbin}/pg_controldata" "${olddata}")"; then
+        bashio::log.error "Could not read the control data of the old cluster."
+        rollbackUpgrade "${from}"
+        return 1
+    fi
+    if [[ "${controldata}" =~ Data\ page\ checksum\ version:[[:space:]]*0($'\n'|$) ]]; then
+        initdb_args+=("--no-data-checksums")
+    else
+        initdb_args+=("--data-checksums")
+    fi
+
+    initCluster "${initdb_args[@]}" || { rollbackUpgrade "${from}"; return 1; }
+    writeConfiguration
+
+    # pg_upgrade writes its files to the current directory and to the new cluster
+    mkdir -p /tmp/pg_upgrade
+    chown postgres:postgres /tmp/pg_upgrade
+    if ! (cd /tmp/pg_upgrade && asPostgres "${PGBIN}/pg_upgrade" \
+        --old-bindir="${oldbin}" --new-bindir="${PGBIN}" \
+        --old-datadir="${olddata}" --new-datadir="${PGDATA}" \
+        --link --username=postgres --socketdir="${PGSOCKET}"); then
+        bashio::log.error "pg_upgrade failed, see the lines above."
+        rollbackUpgrade "${from}"
+        return 1
+    fi
+
+    # Done: the new cluster owns the data now (hard links), the old one goes
+    rm -f "${UPGRADE_MARKER}"
+    rm -rf "${olddata}" /tmp/pg_upgrade
+    bashio::log.notice "The database was upgraded to PostgreSQL ${PG_MAJOR}."
+}
+
+# Puts the old cluster back after a failed or interrupted upgrade. The new cluster was never
+# started (that only happens after the marker is gone), so the old one is still whole: with
+# --link, pg_upgrade only renames its global/pg_control to pg_control.old.
+# $1: the major version of the old cluster
+rollbackUpgrade() {
+    local from="${1}"
+    local olddata="${PGDATA}${from}"
+    if [[ -d "${olddata}" ]]; then
+        rm -rf "${PGDATA}"
+        mv "${olddata}" "${PGDATA}"
+        if [[ -f "${PGDATA}/global/pg_control.old" ]]; then
+            mv "${PGDATA}/global/pg_control.old" "${PGDATA}/global/pg_control"
+        fi
+    fi
+    rm -f "${UPGRADE_MARKER}"
+    bashio::log.warning "The database was left at PostgreSQL ${from}."
+}
+
+# Writes the settings of this app and the access rules. Both are written on every start,
+# so they always match this app version; the tuning goes in postgresql.conf itself.
+writeConfiguration() {
+    local memory
+    mkdir -p "${PGDATA}/conf.d"
+
+    if ! grep -q "^include_dir = 'conf.d'" "${PGDATA}/postgresql.conf"; then
+        echo "include_dir = 'conf.d'" >> "${PGDATA}/postgresql.conf"
+    fi
+
+    # Memory and parallel workers, from the max_memory option
+    memory="$(option max_memory 512MB)"
+    if ! /usr/local/bin/timescaledb-tune --quiet --yes --conf-path="${PGDATA}/postgresql.conf" \
+        --pg-version="${PG_MAJOR}" --memory="${memory}" --cpus="$(nproc)" > /dev/null 2>&1; then
+        bashio::log.warning "Could not tune PostgreSQL for ${memory} of memory; check the max_memory option."
+    fi
+
+    cat > "${PGDATA}/conf.d/chronicle.conf" <<'CONF'
+# Written by the Chronicle app on every start; changes here are lost.
+listen_addresses = '*'
+port = 5432
+unix_socket_directories = '/run/postgresql'
+shared_preload_libraries = 'timescaledb,pg_stat_statements'
+password_encryption = 'scram-sha-256'
+timescaledb.telemetry_level = off
+# Connections: a few kept for the integration and the web UI (pg_use_reserved_connections),
+# and a client that doesn't log in is dropped after 10 seconds
+reserved_connections = 3
+authentication_timeout = 10s
+# Logs go to the app's log
+logging_collector = off
+log_destination = 'stderr'
+log_line_prefix = '%m [%p] %q%u@%d '
+log_min_messages = warning
+log_checkpoints = off
+# No JIT compiler in this image
+jit = off
+CONF
+
+    # Who may connect:
+    #  - postgres (superuser): only this app's own scripts, on the local socket
+    #  - chronicle_ui (the web UI): only on the local socket, as the chronicle OS user
+    #  - chronicle (the integration): only from Home Assistant's internal network
+    #  - other roles (read-only logins for Grafana, ..): with a password, also through the
+    #    port when it is opened in the app's Network settings
+    cat > "${PGDATA}/pg_hba.conf" <<'HBA'
+# Written by the Chronicle app on every start; changes here are lost.
+# TYPE  DATABASE  USER          ADDRESS                METHOD
+local   all       postgres                             peer
+local   all       chronicle_ui                         peer map=chronicle
+local   all       all                                  reject
+host    all       postgres      all                    reject
+host    all       chronicle_ui  all                    reject
+host    all       chronicle     172.30.32.0/23         scram-sha-256
+host    all       chronicle     fd0c:ac1e:2100::/48    scram-sha-256
+host    all       chronicle     all                    reject
+host    all       all           all                    scram-sha-256
+HBA
+
+    cat > "${PGDATA}/pg_ident.conf" <<'IDENT'
+# Written by the Chronicle app on every start; changes here are lost.
+# MAPNAME   SYSTEM-USERNAME  PG-USERNAME
+chronicle   chronicle        chronicle_ui
+IDENT
+
+    chown -R postgres:postgres "${PGDATA}/conf.d" "${PGDATA}/postgresql.conf" "${PGDATA}/pg_hba.conf" "${PGDATA}/pg_ident.conf"
+}
+
+# Reads the password of a role, generating it on the first start
+# $1: role
+rolePassword() {
+    local file="${SECRETS}/${1}.password"
+    if [[ ! -s "${file}" ]]; then
+        # 32 random bytes as 64 hex characters (no pipe that closes early under pipefail)
+        (umask 027 && head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > "${file}")
+    fi
+    cat "${file}"
+}
+
+# The roles, the Chronicle database and its TimescaleDB extension.
+# Runs on every start: it also repairs them, e.g. after restoring a dump from elsewhere.
+setUpDatabase() {
+    local password
+    password="$(rolePassword chronicle)"
+
+    # The password goes in as a psql variable (quoted by psql). Statement logging is off for
+    # this session, and pg_stat_statements doesn't record it (track_utility is off for every
+    # superuser session, see SUPERUSER_OPTIONS), so it never ends up in a log or the statistics
+    psqlAdmin -q -d postgres -v password="${password}" -v database="${DATABASE}" <<'SQL'
+SET log_statement = 'none';
+SET log_min_duration_statement = -1;
+SET client_min_messages = warning;
+SELECT 'CREATE ROLE chronicle' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'chronicle') \gexec
+ALTER ROLE chronicle WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD :'password';
+SELECT 'CREATE ROLE chronicle_ui' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'chronicle_ui') \gexec
+ALTER ROLE chronicle_ui WITH LOGIN NOSUPERUSER CREATEDB CREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD NULL;
+-- The web UI manages what the integration owns, reads the statistics, can stop queries
+-- and run VACUUM, ANALYZE and REINDEX on every table
+GRANT chronicle TO chronicle_ui;
+GRANT pg_monitor, pg_signal_backend, pg_maintain TO chronicle_ui;
+-- The read-only logins it creates are its own to remove again (DROP OWNED needs that)
+ALTER ROLE chronicle_ui SET createrole_self_grant = 'set, inherit';
+SELECT format('CREATE DATABASE %I OWNER chronicle', :'database')
+    WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'database') \gexec
+-- Only who is granted it may connect to a database (not every role, as by default); the
+-- web UI reaches every database through the integration's role or as their owner
+SELECT format('REVOKE CONNECT, TEMPORARY ON DATABASE %I FROM PUBLIC', datname)
+    FROM pg_database WHERE NOT datistemplate AND datallowconn \gexec
+GRANT CONNECT ON DATABASE postgres TO chronicle_ui;
+SELECT format('GRANT CONNECT, TEMPORARY ON DATABASE %I TO chronicle', :'database') \gexec
+-- A few connections stay free for the integration and the web UI, also when something else
+-- opens connections until the limit
+GRANT pg_use_reserved_connections TO chronicle, chronicle_ui;
+SQL
+    # The extensions in the public schema by name (the session's search_path is pinned to
+    # pg_catalog, where they must not go)
+    psqlAdmin -q -d "${DATABASE}" <<'SQL'
+SET client_min_messages = warning;
+CREATE EXTENSION IF NOT EXISTS timescaledb SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements SCHEMA public;
+SQL
+}
+
+# Restores the dump of a Home Assistant backup into the new, empty cluster.
+# Two errors come with every restore of a pg_dumpall into a new cluster and are left out:
+# the dump drops and creates the postgres role, which is the one running the restore.
+# Others are shown; psql's exit code tells whether the dump could be read and loaded.
+restoreBackup() {
+    local log=/tmp/restore.log
+    local errors
+    local status=0
+
+    bashio::log.notice "Restoring the database from the Home Assistant backup ($(du -h "${BACKUP_FILE}" | cut -f1)).."
+    : > "${log}"
+    set +o errexit
+    (
+        set -o pipefail
+        gzip -dc "${BACKUP_FILE}" | addTimescaleRestoreSteps | psqlAdmin -v ON_ERROR_STOP=0 -d postgres
+    ) >> "${log}" 2>&1
+    status=$?
+    set -o errexit
+
+    local expected='ERROR:  (current user cannot be dropped|role "postgres" already exists)$'
+    errors="$(grep "ERROR:" "${log}" | grep -cvE "${expected}" || true)"
+    if [[ "${errors:-0}" -gt 0 ]]; then
+        bashio::log.warning "The restore reported ${errors} error(s); the last ones:"
+        grep "ERROR:" "${log}" | grep -vE "${expected}" | tail -5 | while IFS= read -r line; do
+            bashio::log.warning "  ${line}"
+        done
+    fi
+    if [[ "${status}" -ne 0 ]]; then
+        bashio::log.error "The database could not be restored from the backup; the dump is kept at ${BACKUP_FILE}."
+        return 1
+    fi
+    finishRestoredDatabases
+    rm -f "${BACKUP_FILE}"
+    bashio::log.notice "The database was restored from the backup."
+}
+
+# ------------------------------------------------------------------------------
+# Folders
+# ------------------------------------------------------------------------------
+mkdir -p "${PGSOCKET}" "${SECRETS}" "${UI_DATA}" "${HELPER_RUN}" "${HELPER_DATA}"
+chown postgres:postgres "${PGSOCKET}"
+chmod 2775 "${PGSOCKET}"
+chown root:chronicle "${SECRETS}"
+chmod 750 "${SECRETS}"
+chown chronicle:chronicle "${UI_DATA}"
+chmod 700 "${UI_DATA}"
+# The helper's socket: only the web UI's group may reach it (setgid: the socket gets the group)
+chown postgres:chronicle "${HELPER_RUN}"
+chmod 2750 "${HELPER_RUN}"
+# The helper's own folder, out of reach of other apps; the web UI reads the record of dumps
+chown postgres:chronicle "${HELPER_DATA}"
+chmod 2750 "${HELPER_DATA}"
+# Backups: written by the helper, read, uploaded and removed by the web UI
+if [[ -d /share ]]; then
+    mkdir -p "${BACKUP_DIR}"
+    chown postgres:chronicle "${BACKUP_DIR}"
+    chmod 2770 "${BACKUP_DIR}"
+fi
+
+# ------------------------------------------------------------------------------
+# The cluster
+# ------------------------------------------------------------------------------
+# An upgrade that was stopped halfway: back to the old cluster, and try again below
+if [[ -f "${UPGRADE_MARKER}" ]]; then
+    bashio::log.warning "An interrupted PostgreSQL upgrade was found, putting the old database back.."
+    rollbackUpgrade "$(< "${UPGRADE_MARKER}")"
+fi
+
+if [[ ! -f "${PGDATA}/PG_VERSION" ]]; then
+    if [[ -d "${PGDATA}" ]]; then
+        bashio::log.warning "The database folder is not a PostgreSQL cluster, moving it aside.."
+        mv "${PGDATA}" "${PGDATA}.invalid.$(date +%Y%m%d%H%M%S)"
+    fi
+    if [[ -f "${BACKUP_FILE}" ]]; then
+        RESTORE=true
+    fi
+    initCluster --encoding=UTF8 --locale-provider=builtin --builtin-locale=C.UTF-8 --data-checksums
+else
+    chown -R postgres:postgres "${PGDATA}"
+    chmod 700 "${PGDATA}"
+    CLUSTER_VERSION="$(< "${PGDATA}/PG_VERSION")"
+    if [[ "${CLUSTER_VERSION}" -gt "${PG_MAJOR}" ]]; then
+        bashio::log.error "The database is of PostgreSQL ${CLUSTER_VERSION}, newer than this app's PostgreSQL ${PG_MAJOR}."
+        bashio::log.error "Install the newer app version again, or restore a Home Assistant backup made with this one."
+        exit 1
+    elif [[ "${CLUSTER_VERSION}" -lt "${PG_MAJOR}" ]]; then
+        upgradeCluster "${CLUSTER_VERSION}" || exit 1
+        UPGRADED=true
+    fi
+fi
+
+writeConfiguration
+
+# ------------------------------------------------------------------------------
+# Restore, roles, database, TimescaleDB
+# ------------------------------------------------------------------------------
+startPrivate || exit 1
+status=0
+if bashio::var.true "${RESTORE}"; then
+    restoreBackup || status=$?
+fi
+if [[ "${status}" -eq 0 ]]; then
+    updateTimescaleDB && setUpDatabase || status=$?
+fi
+# pg_upgrade does not carry over every statistic the query planner uses
+if [[ "${status}" -eq 0 ]] && bashio::var.true "${UPGRADED}"; then
+    bashio::log.info "Collecting the statistics pg_upgrade did not carry over.."
+    asPostgres "${PGBIN}/vacuumdb" -h "${PGSOCKET}" -U postgres --all --analyze-in-stages --missing-stats-only --quiet \
+        || bashio::log.warning "Could not collect the statistics; they are collected again over time."
+fi
+stopPrivate || true
+if [[ "${status}" -ne 0 ]]; then
+    bashio::log.error "Setting up the database failed, see the lines above."
+    exit 1
+fi
+
+# The web UI shows the integration's password for a manual setup
+chown root:chronicle "${SECRETS}"/*.password
+chmod 640 "${SECRETS}"/*.password
+
+bashio::log.info "The database is ready."

@@ -1,7 +1,7 @@
-"""Reads the tables of the Chronicle integration (schema "chronicle" in TimescaleDB).
+"""Reads the tables of the Chronicle integration (schema "chronicle") for the Chronicle pages.
 
-The app never writes: every connection is opened read-only (default_transaction_read_only),
-so even a mistake here can't change the history. Queries stay cheap on large histories:
+These pages never write: their connections are opened read-only (default_transaction_read_only),
+so even a mistake here can't change the history (the SQL and Maintenance pages have their own). Queries stay cheap on large histories:
 catalog functions and approximate counts for the totals, the (entity, time) index for one
 entity, the hourly and daily aggregates for long ranges, and a statement timeout.
 """
@@ -11,7 +11,6 @@ import contextlib
 import json
 import logging
 import math
-import re
 import time
 from datetime import UTC, date, datetime, timedelta
 from datetime import time as dt_time
@@ -50,43 +49,11 @@ RESOLUTIONS = (
 RAW_POINTS = 3000  # up to this many rows a numeric chart shows every row
 TARGET_POINTS = 1000  # otherwise about this many buckets
 STATE_ROWS = 5000  # rows of a non-numeric entity in one range
-# The Query page: rows returned at most, and how long a query may run
-QUERY_ROWS = 10_000
-QUERY_TIMEOUT = "30s"
 NICE_BUCKETS = (60, 120, 300, 600, 900, 1800, 3600, 7200, 21600, 43200, 86400)
 
 
 class NotConnectedError(Exception):
     """The database can't be reached (the message says why)."""
-
-
-class QueryRefusedError(Exception):
-    """The Query page does not run this statement (the message says why)."""
-
-
-# The Query page runs reading statements only. The READ ONLY transaction already stops every
-# write; these rules also keep out what a read-only transaction still allows a superuser:
-# server files, large objects, other sessions, settings and roles, running programs.
-QUERY_FIRST_WORDS = ("select", "with", "table", "values", "explain", "show")
-QUERY_DENIED = re.compile(
-    r"\b(copy|set_config|pg_read_file|pg_read_binary_file|pg_ls_\w+|pg_stat_file|lo_\w+|"
-    r"pg_terminate_backend|pg_cancel_backend|pg_reload_conf|pg_rotate_logfile|pg_promote|"
-    r"pg_switch_wal|pg_create_\w+|dblink\w*|pg_file_\w+|pg_logdir_ls|current_setting\s*\(\s*'role)\b"
-    r"|\bu&['\"]",
-    re.IGNORECASE,
-)
-
-
-def check_query(sql: str) -> None:
-    """Raise QueryRefusedError for a statement the Query page doesn't run."""
-    # Comments out of the way first, so they can't hide the first word
-    text = re.sub(r"--[^\n]*|/\*.*?\*/", " ", sql, flags=re.DOTALL).strip().lstrip("(").strip()
-    first = text.split(None, 1)[0].lower() if text else ""
-    if first not in QUERY_FIRST_WORDS:
-        raise QueryRefusedError("Only reading statements run here: SELECT, WITH, TABLE, VALUES, EXPLAIN or SHOW")
-    match = QUERY_DENIED.search(sql)
-    if match:
-        raise QueryRefusedError(f"{match.group(0).strip()} is not available on this page")
 
 
 def resolution(span: timedelta) -> str:
@@ -101,8 +68,11 @@ def bucket_seconds(span: float, points: int = TARGET_POINTS) -> int:
 
 
 def ts(value: datetime | None) -> float | None:
-    """Epoch seconds for the browser (it formats in its own time zone)."""
-    return None if value is None else round(value.timestamp(), 3)
+    """Epoch seconds for the browser (it formats in its own time zone). PostgreSQL's -infinity
+    and infinity (TimescaleDB's "never" for a job that hasn't run yet) are None."""
+    if value is None or value.year <= 1 or value.year >= 9999:
+        return None
+    return round(value.timestamp(), 3)
 
 
 def _number(value):
@@ -140,6 +110,8 @@ class Database:
                         timeout=10,
                         command_timeout=60,
                         server_settings={
+                            # Settings of their own, whatever the database's owner set
+                            "search_path": '"$user", public',
                             "application_name": "chronicle-app",
                             "default_transaction_read_only": "on",
                             "statement_timeout": STATEMENT_TIMEOUT,
@@ -641,52 +613,6 @@ class Database:
             "tables": tables,
             "attribute_sets": attribute_sets,
             "aggregates": [{"name": a["view_name"], "realtime": not a["materialized_only"]} for a in aggregates],
-        }
-
-    # ------------------------------------------------------------------ query
-
-    async def query(self, sql: str) -> dict:
-        """Run one SQL statement read-only and return at most QUERY_ROWS rows.
-
-        It runs in a READ ONLY transaction that is always rolled back, with its own statement
-        timeout: PostgreSQL itself refuses anything that writes (INSERT, UPDATE, DELETE, DROP,
-        ...), whoever the user is. Only one statement: a prepared statement can't hold more.
-        """
-        check_query(sql)
-        pool = await self._get_pool()
-        started = time.monotonic()
-        try:
-            async with pool.acquire() as conn:
-                transaction = conn.transaction(readonly=True)
-                await transaction.start()
-                try:
-                    await conn.execute(f"SET LOCAL statement_timeout = '{QUERY_TIMEOUT}'")
-                    # A superuser drops its powers for the query: pg_read_all_data reads every
-                    # table but can't read server files, signal other sessions or run programs
-                    if await conn.fetchval(
-                        "SELECT pg_has_role(current_user, 'pg_read_all_data', 'MEMBER') AND current_setting('is_superuser') = 'on'"
-                    ):
-                        await conn.execute("SET LOCAL ROLE pg_read_all_data")
-                    statement = await conn.prepare(sql)
-                    columns = [{"name": a.name, "type": a.type.name} for a in statement.get_attributes()]
-                    if columns:
-                        cursor = await statement.cursor()
-                        rows = await cursor.fetch(QUERY_ROWS + 1)
-                    else:
-                        rows = []
-                        await statement.fetch()
-                finally:
-                    await transaction.rollback()
-        except (OSError, asyncpg.InterfaceError, asyncpg.exceptions.ConnectionDoesNotExistError) as e:
-            self.last_error = _describe(e)
-            raise NotConnectedError(self.last_error) from e
-        truncated = len(rows) > QUERY_ROWS
-        return {
-            "columns": columns,
-            "rows": [[_cell(v) for v in row] for row in rows[:QUERY_ROWS]],
-            "truncated": truncated,
-            "limit": QUERY_ROWS,
-            "duration_ms": round((time.monotonic() - started) * 1000, 1),
         }
 
 

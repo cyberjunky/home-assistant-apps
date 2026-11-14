@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.0
+
+**After updating:** the app is now the database itself. It no longer connects to the TimescaleDB app: its connection options are gone. To keep your history, move it over once: **Backups → Copy a database… → From the TimescaleDB app**, then **Use for Chronicle**, and point the Chronicle integration (0.2.0 or later) at this app with *Reconfigure* (the Info page has the connection). See *Moving from the TimescaleDB app* in the documentation. The donate card may show once more: its state moved.
+
+- **The database, in the app:** PostgreSQL 18 with TimescaleDB 2.32, set up for the Chronicle integration with its own role and generated password. Home Assistant finds it by itself and offers the integration with the connection filled in. The option *Memory* tunes PostgreSQL. About 250 MB, against several GB for the TimescaleDB app.
+- **Databases:** every database as a tree; a dashboard per database (size, cache hits, transactions and rows written per minute, the largest tables, table health) and per table its rows, columns, indexes, statistics and TimescaleDB details, with VACUUM, ANALYZE, REINDEX, *Compress now*, *Refresh* and *Remove old history*.
+- **SQL** (was *Query*): scripts against any database, which can change data now: auto-commit, or a transaction to commit or roll back; a confirmation before statements that change something; a tab per result and the messages; a timeout to pick. The examples ask for the entity instead of a placeholder to type over, and five are new (the last hour per minute, hourly averages for a week, use per day of a meter, rows per domain, unavailable this week).
+- **Activity:** the sessions and their queries (stop or disconnect one), sessions waiting on a lock, the slowest statements, transactions and connections per minute, the main settings.
+- **Maintenance:** upkeep of a whole database, read-only logins for Grafana and other tools, and every task with its log.
+- **Backups:** dumps of a database in `/share/chronicle` (download, upload, restore as a new database, remove), and copying a database from another server, such as the TimescaleDB app, into a new one here. Home Assistant's backups of the app hold every database, as a dump.
+- **Updates:** TimescaleDB is updated in every database on the first start after an app update; a later PostgreSQL major version upgrades the database (`pg_upgrade`), and puts the old one back when anything fails.
+- **Storage:** no error any more when a TimescaleDB job hasn't run yet (as right after a restore).
+- **Security:** see SECURITY.md: the superuser only inside the app, the web UI without superuser powers, restores and copies in a separate process, requests that change something only from the page itself.
+
 ## 0.1.6
 
 **After updating:** nothing to do.

@@ -1,21 +1,13 @@
 configuration:
-  host:
-    name: Database host
+  max_memory:
+    name: Memory
     description: >-
-      Where the database runs: the TimescaleDB app from this repository
-      (1b41fb55-timescaledb), or a host name or IP address.
-  port:
-    name: Port
-    description: The database's port, 5432 for PostgreSQL.
-  username:
-    name: Username
-    description: The database user, postgres for the TimescaleDB app.
-  password:
-    name: Password
-    description: The database user's password.
-  database:
-    name: Database
-    description: The database the Chronicle integration records into.
+      The memory PostgreSQL is tuned for, such as 512MB or 2GB. More makes large
+      queries and charts faster; leave room for Home Assistant and the other apps.
   log_level:
     name: Log level
     description: Amount of logging.
+network:
+  5432/tcp: >-
+    PostgreSQL. Only needed to reach the database from outside Home Assistant,
+    for example from Grafana on another machine, with a read-only login.

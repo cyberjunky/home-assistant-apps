@@ -1,0 +1,11 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Chronicle - runs PostgreSQL (prepared by init-postgres). It stops on SIGINT (down-signal):
+# a fast shutdown, which does not wait for the clients to disconnect.
+# ==============================================================================
+# shellcheck source=/dev/null
+source /usr/share/chronicle/common.sh
+
+bashio::log.info "Starting PostgreSQL ${PG_MAJOR}.."
+exec s6-setuidgid postgres "${PGBIN}/postgres" -D "${PGDATA}"

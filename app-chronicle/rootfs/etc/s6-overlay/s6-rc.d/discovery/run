@@ -1,0 +1,23 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Chronicle - announces the database to Home Assistant, so the Chronicle integration is
+# offered with the connection filled in (Settings > Devices & services > Discovered).
+# ==============================================================================
+# shellcheck source=/dev/null
+source /usr/share/chronicle/common.sh
+
+declare config
+
+config=$(bashio::var.json \
+    host "$(hostname)" \
+    port "^5432" \
+    username "chronicle" \
+    password "$(< "${SECRETS}/chronicle.password")" \
+    database "${DATABASE}")
+
+if bashio::discovery "chronicle" "${config}" > /dev/null; then
+    bashio::log.info "The database was announced to Home Assistant."
+else
+    bashio::log.warning "Could not announce the database to Home Assistant; set up the integration by hand (see the app's Info page)."
+fi

@@ -13,6 +13,9 @@ from src.config import Config
 from src.database import Database
 from src.webui import WebUI, recorder_status
 
+# The page's own scripts send this header with every POST
+SAME_PAGE = {"X-Chronicle": "1"}
+
 
 @pytest.fixture
 async def core_api():
@@ -56,7 +59,7 @@ async def client(core_api, monkeypatch, tmp_path):
 
 async def test_exclude_entity(client, core_api):
     _, calls, _ = core_api
-    response = await client.post("/api/exclude", json={"entity_id": "sensor.noisy", "purge": True})
+    response = await client.post("/api/exclude", headers=SAME_PAGE, json={"entity_id": "sensor.noisy", "purge": True})
     assert response.status == 200
     assert (await response.json()) == {"deleted_rows": 7}
     assert calls == [("exclude_entities", {"entity_id": ["sensor.noisy"], "purge": True})]
@@ -64,38 +67,38 @@ async def test_exclude_entity(client, core_api):
 
 async def test_exclude_domain(client, core_api):
     _, calls, _ = core_api
-    response = await client.post("/api/exclude", json={"domain": "automation"})
+    response = await client.post("/api/exclude", headers=SAME_PAGE, json={"domain": "automation"})
     assert response.status == 200
     assert calls == [("exclude_domains", {"domain": ["automation"], "purge": False})]
 
 
 async def test_purge(client, core_api):
     _, calls, _ = core_api
-    response = await client.post("/api/purge", json={"entity_id": "sensor.gone"})
+    response = await client.post("/api/purge", headers=SAME_PAGE, json={"entity_id": "sensor.gone"})
     assert response.status == 200
     assert calls == [("purge_entities", {"entity_id": ["sensor.gone"]})]
 
 
 async def test_invalid_input(client, core_api):
     _, calls, _ = core_api
-    assert (await client.post("/api/exclude", json={"entity_id": "not an entity"})).status == 400
-    assert (await client.post("/api/exclude", json={"domain": "Bad Domain"})).status == 400
-    assert (await client.post("/api/exclude", json={})).status == 400
-    assert (await client.post("/api/purge", json={"entity_id": "x"})).status == 400
+    assert (await client.post("/api/exclude", headers=SAME_PAGE, json={"entity_id": "not an entity"})).status == 400
+    assert (await client.post("/api/exclude", headers=SAME_PAGE, json={"domain": "Bad Domain"})).status == 400
+    assert (await client.post("/api/exclude", headers=SAME_PAGE, json={})).status == 400
+    assert (await client.post("/api/purge", headers=SAME_PAGE, json={"entity_id": "x"})).status == 400
     assert calls == []
 
 
 async def test_old_integration_says_so(client, core_api):
     _, _, state = core_api
     state["old_integration"] = True
-    response = await client.post("/api/exclude", json={"entity_id": "sensor.a"})
+    response = await client.post("/api/exclude", headers=SAME_PAGE, json={"entity_id": "sensor.a"})
     assert response.status == 502
     assert "0.1.5" in (await response.json())["error"]
 
 
 async def test_outside_home_assistant(client, monkeypatch):
     monkeypatch.delenv("SUPERVISOR_TOKEN")
-    response = await client.post("/api/purge", json={"entity_id": "sensor.a"})
+    response = await client.post("/api/purge", headers=SAME_PAGE, json={"entity_id": "sensor.a"})
     assert response.status == 503
     assert "Home Assistant app" in (await response.json())["error"]
 

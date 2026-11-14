@@ -5,6 +5,16 @@
     "sql": "SELECT time, state, value\nFROM chronicle.history\nWHERE entity_id = '<entity_id>'\n  AND time > now() - INTERVAL '1 day'\nORDER BY time"
   },
   {
+    "title": "Last hour, per minute",
+    "description": "The average of one entity per minute over the last hour: a quick look at what a sensor is doing right now. Replace <entity_id> with a numeric entity.",
+    "sql": "SELECT time_bucket(INTERVAL '1 minute', s.time) AS minute,\n       round(avg(s.value)::numeric, 2) AS mean, min(s.value), max(s.value), count(*) AS values\nFROM chronicle.states s\nJOIN chronicle.entities e ON e.id = s.entity\nWHERE e.entity_id = '<entity_id>'\n  AND s.time > now() - INTERVAL '1 hour'\nGROUP BY 1\nORDER BY 1"
+  },
+  {
+    "title": "Hourly averages for a week",
+    "description": "Mean, minimum and maximum per hour over the last 7 days, from the hourly averages: fast, and complete from the first hour on. Replace <entity_id> with a numeric entity.",
+    "sql": "SELECT h.bucket AS hour, round(h.mean::numeric, 2) AS mean, h.min, h.max, h.samples\nFROM chronicle.states_hourly h\nJOIN chronicle.entities e ON e.id = h.entity\nWHERE e.entity_id = '<entity_id>'\n  AND h.bucket > now() - INTERVAL '7 days'\nORDER BY h.bucket"
+  },
+  {
     "title": "Daily averages for a year",
     "description": "Mean, minimum and maximum per day over the last year, from the daily averages: fast however long the history is. Replace <entity_id> with a numeric entity.",
     "sql": "SELECT d.bucket AS day, round(d.mean::numeric, 2) AS mean, d.min, d.max\nFROM chronicle.states_daily d\nJOIN chronicle.entities e ON e.id = d.entity\nWHERE e.entity_id = '<entity_id>'\n  AND d.bucket > now() - INTERVAL '1 year'\nORDER BY d.bucket"
@@ -15,9 +25,24 @@
     "sql": "SELECT d.bucket AS day, d.min, d.max, round(d.mean::numeric, 2) AS mean, d.samples\nFROM chronicle.states_daily d\nJOIN chronicle.entities e ON e.id = d.entity\nWHERE e.entity_id = '<entity_id>'\n  AND d.bucket > now() - INTERVAL '1 month'\nORDER BY d.bucket"
   },
   {
+    "title": "Use per day of a meter",
+    "description": "How much a meter (an energy, gas or water total that only goes up) counted per day over the last 30 days: the highest minus the lowest reading of each day. Replace <entity_id> with the meter.",
+    "sql": "SELECT d.bucket AS day, round((d.max - d.min)::numeric, 3) AS used\nFROM chronicle.states_daily d\nJOIN chronicle.entities e ON e.id = d.entity\nWHERE e.entity_id = '<entity_id>'\n  AND d.bucket > now() - INTERVAL '30 days'\nORDER BY d.bucket"
+  },
+  {
     "title": "Busiest entities (24 h)",
     "description": "The 20 entities that wrote the most rows in the last 24 hours. Busy entities you don't need are the first to exclude in the integration's options.",
     "sql": "SELECT e.entity_id, e.name, count(*) AS rows\nFROM chronicle.states s\nJOIN chronicle.entities e ON e.id = s.entity\nWHERE s.time > now() - INTERVAL '24 hours'\nGROUP BY e.entity_id, e.name\nORDER BY rows DESC\nLIMIT 20"
+  },
+  {
+    "title": "Rows per domain (24 h)",
+    "description": "How many rows each domain (sensor, light, switch, ..) wrote in the last 24 hours, and from how many entities: where the history grows.",
+    "sql": "SELECT e.domain, count(DISTINCT e.id) AS entities, count(*) AS rows\nFROM chronicle.states s\nJOIN chronicle.entities e ON e.id = s.entity\nWHERE s.time > now() - INTERVAL '24 hours'\nGROUP BY e.domain\nORDER BY rows DESC"
+  },
+  {
+    "title": "Unavailable this week",
+    "description": "How often each entity became unavailable or unknown in the last 7 days, and when last: flaky devices and integrations stand out.",
+    "sql": "SELECT e.entity_id, count(*) AS times, max(s.time) AS last_time\nFROM chronicle.states s\nJOIN chronicle.entities e ON e.id = s.entity\nWHERE s.state IN ('unavailable', 'unknown')\n  AND s.time > now() - INTERVAL '7 days'\nGROUP BY e.entity_id\nORDER BY times DESC\nLIMIT 50"
   },
   {
     "title": "Changes per entity today",

@@ -1,0 +1,22 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Chronicle - takes down the app when PostgreSQL stops on its own
+# Arguments: ${1} = exit code (256 when killed by a signal), ${2} = signal
+# ==============================================================================
+declare exit_code_container
+exit_code_container=$(</run/s6-linux-init-container-results/exitcode)
+
+bashio::log.info "PostgreSQL stopped (exit code ${1}, signal ${2})"
+
+if [[ "${1}" -eq 256 ]]; then
+    if [[ "${exit_code_container}" -eq 0 ]]; then
+        echo $((128 + ${2})) > /run/s6-linux-init-container-results/exitcode
+    fi
+    [[ "${2}" -eq 15 ]] && exec /run/s6/basedir/bin/halt
+elif [[ "${1}" -ne 0 ]]; then
+    if [[ "${exit_code_container}" -eq 0 ]]; then
+        echo "${1}" > /run/s6-linux-init-container-results/exitcode
+    fi
+    exec /run/s6/basedir/bin/halt
+fi
