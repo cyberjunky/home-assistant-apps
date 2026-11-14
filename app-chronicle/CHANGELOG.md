@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+**After updating:** nothing to do.
+
+- **Copying from another server works:** *Check* in *Copy a database…* stopped with "Cannot connect: [Errno 13] Permission denied" whatever the host and password, because the web UI looked for PostgreSQL client certificates in a folder it may not open.
+
 ## 0.2.0
 
 **After updating:** the app is now the database itself. It no longer connects to the TimescaleDB app: its connection options are gone. To keep your history, move it over once: **Backups → Copy a database… → From the TimescaleDB app**, then **Use for Chronicle**, and point the Chronicle integration (0.2.0 or later) at this app with *Reconfigure* (the Info page has the connection). See *Moving from the TimescaleDB app* in the documentation. The donate card may show once more: its state moved.

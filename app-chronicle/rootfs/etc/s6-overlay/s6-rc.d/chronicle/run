@@ -11,4 +11,7 @@ bashio::log.info "Starting the Chronicle web UI.."
 CHRONICLE_LOG_LEVEL="$(option log_level info)"
 export CHRONICLE_LOG_LEVEL
 cd /app || exit 1
+# Its own home, not /root: the PostgreSQL client reads ~/.postgresql/ when it connects to
+# another server, and a /root it may not open fails the connection with "Permission denied"
+export HOME=/home/chronicle
 exec s6-setuidgid chronicle python3 -m src

@@ -1,5 +1,5 @@
 name: Chronicle
-version: "0.2.0"
+version: "0.2.1"
 slug: app-chronicle
 description: "PostgreSQL with TimescaleDB for the Chronicle integration, with a database browser, SQL and maintenance"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-chronicle"

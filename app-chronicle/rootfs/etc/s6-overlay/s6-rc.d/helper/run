@@ -5,4 +5,6 @@
 # need PostgreSQL's superuser, as the postgres OS user, for the web UI only
 # ==============================================================================
 cd /app || exit 1
+# Its own home, not /root: pg_dump and psql read ~/.postgresql/ when they connect to another server
+export HOME=/var/lib/postgresql
 exec s6-setuidgid postgres python3 -m src.helper

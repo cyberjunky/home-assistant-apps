@@ -2,8 +2,7 @@
 # ==============================================================================
 # Chronicle - trims the PostgreSQL of the official TimescaleDB image (build time only, see
 # the Dockerfile) to what the app needs. PostgreSQL and TimescaleDB come from that image
-# together, because TimescaleDB only works reliably with the PostgreSQL build it was compiled
-# against (TimescaleDB built for 18.6 fails all its background jobs on Alpine's 18.7).
+# together, a pair Timescale tests (see the Dockerfile).
 #   $1: the oldest TimescaleDB release to keep, $2: the release of the image
 # Keeps the loader (timescaledb.so), and of every release from $1 to $2 the libraries, the
 # install script and the update scripts between them. Removes JIT (LLVM),
