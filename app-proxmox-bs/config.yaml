@@ -1,5 +1,5 @@
 name: Proxmox Backup Server
-version: "0.1.1"
+version: "0.1.2"
 slug: app-proxmox-bs
 description: "Unofficial: a real Proxmox Backup Server for your Proxmox VE backups, on the disks of this machine"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-proxmox-bs"
@@ -9,8 +9,13 @@ arch:
   - amd64
 # Prebuilt by the repository Builder workflow; bump `version` to publish a new image
 image: "ghcr.io/cyberjunky/app-proxmox-bs"
-# PBS's own web interface and console (its own login and certificate), on the machine's port 8007
-webui: "https://[HOST]:[PORT:8007]"
+# The app's page (Open Web UI and the sidebar): PBS's own interface on port 8007 (its own login and
+# certificate), inside Home Assistant or in its own tab. Its own port, as 8099 is taken by other apps
+# on the host network. No webui: the linter allows only one of the two
+ingress: true
+ingress_port: 8017
+panel_icon: mdi:backup-restore
+panel_title: Backup Server
 # PBS listens on the machine's own network, as on a real PBS
 host_network: true
 # Every disk of the machine, for PBS's Disks page (needs Protection mode off); the commands that

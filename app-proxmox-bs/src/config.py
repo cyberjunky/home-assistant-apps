@@ -11,6 +11,10 @@ OPTIONS_FILE = Path(os.environ.get("PBSAPP_OPTIONS", str(DATA_DIR / "options.jso
 UNIT_DIR = Path(os.environ.get("PBSAPP_UNIT_DIR", "/etc/systemd/system"))
 DATASTORE_CFG = Path(os.environ.get("PBSAPP_DATASTORE_CFG", "/etc/proxmox-backup/datastore.cfg"))
 MOUNTINFO = Path(os.environ.get("PBSAPP_MOUNTINFO", "/proc/self/mountinfo"))
+# PBS's own port (web interface, console, Proxmox VE), and the sidebar page's port (ingress_port in
+# config.yaml; not 8099, which other apps on the host network use)
+PBS_PORT = 8007
+PANEL_PORT = int(os.environ.get("PBSAPP_PANEL_PORT", "8017"))
 
 
 def app_version() -> str:

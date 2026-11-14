@@ -45,6 +45,7 @@ and nothing more:
 - **PBS's Disks page works**: Disks → Directory → Create formats a disk and makes a datastore on it, as on a real PBS. The app mounts it (PBS asks systemd for that; the app answers instead), mounts it again after a restart, and follows it when it is unplugged and plugged back in
 - **A disk that is unplugged** takes its datastores offline ("Disk not connected"), so Proxmox VE sees why backups can't run, and nothing is written to Home Assistant's own storage meanwhile. Plugged in again, the disk is checked, mounted and its datastores come back online
 - **Home Assistant's own disk is protected**: the app sees every disk of the machine, but the commands that partition, wipe or format a disk refuse the one Home Assistant runs from
+- **In Home Assistant's sidebar**: PBS's own interface inside Home Assistant when it runs on `https://`; on `http://`, its status and a button that opens it
 - **PBS's log** is in the app's log
 - **The configuration is kept** (datastores, users, tokens, jobs, the certificate) across updates and in Home Assistant's backups, so Proxmox VE keeps trusting the same certificate. The backups themselves stay on their disks
 
@@ -72,7 +73,7 @@ Alternatively:
 2. Open the menu (⋮) and choose **Repositories**
 3. Add `https://github.com/cyberjunky/home-assistant-apps`
 4. Install **Proxmox Backup Server**, turn **Protection mode** off and set a `root_password` (for this backup server's own login, not your Home Assistant or Proxmox VE password)
-5. Start the app and choose **Open Web UI**; log in as `root` with the realm Linux PAM
+5. Start the app and choose **Open Web UI**, then **Open Proxmox Backup Server**; log in as `root` with the realm Linux PAM
 6. Under **Administration → Storage / Disks → Directory → Create: Directory**, choose your disk (with "Add as Datastore")
 7. Give Proxmox VE its own token with backup rights only, and add the datastore under Datacenter → Storage → Add → Proxmox Backup Server (the app's Documentation tab shows the commands)
 
