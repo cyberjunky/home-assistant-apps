@@ -3,8 +3,10 @@
 # into this image and links against that release's libraries.
 ARG BUILD_FROM=ghcr.io/home-assistant/base:3.24
 
-# PostgreSQL and TimescaleDB both come from the official TimescaleDB image, built together:
-# TimescaleDB only works reliably with the PostgreSQL build it was compiled against.
+# PostgreSQL and TimescaleDB both come from the official TimescaleDB image: a pair Timescale
+# builds and tests together. A newer PostgreSQL minor release can break TimescaleDB until
+# Timescale adapts it (PostgreSQL 18.7 and 17.12 made every background job of TimescaleDB
+# 2.32.0 fail, fixed in timescale/timescaledb e89c98f); taking both from their image avoids that.
 # TIMESCALEDB_OLDEST is the oldest TimescaleDB release the image keeps the libraries and
 # scripts of. Two things need the older releases: an existing database is updated to
 # TIMESCALEDB_VERSION on the next start (ALTER EXTENSION timescaledb UPDATE), and copying a
