@@ -1,7 +1,8 @@
 """Proxmox Backup Server - the app's own part, next to PBS's two daemons.
 
-It writes PBS's log into the app's log, and keeps the disks PBS set up mounted (see mounts.py).
-PBS itself (its API, web interface and console on port 8007) runs as its own services.
+It writes PBS's log into the app's log, keeps the disks PBS set up mounted (see mounts.py), and
+serves the sidebar page that shows PBS inside Home Assistant (panel.py). PBS itself (its API, web
+interface and console on port 8007) runs as its own services.
 """
 
 import asyncio
@@ -10,7 +11,7 @@ import logging
 import signal
 import sys
 
-from . import journal
+from . import journal, panel
 from .config import APP_VERSION, log_level
 from .mounts import Watcher
 
@@ -35,6 +36,7 @@ async def main() -> int:
     if level in ("debug", "warning", "error"):
         logging.getLogger().setLevel(level.upper())
     logger.info(f"Proxmox Backup Server app {APP_VERSION}")
+    sidebar = panel.start()
     services = [
         asyncio.create_task(journal.relay(), name="journal"),
         asyncio.create_task(watch_disks(), name="disks"),
@@ -54,6 +56,7 @@ async def main() -> int:
         task.cancel()
     with contextlib.suppress(asyncio.CancelledError):
         await asyncio.gather(*services, return_exceptions=True)
+    sidebar.shutdown()
     return exit_code
 
 

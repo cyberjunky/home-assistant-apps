@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2
+
+- **In the sidebar**: turn on Show in sidebar on the Info tab. With Home Assistant on `https://`, PBS's own interface appears inside Home Assistant (accept its certificate once). On `http://` browsers don't keep PBS's login inside Home Assistant's page, so the page shows whether PBS runs and opens it in its own tab
+- The app starts its services the current s6-overlay way (no change in what it does)
+
 ## 0.1.1
 
 - **Starts under Home Assistant**: 0.1.0 stopped right after starting, because Home Assistant's AppArmor refused the tmpfs it mounted for PBS's shared memory. PBS now keeps that in `/dev/shm`, so nothing needs mounting at start

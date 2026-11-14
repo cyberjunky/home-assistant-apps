@@ -81,6 +81,20 @@ A disk that already holds a datastore (from this app before a reinstall, or from
 
 The backups on the datastore disks are not part of Home Assistant's backups; they would make them as large as the disks. Home Assistant's backups do contain PBS's configuration (`/data/pbs/etc`: datastores, users, tokens, jobs, the certificate), its history (`/data/pbs/lib`) and its mount units (`/data/pbs/systemd`). Task logs (`/data/pbs/log`) are left out. Restoring a Home Assistant backup therefore gives back the same server, and it finds its disks again.
 
+## In Home Assistant's sidebar
+
+Turn on **Show in sidebar** on the app's Info tab. The sidebar page loads PBS's own interface
+straight from port 8007, from your browser:
+
+- **Home Assistant on `https://`**: PBS appears inside Home Assistant. The first time, the page asks
+  you to open PBS in a new tab once and accept its self-signed certificate.
+- **Home Assistant on `http://`**: the page shows whether PBS runs, with a button that opens it in its
+  own tab. Browsers don't keep PBS's login inside a page from an `http://` address (PBS's login
+  cookie needs the same site, and `http` and `https` count as different sites), so PBS can't be
+  shown inside it.
+- **Through Nabu Casa or another remote address** PBS isn't reachable: its port 8007 is only open on
+  your own network.
+
 ## Good to know
 
 - **Memory.** PBS idles lightly, but garbage collection and verifying a large datastore use memory and keep the disk busy. On a 4 GB machine, schedule them for the night (Datastore → Options).
@@ -98,6 +112,7 @@ The backups on the datastore disks are not part of Home Assistant's backups; the
 - **"file system errors e2fsck -p can't fix"** in the log: connect the disk to a Linux computer and run `e2fsck -f` on it, then connect it again.
 - **Proxmox VE says the fingerprint doesn't match**: the app's data was reset, so PBS made a new certificate. Copy the new fingerprint from the datastore's Summary into the storage's settings.
 - **Login fails**: set `root_password`, restart the app, and choose the realm Linux PAM.
+- **The sidebar page keeps asking to accept the certificate**: open PBS with the button, accept the warning, and come back. If it still asks, this browser can't reach port 8007 of this machine.
 
 ## Development
 

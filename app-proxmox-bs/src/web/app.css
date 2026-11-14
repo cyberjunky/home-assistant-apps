@@ -1,0 +1,65 @@
+/* Follows Home Assistant's light or dark mode by default; the theme button cycles auto, light and dark, and remembers it.
+   It sets the top bar and the messages; PBS's interface below has its own theme setting. */
+:root {
+  color-scheme: light;
+  --bg: #f3f5f7; --card: #ffffff; --line: #e1e5ea;
+  --text: #1a1f26; --text2: #5b6573;
+  --primary: #4c8dff; --tab-active: #2457c5;
+  --ok: #2e9e5b; --bad: #e0455a; --wait: #c79a12;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0b0e12; --card: #12161c; --line: #242b35;
+  --text: #e7ebf0; --text2: #9ba5b3;
+  --tab-active: #4c8dff;
+  --ok: #5fd68a; --bad: #ff5b6e; --wait: #f5c542;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; display: flex; flex-direction: column; background: var(--bg); color: var(--text);
+  font-family: 'IBM Plex Sans', Roboto, -apple-system, 'Segoe UI', sans-serif; font-size: 14px; }
+a { color: var(--primary); }
+/* The top bar: the same as in the other apps (Toon, GoodWe, Tesla, ...) */
+.topbar { display: flex; align-items: center; gap: 14px; padding: 6px 14px; min-height: var(--ha-header-height, 56px);
+  background: var(--card); border-bottom: 1px solid var(--line); white-space: nowrap; flex-shrink: 0; }
+.topbar > * { flex-shrink: 0; }
+.brand { display: flex; align-items: center; gap: 8px; }
+.brand svg { width: 20px; height: 20px; color: var(--primary); }
+.brand-name { font-weight: 600; letter-spacing: 0.04em; }
+.tabs { display: flex; gap: 2px; padding: 2px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line); }
+.tab { height: 28px; padding: 0 12px; border: none; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center;
+  justify-content: center; line-height: 1; white-space: nowrap; background: transparent; color: var(--text2);
+  font-family: inherit; font-size: 12.5px; font-weight: 500; text-decoration: none; }
+.tab:hover { color: var(--text); }
+.icon-tab { width: 32px; padding: 0; font-size: 14px; }
+.status { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text2); }
+.status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--wait); }
+.status.ok .dot { background: var(--ok); }
+.status.bad .dot { background: var(--bad); }
+.clock { font-family: var(--mono); font-size: 22px; font-weight: 600; letter-spacing: 0.04em; line-height: 1; }
+.spacer { flex: 1; }
+@media (max-width: 1400px) {
+  .clock { font-size: 18px; }
+}
+@media (max-width: 900px) {
+  .brand-name { display: none; }
+}
+@media (max-width: 700px) {
+  .topbar { gap: 8px; padding: 6px 8px; }
+  .clock, #reload { display: none; }
+}
+
+/* PBS's interface fills the rest of the page */
+.stage { flex: 1; position: relative; min-height: 0; }
+.stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: var(--bg); }
+.message { position: absolute; inset: 0; display: flex; align-items: flex-start; justify-content: center; padding: 48px 16px; overflow: auto; }
+.card { width: min(560px, 100%); background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 20px; }
+.card h2 { margin: 0 0 10px; font-size: 16px; }
+.card p, .card li { line-height: 1.5; color: var(--text2); }
+.card code { font-family: var(--mono); font-size: 12.5px; color: var(--text); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.btn { height: 34px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text);
+  font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; text-decoration: none; }
+.btn-primary { background: var(--tab-active); border-color: var(--tab-active); color: #fff; }
