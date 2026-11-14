@@ -8,6 +8,9 @@ from aiohttp.test_utils import TestClient, TestServer
 from src.database import Database, bucket_seconds, resolution
 from src.webui import WebUI
 
+# The page's own scripts send this header with every POST
+SAME_PAGE = {"X-Chronicle": "1"}
+
 
 @pytest.fixture
 async def client(config, tmp_path, monkeypatch):
@@ -86,17 +89,26 @@ async def test_storage(client):
     assert {t["name"] for t in data["tables"]} >= {"chronicle.states", "chronicle.entities", "chronicle.attributes"}
 
 
-async def test_query_endpoint(client):
-    ok = await client.post("/api/query", json={"sql": "SELECT entity_id FROM chronicle.entities ORDER BY 1;"})
+async def test_sql_endpoint(client):
+    """The SQL page through the web server: a session, a confirmation, PostgreSQL's errors."""
+    ok = await client.post(
+        "/api/sql/run", headers=SAME_PAGE, json={"sql": "SELECT entity_id FROM chronicle.entities ORDER BY 1;"}
+    )
     assert ok.status == 200
-    assert (await ok.json())["rows"] == [["light.desk"], ["sensor.temperature"]]
-    refused = await client.post("/api/query", json={"sql": "DELETE FROM chronicle.states"})
-    assert refused.status == 400
-    failed = await client.post("/api/query", json={"sql": "SELECT * FROM nope"})
-    body = await failed.json()
-    assert failed.status == 400
-    assert body["sqlstate"] == "42P01"
-    assert "nope" in body["error"]
+    body = await ok.json()
+    assert body["results"][0]["rows"] == [["light.desk"], ["sensor.temperature"]]
+    assert body["session"]
+    asked = await client.post(
+        "/api/sql/run", headers=SAME_PAGE, json={"sql": "DELETE FROM chronicle.states", "session": body["session"]}
+    )
+    assert (await asked.json())["confirm"] == [{"kind": "DELETE", "count": 1}]
+    failed = await client.post(
+        "/api/sql/run", headers=SAME_PAGE, json={"sql": "SELECT * FROM nope", "session": body["session"]}
+    )
+    error = (await failed.json())["error"]
+    assert error["sqlstate"] == "42P01" and "nope" in error["message"]
+    closed = await client.post("/api/sql/close", headers=SAME_PAGE, json={"session": body["session"]})
+    assert closed.status == 200
 
 
 async def test_without_chronicle_tables(empty_config, tmp_path, monkeypatch):
@@ -144,3 +156,24 @@ async def test_fresh_history_fills_every_range(fresh_config, tmp_path, monkeypat
     # Twelve updates, of which ten only changed attributes: two changes of state
     assert [p["state"] for p in tracker["points"]] == ["home", "not_home"]
     assert tracker["updates"] == 12
+
+
+async def test_post_needs_the_page_header(aiohttp_client, config, tmp_path, monkeypatch):
+    """A link, a form or another site can't send the header: such a POST is refused."""
+    monkeypatch.setattr("src.webui.DATA_DIR", tmp_path)
+    client = await aiohttp_client(WebUI(0, config, Database(config)).app)
+    response = await client.post("/api/sql/run", json={"sql": "DROP TABLE chronicle.states"})
+    assert response.status == 403
+    # The donate card's shared script is the one exception, and only records the card's state
+    assert (await client.post("/api/donate", json={"action": "later"})).status != 403
+
+
+def test_infinite_times_are_none():
+    """TimescaleDB's -infinity ("never") for a job that hasn't run yet, e.g. right after a restore."""
+    from datetime import UTC, datetime
+
+    from src.database import ts
+
+    assert ts(datetime.min.replace(tzinfo=UTC)) is None
+    assert ts(datetime.max.replace(tzinfo=UTC)) is None
+    assert ts(datetime(2026, 1, 1, tzinfo=UTC)) == 1767225600.0

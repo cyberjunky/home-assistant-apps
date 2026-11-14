@@ -12,9 +12,12 @@ import aiohttp
 import asyncpg
 from aiohttp import web
 
+from .admin import Admin
 from .config import ADDON_VERSION, DATA_DIR, Config
-from .database import QUERY_TIMEOUT, RANGES, Database, NotConnectedError, QueryRefusedError
+from .database import RANGES, Database, NotConnectedError
 from .donate import DonatePrompt
+from .sql import SqlSessions
+from .webui_admin import AdminRoutes
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +29,6 @@ ENTITY_ID = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
 DOMAIN_NAME = re.compile(r"^[a-z0-9_]+$")
 CORE_API_URL = "http://supervisor/core/api"
 OVERVIEW_HOURS = (24, 168)
-MAX_QUERY_LENGTH = 100_000
 
 
 # The Chronicle integration's sensors, by the end of their entity id (Home Assistant names them
@@ -97,7 +99,14 @@ class WebUI:
         self.config = config
         self.database = database
         self.ingress_only = bool(os.environ.get("SUPERVISOR_TOKEN"))
-        self.app = web.Application(middlewares=[self._ingress_only, self._database_errors])
+        self.admin = Admin(config)
+        self.sessions = SqlSessions(config)
+        self.admin_routes = AdminRoutes(self.admin, self.sessions, on_change=self._forget_schema)
+        self.app = web.Application(
+            middlewares=[self._ingress_only, self._same_page, AdminRoutes.errors, self._database_errors],
+            # Uploads of dump files are streamed; everything else is small
+            client_max_size=2 * 1024 * 1024,
+        )
         self._runner: web.AppRunner | None = None
         self._schema: dict | None = None
         self._recorder: tuple[float, dict] | None = None
@@ -114,9 +123,12 @@ class WebUI:
         get("/api/entity", self._handle_entity)
         get("/api/storage", self._handle_storage)
         get("/api/recorder", self._handle_recorder)
-        self.app.router.add_post("/api/query", self._handle_query)
         self.app.router.add_post("/api/exclude", self._handle_exclude)
         self.app.router.add_post("/api/purge", self._handle_purge)
+        self.admin_routes.add(self.app)
+
+    def _forget_schema(self) -> None:
+        self._schema = None
 
     async def start(self) -> None:
         # handler_cancellation: a query the page cancels (or a closed page) stops in the database too
@@ -124,17 +136,34 @@ class WebUI:
         await self._runner.setup()
         await web.TCPSite(self._runner, "0.0.0.0", self.port).start()
         logger.info(f"Web UI listening on port {self.port}")
+        self.admin.start_sampler()
         await asyncio.Event().wait()
 
     async def stop(self) -> None:
         if self._runner:
             await self._runner.cleanup()
+        await self.sessions.close_all()
+        await self.admin.close()
 
     @web.middleware
     async def _ingress_only(self, request: web.Request, handler):
         # The history is private: under Home Assistant only the (authenticated) ingress proxy may ask
         if self.ingress_only and request.remote != INGRESS_ADDRESS:
             return web.Response(status=403, text="Open Chronicle from the Home Assistant sidebar")
+        return await handler(request)
+
+    @web.middleware
+    async def _same_page(self, request: web.Request, handler):
+        # Everything that changes something comes from this page's own scripts: they send this
+        # header, which a link, a form or another site can't (a cross-site request with it
+        # needs a CORS preflight, which this server never allows)
+        # (The donate card only records that it was closed; its script is shared by all apps.)
+        if (
+            request.method not in ("GET", "HEAD")
+            and request.headers.get("X-Chronicle") != "1"
+            and not request.path.startswith("/api/donate")
+        ):
+            return web.Response(status=403, text="Missing the X-Chronicle header")
         return await handler(request)
 
     @web.middleware
@@ -178,7 +207,7 @@ class WebUI:
         )
 
     async def _handle_status(self, _request: web.Request) -> web.Response:
-        result = {"version": ADDON_VERSION, "connection": self.config.public(), "connected": False}
+        result = {"version": ADDON_VERSION, "connection": self.config.integration(), "connected": False}
         try:
             result.update(await self._status())
             result["connected"] = True
@@ -225,32 +254,6 @@ class WebUI:
         if data is None:
             return _error("Unknown entity", 404)
         return _json(data)
-
-    async def _handle_query(self, request: web.Request) -> web.Response:
-        """The Query page: one read-only statement; PostgreSQL's own message when it fails."""
-        try:
-            body = await request.json()
-        except (ValueError, UnicodeDecodeError):
-            body = None
-        sql = body.get("sql") if isinstance(body, dict) else None
-        if not isinstance(sql, str) or not sql.strip():
-            return _error("Enter a query")
-        if len(sql) > MAX_QUERY_LENGTH:
-            return _error("The query is too long")
-        sql = sql.strip().rstrip(";").strip()
-        try:
-            return _json(await self.database.query(sql))
-        except QueryRefusedError as e:
-            return _error(str(e))
-        except asyncpg.QueryCanceledError:
-            return _error(f"The query was stopped after {QUERY_TIMEOUT}: it took too long", 400)
-        except asyncpg.PostgresError as e:
-            # Shown in the page as PostgreSQL wrote it, with the hint and position when given
-            detail = {"error": str(e), "sqlstate": e.sqlstate}
-            for key in ("detail", "hint", "position"):
-                if getattr(e, key, None):
-                    detail[key] = getattr(e, key)
-            return _json(detail, 400)
 
     async def _handle_storage(self, _request: web.Request) -> web.Response:
         if not await self._require_schema():

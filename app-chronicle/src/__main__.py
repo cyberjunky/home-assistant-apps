@@ -18,18 +18,14 @@ async def main() -> int:
     """Main application entry point. Returns the process exit code."""
     logger.info(f"Chronicle {ADDON_VERSION} starting...")
 
-    try:
-        config = Config.from_options_file()
-    except ValueError as e:
-        logger.error(f"{e} - fix the app configuration and restart")
-        return 1
+    config = Config.from_environment()
     if config.log_level in ("debug", "warning", "error"):
         logging.getLogger().setLevel(config.log_level.upper())
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     database = Database(config)
     webui = WebUI(WEB_PORT, config, database)
-    logger.info(f"Reading database {config.database} on {config.host}:{config.port} as {config.username}")
+    logger.info(f"Using database {config.database} as {config.username}")
 
     server = asyncio.create_task(webui.start(), name="webui")
     stop = asyncio.Event()

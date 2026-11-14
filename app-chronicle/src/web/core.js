@@ -7,8 +7,14 @@ const LS = 'chronicle_';
 // What the server told us about the connection; filled by loadStatus()
 const app = {version: '', status: null, checkedAt: null};
 
-async function api(path) {
-    const response = await fetch(basePath + 'api/' + path);
+async function api(path, body) {
+    // Everything that changes something is a POST with this header (the server refuses it without)
+    const options = body === undefined ? {} : {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-Chronicle': '1'},
+        body: JSON.stringify(body),
+    };
+    const response = await fetch(basePath + 'api/' + path, options);
     let data = null;
     try { data = await response.json(); } catch (e) { /* not JSON */ }
     if (!response.ok) {
@@ -94,10 +100,11 @@ function fmtIn(ts) {
     return 'in ' + fmtDuration(seconds);
 }
 
+// Safe in text and in attribute values ("…" and '…'): names from the database can hold any character
 function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text === null || text === undefined ? '' : String(text);
-    return div.innerHTML;
+    return (text === null || text === undefined ? '' : String(text))
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -180,7 +187,7 @@ function toast(message, type) {
 // =====================================================================
 // Views
 // =====================================================================
-const TABS = ['overview', 'entities', 'storage', 'query', 'info'];
+const TABS = ['overview', 'entities', 'storage', 'databases', 'query', 'activity', 'maintenance', 'backups', 'info'];
 const tabHooks = {};
 let activeTab = null;
 
@@ -233,15 +240,15 @@ function ready() {
 function renderChrome() {
     const s = app.status || {};
     const c = s.connection || {};
-    document.getElementById('brand-db').textContent = c.database ? `${c.database}@${c.host}` : '';
+    document.getElementById('brand-db').textContent = c.database || '';
     const hint = document.getElementById('setup-hint');
     const text = document.getElementById('setup-hint-text');
     if (!s.connected) {
         hint.hidden = false;
-        text.innerHTML = `Cannot connect to the database <b>${escapeHtml(c.database || '')}</b> on <b>${escapeHtml(c.host || '')}</b>: ${escapeHtml(s.error || 'unknown error')}. Check the connection on the app's Configuration tab.`;
+        text.innerHTML = `The database is not reachable: ${escapeHtml(s.error || 'unknown error')}. The app's log in Home Assistant says why; it is usually still starting.`;
     } else if (!s.schema) {
         hint.hidden = false;
-        text.innerHTML = `There is no Chronicle history in the database <b>${escapeHtml(c.database)}</b> yet. Install the <a href="https://github.com/cyberjunky/home-assistant-chronicle" target="_blank" rel="noopener">Chronicle integration</a> and point it at this database; it creates its tables on its first start.`;
+        text.innerHTML = `There is no Chronicle history yet. Install the <a href="https://github.com/cyberjunky/home-assistant-chronicle" target="_blank" rel="noopener">Chronicle integration</a>: Home Assistant offers it with this database filled in, and it creates its tables on its first start. The Database pages work already.`;
     } else {
         hint.hidden = true;
     }
@@ -253,7 +260,7 @@ function renderStatusbar() {
     const c = s.connection || {};
     const parts = [];
     if (s.connected) {
-        parts.push(`<span><span class="sb-ok">●</span> <b>${escapeHtml(c.database)}</b> on ${escapeHtml(c.host)}</span>`);
+        parts.push(`<span><span class="sb-ok">●</span> <b>${escapeHtml(c.database)}</b></span>`);
         parts.push(`<span class="sb-extra">PostgreSQL <b>${escapeHtml(s.server || '')}</b> · TimescaleDB <b>${escapeHtml(s.timescaledb || '–')}</b></span>`);
         if (!s.schema) parts.push('<span class="sb-warn">no Chronicle tables</span>');
     } else {
@@ -271,4 +278,24 @@ async function handleError(e) {
 
 function updateClock() {
     document.getElementById('clock').textContent = new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+}
+
+// Copies text (a password, a host name) to the clipboard; Home Assistant's frame may not allow
+// the clipboard API, then the older way. Says whether it worked.
+async function copyPlain(text, what) {
+    let ok = false;
+    try {
+        await navigator.clipboard.writeText(text);
+        ok = true;
+    } catch (e) {
+        const area = document.createElement('textarea');
+        area.value = text;
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+        document.body.appendChild(area);
+        area.select();
+        try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+        area.remove();
+    }
+    toast(ok ? `${what} copied` : `This browser doesn't allow copying here: select the ${what.toLowerCase()} and copy it`, ok ? 'success' : 'error');
 }

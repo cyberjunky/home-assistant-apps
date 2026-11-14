@@ -1,20 +1,21 @@
-"""Configuration for Chronicle: the database the Chronicle integration records into."""
+"""Configuration for Chronicle: the app's own database, as the web UI reaches it."""
 
-import json
-import logging
 import os
+import socket
 from dataclasses import dataclass
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
-
-# App storage: options.json and the donate prompt state live here. The CHRONICLE_*
-# environment variables are for development only; the app itself never sets them.
-DATA_DIR = Path(os.environ.get("CHRONICLE_DATA_DIR", "/data"))
-OPTIONS_FILE = Path(os.environ.get("CHRONICLE_OPTIONS", str(DATA_DIR / "options.json")))
+# The web UI's own files (the donate card state). The CHRONICLE_* environment variables
+# other than CHRONICLE_LOG_LEVEL are for development only; the app itself never sets them.
+DATA_DIR = Path(os.environ.get("CHRONICLE_DATA_DIR", "/data/ui"))
+# The passwords init-postgres generated, one file per role
+SECRETS_DIR = Path(os.environ.get("CHRONICLE_SECRETS_DIR", "/data/secrets"))
 WEB_PORT = int(os.environ.get("CHRONICLE_PORT", "8099"))
 
-DEFAULT_HOST = "1b41fb55-timescaledb"
+# The database the Chronicle integration records into, and the role it records as
+DATABASE = "homeassistant"
+INTEGRATION_ROLE = "chronicle"
+POSTGRES_PORT = 5432
 
 
 def addon_version() -> str:
@@ -34,50 +35,41 @@ ADDON_VERSION = addon_version()
 
 @dataclass
 class Config:
-    """Application configuration, read from the app options."""
+    """How the web UI connects: as chronicle_ui over the local socket (peer authentication,
+    no password). Development and the tests connect over TCP with the CHRONICLE_DB_* variables."""
 
-    host: str = DEFAULT_HOST
-    port: int = 5432
-    username: str = "postgres"
+    host: str = "/run/postgresql"
+    port: int = POSTGRES_PORT
+    username: str = "chronicle_ui"
     password: str = ""
-    database: str = "homeassistant"
+    database: str = DATABASE
     log_level: str = "info"
 
-    def public(self) -> dict:
-        """The connection without the password, for the Info page."""
-        return {"host": self.host, "port": self.port, "username": self.username, "database": self.database}
-
     @classmethod
-    def from_options_file(cls, path: Path = OPTIONS_FILE) -> "Config":
-        try:
-            data = json.loads(Path(path).read_text())
-        except FileNotFoundError:
-            # Outside Home Assistant (development): the defaults and the environment
-            logger.warning(f"No options file at {path}, using defaults and CHRONICLE_DB_* variables")
-            return cls(
-                host=os.environ.get("CHRONICLE_DB_HOST", DEFAULT_HOST),
-                port=int(os.environ.get("CHRONICLE_DB_PORT", "5432")),
-                username=os.environ.get("CHRONICLE_DB_USER", "postgres"),
-                password=os.environ.get("CHRONICLE_DB_PASSWORD", ""),
-                database=os.environ.get("CHRONICLE_DB_NAME", "homeassistant"),
-            )
-        except (OSError, ValueError) as e:
-            raise ValueError(f"Cannot read app options from {path}: {e}") from e
-        if not isinstance(data, dict):
-            raise ValueError(f"Invalid app options in {path}: expected a JSON object")
-
-        host = str(data.get("host") or "").strip()
-        if not host:
-            raise ValueError("host is not set: enter the TimescaleDB host on the app's Configuration tab")
-        try:
-            port = int(data.get("port") or 5432)
-        except (TypeError, ValueError):
-            port = 5432
+    def from_environment(cls) -> "Config":
+        log_level = os.environ.get("CHRONICLE_LOG_LEVEL", "info").lower()
         return cls(
-            host=host,
-            port=port if 1 <= port <= 65535 else 5432,
-            username=str(data.get("username") or "postgres").strip(),
-            password=str(data.get("password") or ""),
-            database=str(data.get("database") or "homeassistant").strip(),
-            log_level=str(data.get("log_level") or "info"),
+            host=os.environ.get("CHRONICLE_DB_HOST", cls.host),
+            port=int(os.environ.get("CHRONICLE_DB_PORT", str(POSTGRES_PORT))),
+            username=os.environ.get("CHRONICLE_DB_USER", cls.username),
+            password=os.environ.get("CHRONICLE_DB_PASSWORD", ""),
+            database=os.environ.get("CHRONICLE_DB_NAME", DATABASE),
+            log_level=log_level if log_level in ("debug", "info", "warning", "error") else "info",
         )
+
+    def integration(self) -> dict:
+        """What the Chronicle integration connects with, without the password (Info page)."""
+        return {
+            "host": socket.gethostname(),
+            "port": POSTGRES_PORT,
+            "username": INTEGRATION_ROLE,
+            "database": DATABASE,
+        }
+
+
+def integration_password() -> str | None:
+    """The integration's password, for setting it up by hand; None when it can't be read."""
+    try:
+        return (SECRETS_DIR / f"{INTEGRATION_ROLE}.password").read_text().strip() or None
+    except OSError:
+        return None

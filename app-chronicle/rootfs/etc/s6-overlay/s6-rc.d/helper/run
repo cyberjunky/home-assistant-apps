@@ -1,0 +1,8 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Chronicle - the database helper (src/helper.py): restores, copies and other tasks that
+# need PostgreSQL's superuser, as the postgres OS user, for the web UI only
+# ==============================================================================
+cd /app || exit 1
+exec s6-setuidgid postgres python3 -m src.helper

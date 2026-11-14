@@ -488,7 +488,7 @@ function actionModal(title, bodyHtml, label, danger, onConfirm) {
 function closeActionModal() { document.getElementById('modal-root').innerHTML = ''; }
 
 async function postAction(path, body) {
-    const response = await fetch(basePath + 'api/' + path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    const response = await fetch(basePath + 'api/' + path, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-Chronicle': '1'}, body: JSON.stringify(body)});
     let data = null;
     try { data = await response.json(); } catch (e) { /* not JSON */ }
     if (!response.ok) throw new Error((data && data.error) || `Request failed (${response.status})`);

@@ -1,7 +1,7 @@
 name: Chronicle
-version: "0.1.6"
+version: "0.2.0"
 slug: app-chronicle
-description: "Browse the long-term history the Chronicle integration keeps in TimescaleDB - entities, charts, storage and compression"
+description: "PostgreSQL with TimescaleDB for the Chronicle integration, with a database browser, SQL and maintenance"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-chronicle"
 init: false
 arch:
@@ -14,20 +14,37 @@ panel_icon: mdi:database-clock
 panel_title: Chronicle
 # Exclude and Delete history call the Chronicle integration's actions through Home Assistant
 homeassistant_api: true
+# The database starts before Home Assistant, so the integration can connect right away
+startup: system
+# Announces the database to Home Assistant: the integration is offered with the connection filled in
+discovery:
+  - chronicle
+# Backups and dumps to restore: /share/chronicle (also reachable through Samba)
+map:
+  - type: share
+    read_only: false
+# Time for PostgreSQL to stop (a fast shutdown), and for a backup dump
+timeout: 60
 
-# The database the Chronicle integration records into; the app only reads from it
+# Home Assistant backups: a dump of the database (backup_pre), not the files of the running
+# database, which may not start after a restore
+backup_pre: /usr/share/chronicle/backup_pre.sh
+backup_post: /usr/share/chronicle/backup_post.sh
+backup_exclude:
+  - postgres/**
+  - postgres[0-9]*/**
+
+# PostgreSQL itself is reachable on Home Assistant's internal network; set a port here (Network)
+# only to reach it from elsewhere, e.g. Grafana on another machine
+ports:
+  5432/tcp: null
+ports_description:
+  5432/tcp: PostgreSQL (only for read-only logins; leave empty unless needed)
+
 options:
-  host: 1b41fb55-timescaledb
-  port: 5432
-  username: postgres
-  password: ""
-  database: homeassistant
+  max_memory: 512MB
   log_level: info
 
 schema:
-  host: str
-  port: port
-  username: str
-  password: password
-  database: str
+  max_memory: match(^[0-9]+(MB|GB)$)
   log_level: list(debug|info|warning|error)?
