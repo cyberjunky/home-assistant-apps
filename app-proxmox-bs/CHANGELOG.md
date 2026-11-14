@@ -2,7 +2,7 @@
 
 ## 0.1.2
 
-- **In the sidebar**: turn on Show in sidebar on the Info tab. With Home Assistant on `https://`, PBS's own interface appears inside Home Assistant (accept its certificate once). On `http://` browsers don't keep PBS's login inside Home Assistant's page, so the page shows whether PBS runs and opens it in its own tab
+- **In the sidebar**: turn on Show in sidebar on the Info tab. With Home Assistant on `https://`, PBS's own interface appears inside Home Assistant (accept its certificate once). On `http://` browsers don't keep PBS's login inside Home Assistant's page, so the page shows whether PBS runs and opens it in its own tab. **Open Web UI** opens this page too
 - The app starts its services the current s6-overlay way (no change in what it does)
 
 ## 0.1.1

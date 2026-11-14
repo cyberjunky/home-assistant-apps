@@ -73,7 +73,7 @@ Alternatively:
 2. Open the menu (⋮) and choose **Repositories**
 3. Add `https://github.com/cyberjunky/home-assistant-apps`
 4. Install **Proxmox Backup Server**, turn **Protection mode** off and set a `root_password` (for this backup server's own login, not your Home Assistant or Proxmox VE password)
-5. Start the app and choose **Open Web UI**; log in as `root` with the realm Linux PAM
+5. Start the app and choose **Open Web UI**, then **Open Proxmox Backup Server**; log in as `root` with the realm Linux PAM
 6. Under **Administration → Storage / Disks → Directory → Create: Directory**, choose your disk (with "Add as Datastore")
 7. Give Proxmox VE its own token with backup rights only, and add the datastore under Datacenter → Storage → Add → Proxmox Backup Server (the app's Documentation tab shows the commands)
 

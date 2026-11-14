@@ -9,7 +9,7 @@ This app runs a real [Proxmox Backup Server](https://pbs.proxmox.com/docs/) (PBS
 1. Connect the disk for your backups: SATA, NVMe or USB. An SSD is best; on USB, give a hard disk a powered enclosure.
 2. On the app's **Info** tab, turn **Protection mode** off. The app needs it to see the disks; with it on, Home Assistant hides them and the log says so.
 3. On the **Configuration** tab, set a `root_password`.
-4. Start the app and choose **Open Web UI**. Log in as `root` with the realm **Linux PAM**. The browser warns once about PBS's self-signed certificate.
+4. Start the app and choose **Open Web UI**, then **Open Proxmox Backup Server** (or go to `https://<Home Assistant's address>:8007`). Log in as `root` with the realm **Linux PAM**. The browser warns once about PBS's self-signed certificate.
 5. In PBS, go to **Administration → Storage / Disks → Directory → Create: Directory**: choose the disk, a name (for example `backups`), ext4 or xfs, and keep **Add as Datastore** on. PBS partitions and formats the disk, and the app mounts it. This erases the disk; for a disk that already holds backups, see [A disk with backups on it](#a-disk-with-backups-on-it).
 6. Give Proxmox VE its own token and add the datastore in Proxmox VE: see [Connect Proxmox VE](#connect-proxmox-ve).
 

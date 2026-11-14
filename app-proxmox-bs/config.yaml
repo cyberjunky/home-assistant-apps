@@ -9,10 +9,9 @@ arch:
   - amd64
 # Prebuilt by the repository Builder workflow; bump `version` to publish a new image
 image: "ghcr.io/cyberjunky/app-proxmox-bs"
-# PBS's own web interface and console (its own login and certificate), on the machine's port 8007
-webui: "https://[HOST]:[PORT:8007]"
-# The sidebar page: PBS's interface inside Home Assistant, loaded from port 8007 by the browser.
-# Its own port, as 8099 is taken by other apps on the host network
+# The app's page (Open Web UI and the sidebar): PBS's own interface on port 8007 (its own login and
+# certificate), inside Home Assistant or in its own tab. Its own port, as 8099 is taken by other apps
+# on the host network. No webui: the linter allows only one of the two
 ingress: true
 ingress_port: 8017
 panel_icon: mdi:backup-restore
