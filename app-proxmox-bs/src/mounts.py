@@ -240,6 +240,7 @@ class Watcher:
                 if not mounted:
                     ok, message = mount(unit)
                     if not ok:
+                        lock(unit.where)
                         self._report(unit, "error", f"can't mount {unit.what}: {message}", logging.ERROR)
                         continue
                     self._report(unit, "mounted", f"mounted {unit.what}")
@@ -259,3 +260,29 @@ class Watcher:
                 else:
                     lock(unit.where)
                     self._report(unit, "away", f"{unit.what} is not connected", logging.WARNING)
+
+
+def mount_all(unit_dir: Path | None = None) -> None:
+    """Before PBS starts: every disk that is connected mounted, and the mount point of every other one
+    locked. PBS then never sees a datastore without its disk; the watcher takes over once the app runs."""
+    for unit in units(unit_dir):
+        if unit.device:
+            ok, message = mount(unit)
+            if ok:
+                logger.info(f"{unit.where}: {message} ({unit.what})")
+            else:
+                lock(unit.where)
+                logger.error(f"{unit.where}: can't mount {unit.what}: {message}")
+        else:
+            lock(unit.where)
+            logger.warning(f"{unit.where}: {unit.what} is not connected")
+
+
+if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    try:
+        mount_all()
+    except Exception as e:  # never keep PBS from starting; the watcher tries again
+        logger.exception(f"Disks: {e}")
