@@ -170,6 +170,36 @@ function uplinkOptions(h) {
         + candidates.map(o => `<option value="${attr(o.key)}"${o.key === current ? ' selected' : ''}>${escapeHtml(hostName(o))} · ${escapeHtml(kindLabel(kindOf(o)))}</option>`).join('');
 }
 
+// A switch's or access point's ports, from the integration that lists the devices on each port
+// (MikroTik Network): which are in use and by what, which are free
+const shortPort = name => { const m = /^ether(\d+)/.exec(name) || /^sfp\D*(\d+)/.exec(name); return m ? (name.startsWith('sfp') ? `S${m[1]}` : m[1]) : name.slice(0, 3); };
+function switchPortsHtml(h) {
+    const ports = (app.ports || {})[h.mac];
+    if (!ports || !ports.length) return '';
+    const eth = ports.filter(p => p.kind === 'ethernet');
+    const wifi = ports.filter(p => p.kind === 'wifi');
+    // A port with a link where no device is placed, but devices (or a MikroTik neighbour) are seen,
+    // leads up to another switch or the router; a neighbour placed on it hangs below
+    const uplink = p => p.up && !p.connected.length && ((p.seen || 0) > 0 || Boolean(p.neighbor));
+    const state = p => p.disabled ? 'off' : uplink(p) ? 'up uplink' : p.connected.length ? 'up' : p.up ? 'up' : 'free';
+    const used = eth.filter(p => p.up || p.connected.length).length;
+    const free = eth.filter(p => !p.up && !p.connected.length && !p.disabled).length;
+    const names = p => p.connected.map(mac => { const x = hostByMac(mac); return x ? hostName(x) : mac; });
+    const square = p => {
+        const tip = [p.port, p.disabled ? 'off' : p.up ? `link up${p.speed ? ` · ${fmtRate(p.speed / 8)}` : ''}` : 'free', uplink(p) ? `uplink${p.neighbor ? ` to ${p.neighbor}` : ''}` : '', ...names(p), p.comment].filter(Boolean).join('\n');
+        return `<span class="sp-port ${state(p)}" title="${attr(tip)}"><b>${escapeHtml(shortPort(p.port))}</b>${p.connected.length > 1 ? `<i>${p.connected.length}</i>` : ''}</span>`;
+    };
+    const row = p => {
+        const who = p.connected.map(mac => { const x = hostByMac(mac); return x ? hostLink(x) : `<span class="mono muted">${escapeHtml(mac)}</span>`; });
+        const what = who.length ? who.join(', ') : uplink(p) ? `<span class="muted">uplink${p.neighbor ? ` to ${escapeHtml(p.neighbor)}` : ''}</span>` : '';
+        return what ? `<div class="sp-row"><span class="mono" title="${attr(p.comment)}">${escapeHtml(p.port)}</span><span>${what}</span></div>` : '';
+    };
+    return `<div class="section-title he-sub">Ports</div>
+        ${eth.length ? `<div class="sp-sum"><b>${used}</b> of ${eth.length} in use · <b>${free}</b> free</div><div class="sp-grid">${eth.map(square).join('')}</div>` : ''}
+        ${wifi.length ? `<div class="sp-sum">Wi-Fi: ${wifi.map(p => `${escapeHtml(p.port)}${p.ssid ? ` (${escapeHtml(p.ssid)})` : ''} <b>${p.connected.length}</b> client${p.connected.length === 1 ? '' : 's'}`).join(' · ')}</div>` : ''}
+        <div class="sp-list">${[...eth, ...wifi].map(row).join('')}</div>`;
+}
+
 // The editor's HTML; bind it with bindHostEditor. opts.compact: the map's side panel
 function hostEditorHtml(h, opts) {
     opts = opts || {};
@@ -221,6 +251,7 @@ function hostEditorHtml(h, opts) {
         </div>
         <div class="section-title he-sub">Home Assistant</div>
         <div class="kv">${facts.map(([k, v]) => `<div class="k">${k}</div><div class="v">${v}</div>`).join('')}</div>
+        ${switchPortsHtml(h)}
         <div class="section-title he-sub">Trackers</div>
         <div class="tracker-list">${h.trackers.map(t => `<div class="tracker"><span class="sdot ${t.up ? 'ok' : t.up === false ? '' : 'warn'}"></span>
             <span class="mono">${escapeHtml(t.entity_id)}</span><span class="muted">${escapeHtml(PLATFORM_NAMES[t.platform] || t.platform || 'known_devices.yaml')} · ${escapeHtml(t.state)}</span>

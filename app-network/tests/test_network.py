@@ -9,7 +9,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from src import ha_client
 from src.config import Config
 from src.history import History, host_events, host_stats, merge, online_series, up_intervals
-from src.inventory import Inventory, build_hosts, fritz_nodes, is_up
+from src.inventory import Inventory, build_hosts, fritz_nodes, is_up, port_entity
 from src.kinds import KINDS, guess_kind, is_random_mac, mac_vendor, normalize_mac
 from src.mobile import distance, habits, haversine, mismatch, segments, summary, trips
 from src.store import Conflict, Store, clean, empty_doc
@@ -198,6 +198,75 @@ def test_a_real_name_wins_over_a_mac_address():
     states["device_tracker.fritz_box"]["attributes"]["friendly_name"] = "192.168.2.254"
     (host,) = build_hosts(entities, {}, {}, states)
     assert host["name"] in (mac, "192.168.2.254")
+
+
+def test_a_port_that_lists_its_devices():
+    port = port_entity(
+        {
+            "entity_id": "binary_sensor.sw_port_ether5",
+            "state": "on",
+            "attributes": {
+                "switch_mac": "48:A9:8A:00:00:20",
+                "port": "ether5",
+                "connected": ["DC:A6:32:00:01:61"],
+                "speed_mbps": 1000,
+            },
+        }
+    )
+    assert port["owner"] == "48:a9:8a:00:00:20" and port["port"] == "ether5" and port["kind"] == "ethernet"
+    assert port["connected"] == ["dc:a6:32:00:01:61"] and port["up"] and port["speed"] == 1_000_000_000
+    ap = port_entity(
+        {
+            "entity_id": "sensor.ap",
+            "state": "2",
+            "attributes": {"ap_mac": "48:a9:8a:00:00:21", "interface": "wifi1", "connected": []},
+        }
+    )
+    assert ap["kind"] == "wifi" and ap["owner"] == "48:a9:8a:00:00:21"
+    # Not a port: no list, or no switch
+    assert port_entity({"entity_id": "sensor.x", "state": "1", "attributes": {"connected": True}}) is None
+    assert (
+        port_entity({"entity_id": "sensor.x", "state": "1", "attributes": {"connected": [], "port": "ether1"}}) is None
+    )
+
+
+def test_devices_get_their_port_from_the_switch():
+    # arp-scan tracks a Pi without knowing its port; the switch's port lists it. A tracker that
+    # names its own switch port (UniFi) keeps that.
+    states = {
+        "device_tracker.pi": {"state": "home", "attributes": {"friendly_name": "pi", "mac": "dc:a6:32:00:01:61"}},
+        "device_tracker.tv": {
+            "state": "home",
+            "attributes": {
+                "friendly_name": "tv",
+                "mac": "aa:00:00:00:00:01",
+                "sw_mac": "f4:e2:c6:10:00:02",
+                "sw_port": 9,
+            },
+        },
+        "device_tracker.phone": {"state": "home", "attributes": {"friendly_name": "phone", "mac": "aa:00:00:00:00:02"}},
+    }
+    ports = [
+        {
+            "owner": "48:a9:8a:00:00:20",
+            "port": "ether3",
+            "kind": "ethernet",
+            "connected": ["dc:a6:32:00:01:61", "aa:00:00:00:00:01"],
+            "ssid": "",
+        },
+        {
+            "owner": "48:a9:8a:00:00:21",
+            "port": "wifi1",
+            "kind": "wifi",
+            "connected": ["aa:00:00:00:00:02"],
+            "ssid": "Home",
+        },
+    ]
+    hosts = {h["mac"]: h for h in build_hosts({}, {}, {}, states, ports)}
+    pi, tv, phone = hosts["dc:a6:32:00:01:61"], hosts["aa:00:00:00:00:01"], hosts["aa:00:00:00:00:02"]
+    assert (pi["sw_mac"], pi["sw_port"], pi["wired"]) == ("48:a9:8a:00:00:20", "ether3", True)
+    assert (tv["sw_mac"], tv["sw_port"]) == ("f4:e2:c6:10:00:02", "9")
+    assert phone["ap_mac"] == "48:a9:8a:00:00:21" and phone["ssid"] == "Home" and phone["wired"] is False
 
 
 def test_states():
@@ -513,6 +582,27 @@ def test_wifi_mismatch():
     m = mismatch([(0.0, 10.0)], [(2.0, 12.0)], 0, 12)
     assert m["home_not_on_wifi"] == 2 and m["on_wifi_not_home"] == 2
     assert m["agreement"] == pytest.approx(0.8)
+
+
+async def test_switch_ports_from_home_assistant(app, mock):
+    test, inventory, _ = app
+    data = await (await test.get("/api/hosts")).json()
+    pi = next(h for h in data["hosts"] if h["mac"] == "dc:a6:32:00:01:61")
+    # Only Nmap tracks it; the switch's port says where it is
+    assert pi["sw_mac"] == "48:a9:8a:00:00:20" and pi["sw_port"] == "ether3"
+    ports = data["ports"]["48:a9:8a:00:00:20"]
+    assert [p["port"] for p in ports][:3] == ["ether1-uplink", "ether2", "ether3"] and len(ports) == 8
+    assert ports[5]["neighbor"] == "cAP ax Garden" and ports[7]["disabled"]
+    # Plugged into another port: the app follows, live
+    version = inventory.version
+    await mock.set_port("binary_sensor.sw_garage_port_ether3", "off", connected=[])
+    await mock.set_port("binary_sensor.sw_garage_port_ether7", "on", connected=["DC:A6:32:00:01:61"])
+    for _ in range(50):
+        if inventory.version >= version + 2:
+            break
+        await asyncio.sleep(0.05)
+    data = await (await test.get("/api/hosts")).json()
+    assert next(h for h in data["hosts"] if h["mac"] == "dc:a6:32:00:01:61")["sw_port"] == "ether7"
 
 
 async def test_mobile_api(app):

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.4
+
+**After updating:** nothing to do. With [MikroTik Network](https://github.com/cyberjunky/home-assistant-mikrotik) 0.1.1 or later, every device on a MikroTik port gets its port.
+
+- **Every device on its port:** an integration that lists on each switch port and access point which devices are plugged into it (MikroTik Network does) now gives that port to every device, whichever integration tracks it (arp-scan, Nmap, the FRITZ!Box). Before, only devices the MikroTik tracked itself got their port; behind a FRITZ!Box that is only a few.
+- **A switch's ports in its details:** a square per port (in use, free, off, the uplink outlined), how many are in use and free, and which device is on which port; for an access point its Wi-Fi networks and how many clients each has. It follows live when a device moves to another port.
+
 ## 0.1.3
 
 **After updating:** nothing to do.

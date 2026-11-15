@@ -300,3 +300,17 @@ button.nitem:hover, button.nitem:focus-visible { background: var(--hover-bg); ou
 
 /* What an integration tells, under its name on the Info page */
 .info-value .src-what { font-family: 'IBM Plex Sans', Roboto, -apple-system, 'Segoe UI', sans-serif; font-size: 12px; }
+
+/* A switch's ports in its details: in use, free, off, the uplink outlined */
+.sp-sum { font-size: 12.5px; color: var(--secondary-text-color); margin: 2px 0 8px; }
+.sp-sum b { color: var(--primary-text-color); }
+.sp-grid { display: grid; grid-template-columns: repeat(auto-fill, 34px); gap: 5px; margin-bottom: 10px; }
+.sp-port { position: relative; display: flex; align-items: center; justify-content: center; height: 30px; border-radius: 5px; border: 1px solid var(--divider-color); background: var(--hover-bg); font-family: var(--mono); font-size: 11px; color: var(--secondary-text-color); }
+.sp-port b { font-weight: 600; }
+.sp-port i { position: absolute; top: -6px; right: -6px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px; background: var(--primary-color); color: #fff; font-size: 9.5px; line-height: 14px; font-style: normal; text-align: center; }
+.sp-port.up { background: color-mix(in srgb, var(--success-color) 16%, transparent); border-color: color-mix(in srgb, var(--success-color) 55%, transparent); color: var(--primary-text-color); }
+.sp-port.uplink { outline: 2px solid var(--primary-color); outline-offset: 1px; }
+.sp-port.off { border-style: dashed; opacity: 0.55; }
+.sp-list { display: flex; flex-direction: column; gap: 3px; margin-bottom: 6px; }
+.sp-row { display: grid; grid-template-columns: minmax(70px, max-content) 1fr; gap: 10px; font-size: 12.5px; align-items: baseline; }
+.sp-row .mono { color: var(--secondary-text-color); font-size: 11.5px; }

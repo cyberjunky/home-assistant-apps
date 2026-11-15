@@ -72,8 +72,53 @@ def _bare_name(tracker: dict) -> bool:
     return bool(_BARE.match(str(tracker.get("name") or "").strip()))
 
 
+def _port_order(name: str) -> tuple:
+    """ether2 before ether10, Ethernet before SFP before Wi-Fi."""
+    kind = 2 if name.startswith(("wlan", "wifi", "cap")) else 1 if name.startswith("sfp") else 0
+    parts = re.findall(r"\d+|\D+", name)
+    return (kind, *[(0, int(x), "") if x.isdigit() else (1, 0, x) for x in parts])
+
+
+def port_entity(state: dict) -> dict | None:
+    """A switch port or Wi-Fi access point that lists the devices plugged into it, by MAC address:
+    `connected` with `switch_mac` and `port`, or with `ap_mac` and `interface` (MikroTik Network does
+    this, any integration may)."""
+    a = state.get("attributes") or {}
+    connected = a.get("connected")
+    if not isinstance(connected, list):
+        return None
+    if a.get("switch_mac") and a.get("port"):
+        kind, owner, name = "ethernet", a["switch_mac"], a["port"]
+    elif a.get("ap_mac") and a.get("interface"):
+        kind, owner, name = "wifi", a["ap_mac"], a["interface"]
+    else:
+        return None
+    owner = normalize_mac(owner)
+    if not owner:
+        return None
+    speed = a.get("speed_mbps")
+    return {
+        "entity_id": state.get("entity_id", ""),
+        "owner": owner,
+        "port": str(name),
+        "kind": kind,
+        "up": state.get("state") == "on" if kind == "ethernet" else not a.get("disabled"),
+        "disabled": bool(a.get("disabled")),
+        "speed": int(speed) * 1_000_000 if isinstance(speed, int | float) else None,
+        "comment": str(a.get("comment") or ""),
+        "neighbor": str(a.get("neighbor") or ""),
+        "ssid": str(a.get("ssid") or ""),
+        "seen": int(a["devices"]) if isinstance(a.get("devices"), int) else None,
+        "connected": [m for m in (normalize_mac(x) for x in connected) if m],
+    }
+
+
 def build_hosts(
-    entities: dict[str, dict], devices: dict[str, dict], areas: dict[str, dict], states: dict[str, dict]
+    entities: dict[str, dict],
+    devices: dict[str, dict],
+    areas: dict[str, dict],
+    states: dict[str, dict],
+    ports: list[dict] | None = None,
 ) -> list[dict]:
     """The hosts from the registries and the states. Pure, so the tests can feed it."""
     trackers: list[dict] = []
@@ -195,6 +240,21 @@ def build_hosts(
         for device_id in host["device_ids"]:
             device_hosts[device_id] = key
         hosts.append(host)
+    # A device no tracker says the port of: the switch port or access point that lists its MAC
+    placed = {mac: p for p in ports or [] for mac in p["connected"]}
+    for host in hosts:
+        p = placed.get(host["mac"])
+        if not p or host["sw_mac"] or host["ap_mac"]:
+            continue
+        if p["kind"] == "wifi":
+            host["ap_mac"] = p["owner"]
+            host["ssid"] = host["ssid"] or p["ssid"]
+            if host["wired"] is None:
+                host["wired"] = False
+        else:
+            host["sw_mac"], host["sw_port"] = p["owner"], p["port"]
+            if host["wired"] is None:
+                host["wired"] = True
     # The host of the device a device is connected through (Home Assistant's via_device)
     for host in hosts:
         host["via"] = device_hosts.get(host.pop("via_device_id"), "") if host.get("via_device_id") else ""
@@ -211,6 +271,8 @@ class Inventory:
         self.include_disabled = include_disabled
         self.entities: dict[str, dict] = {}
         self.devices: dict[str, dict] = {}
+        # Switch ports and access points that list the devices on them (port_entity)
+        self.ports: dict[str, dict] = {}
         self.areas: dict[str, dict] = {}
         self.states: dict[str, dict] = {}
         # Home Assistant's zones: home, work... with their position and radius
@@ -251,6 +313,7 @@ class Inventory:
         self.areas = {a["area_id"]: a for a in areas or []}
         self.states = {s["entity_id"]: s for s in states or [] if s.get("entity_id", "").startswith(DOMAIN)}
         self.zones = {s["entity_id"]: s for s in states or [] if s.get("entity_id", "").startswith("zone.")}
+        self.ports = {p["entity_id"]: p for p in (port_entity(s) for s in states or []) if p}
         self._hosts = None
         self._bump("*")
         self.loaded_at = time.time()
@@ -275,8 +338,17 @@ class Inventory:
                 states = {k: v for k, v in self.states.items() if not (self.entities.get(k) or {}).get("disabled_by")}
             else:
                 states = self.states
-            self._hosts = build_hosts(entities, self.devices, self.areas, states)
+            self._hosts = build_hosts(entities, self.devices, self.areas, states, list(self.ports.values()))
         return self._hosts
+
+    def port_list(self) -> dict[str, list[dict]]:
+        """Every switch's and access point's ports, by its MAC address, in port order."""
+        out: dict[str, list[dict]] = {}
+        for p in self.ports.values():
+            out.setdefault(p["owner"], []).append(p)
+        for ports in out.values():
+            ports.sort(key=lambda p: _port_order(p["port"]))
+        return out
 
     def zone_list(self) -> list[dict]:
         out = []
@@ -317,6 +389,16 @@ class Inventory:
             self._bump(entity_id)
             return
         if not entity_id.startswith(DOMAIN):
+            port = port_entity(data["new_state"]) if data.get("new_state") else None
+            if port or entity_id in self.ports:
+                if port and port == self.ports.get(entity_id):
+                    return
+                if port:
+                    self.ports[entity_id] = port
+                else:
+                    self.ports.pop(entity_id, None)
+                self._hosts = None
+                self._bump(entity_id)
             return
         new, old = data.get("new_state"), data.get("old_state")
         if new is None:
