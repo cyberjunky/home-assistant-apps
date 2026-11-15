@@ -93,6 +93,12 @@ async function check() {
 }
 
 document.getElementById('msg-retry').addEventListener('click', check);
+// The new tab goes to PBS itself on port 8007, not through Home Assistant: Home Assistant only keeps
+// its ingress session alive while its own page is open, so a tab of its own would stop reaching PBS
+// (its lists empty) about 15 minutes after the sidebar page was left. On its own address PBS's
+// login holds without Home Assistant
+document.getElementById('open-tab').href = `https://${window.location.hostname}:8007/`;
+
 document.getElementById('reload').addEventListener('click', () => {
   if (frame.getAttribute('src')) frame.src = 'pbs/';
   check();
