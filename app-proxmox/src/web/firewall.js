@@ -198,7 +198,7 @@ function fwRefersTo(rule, name, isSet) {
 }
 function fwScopeLinks(keys) {
     if (!keys.length) return '<span class="muted">not used</span>';
-    return keys.map(k => `<button type="button" class="fw-scope-link" onclick="fwOpenRules('${attr(k)}')">${fwScopeHtml(k)}</button>`).join('');
+    return keys.map(k => `<button type="button" class="fw-scope-link" onclick="fwOpenRules('${jsq(k)}')">${fwScopeHtml(k)}</button>`).join('');
 }
 function fwOpenRules(key) {
     fw.scope = key;
@@ -486,14 +486,14 @@ function fwRenderFlow(body) {
                 <div class="fw-flow" id="fw-flow">
                     <svg class="fw-edges" id="fw-edges" aria-hidden="true"></svg>
                     <div class="fw-col fw-drop" data-drop="in">
-                        <div class="fw-col-head"><span>Inbound</span><span class="muted">from</span>${readOnly() ? '' : `<button type="button" class="btn btn-small" onclick="fwAddRule('${attr(key)}', {type: 'in'})">+ Rule</button>`}</div>
+                        <div class="fw-col-head"><span>Inbound</span><span class="muted">from</span>${readOnly() ? '' : `<button type="button" class="btn btn-small" onclick="fwAddRule('${jsq(key)}', {type: 'in'})">+ Rule</button>`}</div>
                         ${side('in')}
                     </div>
                     <div class="fw-gap"></div>
                     <div class="fw-target-wrap"><div class="fw-target fw-drop" data-drop="target" id="fw-target">${fwTargetBox(key)}</div></div>
                     <div class="fw-gap"></div>
                     <div class="fw-col fw-drop" data-drop="out">
-                        <div class="fw-col-head"><span>Outbound</span><span class="muted">to</span>${readOnly() ? '' : `<button type="button" class="btn btn-small" onclick="fwAddRule('${attr(key)}', {type: 'out'})">+ Rule</button>`}</div>
+                        <div class="fw-col-head"><span>Outbound</span><span class="muted">to</span>${readOnly() ? '' : `<button type="button" class="btn btn-small" onclick="fwAddRule('${jsq(key)}', {type: 'out'})">+ Rule</button>`}</div>
                         ${side('out')}
                     </div>
                 </div>
@@ -718,14 +718,14 @@ function fwRuleTable(rules, scopeKey, opts) {
         const pos = missing(r.pos) ? i : r.pos;
         const on = fwOn(r.enable);
         const action = r.type === 'group' ? `<span class="fw-kind grp">GROUP</span> <a href="#" onclick="fwOpenFlow('group:${attr(r.action)}');return false">${escapeHtml(r.action)}</a>` : fwActionBadge(r.action);
-        const toggle = scopeKey && !opts.compact ? `<button type="button" class="fw-switch ${on ? 'on' : ''}" ${editable ? `onclick="fwToggleRule('${attr(scopeKey)}', ${pos})"` : 'disabled'} title="${on ? 'enabled' : 'disabled'}" aria-label="${on ? 'Disable' : 'Enable'} rule ${pos}"><i></i></button>` : (on ? '✓' : '<span class="muted">off</span>');
+        const toggle = scopeKey && !opts.compact ? `<button type="button" class="fw-switch ${on ? 'on' : ''}" ${editable ? `onclick="fwToggleRule('${jsq(scopeKey)}', ${pos})"` : 'disabled'} title="${on ? 'enabled' : 'disabled'}" aria-label="${on ? 'Disable' : 'Enable'} rule ${pos}"><i></i></button>` : (on ? '✓' : '<span class="muted">off</span>');
         return `<tr class="${on ? '' : 'fw-row-off'}" data-pos="${pos}"${editable ? ' draggable="true"' : ''}>
             ${!opts.compact ? td(editable ? '<span class="fw-handle" title="Drag to move">⠿</span>' : '', 'tight') : ''}
             ${td(String(pos), 'n tight')}${td(toggle, 'tight')}
             ${td(escapeHtml(r.type))}${td(action)}${td(escapeHtml(r.macro || ''))}${td(escapeHtml(r.proto || ''))}
             ${td(fwAddrHtml(r.source))}${td(fwAddrHtml(r.dest))}${td(escapeHtml(r.dport || ''), 'mono')}${td(escapeHtml(r.sport || ''), 'mono')}
             ${td(escapeHtml(r.iface || ''), 'mono')}${td(r.log && r.log !== 'nolog' ? escapeHtml(r.log) : '')}${td(escapeHtml(r.comment || ''), 'wrap-cell')}
-            ${editable ? td(`<button type="button" class="btn btn-small" onclick="fwEditRule('${attr(scopeKey)}', ${pos})">Edit</button> <button type="button" class="btn btn-small btn-danger" onclick="fwDeleteRule('${attr(scopeKey)}', ${pos})">✕</button>`, 'tight') : ''}
+            ${editable ? td(`<button type="button" class="btn btn-small" onclick="fwEditRule('${jsq(scopeKey)}', ${pos})">Edit</button> <button type="button" class="btn btn-small btn-danger" onclick="fwDeleteRule('${jsq(scopeKey)}', ${pos})">✕</button>`, 'tight') : ''}
         </tr>`;
     });
     const head = [...(opts.compact ? [] : [{label: ''}]), {label: '#', n: true}, {label: 'On'}, {label: 'Dir'}, {label: 'Action'}, {label: 'Macro'}, {label: 'Proto'},
@@ -747,8 +747,8 @@ function fwRenderRules(body) {
     body.innerHTML = `
         <div class="filters">
             <select class="select fw-scope-select" id="fw-scope" aria-label="Rules of">${options.map(([k, l]) => `<option value="${attr(k)}"${k === key ? ' selected' : ''}>${escapeHtml(l)}</option>`).join('')}</select>
-            <button type="button" class="btn btn-small" onclick="fwOpenFlow('${attr(key)}')">Show in Flow</button>
-            ${readOnly() ? fwRoHint() : `<button type="button" class="btn btn-small btn-primary" onclick="fwAddRule('${attr(key)}', {type: 'in'})">+ Add rule</button>`}
+            <button type="button" class="btn btn-small" onclick="fwOpenFlow('${jsq(key)}')">Show in Flow</button>
+            ${readOnly() ? fwRoHint() : `<button type="button" class="btn btn-small btn-primary" onclick="fwAddRule('${jsq(key)}', {type: 'in'})">+ Add rule</button>`}
             <span class="range-text">${rules.length} rule${rules.length === 1 ? '' : 's'}${s.kind !== 'group' ? ` · policy in ${escapeHtml(fwPolicy(key, 'in'))}, out ${escapeHtml(fwPolicy(key, 'out'))}` : ''}</span>
         </div>
         ${s.kind === 'guest' ? permissionNote(`fw:${s.vmid}`, 'Rules') : s.kind === 'node' ? permissionNote(`fwnode:${s.node}`, 'Rules') : s.kind === 'group' ? permissionNote(`fwgroup:${s.group}`, 'Rules') : ''}
@@ -993,7 +993,7 @@ function fwRenderOptions(body) {
     const yes = (v, dflt) => fwOn(v === undefined ? dflt : v) ? stateLabel('ok', 'on') : stateLabel('bad', 'off');
     const nodeRows = Object.keys(c.nodes).sort().map(n => {
         const x = c.nodes[n].options || {};
-        return `<tr>${td(`<a href="#" onclick="openNode('${attr(n)}');return false">${escapeHtml(n)}</a>`)}${td(yes(x.enable, 1))}${td(escapeHtml(x.log_level_in || 'nolog'))}${td(escapeHtml(x.log_level_out || 'nolog'))}
+        return `<tr>${td(`<a href="#" onclick="openNode('${jsq(n)}');return false">${escapeHtml(n)}</a>`)}${td(yes(x.enable, 1))}${td(escapeHtml(x.log_level_in || 'nolog'))}${td(escapeHtml(x.log_level_out || 'nolog'))}
             ${td(yes(x.nosmurfs, 1))}${td(yes(x.tcpflags, 0))}${td(escapeHtml(x.nf_conntrack_max || ''), 'n')}${td(num((c.nodes[n].rules || []).length), 'n')}</tr>`;
     });
     const dcOn = fwOn(o.enable);

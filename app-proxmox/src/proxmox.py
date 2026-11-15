@@ -366,6 +366,10 @@ class ProxmoxAPI:
                     with contextlib.suppress(aiohttp.ContentTypeError, ValueError):
                         body = await response.json()
                     if response.status != 200:
+                        if body is None:
+                            # Proxmox Backup Server gives its reason as plain text
+                            with contextlib.suppress(aiohttp.ClientError, UnicodeDecodeError):
+                                body = (await response.text()).strip()[:300] or None
                         raise ProxmoxError(self._error_text(response, body), response.status)
                     if index != self.current:
                         logger.info(f"Now reading the cluster through {self.hosts[index]}")
@@ -389,6 +393,8 @@ class ProxmoxAPI:
                 return f"{reason} ({detail})" if reason else detail
             if body.get("message"):
                 return str(body["message"]).strip()
+        if isinstance(body, str) and body:
+            return f"{reason}: {body}" if reason else body
         return reason or f"HTTP {response.status}"
 
     async def get(self, path: str, **params):

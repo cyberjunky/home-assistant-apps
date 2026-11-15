@@ -1,9 +1,11 @@
 """The app against a stand-in Proxmox VE cluster (tools/mock_proxmox.py): reading, changes and the dashboard's API."""
 
+import asyncio
 from datetime import UTC, datetime
 
 import aiohttp
 import pytest
+from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
 from src import webui
@@ -475,3 +477,33 @@ async def test_pbs_through_the_api(cluster, pbs_server, tmp_path, monkeypatch):
         assert (await c.get("/api/pbs/task", params={"server": "nope", "upid": upid})).status == 404
         conf = await (await c.get("/api/config")).json()
         assert conf["pbs_storages"][0]["datastore"] == "main"
+
+
+def test_a_plain_text_error_from_the_backup_server_is_shown():
+    """PBS answers errors in plain text, not JSON: its reason is kept, not only "Bad Request"."""
+    from src.proxmox import ProxmoxAPI
+
+    async def main():
+        async def task_status(request):
+            return web.Response(
+                status=400, text="parameter verification failed - 'upid': value does not match the regex pattern\n"
+            )
+
+        app = web.Application()
+        app.router.add_get("/api2/json/nodes/localhost/tasks/{upid}/status", task_status)
+        server = TestServer(app)
+        await server.start_server()
+        api = ProxmoxAPI([str(server.make_url("")).rstrip("/")], "PBSAPIToken=x")
+        try:
+            with pytest.raises(ProxmoxError) as e:
+                await api.get("/nodes/localhost/tasks/UPID%3Ax/status")
+            assert e.value.status == 400
+            assert (
+                str(e.value)
+                == "Bad Request: parameter verification failed - 'upid': value does not match the regex pattern"
+            )
+        finally:
+            await api.close()
+            await server.close()
+
+    asyncio.run(main())
