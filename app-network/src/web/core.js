@@ -557,6 +557,10 @@ function connectLive() {
     live.source = new EventSource('api/live');
     live.source.addEventListener('hello', () => { live.ok = true; scheduleLive(); });
     live.source.addEventListener('ping', () => { live.ok = true; });
+    live.source.addEventListener('router', (e) => {
+        live.ok = true;
+        try { internetLive(JSON.parse(e.data)); } catch (err) { /* the next one comes in 10 seconds */ }
+    });
     live.source.onmessage = (e) => {
         live.ok = true;
         try { JSON.parse(e.data).changed.forEach(id => live.changed.add(id)); } catch (err) { /* only a hint */ }

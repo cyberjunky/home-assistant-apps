@@ -64,18 +64,18 @@ function nodeLabel(n) {
     if (n.ref) return 'Gone from Home Assistant';
     return kindLabel(n.kind || 'generic');
 }
-function nodeSub(n) {
+function nodeSub(n, page) {
     if (n.page) {
         const s = pageSummary(pageById(n.page));
         return `${s.total} devices · ${s.up} online`;
     }
     const h = nodeHost(n);
-    if (!h) return n.note || '';
+    if (!h) return n.note || (!n.ref && NO_IP_KINDS.has(n.kind) ? 'no IP' : '');
     const net = networkOf(h).net;
-    return [h.ip || (h.gps_only ? 'GPS' : ''), net && !groupOfNetwork(net.id) ? net.name : ''].filter(Boolean).join(' · ');
+    return [h.ip || (h.gps_only ? 'GPS' : ''), net && !groupOfNetwork(net.id, page) ? net.name : ''].filter(Boolean).join(' · ');
 }
 // Whether this page has a group for the network already (then the node needn't say it)
-const groupOfNetwork = id => mapPage().groups.find(g => g.network === id) || null;
+const groupOfNetwork = (id, page) => (page || mapPage()).groups.find(g => g.network === id) || null;
 const snap = v => mapState.snap ? Math.round(v / GRID) * GRID : Math.round(v);
 const inGroup = (n, g) => n.x + NODE_W / 2 >= g.x && n.x + NODE_W / 2 <= g.x + g.w && n.y + NODE_H / 2 >= g.y && n.y + NODE_H / 2 <= g.y + g.h;
 
@@ -282,13 +282,12 @@ function mapRender() {
     if (mapState.frame) return;
     mapState.frame = requestAnimationFrame(() => { mapState.frame = 0; mapDraw(); });
 }
-function mapDraw() {
-    const page = mapPage();
-    if (!page || !document.getElementById('map-vp')) return;
-    const v = getView();
-    document.getElementById('map-vp').setAttribute('transform', `translate(${v.x} ${v.y}) scale(${v.k})`);
-    const sel = mapState.sel;
-    document.getElementById('map-groups').innerHTML = page.groups.map(g => {
+// A page as SVG: its groups, links, nodes and texts. In the editor (edit) with what is selected, the
+// resize corners and the dots to connect with; on the dashboard without
+function pageSvg(page, opts) {
+    const sel = opts.sel || new Set();
+    const edit = Boolean(opts.edit);
+    const groups = page.groups.map(g => {
         const net = g.network ? networkById(g.network) : null;
         const color = g.color || (net && net.color) || GROUP_COLORS[7];
         const sub = net ? [net.vlan ? `VLAN ${net.vlan}` : '', net.subnet].filter(Boolean).join(' · ') : (g.note || '');
@@ -297,13 +296,13 @@ function mapDraw() {
             <rect class="mg-head" x="${g.x}" y="${g.y}" width="${g.w}" height="34" rx="12"/>
             <text class="mg-name" x="${g.x + 14}" y="${g.y + 22}">${escapeHtml(g.name || 'Group')}</text>
             ${sub ? `<text class="mg-sub" x="${g.x + g.w - 14}" y="${g.y + 22}" text-anchor="end">${escapeHtml(sub)}</text>` : ''}
-            <path class="mg-resize" data-resize="${attr(g.id)}" d="M${g.x + g.w - 16} ${g.y + g.h - 4}L${g.x + g.w - 4} ${g.y + g.h - 16}M${g.x + g.w - 10} ${g.y + g.h - 4}L${g.x + g.w - 4} ${g.y + g.h - 10}"/>
-            <rect class="mg-grip" data-resize="${attr(g.id)}" x="${g.x + g.w - 20}" y="${g.y + g.h - 20}" width="20" height="20"/>
+            ${edit ? `<path class="mg-resize" data-resize="${attr(g.id)}" d="M${g.x + g.w - 16} ${g.y + g.h - 4}L${g.x + g.w - 4} ${g.y + g.h - 16}M${g.x + g.w - 10} ${g.y + g.h - 4}L${g.x + g.w - 4} ${g.y + g.h - 10}"/>
+            <rect class="mg-grip" data-resize="${attr(g.id)}" x="${g.x + g.w - 20}" y="${g.y + g.h - 20}" width="20" height="20"/>` : ''}
         </g>`;
     }).join('');
-    const nodes = new Map(page.nodes.map(n => [n.id, n]));
-    document.getElementById('map-links').innerHTML = page.links.map(l => {
-        const a = nodes.get(l.from), b = nodes.get(l.to);
+    const byId = new Map(page.nodes.map(n => [n.id, n]));
+    const links = page.links.map(l => {
+        const a = byId.get(l.from), b = byId.get(l.to);
         if (!a || !b) return '';
         const [p, q] = linkEnds(a, b);
         const ha = nodeHost(a), hb = nodeHost(b);
@@ -318,13 +317,13 @@ function mapDraw() {
             ${label ? `<rect class="ml-label-bg" x="${mx - w / 2}" y="${my - 9}" width="${w}" height="18" rx="9"/><text class="ml-label" x="${mx}" y="${my + 4}" text-anchor="middle">${escapeHtml(label)}</text>` : ''}
         </g>`;
     }).join('');
-    document.getElementById('map-nodes').innerHTML = page.nodes.map(n => {
+    const nodes = page.nodes.map(n => {
         const h = nodeHost(n);
         const ps = n.page ? pageSummary(pageById(n.page)) : null;
         const state = ps ? `pagenode ${ps.downInfra ? 'unknown' : ps.total && ps.up === ps.total ? 'up' : ''}` : h ? hostState(h) : n.ref ? 'gone' : 'shape';
         const kind = nodeKind(n);
         const name = nodeLabel(n);
-        const sub = nodeSub(n);
+        const sub = nodeSub(n, page);
         return `<g class="mnode ${state} fam-${kindFamily(kind)}${sel.has('n:' + n.id) ? ' sel' : ''}" data-node="${attr(n.id)}" transform="translate(${n.x} ${n.y})">
             <title>${escapeHtml([name, h ? `${h.ip || ''} ${h.mac || ''}`.trim() : '', h ? (h.up ? 'online' : h.up === false ? 'away ' + fmtAgo(h.last_changed) : 'unknown') : ''].filter(Boolean).join('\n'))}</title>
             <rect class="mn-bg" x="0.75" y="0.75" width="${NODE_W - 1.5}" height="${NODE_H - 1.5}" rx="12"/>
@@ -333,10 +332,23 @@ function mapDraw() {
             ${sub ? `<text class="mn-sub" x="54" y="41">${escapeHtml(clip(sub, 24))}</text>` : ''}
             ${h || n.ref || n.page ? `<circle class="mn-dot" cx="40" cy="40" r="5"/>` : ''}
             ${n.page ? `<rect class="mn-stack" x="4" y="${NODE_H}" width="${NODE_W - 8}" height="5" rx="2"/>` : ''}
-            <circle class="mn-port" data-port="${attr(n.id)}" cx="${NODE_W}" cy="${NODE_H / 2}" r="6"><title>Drag to another device to connect them</title></circle>
+            ${edit ? `<circle class="mn-port" data-port="${attr(n.id)}" cx="${NODE_W}" cy="${NODE_H / 2}" r="6"><title>Drag to another device to connect them</title></circle>` : ''}
         </g>`;
     }).join('');
-    document.getElementById('map-texts').innerHTML = page.texts.map(t => `<text class="mtext${sel.has('t:' + t.id) ? ' sel' : ''}" data-text="${attr(t.id)}" x="${t.x}" y="${t.y}" style="font-size:${Number(t.size) || 14}px">${String(t.text || 'Text').split('\n').map((line, i) => `<tspan x="${t.x}" dy="${i ? '1.25em' : 0}">${escapeHtml(line) || ' '}</tspan>`).join('')}</text>`).join('');
+    const texts = page.texts.map(t => `<text class="mtext${sel.has('t:' + t.id) ? ' sel' : ''}" data-text="${attr(t.id)}" x="${t.x}" y="${t.y}" style="font-size:${Number(t.size) || 14}px">${String(t.text || 'Text').split('\n').map((line, i) => `<tspan x="${t.x}" dy="${i ? '1.25em' : 0}">${escapeHtml(line) || ' '}</tspan>`).join('')}</text>`).join('');
+    return {groups, links, nodes, texts};
+}
+
+function mapDraw() {
+    const page = mapPage();
+    if (!page || !document.getElementById('map-vp')) return;
+    const v = getView();
+    document.getElementById('map-vp').setAttribute('transform', `translate(${v.x} ${v.y}) scale(${v.k})`);
+    const parts = pageSvg(page, {sel: mapState.sel, edit: true});
+    document.getElementById('map-groups').innerHTML = parts.groups;
+    document.getElementById('map-links').innerHTML = parts.links;
+    document.getElementById('map-nodes').innerHTML = parts.nodes;
+    document.getElementById('map-texts').innerHTML = parts.texts;
     const empty = document.getElementById('map-empty');
     const nothing = !page.nodes.length && !page.groups.length && !page.texts.length;
     empty.hidden = !nothing;

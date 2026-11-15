@@ -1,4 +1,5 @@
-// Network dashboard - Overview: the network now, what needs a look, and what happened lately.
+// Network dashboard - the Dashboard: the internet connection on top (internet.js), the map as drawn
+// in the editor to look at (view.js), then the network now, what needs a look and what happened lately.
 
 function attentionItems() {
     const out = [];
@@ -24,8 +25,13 @@ function attentionItems() {
 }
 
 function renderOverview() {
-    const el = document.getElementById('tab-overview');
+    const root = document.getElementById('tab-overview');
     if (!app.doc || !app.status) return;
+    // Built once: the map keeps where you moved it to, the charts redraw in place
+    if (!root.querySelector('#ov-rest')) root.innerHTML = '<div id="ov-internet"></div><div id="ov-map"></div><div id="ov-rest"></div>';
+    renderInternet();
+    viewRefresh(document.getElementById('ov-map'));
+    const el = document.getElementById('ov-rest');
     const hosts = networkHosts();
     const up = hosts.filter(h => h.up).length;
     const gear = hosts.filter(isInfra);

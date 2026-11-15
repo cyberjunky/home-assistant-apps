@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 DAY = 86400
 BATCH = 40
+# How long the router's minutes are kept (the hours are kept for keep_days)
+ROUTER_MINUTE_DAYS = 31
 
 
 class History:
@@ -30,6 +32,13 @@ class History:
             " PRIMARY KEY (entity_id, ts)) WITHOUT ROWID"
         )
         self.db.execute("CREATE INDEX IF NOT EXISTS changes_ts ON changes (ts)")
+        # The router's internet traffic: a minute's average and peak in bytes per second (for the
+        # charts), and the bytes per hour (for the totals per day)
+        self.db.execute(
+            "CREATE TABLE IF NOT EXISTS router_minutes (ts INTEGER PRIMARY KEY, down REAL, up REAL,"
+            " down_peak REAL, up_peak REAL)"
+        )
+        self.db.execute("CREATE TABLE IF NOT EXISTS router_hours (ts INTEGER PRIMARY KEY, down INTEGER, up INTEGER)")
         self.db.commit()
         self.backfill_state = {"done": False, "entities": 0, "rows": 0, "error": ""}
 
@@ -57,7 +66,50 @@ class History:
     def prune(self, now: float | None = None) -> None:
         now = time.time() if now is None else now
         self.db.execute("DELETE FROM changes WHERE ts < ?", (now - self.keep_days * DAY,))
+        self.db.execute("DELETE FROM router_minutes WHERE ts < ?", (now - ROUTER_MINUTE_DAYS * DAY,))
+        self.db.execute("DELETE FROM router_hours WHERE ts < ?", (now - self.keep_days * DAY,))
         self.db.commit()
+
+    def add_router_minute(self, ts: int, down: float, up: float, down_peak: float, up_peak: float) -> None:
+        self.db.execute(
+            "INSERT OR REPLACE INTO router_minutes VALUES (?, ?, ?, ?, ?)", (ts, down, up, down_peak, up_peak)
+        )
+        self.db.commit()
+
+    def add_router_bytes(self, ts: float, down: int, up: int) -> None:
+        hour = int(ts // 3600 * 3600)
+        self.db.execute(
+            "INSERT INTO router_hours VALUES (?, ?, ?) ON CONFLICT (ts) DO UPDATE SET"
+            " down = down + excluded.down, up = up + excluded.up",
+            (hour, down, up),
+        )
+        self.db.commit()
+
+    # ------------------------------------------------------------------
+    # The router's traffic
+    # ------------------------------------------------------------------
+    def router_minutes(self, since: float, step: int = 60) -> dict:
+        """Average and peak per step (a multiple of a minute) since then, in bytes per second."""
+        rows = self.db.execute(
+            "SELECT ts / ? * ? AS t, AVG(down), AVG(up), MAX(down_peak), MAX(up_peak) FROM router_minutes"
+            " WHERE ts >= ? GROUP BY t ORDER BY t",
+            (step, step, int(since)),
+        ).fetchall()
+        return {
+            "x": [r[0] for r in rows],
+            "down": [r[1] for r in rows],
+            "up": [r[2] for r in rows],
+            "down_peak": [r[3] for r in rows],
+            "up_peak": [r[4] for r in rows],
+            "step": step,
+        }
+
+    def router_hours(self, since: float) -> dict:
+        """Bytes down and up per hour since then (the browser adds them up per day of its own clock)."""
+        rows = self.db.execute(
+            "SELECT ts, down, up FROM router_hours WHERE ts >= ? ORDER BY ts", (int(since // 3600 * 3600),)
+        ).fetchall()
+        return {"x": [r[0] for r in rows], "down": [r[1] for r in rows], "up": [r[2] for r in rows]}
 
     async def backfill(self, client: HAClient, entity_ids: list[str], days: int) -> None:
         """Read the recorder's history of the trackers, for the days the app has no record of."""

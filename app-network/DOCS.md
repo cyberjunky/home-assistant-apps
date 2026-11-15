@@ -1,8 +1,8 @@
 # Home Assistant App: Network
 
-Network shows every device tracker in Home Assistant as a map of your network, served through ingress. Drag devices onto pages, group them, connect them and rename them; see what is online, what drops off the network, and where your phones go.
+Network shows every device tracker in Home Assistant as a map of your network, served through ingress. Drag devices onto pages, group them, connect them and rename them; see what is online, what drops off the network, where your phones go, and how your internet connection is doing.
 
-It reads Home Assistant itself (its device trackers, their devices and areas, its zones and the recorder's history) and needs no setup.
+It reads Home Assistant itself (its device trackers, their devices and areas, its zones and the recorder's history) and your internet router, and needs no setup.
 
 ## Configuration
 
@@ -10,6 +10,7 @@ It reads Home Assistant itself (its device trackers, their devices and areas, it
 history_days: 10
 keep_days: 365
 include_disabled: false
+router: ""
 log_level: info
 ```
 
@@ -18,20 +19,42 @@ log_level: info
 | `history_days` | `10` | At start, how many days of the recorder's history are read to fill the statistics (Home Assistant keeps 10 by default). `0` reads none |
 | `keep_days` | `365` | How long the app keeps its own record of every time a device went on or off the network |
 | `include_disabled` | `false` | Also show trackers that are disabled in Home Assistant |
+| `router` | | The address of your internet router (`192.168.1.1`, or `192.168.1.1:49000` for another port). Empty: the tracker that has the kind Router (or Firewall, or Modem) on the map |
 | `log_level` | `info` | Amount of logging |
 
 ## The pages
 
-- **Overview**: how many devices are online, what needs a look (network gear that is away, two devices on one IP address, unstable, new and long-gone devices, devices on no map yet), the last 24 hours, the latest comings and goings.
-- **Map**: the drawing. See below.
+- **Dashboard**: your internet connection (see below), then the map as you drew it, to look at: drag to move around, Ctrl + wheel or the buttons to zoom, click a device for its details and a page tile to go in. **Edit this page** opens it in the editor. Below the map: how many devices are online, what needs a look (network gear that is away, two devices on one IP address, unstable, new and long-gone devices, devices on no map yet), the last 24 hours, the latest comings and goings.
+- **Edit map**: the drawing. See below.
 - **Devices**: every device in a table, to filter, search, sort and edit. Click one to edit it; tick several to give them one kind, network or connection.
 - **Networks**: your networks and VLANs. A device is in the network of its IP address unless you pick another for it. The app suggests a network for every private /24 subnet it sees, with a guess of what it is for (IoT, cameras, servers, guests). A subnet's grid shows every address: online, away, free, or used by two devices at once.
 - **Mobile**: the phones with the Home Assistant app. See below.
 - **Stats**: who drops off the network, how often and when, from a day to a year: drops per day, availability, timelines, the week as a heatmap, the longest time away, the network gear's availability and every coming and going.
 
+## Your internet connection
+
+On top of the Dashboard, read from your router as long as the app runs:
+
+- The router's model, maker and firmware, and whether it is connected.
+- **Download** and **upload** now, and how much of the link that is.
+- **Today**: what went down and up since midnight.
+- **Connected for**: since when the internet connection is up (a reconnect starts it again).
+- The **external address**, IPv4 and IPv6 (with the prefix in its tooltip), and the DNS servers.
+- The **link**: how the router reaches the internet (Ethernet, DSL, cable…) and the speed of that link. On a router behind a fibre box this is the speed of the cable between them, not of your subscription.
+- **Internet traffic**: live (the last 15 minutes, every 10 seconds), or the last 24 hours, 7 days or 30 days; and the **data per day** of the last 30 days.
+
+The app reads the router the way Home Assistant's UPnP integration does: over UPnP (Internet Gateway Device), with the extra figures a FRITZ!Box gives there (its own speeds, 64-bit counters, IPv6), and the firmware from its TR-064 description. It needs no password. TR-069 can't be used for this: with TR-069 the router reports to its provider, and nothing on your network can ask it anything.
+
+The router is the tracker that has the kind **Router** on the map (else Firewall, else Modem), or the address in the `router` option. When the dashboard says no router answers:
+
+- **FRITZ!Box**: turn on *Home Network → Network → Network Settings → Transmit status information over UPnP*.
+- **Other routers**: turn on UPnP. The app asks the router where its description is over SSDP, on UDP port 1900.
+
+The traffic per minute is kept for 31 days, the data per hour for `keep_days`, in `/data/history.sqlite3`.
+
 ## The map
 
-Drag a device from the list on the left onto a page, or double-click it. The shapes below the list (Internet, a cloud service, a router or switch without a tracker of its own, a group, a text) are dragged the same way. **Auto-place** puts every device that isn't on the page yet in a group per network, with the network gear (internet, modem, router, firewall, switches, access points) as a tree on top. If there are no networks yet, it offers to make them first.
+Drag a device from the list on the left onto a page, or double-click it. The shapes below the list are dragged the same way: a group, a text, and every kind of device without a tracker of its own, such as the internet, a cloud service or a switch. **Without an IP** has the gear that never has an address: an unmanaged switch, a patch panel, a PoE injector, a media converter, a powerline adapter, and a blank device to give any kind. Click a shape to give it a label, another kind, or a second line (a speed, an address); it says "no IP" until then. **Auto-place** puts every device that isn't on the page yet in a group per network, with the network gear (internet, modem, router, firewall, switches, access points) as a tree on top. If there are no networks yet, it offers to make them first.
 
 - **Connect** two devices: drag the dot on the right edge of one onto the other. **Draw connections** draws what Home Assistant knows: the switch port or access point of a UniFi client, the device a device connects through, and the "Connected to" you set on a device. Wi-Fi clients are left out unless you ask, since there are many.
 - **A group** takes the devices inside it along when you drag it; its corner resizes it. Give it a network and it shows its VLAN and subnet.
@@ -65,7 +88,7 @@ The positions are read from the recorder when you open the page, so they go back
 ## What is kept, and where
 
 - `/data/network.json`: the pages, what you set on devices and the networks.
-- `/data/history.sqlite3`: every time a tracker went on or off the network, from the recorder at start and live after, for `keep_days`.
+- `/data/history.sqlite3`: every time a tracker went on or off the network, from the recorder at start and live after, for `keep_days`; and your internet traffic (per minute for 31 days, per hour for `keep_days`).
 
 Both are in Home Assistant's backups of the app. Renames and icons are kept by Home Assistant itself.
 
@@ -79,4 +102,6 @@ NETWORK_SUPERVISOR_URL=http://127.0.0.1:8124 SUPERVISOR_TOKEN=mock-token \
 NETWORK_DATA_DIR=/tmp/network NETWORK_PORT=8099 python3 -m src
 ```
 
-Open http://localhost:8099. The tests (`pytest`) use the same stand-in. `tools/make_icons.py` writes the bundled icon set from the `@mdi/js` package.
+For the internet section, a stand-in router: `python3 -m tools.mock_router` plays a FRITZ!Box on port 8126 (`--generic` a plain UPnP router). Set `"router": "127.0.0.1:8126"` in the options file.
+
+Open http://localhost:8099. The tests (`pytest`) use the same stand-ins. `tools/make_icons.py` writes the bundled icon set from the `@mdi/js` package.

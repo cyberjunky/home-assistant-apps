@@ -21,10 +21,12 @@ options:
   history_days: 10
   keep_days: 365
   include_disabled: false
+  router: ""
   log_level: info
 
 schema:
   history_days: int(0,90)?
   keep_days: int(7,3650)?
   include_disabled: bool?
+  router: str?
   log_level: list(debug|info|warning|error)?

@@ -245,3 +245,26 @@ table.data.dev-table .meter { min-width: 120px; }
 }
 .net-cards > .panel + .panel { margin-top: 0; }
 .facts.net-facts { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); }
+
+/* The Dashboard: the internet connection, then the map to look at */
+.net-panel { margin-bottom: 14px; }
+.net-title { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.net-name { min-width: 0; }
+.net-name .muted { font-size: 12.5px; overflow-wrap: anywhere; }
+.net-tiles { margin-bottom: 0; }
+.net-tiles .d .mono { font-size: 11.5px; overflow-wrap: anywhere; }
+.net-ip { font-size: 0.86em; }
+.net-tiles .meter { margin-top: 2px; }
+.net-none { margin-bottom: 14px; }
+.dash-map { margin-bottom: 14px; }
+.dash-map .panel-body { padding: 0; overflow: hidden; border-radius: inherit; }
+.view-bar { border-bottom: var(--card-border); }
+.view-hint { font-size: 12px; }
+.view-canvas { height: clamp(340px, 62vh, 720px); }
+.view-svg { width: 100%; height: 100%; display: block; cursor: grab; user-select: none; touch-action: pan-y pinch-zoom; }
+.view-svg.panning { cursor: grabbing; }
+.view-svg .mnode { cursor: pointer; }
+@media (max-width: 700px) {
+    .view-hint { display: none; }
+    .view-canvas { height: 60vh; }
+}

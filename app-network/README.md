@@ -23,13 +23,17 @@ same phone) are one device here. Phones with the Home Assistant app get a page o
 track and a heatmap of where they spend their time, their days per zone, their habits, and whether
 their Wi-Fi agrees with their GPS.
 
+The dashboard starts with your internet connection, read from your router over UPnP (a FRITZ!Box
+and most others, no password): the speed now, the data today and per day, how long it has been
+connected, and its external addresses.
+
 ![The map: network gear as a tree, a group per network, live state on every device (light theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-network/screenshots/map-light.webp)
 
 <details>
 <summary>More screenshots</summary>
 
-**Overview** — what is online, what needs a look (gear that is away, two devices on one IP, unstable and new devices), and what happened lately
-![Overview](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-network/screenshots/overview-light.webp)
+**Dashboard** — your internet connection read from the router (speed now, today, uptime, addresses, traffic and data per day), the map to look at, and what needs a look
+![Dashboard](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-network/screenshots/overview-light.webp)
 
 **Devices** — every device with its kind, IP, MAC, network, link, integrations and how much it was online this week; edit and rename in place
 ![Devices](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-network/screenshots/devices-dark.webp)

@@ -21,6 +21,7 @@ function renderInfo() {
                 infoRow('History read at start', `${num(c.history_days)} days`),
                 infoRow('Kept', `${num(c.keep_days)} days`),
                 infoRow('Disabled trackers', c.include_disabled ? 'shown' : 'left out'),
+                infoRow('Router', c.router ? `<span class="mono">${escapeHtml(c.router)}</span>` : 'the tracker that is a router'),
                 infoRow('Log level', escapeHtml(c.log_level)),
             ].join(''))}
             ${panel('How it works', '', `<div class="guest-notes">Every device tracker in Home Assistant is read live over its websocket. Trackers of different integrations that see the same MAC address (UniFi, Nmap and your router for the same phone) are one device here.

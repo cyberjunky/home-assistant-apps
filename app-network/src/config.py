@@ -37,6 +37,8 @@ class Config:
     keep_days: int = 365
     # Leave disabled device trackers out
     include_disabled: bool = False
+    # The internet router to read (address or address:port); empty: the tracker that is a router
+    router: str = ""
     log_level: str = "info"
 
     @classmethod
@@ -58,5 +60,6 @@ class Config:
             history_days=min(90, max(0, int(options.get("history_days", 10) or 0))),
             keep_days=min(3650, max(7, int(options.get("keep_days") or 365))),
             include_disabled=bool(options.get("include_disabled", False)),
+            router=str(options.get("router") or "").strip(),
             log_level=str(options.get("log_level") or "info"),
         )

@@ -11,6 +11,12 @@ configuration:
   include_disabled:
     name: Uitgeschakelde trackers
     description: Laat ook device trackers zien die in Home Assistant zijn uitgeschakeld.
+  router:
+    name: Router
+    description: >-
+      Het adres van je internetrouter, om zijn verbinding via UPnP of TR-064 te
+      lezen. Leeg: de tracker die op de kaart een router (of firewall of
+      modem) is.
   log_level:
     name: Logniveau
     description: Hoeveelheid logging.

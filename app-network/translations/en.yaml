@@ -10,6 +10,11 @@ configuration:
   include_disabled:
     name: Disabled trackers
     description: Also show device trackers that are disabled in Home Assistant.
+  router:
+    name: Router
+    description: >-
+      The address of your internet router, to read its connection over UPnP or
+      TR-064. Empty: the tracker the map calls a router (or firewall or modem).
   log_level:
     name: Log level
     description: Amount of logging.

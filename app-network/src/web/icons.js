@@ -24,6 +24,7 @@ const kindIconHtml = (kind, cls) => iconHtml(kindMdi(kind), cls, kind);
 // What colour a kind has on the map: network gear, servers, people's devices, media, the smart home
 const KIND_FAMILY = {
     internet: 'net', cloud: 'net', modem: 'net', starlink: 'net', router: 'net', firewall: 'net', switch: 'net', ap: 'net',
+    unmanaged_switch: 'net', patch_panel: 'net', poe_injector: 'net', media_converter: 'net', powerline: 'net',
     server: 'srv', proxmox: 'srv', nas: 'srv', vm: 'srv', sbc: 'srv', ha: 'srv', ha_green: 'srv', ha_yellow: 'srv', ha_blue: 'srv',
     fitness: 'user', desktop: 'user', laptop: 'user', phone: 'user', tablet: 'user', watch: 'user', printer: 'user', scanner: 'user',
     tv: 'media', speaker: 'media', soundbar: 'media', audio: 'media', console: 'media', xbox: 'media', playstation: 'media', nintendo: 'media',
@@ -32,6 +33,8 @@ const KIND_FAMILY = {
     dishwasher: 'home', washer: 'home', dryer: 'home', fridge: 'home', oven: 'home', coffee: 'home', generic: 'other',
 };
 const kindFamily = kind => KIND_FAMILY[kind] || 'other';
+// Shapes of these kinds say "no IP" until they get a second line of their own
+const NO_IP_KINDS = new Set(['unmanaged_switch', 'patch_panel', 'poe_injector', 'media_converter', 'powerline', 'generic']);
 
 // The shapes to drop on a map that aren't a tracker (a switch without a tracker of its own, the internet,
 // a Connect stick on a USB port...), by family
@@ -39,13 +42,15 @@ const kindFamily = kind => KIND_FAMILY[kind] || 'other';
 const PALETTE_SHORT = {
     ha_green: 'HA Green', ha_yellow: 'HA Yellow', ha_blue: 'HA Blue', ha: 'HA (other)', zbt: 'ZBT-2', zwa: 'ZWA-2', console: 'Console',
     vm: 'VM', sbc: 'SBC (Pi)', inverter: 'Inverter', energy: 'Meter / battery', fitness: 'Fitness', nintendo: 'Switch', washer: 'Washer', fridge: 'Fridge', oven: 'Oven', coffee: 'Coffee', airco: 'Airco', proxmox: 'Proxmox', desktop: 'PC', audio: 'Audio', hub: 'Hub', iot: 'IoT / ESP', plug: 'Plug',
-    car: 'Car / charger', miner: 'Bitcoin miner', vacuum: 'Vacuum', mower: 'Mower', tv: 'TV', cloud: 'Cloud', ap: 'Access point',
+    car: 'Car / charger', unmanaged_switch: 'Dumb switch', patch_panel: 'Patch panel', poe_injector: 'PoE injector', media_converter: 'Converter', powerline: 'Powerline', generic: 'Blank', miner: 'Bitcoin miner', vacuum: 'Vacuum', mower: 'Mower', tv: 'TV', cloud: 'Cloud', ap: 'Access point',
 };
 const PALETTE_GROUPS = [
     {title: 'Network', kinds: ['internet', 'cloud', 'starlink', 'modem', 'router', 'firewall', 'switch', 'ap']},
+    // Gear with no IP of its own, and a blank device to give any kind
+    {title: 'Without an IP', kinds: ['unmanaged_switch', 'patch_panel', 'poe_injector', 'media_converter', 'powerline', 'generic']},
     {title: 'Servers', kinds: ['server', 'proxmox', 'nas', 'vm', 'sbc', 'ha_green', 'ha_yellow', 'ha_blue', 'ha']},
     {title: 'Smart home', kinds: ['hub', 'zbt', 'zwa', 'iot', 'plug', 'light', 'thermostat', 'airco', 'heatpump', 'camera', 'doorbell', 'inverter', 'energy', 'car', 'miner']},
-    {title: 'Devices', kinds: ['desktop', 'laptop', 'tablet', 'phone', 'watch', 'printer', 'scanner', 'fitness', 'generic']},
+    {title: 'Devices', kinds: ['desktop', 'laptop', 'tablet', 'phone', 'watch', 'printer', 'scanner', 'fitness']},
     {title: 'Media', kinds: ['tv', 'soundbar', 'speaker', 'audio', 'xbox', 'playstation', 'nintendo', 'console']},
     {title: 'Appliances', kinds: ['dishwasher', 'washer', 'dryer', 'fridge', 'oven', 'coffee', 'vacuum', 'mower', 'appliance']},
 ];

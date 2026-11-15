@@ -19,6 +19,12 @@ KINDS: dict[str, tuple[str, str, bool]] = {
     "firewall": ("Firewall", "mdi:wall-fire", True),
     "switch": ("Switch", "mdi:switch", True),
     "ap": ("Access point", "mdi:access-point", True),
+    # Gear without an IP address of its own: never a tracker, only drawn on the map
+    "unmanaged_switch": ("Unmanaged switch", "mdi:lan-connect", True),
+    "patch_panel": ("Patch panel", "mdi:ethernet", True),
+    "poe_injector": ("PoE injector", "mdi:power-plug", True),
+    "media_converter": ("Media converter", "mdi:ethernet-cable", True),
+    "powerline": ("Powerline adapter", "mdi:power-socket-eu", True),
     "server": ("Server", "mdi:server", False),
     "proxmox": ("Proxmox host", "mdi:server-network", False),
     "ha_green": ("Home Assistant Green", "mdi:home-assistant", False),
