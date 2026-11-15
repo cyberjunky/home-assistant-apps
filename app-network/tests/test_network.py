@@ -9,7 +9,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from src import ha_client
 from src.config import Config
 from src.history import History, host_events, host_stats, merge, online_series, up_intervals
-from src.inventory import Inventory, build_hosts, fritz_nodes, is_up, port_entity
+from src.inventory import Inventory, behind_bridges, build_hosts, fritz_nodes, is_up, port_entity
 from src.kinds import KINDS, guess_kind, is_random_mac, mac_vendor, normalize_mac
 from src.mobile import distance, habits, haversine, mismatch, segments, summary, trips
 from src.store import Conflict, Store, clean, empty_doc
@@ -293,6 +293,61 @@ def test_a_device_on_several_addresses():
     assert host["ip"] == "192.168.2.254" and host["name"] == "fritz"
 
 
+def test_a_router_knows_the_address_better_than_a_scan():
+    # arp-scan got the FRITZ!Box's answer on a VPN address; the MikroTik saw it on .254
+    mac = "00:7a:a4:4b:f4:4a"
+    entities = {
+        "device_tracker.fritz_box_4630_ll": {
+            "entity_id": "device_tracker.fritz_box_4630_ll",
+            "platform": "arpscan_tracker",
+        },
+        "device_tracker.00_7a_a4_4b_f4_4a": {
+            "entity_id": "device_tracker.00_7a_a4_4b_f4_4a",
+            "platform": "mikrotik_network",
+        },
+    }
+    states = {
+        "device_tracker.fritz_box_4630_ll": {
+            "state": "home",
+            "attributes": {"friendly_name": "fritz", "mac": mac, "ip": "192.168.2.187"},
+        },
+        "device_tracker.00_7a_a4_4b_f4_4a": {
+            "state": "home",
+            "attributes": {"friendly_name": mac, "mac": mac, "ip": "192.168.2.254"},
+        },
+    }
+    (host,) = build_hosts(entities, {}, {}, states)
+    assert host["name"] == "fritz" and host["ip"] == "192.168.2.254"
+    assert host["ips"] == ["192.168.2.187", "192.168.2.254"]
+
+
+def test_devices_behind_a_repeater_on_a_switch_port():
+    # A FRITZ!Repeater on a MikroTik port: its Wi-Fi clients are seen on that port too
+    hosts = [
+        {"key": "rep", "mac": "dc:39:6f:00:00:01", "guess": "ap"},
+        {"key": "phone", "mac": "aa:00:00:00:00:01", "guess": "phone"},
+        {"key": "tv", "mac": "aa:00:00:00:00:02", "guess": "tv", "ap_mac": "48:a9:8a:00:00:21"},
+        {"key": "pi", "mac": "aa:00:00:00:00:03", "guess": "sbc"},
+        {"key": "sw2", "mac": "aa:00:00:00:00:04", "guess": "generic"},
+        {"key": "nas", "mac": "aa:00:00:00:00:05", "guess": "nas"},
+    ]
+    ports = {
+        "48:a9:8a:00:00:20": [
+            {"port": "ether5", "connected": ["dc:39:6f:00:00:01", "aa:00:00:00:00:01", "aa:00:00:00:00:02"]},
+            {"port": "ether6", "connected": ["aa:00:00:00:00:03"]},
+            {"port": "ether7", "connected": ["aa:00:00:00:00:04", "aa:00:00:00:00:05"]},
+        ]
+    }
+    kinds = {"sw2": "unmanaged_switch"}
+    behind = behind_bridges(hosts, ports, lambda h: kinds.get(h["key"]) or h["guess"])
+    # The phone hangs on the repeater's Wi-Fi; a device another access point names stays there
+    assert behind["phone"] == ("rep", "wifi") and "tv" not in behind and "rep" not in behind
+    # Alone on its port: on the port
+    assert "pi" not in behind
+    # Behind a switch set on the map (unmanaged, no tracker of its own would say so)
+    assert behind["nas"] == ("sw2", "ethernet")
+
+
 def test_states():
     assert is_up("home") is True
     assert is_up("not_home") is False
@@ -510,10 +565,21 @@ async def test_rename_in_home_assistant(app, mock):
     entity_id = "device_tracker.hp7c3b8a"
     answer = await test.post("/api/rename", json={"entity_id": entity_id, "name": "Office printer", "device": True})
     assert answer.status == 200, await answer.text()
-    assert mock.entities[entity_id]["name"] == "Office printer"
+    # A UniFi tracker is named after its device: the device gets the name, the tracker keeps none
+    assert mock.entities[entity_id]["has_entity_name"] and mock.entities[entity_id]["name"] is None
     assert mock.devices[mock.entities[entity_id]["device_id"]]["name_by_user"] == "Office printer"
     hosts = {h["entity_id"]: h for h in inventory.hosts()}
     assert hosts[entity_id]["name"] == "Office printer"
+    # A tracker named after its device (has_entity_name): the device gets the name, the tracker
+    # gives up its own, so it isn't "MikroTik hAP mini MikroTik hAP mini"
+    named = next(e for e, x in mock.entities.items() if x.get("has_entity_name") and x.get("device_id"))
+    await test.post("/api/rename", json={"entity_id": named, "name": "MikroTik hAP mini", "device": True})
+    assert mock.entities[named]["name"] is None
+    assert mock.devices[mock.entities[named]["device_id"]]["name_by_user"] == "MikroTik hAP mini"
+    assert mock.states[named]["attributes"]["friendly_name"] == "MikroTik hAP mini"
+    # Only the tracker: its own name, after the device's
+    await test.post("/api/rename", json={"entity_id": named, "name": "LAN", "device": False})
+    assert mock.states[named]["attributes"]["friendly_name"] == "MikroTik hAP mini LAN"
     # Empty gives the integration's own name back
     await test.post("/api/rename", json={"entity_id": entity_id, "name": ""})
     assert mock.entities[entity_id]["name"] is None

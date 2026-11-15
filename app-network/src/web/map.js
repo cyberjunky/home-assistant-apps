@@ -856,6 +856,21 @@ async function mapAutoPlace() {
     const here = new Set(pageHosts(page));
     const todo = networkHosts().filter(h => !here.has(h.key) && !h.disabled);
     if (!todo.length) { toast('Every device is on this page already', 'success'); return; }
+    // Wi-Fi devices can go in a group per Wi-Fi network (SSID) instead of per IP network
+    const onWifi = h => !isInfra(h) && connectionOf(h) === 'wifi' && h.ssid;
+    const ssids = [...new Set(todo.filter(onWifi).map(h => h.ssid))];
+    let bySsid = false;
+    if (ssids.length) {
+        const opts = await formDialog({
+            title: 'Auto-place', confirmLabel: `Place ${todo.length} devices`,
+            body: `<p class="panel-sub">Every device that isn't on this page yet goes in a group per network, with the network gear as a tree on top.</p>
+                <label class="check-row" style="margin-top:12px"><input type="checkbox" name="ssid" ${stored('place_by_ssid', '1') === '1' ? 'checked' : ''}> Wi-Fi devices in a group per Wi-Fi network: ${ssids.map(s => `<b>${escapeHtml(s)}</b>`).join(', ')}</label>
+                <div class="form-hint">Wired devices, and Wi-Fi devices whose network no integration names, stay in the group of their IP network.</div>`,
+        });
+        if (!opts) return;
+        bySsid = Boolean(opts.ssid);
+        store('place_by_ssid', bySsid ? '1' : '0');
+    }
     const COLS = 4, GAP_X = 24, GAP_Y = 22, PAD = 20, HEAD = 48;
     const b = pageBounds(page);
     const left = b ? b.x : 0;
@@ -922,30 +937,35 @@ async function mapAutoPlace() {
             gear.forEach(h => p.nodes.push({id: uid(), ref: h.key, x: snap(g.x + PAD + col.get(h.key) * (NODE_W + GAP_X)), y: g.y + HEAD + (depth.get(h.key) || 0) * (NODE_H + 46)}));
             cy = g.y + g.h + 70;
         }
-        // The rest: a group per network, next to each other, wrapping
+        // The rest: a group per network (or per Wi-Fi network), next to each other, wrapping
         const buckets = new Map();
         rest.forEach(h => {
             const net = networkOf(h).net;
-            const id = net ? net.id : '';
+            const id = bySsid && onWifi(h) ? `ssid:${h.ssid}` : net ? net.id : '';
             if (!buckets.has(id)) buckets.set(id, []);
             buckets.get(id).push(h);
         });
-        const order = [...buckets.entries()].sort((x, y) => (x[0] === '') - (y[0] === '') || y[1].length - x[1].length);
+        // Networks first, then the Wi-Fi networks, the rest last; the biggest first
+        const rankOf = id => (id === '' ? 2 : id.startsWith('ssid:') ? 1 : 0);
+        const order = [...buckets.entries()].sort((x, y) => rankOf(x[0]) - rankOf(y[0]) || y[1].length - x[1].length);
         const maxRowW = Math.max(1400, (NODE_W + GAP_X) * COLS * 2 + 200);
         let cx = left, rowH = 0;
         order.forEach(([netId, hosts]) => {
             // Devices on the same switch or access point next to each other
             hosts.sort((x, y) => (uplinkOf(x) || '~').localeCompare(uplinkOf(y) || '~') || kindLabel(kindOf(x)).localeCompare(kindLabel(kindOf(y))) || hostName(x).localeCompare(hostName(y)));
-            let g = netId ? p.groups.find(x => x.network === netId) : p.groups.find(x => x.name === 'Other devices');
+            const ssid = netId.startsWith('ssid:') ? netId.slice(5) : '';
+            let g = ssid ? p.groups.find(x => x.ssid === ssid) : netId ? p.groups.find(x => x.network === netId) : p.groups.find(x => x.name === 'Other devices');
             let start = 0;
             if (g) {
                 start = p.nodes.filter(n => inGroup(n, g)).length;
             } else {
-                const net = networkById(netId);
+                const net = ssid ? null : networkById(netId);
                 const cols = Math.min(COLS, hosts.length);
                 const w = cols * (NODE_W + GAP_X) - GAP_X + PAD * 2;
                 if (cx > left && cx + w > left + maxRowW) { cx = left; cy += rowH + 60; rowH = 0; }
-                g = {id: uid(), name: net ? net.name : 'Other devices', network: netId || undefined, x: cx, y: cy, w, h: HEAD, color: net ? net.color : GROUP_COLORS[7]};
+                g = ssid
+                    ? {id: uid(), name: `Wi-Fi ${ssid}`, ssid, note: 'Wi-Fi network', x: cx, y: cy, w, h: HEAD, color: GROUP_COLORS[(ssids.indexOf(ssid) + 4) % 7]}
+                    : {id: uid(), name: net ? net.name : 'Other devices', network: netId || undefined, x: cx, y: cy, w, h: HEAD, color: net ? net.color : GROUP_COLORS[7]};
                 p.groups.push(g);
                 groupsAdded++;
                 cx += w + 60;
@@ -970,6 +990,8 @@ async function mapAutoPlace() {
 function uplinkOf(h) {
     const m = meta(h.key);
     if (m.uplink && hostByKey(m.uplink)) return m.uplink;
+    // Behind an access point or switch on the same switch port (a repeater on a MikroTik port)
+    if (h.behind && hostByKey(h.behind)) return h.behind;
     const sw = h.sw_mac ? hostByMac(h.sw_mac) : null;
     if (sw) return sw.key;
     const ap = h.ap_mac ? hostByMac(h.ap_mac) : null;
@@ -1004,6 +1026,7 @@ async function mapSuggestLinks() {
         const m = meta(h.key);
         const candidates = [];
         if (m.uplink) candidates.push({key: m.uplink, kind: connectionOf(h) === 'wifi' ? 'wifi' : (m.connection || 'ethernet'), label: m.port || ''});
+        if (h.behind) candidates.push({key: h.behind, kind: h.behind_by === 'wifi' ? 'wifi' : 'ethernet', label: ''});
         if (h.ap_mac) { const ap = hostByMac(h.ap_mac); if (ap) candidates.push({key: ap.key, kind: 'wifi', label: ''}); }
         if (h.sw_mac) { const sw = hostByMac(h.sw_mac); if (sw) candidates.push({key: sw.key, kind: 'ethernet', label: m.port || portText(h.sw_port)}); }
         if (h.connected_via) candidates.push({key: h.connected_via, kind: h.connection_type === 'WLAN' ? 'wifi' : 'ethernet', label: m.port || ''});

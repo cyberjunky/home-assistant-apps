@@ -67,6 +67,22 @@ def host_key(mac: str, entity_id: str) -> str:
 _BARE = re.compile(r"^(?:[0-9a-f]{2}[:_-]){5}[0-9a-f]{2}$|^\d{1,3}(?:[._-]\d{1,3}){3}$", re.I)
 
 
+# Integrations that find devices by scanning the network: they see whatever answers on an address
+# (a FRITZ!Box answers for its VPN connections too), where a router or controller knows the address
+SCANNERS = {"arpscan_tracker", "nmap_tracker", "ping"}
+
+
+def _best_ip(group: list[dict]) -> str:
+    """The address of a device whose trackers disagree: the one chosen by an integration that knows
+    all its addresses (MikroTik Network), else one from a router or controller (DHCP, ARP of the
+    router), else the first tracker's (by its name, see build_hosts)."""
+    return (
+        next((t["ip"] for t in group if t["ip_addresses"] and t["ip"]), "")
+        or next((t["ip"] for t in group if t["ip"] and t["platform"] not in SCANNERS), "")
+        or next((t["ip"] for t in group if t["ip"]), "")
+    )
+
+
 def _ip_order(ip: str) -> tuple:
     return tuple(int(x) if x.isdigit() else 0 for x in ip.split(".")) if "." in ip else (999, ip)
 
@@ -208,9 +224,7 @@ def build_hosts(
             "trackers": group,
             "up": any(ups) if ups else None,
             "last_changed": max(changes) if changes else None,
-            # A device on several addresses (a FRITZ!Box): the address chosen by the integration that
-            # knows them all (MikroTik Network: its lease, else the gateway's), else the main tracker's
-            "ip": next((t["ip"] for t in group if t["ip_addresses"] and t["ip"]), "") or pick("ip"),
+            "ip": _best_ip(group),
             "ips": sorted({ip for t in group for ip in [t["ip"], *t["ip_addresses"]] if ip}, key=_ip_order),
             "mac": main["mac"],
             "random_mac": is_random_mac(main["mac"]),
@@ -442,10 +456,14 @@ class Inventory:
         if entry is None:
             raise KeyError(entity_id)
         name = name.strip()
-        await self.ws.call({"type": "config/entity_registry/update", "entity_id": entity_id, "name": name or None})
         device_id = entry.get("device_id")
+        device_too = bool(device_too and device_id)
+        # An entity with has_entity_name is called "<device> <its own name>": when the device gets the
+        # name, the entity gives up its own, or the name shows twice
+        own = None if device_too and entry.get("has_entity_name") else name or None
+        await self.ws.call({"type": "config/entity_registry/update", "entity_id": entity_id, "name": own})
         renamed_device = False
-        if device_too and device_id:
+        if device_too:
             await self.ws.call(
                 {"type": "config/device_registry/update", "device_id": device_id, "name_by_user": name or None}
             )
@@ -488,4 +506,35 @@ def fritz_nodes(hosts: list[dict], devices: dict[str, dict], router: dict) -> di
             else:
                 if router.get("found") and name in {str(v).lower() for v in router["info"].values()}:
                     out[name] = next((h["key"] for h in hosts if h.get("ip") == router["address"]), "")
+    return out
+
+
+# Devices that others hang behind: an access point (by Wi-Fi), a switch or a router (by cable)
+BRIDGES = {
+    "ap": "wifi",
+    "switch": "ethernet",
+    "unmanaged_switch": "ethernet",
+    "router": "ethernet",
+    "firewall": "ethernet",
+    "modem": "ethernet",
+    "powerline": "ethernet",
+}
+
+
+def behind_bridges(hosts: list[dict], ports: dict[str, list[dict]], kind_of) -> dict[str, tuple[str, str]]:
+    """Devices a switch port lists together with an access point, switch or router (a FRITZ!Repeater
+    on a MikroTik port): they hang behind that one, not on the port. key -> (its key, wifi/ethernet).
+    kind_of(host) gives a host's kind (what is set on the map, else the guess)."""
+    by_mac = {h["mac"]: h for h in hosts if h.get("mac")}
+    out: dict[str, tuple[str, str]] = {}
+    for port_list in ports.values():
+        for port in port_list:
+            on = [by_mac[m] for m in port["connected"] if m in by_mac]
+            bridges = [h for h in on if kind_of(h) in BRIDGES]
+            if len(bridges) != 1 or len(on) < 2:
+                continue
+            bridge = bridges[0]
+            for h in on:
+                if h is not bridge and not h.get("ap_mac"):
+                    out[h["key"]] = (bridge["key"], BRIDGES[kind_of(bridge)])
     return out

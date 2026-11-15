@@ -461,6 +461,8 @@ const portText = port => /^\d+$/.test(String(port)) ? `port ${port}` : String(po
 function connectionOf(h) {
     const m = meta(h.key).connection;
     if (m) return m;
+    // Behind an access point on a switch port: on its Wi-Fi, though the port sees it
+    if (h.behind_by === 'wifi') return 'wifi';
     if (h.wired === true) return 'wired';
     if (h.wired === false || h.ssid || h.ap_mac) return 'wifi';
     return '';
