@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.6
+
+**After updating:** nothing to do.
+
+- **Wi-Fi networks as groups:** *Auto-place* can put Wi-Fi devices in a group per Wi-Fi network (SSID, from UniFi, MikroTik Network or the FRITZ!Box) instead of the group of their IP network. It asks when Home Assistant knows a Wi-Fi network of a device; wired devices stay in their network's group.
+- **The right address:** when the trackers of one device disagree, the address from a router or controller (MikroTik Network, UniFi, the FRITZ!Box) wins over a network scan (arp-scan, Nmap, Ping). A scan sees whatever answers: a FRITZ!Box answers for its VPN connections too, and arp-scan gave it one of those addresses.
+
 ## 0.1.5
 
 **After updating:** nothing to do. With [MikroTik Network](https://github.com/cyberjunky/home-assistant-mikrotik) 0.1.2 or later, a FRITZ!Box shows its own address.

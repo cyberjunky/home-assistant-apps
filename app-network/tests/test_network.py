@@ -293,6 +293,34 @@ def test_a_device_on_several_addresses():
     assert host["ip"] == "192.168.2.254" and host["name"] == "fritz"
 
 
+def test_a_router_knows_the_address_better_than_a_scan():
+    # arp-scan got the FRITZ!Box's answer on a VPN address; the MikroTik saw it on .254
+    mac = "00:7a:a4:4b:f4:4a"
+    entities = {
+        "device_tracker.fritz_box_4630_ll": {
+            "entity_id": "device_tracker.fritz_box_4630_ll",
+            "platform": "arpscan_tracker",
+        },
+        "device_tracker.00_7a_a4_4b_f4_4a": {
+            "entity_id": "device_tracker.00_7a_a4_4b_f4_4a",
+            "platform": "mikrotik_network",
+        },
+    }
+    states = {
+        "device_tracker.fritz_box_4630_ll": {
+            "state": "home",
+            "attributes": {"friendly_name": "fritz", "mac": mac, "ip": "192.168.2.187"},
+        },
+        "device_tracker.00_7a_a4_4b_f4_4a": {
+            "state": "home",
+            "attributes": {"friendly_name": mac, "mac": mac, "ip": "192.168.2.254"},
+        },
+    }
+    (host,) = build_hosts(entities, {}, {}, states)
+    assert host["name"] == "fritz" and host["ip"] == "192.168.2.254"
+    assert host["ips"] == ["192.168.2.187", "192.168.2.254"]
+
+
 def test_states():
     assert is_up("home") is True
     assert is_up("not_home") is False

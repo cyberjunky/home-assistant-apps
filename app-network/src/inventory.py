@@ -67,6 +67,22 @@ def host_key(mac: str, entity_id: str) -> str:
 _BARE = re.compile(r"^(?:[0-9a-f]{2}[:_-]){5}[0-9a-f]{2}$|^\d{1,3}(?:[._-]\d{1,3}){3}$", re.I)
 
 
+# Integrations that find devices by scanning the network: they see whatever answers on an address
+# (a FRITZ!Box answers for its VPN connections too), where a router or controller knows the address
+SCANNERS = {"arpscan_tracker", "nmap_tracker", "ping"}
+
+
+def _best_ip(group: list[dict]) -> str:
+    """The address of a device whose trackers disagree: the one chosen by an integration that knows
+    all its addresses (MikroTik Network), else one from a router or controller (DHCP, ARP of the
+    router), else the first tracker's (by its name, see build_hosts)."""
+    return (
+        next((t["ip"] for t in group if t["ip_addresses"] and t["ip"]), "")
+        or next((t["ip"] for t in group if t["ip"] and t["platform"] not in SCANNERS), "")
+        or next((t["ip"] for t in group if t["ip"]), "")
+    )
+
+
 def _ip_order(ip: str) -> tuple:
     return tuple(int(x) if x.isdigit() else 0 for x in ip.split(".")) if "." in ip else (999, ip)
 
@@ -208,9 +224,7 @@ def build_hosts(
             "trackers": group,
             "up": any(ups) if ups else None,
             "last_changed": max(changes) if changes else None,
-            # A device on several addresses (a FRITZ!Box): the address chosen by the integration that
-            # knows them all (MikroTik Network: its lease, else the gateway's), else the main tracker's
-            "ip": next((t["ip"] for t in group if t["ip_addresses"] and t["ip"]), "") or pick("ip"),
+            "ip": _best_ip(group),
             "ips": sorted({ip for t in group for ip in [t["ip"], *t["ip_addresses"]] if ip}, key=_ip_order),
             "mac": main["mac"],
             "random_mac": is_random_mac(main["mac"]),
