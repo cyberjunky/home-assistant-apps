@@ -65,7 +65,7 @@ if (( DRY_RUN )); then
     exit 0
 fi
 
-# One run at a time (/run/lock can be missing, as in WSL without systemd)
+# One run at a time (/run/lock can be missing on systems without systemd)
 lock_dir=/run/lock
 [[ -d "${lock_dir}" ]] || lock_dir=/tmp
 exec 9>"${lock_dir}/pbs-backup.lock"
