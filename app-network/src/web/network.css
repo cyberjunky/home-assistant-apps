@@ -259,18 +259,8 @@ table.data.dev-table .meter { min-width: 120px; }
 .dash-map { margin-bottom: 14px; }
 .dash-map .panel-body { padding: 0; overflow: hidden; border-radius: inherit; }
 .view-bar { border-bottom: var(--card-border); }
-.view-hint { font-size: 12px; }
-.view-canvas { height: clamp(340px, 62vh, 720px); }
-.view-svg { width: 100%; height: 100%; display: block; cursor: grab; user-select: none; touch-action: pan-y pinch-zoom; }
-.view-svg.panning { cursor: grabbing; }
-.view-svg .mnode { cursor: pointer; }
-@media (max-width: 700px) {
-    .view-hint { display: none; }
-    .view-canvas { height: 60vh; }
-}
 
 /* The map on the Dashboard as cards: a group per card, in its colour */
-.view-bar #dv-mode { margin-left: 2px; }
 .ncards { columns: 3 320px; column-gap: 12px; padding: 12px; background: var(--ha-background); }
 .ncards > .empty-state { column-span: all; }
 .ncard { break-inside: avoid; margin: 0 0 12px; background: var(--ha-card-background); border: var(--card-border); border-radius: 6px; overflow: hidden; }
@@ -299,3 +289,11 @@ button.nitem:hover, button.nitem:focus-visible { background: var(--hover-bg); ou
     .ncards { padding: 8px; }
     .ncard-items { grid-template-columns: 1fr 1fr; }
 }
+
+/* The Network map while looking: only the drawing; Edit brings the list and the side panel */
+.map-shell.viewing { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+.map-shell.viewing .map-palette, .map-shell.viewing .map-side { display: none; }
+.map-shell.viewing #map-svg { cursor: grab; }
+.map-shell.viewing #map-svg.panning { cursor: grabbing; }
+.map-shell.viewing .mnode { cursor: pointer; }
+.edit-toggle { min-width: 64px; }

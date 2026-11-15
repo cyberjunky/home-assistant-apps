@@ -24,8 +24,8 @@ log_level: info
 
 ## The pages
 
-- **Dashboard**: your internet connection (see below), then a page of your map, to look at. **Cards** shows every group of the page as a card in its colour, with its VLAN and subnet, how many of its devices are online and the devices themselves (away ones in red), in the order you drew them. **Drawing** shows the page as drawn, at a size you can read: drag to move around, Ctrl + wheel or the buttons to zoom. Either way, click a device for its details and a page tile to go in; **Edit this page** opens it in the editor. Below the map: how many devices are online, what needs a look (network gear that is away, two devices on one IP address, unstable, new and long-gone devices, devices on no map yet), the last 24 hours, the latest comings and goings.
-- **Edit map**: the drawing. See below.
+- **Dashboard**: your internet connection (see below), then every group of a page of your map as a card, with its VLAN and subnet, how many of its devices are online and the devices themselves (away ones in red), in the order you drew them. Click a device for its details and a page tile to go in; **Open in the map** shows the page on the Network map. Below the map: how many devices are online, what needs a look (network gear that is away, two devices on one IP address, unstable, new and long-gone devices, devices on no map yet), the last 24 hours, the latest comings and goings.
+- **Network map**: the drawing. See below.
 - **Devices**: every device in a table, to filter, search, sort and edit. Click one to edit it; tick several to give them one kind, network or connection.
 - **Networks**: your networks and VLANs. A device is in the network of its IP address unless you pick another for it. The app suggests a network for every private /24 subnet it sees, with a guess of what it is for (IoT, cameras, servers, guests). A subnet's grid shows every address: online, away, free, or used by two devices at once.
 - **Mobile**: the phones with the Home Assistant app. See below.
@@ -54,11 +54,13 @@ The traffic per minute is kept for 31 days, the data per hour for `keep_days`, i
 
 ## The map
 
+The Network map opens to look at: drag to move around, the wheel zooms, click a device for its details and a page tile to go in. **✎ Edit** turns on changing it: the list of devices and the shapes on the left, the side panel on the right. **Done** goes back to looking; changes are saved as you make them.
+
 Drag a device from the list on the left onto a page, or double-click it. The shapes below the list are dragged the same way: a group, a text, and every kind of device without a tracker of its own, such as the internet, a cloud service or a switch. **Without an IP** has the gear that never has an address: an unmanaged switch, a patch panel, a PoE injector, a media converter, a powerline adapter, and a blank device to give any kind. Click a shape to give it a label, another kind, or a second line (a speed, an address); it says "no IP" until then. **Auto-place** puts every device that isn't on the page yet in a group per network, with the network gear (internet, modem, router, firewall, switches, access points) as a tree on top. If there are no networks yet, it offers to make them first.
 
 - **Connect** two devices: drag the dot on the right edge of one onto the other. **Draw connections** draws what Home Assistant knows: the switch port or access point of a UniFi client, the device a device connects through, and the "Connected to" you set on a device. Wi-Fi clients are left out unless you ask, since there are many.
 - **A group** takes the devices inside it along when you drag it; its corner resizes it. Give it a network and it shows its VLAN and subnet.
-- **Move to its own page** (on a group): its devices go to a new page, and a tile stays with the number of devices and how many are online. Double-click the tile to go in; "← back" returns. Cables that went into the group end at the tile.
+- **Move to its own page** (on a group): its devices go to a new page, and a tile stays with the number of devices and how many are online. Double-click the tile to go in (one click while looking); "← back" returns. Cables that went into the group end at the tile.
 - Drag the background to move around, the wheel zooms, Shift+drag selects an area, arrows nudge, Delete removes from the page (never from Home Assistant), Ctrl+Z undoes.
 - **Export**: the page as a PNG image, an SVG drawing (for Visio, draw.io or Inkscape), or printed (and saved as PDF).
 

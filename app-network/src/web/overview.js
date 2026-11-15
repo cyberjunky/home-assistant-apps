@@ -1,5 +1,5 @@
-// Network dashboard - the Dashboard: the internet connection on top (internet.js), the map as drawn
-// in the editor to look at (view.js), then the network now, what needs a look and what happened lately.
+// Network dashboard - the Dashboard: the internet connection on top (internet.js), the groups of the
+// map as cards (view.js), then the network now, what needs a look and what happened lately.
 
 function attentionItems() {
     const out = [];

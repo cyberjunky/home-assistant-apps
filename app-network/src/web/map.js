@@ -1,4 +1,6 @@
-// Network dashboard - Map: pages to drag hosts onto, with groups, connections and notes.
+// Network dashboard - Network map: pages to drag hosts onto, with groups, connections and notes.
+// It opens to look at (move around, zoom, click a device for its details, a page tile to go in);
+// Edit turns on the device list, the shapes, the side panel and changing the drawing.
 //
 // A page has nodes (a host, or a shape such as "Internet" that is no tracker), groups (a box with a
 // name and colour, often one network or VLAN), links (a cable, Wi-Fi, fiber or VPN between two nodes)
@@ -28,6 +30,8 @@ const mapState = {
     search: '',
     built: false,
     frame: 0,
+    // Looking, or changing the drawing: every visit starts looking
+    edit: false,
 };
 
 const mapPages = () => (app.doc && app.doc.pages) || [];
@@ -136,7 +140,7 @@ const mapRedo = () => mapUndoRedo(mapState.redo, mapState.undo);
 function mapBuild() {
     const el = document.getElementById('tab-map');
     el.innerHTML = `
-        <div class="map-shell">
+        <div class="map-shell${mapState.edit ? '' : ' viewing'}" id="map-shell">
             <aside class="map-palette" id="map-palette">
                 <div class="mp-section">
                     <input class="input" id="mp-search" type="search" placeholder="Search devices…" aria-label="Search devices">
@@ -198,7 +202,7 @@ function mapTabs() {
     const parent = current && current.parent ? pageById(current.parent) : null;
     el.innerHTML = `${parent ? `<button type="button" class="btn btn-small back-btn" data-page="${attr(parent.id)}" title="Back to the page this one is a tile on">← ${escapeHtml(parent.name)}</button>` : ''}
         <div class="tabs" role="tablist">${mapPages().map(p => `<button type="button" class="tab${p === current ? ' active' : ''}" data-page="${attr(p.id)}" title="Double-click to rename">${p.parent ? '<span class="sub-mark">›</span>' : ''}${escapeHtml(p.name)}</button>`).join('')}
-        <button type="button" class="tab icon-tab" data-act="add-page" title="New page">+</button></div>`;
+        ${mapState.edit ? '<button type="button" class="tab icon-tab" data-act="add-page" title="New page">+</button>' : ''}</div>`;
     el.onclick = (e) => {
         const b = e.target.closest('button');
         if (!b) return;
@@ -214,6 +218,7 @@ function mapTabs() {
         }
     };
     el.ondblclick = (e) => {
+        if (!mapState.edit) return;
         const b = e.target.closest('[data-page]');
         if (b) mapPageDialog(b.dataset.page);
     };
@@ -223,7 +228,16 @@ function mapToolbar() {
     const el = document.getElementById('map-tools');
     if (!el) return;
     const k = getView().k;
-    el.innerHTML = `
+    const zoom = `<div class="tabs" role="group" aria-label="Zoom">
+            <button type="button" class="tab icon-tab" data-act="out" title="Zoom out">−</button>
+            <button type="button" class="tab zoom-text" data-act="fit" title="Fit the page">${Math.round(k * 100)}%</button>
+            <button type="button" class="tab icon-tab" data-act="in" title="Zoom in">+</button>
+        </div>`;
+    if (!mapState.edit) {
+        el.innerHTML = `${zoom}
+            <button type="button" class="btn btn-small" data-act="export" title="Save the page as an image">Export ▾</button>
+            <button type="button" class="btn btn-small btn-primary edit-toggle" data-act="edit" title="Change the drawing: place devices and shapes, group and connect them">✎ Edit</button>`;
+    } else el.innerHTML = `
         <div class="tabs" role="group" aria-label="Edit">
             <button type="button" class="tab icon-tab" data-act="undo" title="Undo (Ctrl+Z)" ${mapState.undo.length ? '' : 'disabled'}>↶</button>
             <button type="button" class="tab icon-tab" data-act="redo" title="Redo (Ctrl+Y)" ${mapState.redo.length ? '' : 'disabled'}>↷</button>
@@ -236,7 +250,8 @@ function mapToolbar() {
             <button type="button" class="tab icon-tab" data-act="in" title="Zoom in">+</button>
         </div>
         <button type="button" class="tab icon-tab snap-btn${mapState.snap ? ' on' : ''}" data-act="snap" title="Snap to the grid: ${mapState.snap ? 'on' : 'off'}">#</button>
-        <button type="button" class="btn btn-small" data-act="export" title="Save the page as an image">Export ▾</button>`;
+        <button type="button" class="btn btn-small" data-act="export" title="Save the page as an image">Export ▾</button>
+        <button type="button" class="btn btn-small btn-primary edit-toggle" data-act="done" title="Stop changing the drawing (it is saved as you go)">Done</button>`;
     el.onclick = (e) => {
         const b = e.target.closest('[data-act]');
         if (!b) return;
@@ -245,6 +260,7 @@ function mapToolbar() {
             in: () => mapZoom(1.25), out: () => mapZoom(0.8),
             snap: () => { mapState.snap = !mapState.snap; store('map_snap', mapState.snap ? '1' : '0'); mapToolbar(); },
             export: () => mapExportMenu(b),
+            edit: () => mapSetEdit(true), done: () => mapSetEdit(false),
         })[b.dataset.act]();
     };
 }
@@ -282,8 +298,8 @@ function mapRender() {
     if (mapState.frame) return;
     mapState.frame = requestAnimationFrame(() => { mapState.frame = 0; mapDraw(); });
 }
-// A page as SVG: its groups, links, nodes and texts. In the editor (edit) with what is selected, the
-// resize corners and the dots to connect with; on the dashboard without
+// A page as SVG: its groups, links, nodes and texts. While editing with what is selected, the resize
+// corners and the dots to connect with; while looking without
 function pageSvg(page, opts) {
     const sel = opts.sel || new Set();
     const edit = Boolean(opts.edit);
@@ -344,7 +360,7 @@ function mapDraw() {
     if (!page || !document.getElementById('map-vp')) return;
     const v = getView();
     document.getElementById('map-vp').setAttribute('transform', `translate(${v.x} ${v.y}) scale(${v.k})`);
-    const parts = pageSvg(page, {sel: mapState.sel, edit: true});
+    const parts = pageSvg(page, {sel: mapState.edit ? mapState.sel : new Set(), edit: mapState.edit});
     document.getElementById('map-groups').innerHTML = parts.groups;
     document.getElementById('map-links').innerHTML = parts.links;
     document.getElementById('map-nodes').innerHTML = parts.nodes;
@@ -352,7 +368,9 @@ function mapDraw() {
     const empty = document.getElementById('map-empty');
     const nothing = !page.nodes.length && !page.groups.length && !page.texts.length;
     empty.hidden = !nothing;
-    if (nothing) empty.innerHTML = `<div><b>An empty page.</b><br>Drag devices from the list on the left onto it, or let the app start:<br>
+    if (nothing && !mapState.edit) empty.innerHTML = `<div><b>An empty page.</b><br>Turn on Edit to place your devices on it.<br>
+        <button type="button" class="btn btn-primary" onclick="mapSetEdit(true)">✎ Edit</button></div>`;
+    else if (nothing) empty.innerHTML = `<div><b>An empty page.</b><br>Drag devices from the list on the left onto it, or let the app start:<br>
         <button type="button" class="btn btn-primary" onclick="mapAutoPlace()">Place every device by network</button></div>`;
     mapOverlay();
 }
@@ -411,6 +429,7 @@ function mapBindCanvas() {
     }, {passive: false});
     svg.addEventListener('dragover', (e) => { if (e.dataTransfer.types.includes('text/x-network')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } });
     svg.addEventListener('drop', (e) => {
+        if (!mapState.edit) return;
         const what = e.dataTransfer.getData('text/x-network');
         if (!what) return;
         e.preventDefault();
@@ -433,9 +452,9 @@ function mapDown(e) {
     const text = t.closest('[data-text]');
     const additive = e.shiftKey || e.ctrlKey || e.metaKey;
     svg.setPointerCapture(e.pointerId);
-    if (e.button === 1 || (!port && !resize && !node && !group && !link && !text && !additive)) {
+    if (!mapState.edit || e.button === 1 || (!port && !resize && !node && !group && !link && !text && !additive)) {
         const v = getView();
-        mapState.drag = {type: 'pan', cx: e.clientX, cy: e.clientY, vx: v.x, vy: v.y, moved: false};
+        mapState.drag = {type: 'pan', cx: e.clientX, cy: e.clientY, vx: v.x, vy: v.y, moved: false, node: node ? node.dataset.node : ''};
         svg.classList.add('panning');
         return;
     }
@@ -519,7 +538,12 @@ function mapUp(e) {
     if (!d) return;
     if (d.type === 'pan') {
         keepView();
-        if (!d.moved) { mapState.sel.clear(); mapSide(); mapRender(); }
+        if (!d.moved && !mapState.edit) {
+            // Looking: a device shows its details, a page tile goes in
+            const n = d.node ? nodeById(d.node) : null;
+            if (n && n.page && pageById(n.page)) mapOpenPage(n.page);
+            else if (n && n.ref && hostByKey(n.ref)) openHost(n.ref);
+        } else if (!d.moved) { mapState.sel.clear(); mapSide(); mapRender(); }
         return;
     }
     if (d.type === 'move' || d.type === 'resize') {
@@ -541,6 +565,7 @@ function mapUp(e) {
 }
 
 function mapDouble(e) {
+    if (!mapState.edit) return;
     const node = e.target.closest('[data-node]');
     const group = e.target.closest('[data-group]');
     const text = e.target.closest('[data-text]');
@@ -562,6 +587,7 @@ function mapDouble(e) {
 }
 
 function mapKey(e) {
+    if (!mapState.edit) return;
     const ctrl = e.ctrlKey || e.metaKey;
     if (ctrl && e.key.toLowerCase() === 'z') { e.preventDefault(); return e.shiftKey ? mapRedo() : mapUndo(); }
     if (ctrl && e.key.toLowerCase() === 'y') { e.preventDefault(); return mapRedo(); }
@@ -1273,6 +1299,16 @@ function mapExport(as, bg) {
 // =====================================================================
 // The tab
 // =====================================================================
+function mapSetEdit(on) {
+    mapState.edit = Boolean(on);
+    mapState.sel.clear();
+    mapState.drag = null;
+    const shell = document.getElementById('map-shell');
+    if (shell) shell.classList.toggle('viewing', !mapState.edit);
+    mapTabs();
+    mapRefresh();
+}
+
 function mapRefresh() {
     if (!mapPage()) return;
     // Selections of things that are gone
