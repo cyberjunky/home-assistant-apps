@@ -165,7 +165,7 @@ function networkOptions(h) {
 function uplinkOptions(h) {
     const current = meta(h.key).uplink || '';
     const candidates = networkHosts().filter(o => o.key !== h.key && isInfra(o)).sort((a, b) => hostName(a).localeCompare(hostName(b)));
-    const fromHa = h.ap_mac || h.sw_mac ? hostByMac(h.ap_mac || h.sw_mac) : null;
+    const fromHa = h.ap_mac || h.sw_mac ? hostByMac(h.ap_mac || h.sw_mac) : hostByKey(h.connected_via || '');
     return `<option value="">${fromHa ? `From Home Assistant: ${escapeHtml(hostName(fromHa))}` : 'Not set'}</option>`
         + candidates.map(o => `<option value="${attr(o.key)}"${o.key === current ? ' selected' : ''}>${escapeHtml(hostName(o))} · ${escapeHtml(kindLabel(kindOf(o)))}</option>`).join('');
 }
@@ -188,6 +188,7 @@ function hostEditorHtml(h, opts) {
         h.ssid ? ['Wi-Fi', `${escapeHtml(h.ssid)}${h.radio ? ` · ${escapeHtml(h.radio)}` : ''}${h.signal !== null && h.signal !== undefined ? ` · ${escapeHtml(h.signal)} dBm` : ''}`] : null,
         ap ? ['Access point', hostLink(ap)] : h.ap_mac ? ['Access point', `<span class="mono">${escapeHtml(h.ap_mac)}</span>`] : null,
         sw ? ['Switch', `${hostLink(sw)}${h.sw_port ? ` · port ${escapeHtml(h.sw_port)}` : ''}`] : null,
+        h.connected_to ? ['FRITZ!', `${hostByKey(h.connected_via) ? hostLink(hostByKey(h.connected_via)) : escapeHtml(h.connected_to)}${h.connection_type ? ` · ${escapeHtml(h.connection_type === 'WLAN' ? 'Wi-Fi' : h.connection_type)}` : ''}`] : null,
         ['State', `${hostStateLabel(h)} <span class="muted">${escapeHtml(fmtAgo(h.last_changed))}</span>`],
         ['First seen', h.first_seen ? escapeHtml(fmtDateTime(h.first_seen)) : '<span class="muted">not in the history</span>'],
         s ? ['Last 7 days', `${plainPct(s.availability)} online · ${num(s.drops)} drops${s.longest_down ? ` · longest away ${escapeHtml(fmtDuration(s.longest_down))}` : ''}`] : null,

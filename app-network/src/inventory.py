@@ -111,6 +111,9 @@ def build_hosts(
                 "signal": _first(attrs, _SIGNAL),
                 "radio": str(_first(attrs, _RADIO) or ""),
                 "wired": attrs.get("is_wired"),
+                # The FRITZ!Box integration: the FRITZ! device (box or repeater) it is on, by name, and LAN or WLAN
+                "connected_to": str(attrs.get("connected_to") or ""),
+                "connection_type": str(attrs.get("connection_type") or ""),
                 "latitude": attrs.get("latitude"),
                 "longitude": attrs.get("longitude"),
                 "gps_accuracy": attrs.get("gps_accuracy"),
@@ -158,12 +161,16 @@ def build_hosts(
             "signal": next((t["signal"] for t in group if t["signal"] is not None), None),
             "radio": pick("radio"),
             "wired": next((t["wired"] for t in group if t["wired"] is not None), None),
+            "connected_to": pick("connected_to"),
+            "connection_type": pick("connection_type"),
             "platforms": sorted({t["platform"] for t in group if t["platform"]}),
             "gps_only": all(t["gps"] for t in group),
             "disabled": all(t["disabled"] for t in group),
             "via_device_id": pick("via_device_id"),
             "device_ids": sorted({t["device_id"] for t in group if t["device_id"]}),
         }
+        if host["wired"] is None and host["connection_type"] in ("LAN", "WLAN"):
+            host["wired"] = host["connection_type"] == "LAN"
         # The maker from the MAC address, for trackers that don't say (Nmap, Ping, many routers)
         host["vendor"] = "" if host["manufacturer"] else mac_vendor(host["mac"])
         host["guess"] = guess_kind(

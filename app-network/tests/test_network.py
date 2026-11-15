@@ -38,6 +38,10 @@ DAY = 86400
         (["PS5"], "Sony Interactive Entertainment", "playstation"),
         (["Reolink-Doorbell"], "Reolink", "doorbell"),
         (["bitaxe-gamma-1"], "Espressif", "miner"),
+        (["sw-garage"], "MikroTik", "switch"),
+        (["CRS326-24G-2S+"], "MikroTik", "switch"),
+        (["cAP ax Garden"], "MikroTik", "ap"),
+        (["wAP ac"], "MikroTik", "ap"),
         (["LT-WORK-4471"], "Lenovo", "laptop"),
         (["Internet (ping 1.1.1.1)"], "", "internet"),
         (["something"], "Raspberry Pi Trading Ltd", "sbc"),
@@ -96,6 +100,34 @@ def test_macs():
     assert is_random_mac("6a:3f:21:9c:00:01")
     assert is_random_mac("4A:1C:00:22:50:21")
     assert not is_random_mac("f4:e2:c6:10:00:01")
+
+
+def test_what_the_fritz_box_integration_says():
+    # Its trackers name the FRITZ! device a device is on, and LAN or WLAN; nothing else says wired or not
+    states = {
+        "device_tracker.tv": {
+            "state": "home",
+            "attributes": {
+                "mac": "aa:bb:cc:00:00:09",
+                "ip": "192.168.178.30",
+                "connected_to": "FRITZ!Repeater 2400",
+                "connection_type": "LAN",
+            },
+        },
+        "device_tracker.tablet": {
+            "state": "home",
+            "attributes": {
+                "mac": "aa:bb:cc:00:00:0a",
+                "connected_to": "FRITZ!Box 7590",
+                "connection_type": "WLAN",
+                "ssid": "Thuis",
+            },
+        },
+    }
+    hosts = {h["mac"]: h for h in build_hosts({}, {}, {}, states)}
+    tv, tablet = hosts["aa:bb:cc:00:00:09"], hosts["aa:bb:cc:00:00:0a"]
+    assert tv["connected_to"] == "FRITZ!Repeater 2400" and tv["connection_type"] == "LAN" and tv["wired"] is True
+    assert tablet["connected_to"] == "FRITZ!Box 7590" and tablet["wired"] is False
 
 
 def test_states():

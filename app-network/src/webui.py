@@ -119,13 +119,21 @@ class WebUI:
 
     async def _hosts(self, request: web.Request) -> web.Response:
         hosts = self.inventory.hosts()
+        fritz_nodes = self._fritz_nodes(hosts)
         first, last = await asyncio.to_thread(lambda: (self.history.first_seen(), self.history.last_seen()))
         out = []
         for host in hosts:
             ids = [t["entity_id"] for t in host["trackers"]]
             seen = [first[i] for i in ids if i in first]
             gone = [last[i] for i in ids if i in last]
-            out.append({**host, "first_seen": min(seen) if seen else None, "last_seen": max(gone) if gone else None})
+            out.append(
+                {
+                    **host,
+                    "first_seen": min(seen) if seen else None,
+                    "last_seen": max(gone) if gone else None,
+                    "connected_via": fritz_nodes.get(host.get("connected_to", "").lower(), ""),
+                }
+            )
         return web.json_response(
             {
                 "hosts": out,
@@ -261,6 +269,24 @@ class WebUI:
         except (ConnectionResetError, TimeoutError, asyncio.CancelledError):
             pass
         return response
+
+    def _fritz_nodes(self, hosts: list[dict]) -> dict[str, str]:
+        """The FRITZ! devices the FRITZ!Box integration names in connected_to, by name: the host
+        with that name, or for the box itself the router's tracker."""
+        names = {h["connected_to"].lower() for h in hosts if h.get("connected_to")}
+        out = {}
+        for name in names:
+            for h in hosts:
+                if name in {str(h.get(k) or "").lower() for k in ("name", "host_name")} | {
+                    str(t.get("device_name") or "").lower() for t in h.get("trackers", [])
+                }:
+                    out[name] = h["key"]
+                    break
+            else:
+                router = self.router.state() if self.router else {}
+                if router.get("found") and name in {str(v).lower() for v in router["info"].values()}:
+                    out[name] = next((h["key"] for h in hosts if h.get("ip") == router["address"]), "")
+        return out
 
     async def _router(self, request: web.Request) -> web.Response:
         """The internet router: its state now, its traffic over a period, and the bytes per hour."""

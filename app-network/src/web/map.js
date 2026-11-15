@@ -974,6 +974,8 @@ function uplinkOf(h) {
     if (sw) return sw.key;
     const ap = h.ap_mac ? hostByMac(h.ap_mac) : null;
     if (ap) return ap.key;
+    // The FRITZ! device (box or repeater) the FRITZ!Box integration names
+    if (h.connected_via && hostByKey(h.connected_via)) return h.connected_via;
     return h.via || '';
 }
 
@@ -982,7 +984,7 @@ function uplinkOf(h) {
 async function mapSuggestLinks() {
     const opts = await formDialog({
         title: 'Draw connections', confirmLabel: 'Draw',
-        body: `<p class="panel-sub">From what Home Assistant knows (the switch port or access point of a UniFi client, the device a device connects through) and the "Connected to" you set on a device. Connections that are there already stay.</p>
+        body: `<p class="panel-sub">From what Home Assistant knows (the switch and port or the access point a device tracker names, the FRITZ! device of a FRITZ!Box client, the device a device connects through) and the "Connected to" you set on a device. Connections that are there already stay, and get their port as a label when they have none.</p>
             <label class="check-row" style="margin-top:12px"><input type="checkbox" name="gear" checked> Between network gear (routers, switches, access points)</label>
             <label class="check-row" style="margin-top:8px"><input type="checkbox" name="wired" checked> Wired devices to their switch</label>
             <label class="check-row" style="margin-top:8px"><input type="checkbox" name="wifi"> Wi-Fi devices to their access point <span class="muted">(many lines)</span></label>`,
@@ -994,6 +996,7 @@ async function mapSuggestLinks() {
     page.nodes.filter(n => n.page).forEach(tile => pageHosts(pageById(tile.page)).forEach(key => { if (!byRef.has(key)) byRef.set(key, tile); }));
     const exists = (a, b) => page.links.some(l => (l.from === a && l.to === b) || (l.from === b && l.to === a));
     const add = [];
+    const relabel = [];
     const sources = page.nodes.filter(n => n.ref).map(n => ({n, h: nodeHost(n)}));
     page.nodes.filter(n => n.page).forEach(tile => pageHosts(pageById(tile.page)).forEach(key => sources.push({n: tile, h: hostByKey(key)})));
     sources.forEach(({n, h}) => {
@@ -1003,22 +1006,28 @@ async function mapSuggestLinks() {
         if (m.uplink) candidates.push({key: m.uplink, kind: connectionOf(h) === 'wifi' ? 'wifi' : (m.connection || 'ethernet'), label: m.port || ''});
         if (h.ap_mac) { const ap = hostByMac(h.ap_mac); if (ap) candidates.push({key: ap.key, kind: 'wifi', label: ''}); }
         if (h.sw_mac) { const sw = hostByMac(h.sw_mac); if (sw) candidates.push({key: sw.key, kind: 'ethernet', label: m.port || (h.sw_port ? `port ${h.sw_port}` : '')}); }
+        if (h.connected_via) candidates.push({key: h.connected_via, kind: h.connection_type === 'WLAN' ? 'wifi' : 'ethernet', label: m.port || ''});
         if (h.via) candidates.push({key: h.via, kind: connectionOf(h) === 'wifi' ? 'wifi' : 'ethernet', label: ''});
         const c = candidates.find(x => byRef.has(x.key));
         if (!c) return;
         const other = byRef.get(c.key);
         const bothGear = isInfra(h) && (!other.ref || isInfra(hostByKey(other.ref) || {key: '', trackers: [], guess: 'generic'}));
         if (bothGear ? !opts.gear : c.kind === 'wifi' ? !opts.wifi : !opts.wired) return;
+        const have = page.links.find(l => (l.from === n.id && l.to === other.id) || (l.from === other.id && l.to === n.id));
+        if (have && !have.label && c.label) relabel.push({id: have.id, label: c.label});
         if (other.id === n.id || exists(n.id, other.id) || add.some(l => (l.from === n.id && l.to === other.id) || (l.to === n.id && l.from === other.id))) return;
         add.push({id: uid(), from: other.id, to: n.id, kind: c.kind, label: c.label || undefined});
     });
-    if (!add.length) {
+    if (!add.length && !relabel.length) {
         toast('No new connections: Home Assistant doesn\'t say where these devices connect. Set "Connected to" on a device, or drag from the dot on its right edge to another device.');
         return;
     }
-    mapEdit(p => p.links.push(...add));
+    mapEdit(p => {
+        p.links.push(...add);
+        relabel.forEach(r => { const l = p.links.find(x => x.id === r.id); if (l) l.label = r.label; });
+    });
     mapSide();
-    toast(`${add.length} connections drawn`, 'success');
+    toast([add.length ? `${add.length} connections drawn` : '', relabel.length ? `${relabel.length} given their port` : ''].filter(Boolean).join(', '), 'success');
 }
 
 // =====================================================================

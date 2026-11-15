@@ -129,9 +129,12 @@ _RULES: list[tuple[str, str]] = [
     ),
     (
         "ap",
-        r"\buap\b|\bu6\b|\bu7\b|access ?point|unifi ?ap|\bap\b|\bap-|mesh|deco|eero|orbi|wifi ?extender|repeater|\bnanohd\b|\bflexhd\b",
+        r"\buap\b|\bu6\b|\bu7\b|access ?point|unifi ?ap|\bap\b|\bap-|mesh|deco|eero|orbi|wifi ?extender|repeater|\bnanohd\b|\bflexhd\b|\bcap ?(ax|ac|xl|lite)\b|\bwap ?(ax|ac|lte)\b",
     ),
-    ("switch", r"\busw\b|\bswitch\b|unifi ?switch|gs1\d\d|gs3\d\d|\bcrs\d|\bsg\d{3}|catalyst|procurve"),
+    (
+        "switch",
+        r"\busw\b|\bswitch\b|unifi ?switch|gs1\d\d|gs3\d\d|\bcrs\d|\bcss\d|\bsg\d{3}|catalyst|procurve|^sw[-_ ]",
+    ),
     ("firewall", r"firewall|pfsense|opnsense|fortigate|watchguard|sophos|sonicwall|palo ?alto"),
     ("modem", r"modem|\bont\b|genexis|\bdsl\b|cable ?modem|connectbox|ziggo"),
     (

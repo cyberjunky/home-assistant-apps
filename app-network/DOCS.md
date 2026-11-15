@@ -58,11 +58,23 @@ The Network map opens to look at: drag to move around, the wheel zooms, click a 
 
 Drag a device from the list on the left onto a page, or double-click it. The shapes below the list are dragged the same way: a group, a text, and every kind of device without a tracker of its own, such as the internet, a cloud service or a switch. **Without an IP** has the gear that never has an address: an unmanaged switch, a patch panel, a PoE injector, a media converter, a powerline adapter, and a blank device to give any kind. Click a shape to give it a label, another kind, or a second line (a speed, an address); it says "no IP" until then. **Auto-place** puts every device that isn't on the page yet in a group per network, with the network gear (internet, modem, router, firewall, switches, access points) as a tree on top. If there are no networks yet, it offers to make them first.
 
-- **Connect** two devices: drag the dot on the right edge of one onto the other. **Draw connections** draws what Home Assistant knows: the switch port or access point of a UniFi client, the device a device connects through, and the "Connected to" you set on a device. Wi-Fi clients are left out unless you ask, since there are many.
+- **Connect** two devices: drag the dot on the right edge of one onto the other. **Draw connections** draws what Home Assistant knows, with the port on the cable (see *Where devices connect* below). Wi-Fi clients are left out unless you ask, since there are many.
 - **A group** takes the devices inside it along when you drag it; its corner resizes it. Give it a network and it shows its VLAN and subnet.
 - **Move to its own page** (on a group): its devices go to a new page, and a tile stays with the number of devices and how many are online. Double-click the tile to go in (one click while looking); "← back" returns. Cables that went into the group end at the tile.
 - Drag the background to move around, the wheel zooms, Shift+drag selects an area, arrows nudge, Delete removes from the page (never from Home Assistant), Ctrl+Z undoes.
 - **Export**: the page as a PNG image, an SVG drawing (for Visio, draw.io or Inkscape), or printed (and saved as PDF).
+
+## Where devices connect
+
+**Draw connections** on the map draws the cables and Wi-Fi links Home Assistant knows of, with the port as the label (and gives an existing cable without a label its port):
+
+- **UniFi**: the switch and port, or the access point, of every client.
+- **FRITZ!Box** (its integration, with *network device tracking* on): the FRITZ! device a client is on (the box, or a FRITZ!Repeater), by cable or Wi-Fi. That FRITZ! device has to be on the map as a tracker (the box itself: the tracker that is your router).
+- **Any integration** that puts these attributes on its device trackers: `sw_mac` (the switch's MAC address) with `sw_port` (the port, as you want it on the cable), or `ap_mac` (the access point's MAC address) for a Wi-Fi client. The switch or access point needs a tracker of its own with that MAC. These are the names UniFi uses; your own integration for MikroTik or another switch only has to fill them in.
+- Home Assistant's *connected through* (`via_device`) of a device.
+- What you set yourself under **Connected to** and **Port or socket** on a device. That always comes first.
+
+The app doesn't log in to your switches or router itself: logins stay with Home Assistant's integrations.
 
 ## A device
 
