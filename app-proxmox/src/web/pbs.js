@@ -99,7 +99,7 @@ function renderPbsSection(el) {
     const notes = [];
     if (!s.connected) notes.push(setupHint(`Can't reach ${escapeHtml(s.name)} now: ${escapeHtml(s.error)} · showing what was read ${escapeHtml(fmtAgo(s.read_at))}`, 'bad'));
     const refused = Object.entries(s.notes || {});
-    if (refused.length) notes.push(`<div class="note warn">The token can't read everything: ${refused.map(([k, v]) => `<span class="mono">${escapeHtml(k)}</span> ${escapeHtml(v)}`).join(' · ')}</div>`);
+    if (refused.length) notes.push(`<div class="note warn">The token can't read everything: ${refused.map(([k, v]) => `<span class="mono">${escapeHtml(k)}</span> ${escapeHtml(v)}`).join(' · ')}. A token never has more rights than its user: give the user the <span class="mono">Audit</span> role on <span class="mono">/</span> as well as the token (see the Info page)</div>`);
     document.getElementById('pbs-notes').innerHTML = notes.join('');
     renderPbsTiles(s);
     renderPbsStores(s);
