@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+- **Backup server tasks open from every row**: clicking a Proxmox Backup Server task whose name has a `/` or `-` in it (a host backup such as `host/freqle-org`, a restore) gave "Bad Request". PBS writes such characters in a task's ID as `\x3a`, which the click turned into `:`; the ID now reaches PBS unchanged
+- Names with a quote or `"` (a guest, a firewall group) no longer break their row's buttons or the page
+- When a backup server refuses something, its reason is shown, not only "Bad Request"
+
 ## 0.1.1
 
 - **Proxmox Backup Server token**: the instructions (Documentation and Info page) now give the `Audit` role to the user as well as its token. PBS never gives a token more rights than its user, so with the token's role alone the Backup server section showed no datastores and "status Forbidden · updates Forbidden". That warning now says what to do. An existing setup only needs `proxmox-backup-manager acl update / Audit --auth-id homeassistant@pbs` on the backup server

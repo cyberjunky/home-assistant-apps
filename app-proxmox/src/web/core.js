@@ -79,12 +79,16 @@ function fmtAgo(ts) {
 }
 const fmtUptime = s => !s ? '–' : fmtDuration(s);
 
+const HTML_ESCAPES = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'};
 function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text === null || text === undefined ? '' : String(text);
-    return div.innerHTML;
+    return (text === null || text === undefined ? '' : String(text)).replace(/[&<>"']/g, c => HTML_ESCAPES[c]);
 }
 const attr = escapeHtml;
+// Text inside a quoted string of an inline handler (onclick="f('...')"): the browser decodes the
+// attribute first, then reads it as JavaScript, so backslashes and quotes need a JavaScript escape
+// as well. PBS's task IDs carry backslashes (backups\x3ahost-name), which would turn into ':'
+const jsq = text => attr((text === null || text === undefined ? '' : String(text))
+    .replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, '\\n'));
 
 // =====================================================================
 // Small HTML building blocks shared by the views
