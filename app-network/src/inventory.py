@@ -509,7 +509,7 @@ def fritz_nodes(
     By the name of a tracker; else by the device of that name in Home Assistant (the FRITZ!Box
     integration makes one per box and repeater) and its MAC address, tracked by any integration;
     else, for the box itself, the router's tracker; else by the address the name has in DNS
-    (`addresses`, name -> IP): the FRITZ!Box calls itself fritz.box there, as in connected_to.
+    (`addresses`, name -> IP): connected_to holds a FRITZ! device's host name, which its DNS answers.
     """
     names = {h["connected_to"].lower() for h in hosts if h.get("connected_to")}
     by_mac = {h["mac"]: h["key"] for h in hosts if h.get("mac")}
@@ -530,9 +530,7 @@ def fritz_nodes(
                         break
             else:
                 ip = ""
-                if router.get("found") and (
-                    name == "fritz.box" or name in {str(v).lower() for v in router["info"].values()}
-                ):
+                if router.get("found") and name in {str(v).lower() for v in router["info"].values()}:
                     ip = router["address"]
                 ip = ip or (addresses or {}).get(name, "")
                 key = next((h["key"] for h in hosts if ip and h.get("ip") == ip), "") or next(
