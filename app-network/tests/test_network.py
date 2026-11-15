@@ -175,6 +175,16 @@ def test_fritz_devices_found_by_their_device():
     # No device: the router itself by its address
     router = {"found": True, "address": "192.168.2.254", "info": {"name": "FRITZ!Box 4630"}}
     assert fritz_nodes(hosts, {}, router)["fritz!box 4630"] == "box"
+    # The FRITZ!Box calls itself by its host name in connected_to: fritz.box is the router; other
+    # names by their address in DNS
+    hosts += [
+        {"key": "pixel", "name": "Pixel", "mac": "aa:00:00:00:00:04", "connected_to": "fritz.box", "trackers": []},
+        {"key": "plug", "name": "plug", "mac": "aa:00:00:00:00:05", "connected_to": "fritz.repeater", "trackers": []},
+        {"key": "rep2", "name": "rep2", "mac": "aa:00:00:00:00:06", "ip": "192.168.2.253", "trackers": []},
+    ]
+    found = fritz_nodes(hosts, {}, router, {"fritz.repeater": "192.168.2.253"})
+    assert found["fritz.box"] == "box" and found["fritz.repeater"] == "rep2"
+    assert fritz_nodes(hosts, {}, {}, {"fritz.box": "192.168.2.254"})["fritz.box"] == "box"
 
 
 def test_a_real_name_wins_over_a_mac_address():
