@@ -31,15 +31,24 @@ async def watch_disks() -> None:
         await asyncio.sleep(CHECK_SECONDS)
 
 
+async def sidebar() -> None:
+    """The sidebar page; when it can't start (its port taken), PBS and the disks carry on without it."""
+    try:
+        await panel.Panel().serve()
+    except OSError as e:
+        logger.error(f"Sidebar page: {e}")
+        await asyncio.Event().wait()
+
+
 async def main() -> int:
     level = log_level()
     if level in ("debug", "warning", "error"):
         logging.getLogger().setLevel(level.upper())
     logger.info(f"Proxmox Backup Server app {APP_VERSION}")
-    sidebar = panel.start()
     services = [
         asyncio.create_task(journal.relay(), name="journal"),
         asyncio.create_task(watch_disks(), name="disks"),
+        asyncio.create_task(sidebar(), name="sidebar"),
     ]
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -56,7 +65,6 @@ async def main() -> int:
         task.cancel()
     with contextlib.suppress(asyncio.CancelledError):
         await asyncio.gather(*services, return_exceptions=True)
-    sidebar.shutdown()
     return exit_code
 
 

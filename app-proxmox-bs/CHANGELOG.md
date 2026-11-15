@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3
+
+- **PBS inside Home Assistant, also on `http://`**: the sidebar page now passes PBS's interface through Home Assistant itself instead of loading it from port 8007, so it works on http and https, through Nabu Casa too, and without a certificate to accept. The Shell works in it as well. PBS is unchanged; Proxmox VE keeps using port 8007
+
 ## 0.1.2
 
 - **In the sidebar**: turn on Show in sidebar on the Info tab. With Home Assistant on `https://`, PBS's own interface appears inside Home Assistant (accept its certificate once). On `http://` browsers don't keep PBS's login inside Home Assistant's page, so the page shows whether PBS runs and opens it in its own tab. **Open Web UI** opens this page too
