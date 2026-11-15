@@ -1,0 +1,75 @@
+#!/bin/bash
+# ==============================================================================
+# pbs-backup: back up one or more directories of this host to a Proxmox Backup
+# Server with proxmox-backup-client. Each directory becomes its own archive
+# (/etc -> etc.pxar, /srv/data -> srv_data.pxar) in one snapshot per run,
+# host/<backup id>/<time> on the datastore.
+#
+# Settings: /etc/pbs-backup.conf (or the file named by $PBS_BACKUP_CONF).
+# Usage:    pbs-backup            run a backup
+#           pbs-backup --dry-run  show what would be backed up, send nothing
+# ==============================================================================
+set -euo pipefail
+
+CONF="${PBS_BACKUP_CONF:-/etc/pbs-backup.conf}"
+DRY_RUN=0
+[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=1
+
+die() { echo "pbs-backup: $*" >&2; exit 1; }
+
+[[ -r "${CONF}" ]] || die "no settings in ${CONF}"
+# shellcheck source=/dev/null
+source "${CONF}"
+
+[[ -n "${PBS_REPOSITORY:-}" ]] || die "PBS_REPOSITORY is not set in ${CONF}"
+[[ -n "${PBS_PASSWORD:-}" ]] || die "PBS_PASSWORD (the token's secret) is not set in ${CONF}"
+[[ ${#BACKUP_DIRS[@]} -gt 0 ]] || die "BACKUP_DIRS is empty in ${CONF}"
+command -v proxmox-backup-client >/dev/null || die "proxmox-backup-client is not installed"
+export PBS_REPOSITORY PBS_PASSWORD
+[[ -n "${PBS_FINGERPRINT:-}" ]] && export PBS_FINGERPRINT
+
+# One archive per directory, named after its path
+declare -A seen=()
+archives=()
+for dir in "${BACKUP_DIRS[@]}"; do
+    [[ -d "${dir}" ]] || die "${dir} is not a directory"
+    name="${dir#/}"
+    name="${name%/}"
+    name="${name//[^A-Za-z0-9_-]/_}"
+    [[ -n "${name}" ]] || name="root"
+    [[ -z "${seen[${name}]:-}" ]] || die "${dir} and ${seen[${name}]} would both be ${name}.pxar"
+    seen[${name}]="${dir}"
+    archives+=("${name}.pxar:${dir}")
+done
+
+args=(
+    --backup-type host
+    --backup-id "${BACKUP_ID:-$(hostname -s)}"
+    --change-detection-mode "${CHANGE_DETECTION:-metadata}"
+    --skip-lost-and-found true
+)
+[[ -n "${PBS_NAMESPACE:-}" ]] && args+=(--ns "${PBS_NAMESPACE}")
+for pattern in "${EXCLUDES[@]}"; do
+    args+=(--exclude "${pattern}")
+done
+[[ "${ALL_FILE_SYSTEMS:-false}" == "true" ]] && args+=(--all-file-systems true)
+if [[ -n "${KEYFILE:-}" ]]; then
+    [[ -r "${KEYFILE}" ]] || die "KEYFILE ${KEYFILE} is not readable"
+    args+=(--keyfile "${KEYFILE}" --crypt-mode encrypt)
+fi
+
+if (( DRY_RUN )); then
+    echo "Repository: ${PBS_REPOSITORY}${PBS_NAMESPACE:+ (namespace ${PBS_NAMESPACE})}"
+    printf 'Archive:    %s\n' "${archives[@]}"
+    echo "Command:    proxmox-backup-client backup ${archives[*]} ${args[*]}"
+    exit 0
+fi
+
+# One run at a time (/run/lock can be missing, as in WSL without systemd)
+lock_dir=/run/lock
+[[ -d "${lock_dir}" ]] || lock_dir=/tmp
+exec 9>"${lock_dir}/pbs-backup.lock"
+flock -n 9 || die "another backup is still running"
+
+echo "Backing up ${BACKUP_DIRS[*]} to ${PBS_REPOSITORY}"
+proxmox-backup-client backup "${archives[@]}" "${args[@]}"
