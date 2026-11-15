@@ -200,6 +200,26 @@ function switchPortsHtml(h) {
         <div class="sp-list">${[...eth, ...wifi].map(row).join('')}</div>`;
 }
 
+// The other addresses a device answers on. A router answers for addresses in its own network on
+// behalf of others, mostly VPN connections (a FRITZ!Box for its WireGuard connections)
+function addressRanges(ips) {
+    const out = [];
+    ips.forEach(ip => {
+        const parts = ip.split('.'), last = out[out.length - 1];
+        const n = Number(parts[3]), prefix = parts.slice(0, 3).join('.');
+        if (last && last.prefix === prefix && last.to === n - 1 && parts.length === 4) last.to = n;
+        else out.push({prefix, from: n, to: n, ip});
+    });
+    return out.map(r => r.from === r.to ? r.ip : `${r.prefix}.${r.from}–${r.to}`);
+}
+function otherAddresses(h) {
+    const others = addressRanges((h.ips || []).filter(ip => ip !== h.ip));
+    const router = ['router', 'firewall', 'modem'].includes(kindOf(h));
+    return [router ? 'Answers for' : 'Also on', `<span class="mono">${others.map(escapeHtml).join(', ')}</span><br><span class="muted">${router
+        ? 'Addresses it answers on behalf of others, mostly VPN connections (WireGuard): a device connected from outside gets one of these'
+        : 'It answers on these addresses too'}</span>`];
+}
+
 // The editor's HTML; bind it with bindHostEditor. opts.compact: the map's side panel
 function hostEditorHtml(h, opts) {
     opts = opts || {};
@@ -210,7 +230,7 @@ function hostEditorHtml(h, opts) {
     const sw = h.sw_mac ? hostByMac(h.sw_mac) : null;
     const facts = [
         ['IP', h.ip ? `<span class="mono">${escapeHtml(h.ip)}</span>` : '–'],
-        (h.ips || []).length > 1 ? ['Also on', `<span class="mono">${(h.ips || []).filter(ip => ip !== h.ip).map(escapeHtml).join(', ')}</span> <span class="muted">· it answers on these addresses too</span>`] : null,
+        (h.ips || []).length > 1 ? otherAddresses(h) : null,
         ['MAC', h.mac ? `<span class="mono">${escapeHtml(h.mac)}</span>${h.random_mac ? ' <span class="badge warn" title="Phones and laptops use a random address per Wi-Fi network: it shows up as a new device after a reset or on another network">private address</span>' : ''}` : '–'],
         ['Host name', escapeHtml(h.host_name || '–')],
         ['Maker', h.manufacturer || h.model ? escapeHtml([h.manufacturer, h.model].filter(Boolean).join(' · '))
