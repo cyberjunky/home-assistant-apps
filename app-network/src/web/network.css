@@ -322,3 +322,6 @@ button.nitem:hover, button.nitem:focus-visible { background: var(--hover-bg); ou
    + 2 x 1 border), and a loose tab framed like a group */
 .map-bar .btn { height: 34px; }
 .map-tools > .tab, .map-tabs > .tab { height: 34px; border: var(--card-border); border-radius: 6px; background: var(--ha-background); }
+
+/* The unit of a chart's axis, above its numbers */
+.axis-unit { font-weight: 600; }

@@ -30,8 +30,17 @@ function compact(value, steps) {
     }
     return num(value);
 }
-const rateTick = bytesPerSecond => compact(bytesPerSecond * 8, [[1e9, 'G'], [1e6, 'M'], [1e3, 'k']]);
-const bytesTick = bytes => compact(bytes, [[2 ** 40, 'T'], [2 ** 30, 'G'], [2 ** 20, 'M'], [2 ** 10, 'k']]);
+// An axis in one unit, picked by the largest value: plain numbers on the axis, the unit above it
+function axisUnit(max, steps) {
+    const [size, unit] = steps.find(([s]) => max >= s) || steps[steps.length - 1];
+    return {unit, tick: v => { const x = v / size; return num(x, x && Math.abs(x) < 10 && x % 1 ? 1 : 0); }};
+}
+// Bytes per second on an axis in bits per second (kbit/s, Mbit/s or Gbit/s)
+function rateAxis(maxBytesPerSecond) {
+    const a = axisUnit(maxBytesPerSecond * 8, [[1e9, 'Gbit/s'], [1e6, 'Mbit/s'], [1e3, 'kbit/s']]);
+    return {unit: a.unit, tick: v => a.tick(v * 8)};
+}
+const bytesAxis = maxBytes => axisUnit(maxBytes, [[2 ** 40, 'TiB'], [2 ** 30, 'GiB'], [2 ** 20, 'MiB'], [2 ** 10, 'KiB']]);
 
 async function loadInternet() {
     if (internet.loading) return internet.loading;
@@ -129,6 +138,7 @@ function drawInternetTraffic() {
     if (!src) return;
     const live = internet.period === 'live';
     const span = src.x.length ? src.x[src.x.length - 1] - src.x[0] : 0;
+    const axis = rateAxis(Math.max(0, ...[...src.down, ...src.up].filter(v => !missing(v))));
     lineChart(el, {
         x: src.x, height: 200, zero: true,
         series: [
@@ -137,7 +147,7 @@ function drawInternetTraffic() {
         ],
         xTicks: timeAxisTicks(src.x[0], src.x[src.x.length - 1], el.clientWidth < 520 ? 3 : 6),
         formatX: t => span > 2 * 86400 ? fmtDateTime(t) : live ? new Date(t * 1000).toLocaleTimeString() : fmtTime(t),
-        formatY: v => fmtRate(v), formatTick: rateTick,
+        formatY: v => fmtRate(v), formatTick: axis.tick, unit: axis.unit,
         empty: live ? 'Collecting the first readings…' : 'No traffic recorded yet: it fills from now on',
     });
 }
@@ -146,10 +156,12 @@ function drawInternetDays() {
     const el = document.getElementById('net-days');
     if (!el) return;
     const days = internetDays(30);
+    // The bars stack down and up
+    const axis = bytesAxis(Math.max(0, ...days.map(r => r.down + r.up)));
     barChart(el, {
         data: days.map(r => ({label: fmtDay(r.ts), tipTitle: new Date(r.ts * 1000).toLocaleDateString([], {weekday: 'long', day: 'numeric', month: 'long'}), values: [r.down, r.up]})),
         series: [{name: 'Down', color: DOWN_COLOR}, {name: 'Up', color: UP_COLOR}],
-        height: 200, format: v => fmtBytes(v), formatTick: bytesTick, labelWidth: 52,
+        height: 200, format: v => fmtBytes(v), formatTick: axis.tick, unit: axis.unit, labelWidth: 52,
         empty: 'No days recorded yet',
     });
 }
@@ -174,8 +186,8 @@ function renderInternet(rebuild) {
         el.innerHTML = `
             <div class="panel net-panel"><div class="panel-body" id="net-head"></div></div>
             <div class="dash-grid net-charts">
-                ${panel('Internet traffic', chipsHtml('net-period', INTERNET_PERIODS, internet.period, 'Period'), `<div id="net-traffic" class="chart"></div><div class="legend">${legendHtml([{name: 'Down', color: DOWN_COLOR}, {name: 'Up', color: UP_COLOR}])}<span class="muted">in bit/s</span></div>`)}
-                ${panel('Per day', 'the last 30 days', `<div id="net-days" class="chart"></div><div class="legend">${legendHtml([{name: 'Down', color: DOWN_COLOR}, {name: 'Up', color: UP_COLOR}])}<span class="muted">in bytes</span></div>`)}
+                ${panel('Internet traffic', chipsHtml('net-period', INTERNET_PERIODS, internet.period, 'Period'), `<div id="net-traffic" class="chart"></div><div class="legend">${legendHtml([{name: 'Down', color: DOWN_COLOR}, {name: 'Up', color: UP_COLOR}])}</div>`)}
+                ${panel('Per day', 'the last 30 days', `<div id="net-days" class="chart"></div><div class="legend">${legendHtml([{name: 'Down', color: DOWN_COLOR}, {name: 'Up', color: UP_COLOR}])}</div>`)}
             </div>`;
         bindChips('net-period', key => {
             internet.period = key;

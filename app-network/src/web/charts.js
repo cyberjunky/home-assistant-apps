@@ -109,9 +109,10 @@ function emptyChart(el, text) {
 }
 
 // Shared frame: y axis with gridlines, returns the plot geometry
-function chartFrame(el, height, scale, formatTick) {
+function chartFrame(el, height, scale, formatTick, unit) {
     const width = Math.max(240, el.clientWidth || 600);
-    const pad = {left: 42, right: 8, top: 8, bottom: 20};
+    // The unit of the axis, once, above its numbers
+    const pad = {left: 42, right: 8, top: unit ? 22 : 8, bottom: 20};
     const svg = svgEl('svg', {viewBox: `0 0 ${width} ${height}`, width, height, role: 'img'});
     const plot = {x: pad.left, y: pad.top, w: width - pad.left - pad.right, h: height - pad.top - pad.bottom};
     const y = v => plot.y + plot.h - (v - scale.lo) / (scale.hi - scale.lo) * plot.h;
@@ -123,6 +124,11 @@ function chartFrame(el, height, scale, formatTick) {
         grid.appendChild(label);
     });
     svg.appendChild(grid);
+    if (unit) {
+        const label = svgEl('text', {class: 'tick axis-unit', x: plot.x - 6, y: 11, 'text-anchor': 'end'});
+        label.textContent = unit;
+        svg.appendChild(label);
+    }
     const zero = Math.min(scale.hi, Math.max(0, scale.lo));
     svg.appendChild(svgEl('line', {class: 'baseline', x1: plot.x, x2: plot.x + plot.w, y1: y(zero), y2: y(zero)}));
     el.textContent = '';
@@ -142,7 +148,7 @@ function barChart(el, opts) {
         const grouped = Boolean(opts.grouped);
         const maxima = data.map(d => grouped ? Math.max(...d.values.map(v => v || 0)) : d.values.reduce((a, b) => a + (b || 0), 0));
         const scale = axis(0, Math.max(...maxima), 4);
-        const {svg, plot, y} = chartFrame(el, opts.height || 190, scale, opts.formatTick);
+        const {svg, plot, y} = chartFrame(el, opts.height || 190, scale, opts.formatTick, opts.unit);
         const slot = plot.w / data.length;
         const n = grouped ? opts.series.length : 1;
         const barWidth = Math.max(2, Math.min(grouped ? 16 : 24, (slot - 2) / n - (grouped ? 1 : 0)));
@@ -218,7 +224,7 @@ function lineChart(el, opts) {
         (opts.hlines || []).forEach(h => { lo = Math.min(lo, h.at); hi = Math.max(hi, h.at); });
         if (hi === lo) hi = lo + 1;
         const scale = axis(lo, hi, 4);
-        const {svg, plot, y} = chartFrame(el, opts.height || 170, scale, opts.formatTick);
+        const {svg, plot, y} = chartFrame(el, opts.height || 170, scale, opts.formatTick, opts.unit);
         const x0 = xs[0], x1 = xs[xs.length - 1];
         const x = v => plot.x + (x1 === x0 ? 0 : (v - x0) / (x1 - x0)) * plot.w;
         const clampX = v => Math.max(plot.x, Math.min(plot.x + plot.w, x(v)));
@@ -384,7 +390,7 @@ function signedBarChart(el, opts) {
         const ups = data.map(d => d.values.reduce((a, v) => a + (v > 0 ? v : 0), 0));
         const downs = data.map(d => d.values.reduce((a, v) => a + (v < 0 ? v : 0), 0));
         const scale = axis(Math.min(0, ...downs), Math.max(0, ...ups), 4);
-        const {svg, plot, y} = chartFrame(el, opts.height || 190, scale, opts.formatTick);
+        const {svg, plot, y} = chartFrame(el, opts.height || 190, scale, opts.formatTick, opts.unit);
         const slot = plot.w / data.length;
         const barWidth = Math.max(1, Math.min(opts.maxBar || 22, slot - (slot > 4 ? 2 : 0.5)));
         const every = Math.max(1, Math.ceil(data.length * (opts.labelWidth || 48) / plot.w));
