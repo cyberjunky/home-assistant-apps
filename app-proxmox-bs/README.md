@@ -55,6 +55,14 @@ and nothing more:
 - **Updates from PBS's Updates page**: PBS is updated with the app
 - **PBS's network, time and DNS settings**: they are Home Assistant's
 
+## Back up other computers
+
+Not only Proxmox VE: other computers can back up to the same datastore. [proxmox-backup-clients](proxmox-backup-clients/README.md) has the scripts and instructions:
+
+- **Linux** (Ubuntu, Debian): a script with Proxmox's own `proxmox-backup-client` and a nightly systemd timer
+- **Windows 11**: the native community client Salvanza (VSS, whole-machine images)
+- **Proxmox VE nodes**: their own configuration (`/etc/pve`, `/etc`, ...), which Proxmox VE's guest backups leave out
+
 ## Requirements
 
 - Home Assistant OS or Supervised, aarch64 (Home Assistant Blue, Green or Yellow, Raspberry Pi 4 or 5) or amd64
