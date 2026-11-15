@@ -210,6 +210,7 @@ function hostEditorHtml(h, opts) {
     const sw = h.sw_mac ? hostByMac(h.sw_mac) : null;
     const facts = [
         ['IP', h.ip ? `<span class="mono">${escapeHtml(h.ip)}</span>` : '–'],
+        (h.ips || []).length > 1 ? ['Also on', `<span class="mono">${(h.ips || []).filter(ip => ip !== h.ip).map(escapeHtml).join(', ')}</span> <span class="muted">· it answers on these addresses too</span>`] : null,
         ['MAC', h.mac ? `<span class="mono">${escapeHtml(h.mac)}</span>${h.random_mac ? ' <span class="badge warn" title="Phones and laptops use a random address per Wi-Fi network: it shows up as a new device after a reset or on another network">private address</span>' : ''}` : '–'],
         ['Host name', escapeHtml(h.host_name || '–')],
         ['Maker', h.manufacturer || h.model ? escapeHtml([h.manufacturer, h.model].filter(Boolean).join(' · '))

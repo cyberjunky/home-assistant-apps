@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5
+
+**After updating:** nothing to do. With [MikroTik Network](https://github.com/cyberjunky/home-assistant-mikrotik) 0.1.2 or later, a FRITZ!Box shows its own address.
+
+- **A device on several addresses:** a FRITZ!Box answers on its own address and on others (here .181 to .187 besides .254), and showed whichever a tracker saw first. It now gets the address MikroTik Network chose knowing them all (its DHCP lease, else the default gateway's), and its details list the other addresses.
+
 ## 0.1.4
 
 **After updating:** nothing to do. With [MikroTik Network](https://github.com/cyberjunky/home-assistant-mikrotik) 0.1.1 or later, every device on a MikroTik port gets its port.
