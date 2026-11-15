@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+**After updating:** nothing to do.
+
+- **FRITZ!Box and repeaters found:** a device on a FRITZ!Repeater (or the box) is linked to it also when the repeater is tracked under its MAC address or host name, by another integration such as arp-scan. The app finds the repeater through the device the FRITZ!Box integration makes for it. Needs *network device tracking* on in the FRITZ!Box integration.
+
 ## 0.1.1
 
 **After updating:** nothing to do. The router is found by itself among the trackers that have the kind *Router*; the new option `router` sets its address when it isn't.
