@@ -1,0 +1,8 @@
+#!/command/with-contenv bashio
+# ==============================================================================
+# Proxmox Backup Server - mount the datastore disks before PBS starts, so PBS never finds a
+# datastore without its disk (src/mounts.py; the app keeps watching them after this)
+# ==============================================================================
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+cd /app
+python3 -m src.mounts || true

@@ -11,6 +11,8 @@ ENV LANG=C.UTF-8
 ENV DEBIAN_FRONTEND=noninteractive
 # Time for the services to close cleanly on shutdown
 ENV S6_SERVICES_GRACETIME=15000
+# The disks are mounted (and checked) before PBS starts, which can take a while; no limit
+ENV S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0
 # Mount the datastore disks with the classic mount call, which the app's AppArmor profile checks
 # (file system, disk, mount point); the newer fd-based one passes through other checks it refuses
 ENV LIBMOUNT_FORCE_MOUNT2=always
