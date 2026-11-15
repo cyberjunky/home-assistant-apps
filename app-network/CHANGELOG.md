@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.10
+
+**After updating:** rename a device whose name still shows twice once more; *Rename its device too* is now ticked by default.
+
+- **Renaming for Home Assistant 2026.11:** Home Assistant 2026.11 names every entity of a device "<device name> <own name>", also when you set the own name yourself, and keeps a name from before 2026.11 until the own name changes. 0.1.9 still gave some trackers a full own name, so the FRITZ!Box kept showing as "FRITZ!Box 4630 FRITZ!Box 4630". Renaming with the device now renames the device first and clears the own name of every tracker of it, so they show the device's name. Renaming without the device drops the device's name from the front of what you typed, so it isn't shown twice.
+- **Groups:** edges of a group on the map are solid instead of dashed.
+
 ## 0.1.9
 
 **After updating:** rename a device whose name shows twice once more, with *Rename its device too* ticked. Then *Auto-place* again to put Wi-Fi devices back in their Wi-Fi network's group.
