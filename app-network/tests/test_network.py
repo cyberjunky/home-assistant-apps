@@ -177,6 +177,29 @@ def test_fritz_devices_found_by_their_device():
     assert fritz_nodes(hosts, {}, router)["fritz!box 4630"] == "box"
 
 
+def test_a_real_name_wins_over_a_mac_address():
+    # A router's tracker of the FRITZ!Box has no host name, so it is named after the MAC, and its
+    # entity ID sorts first: the box's own tracker still names the device
+    mac = "00:7a:a4:4b:f4:4a"
+    entities = {
+        "device_tracker.00_7a_a4_4b_f4_4a": {
+            "entity_id": "device_tracker.00_7a_a4_4b_f4_4a",
+            "platform": "mikrotik_network",
+        },
+        "device_tracker.fritz_box": {"entity_id": "device_tracker.fritz_box", "platform": "arpscan_tracker"},
+    }
+    states = {
+        "device_tracker.00_7a_a4_4b_f4_4a": {"state": "home", "attributes": {"friendly_name": mac, "mac": mac}},
+        "device_tracker.fritz_box": {"state": "home", "attributes": {"friendly_name": "FritzBox", "mac": mac}},
+    }
+    (host,) = build_hosts(entities, {}, {}, states)
+    assert host["name"] == "FritzBox" and len(host["trackers"]) == 2
+    # Only bare names: still one of them
+    states["device_tracker.fritz_box"]["attributes"]["friendly_name"] = "192.168.2.254"
+    (host,) = build_hosts(entities, {}, {}, states)
+    assert host["name"] in (mac, "192.168.2.254")
+
+
 def test_states():
     assert is_up("home") is True
     assert is_up("not_home") is False

@@ -8,6 +8,7 @@ tracker without a MAC address is a host of its own.
 import asyncio
 import contextlib
 import logging
+import re
 import time
 from collections import deque
 from collections.abc import Callable
@@ -61,6 +62,14 @@ def is_up(state: str | None) -> bool | None:
 
 def host_key(mac: str, entity_id: str) -> str:
     return f"mac:{mac}" if mac else f"ent:{entity_id}"
+
+
+_BARE = re.compile(r"^(?:[0-9a-f]{2}[:_-]){5}[0-9a-f]{2}$|^\d{1,3}(?:[._-]\d{1,3}){3}$", re.I)
+
+
+def _bare_name(tracker: dict) -> bool:
+    """A name that is only a MAC or IP address: any other name of the same device is better."""
+    return bool(_BARE.match(str(tracker.get("name") or "").strip()))
 
 
 def build_hosts(
@@ -131,8 +140,9 @@ def build_hosts(
     device_hosts: dict[str, str] = {}
     hosts = []
     for key, group in by_key.items():
-        # The tracker to name the host after: a network tracker in the registry, the newest change first
-        group.sort(key=lambda t: (t["gps"], not t["in_registry"], t["disabled"], t["entity_id"]))
+        # The tracker to name the host after: a network tracker in the registry with a real name (not
+        # only its MAC or IP address, as a router's tracker of a device without a host name has)
+        group.sort(key=lambda t: (t["gps"], not t["in_registry"], t["disabled"], _bare_name(t), t["entity_id"]))
         main = group[0]
         ups = [t["up"] for t in group if t["up"] is not None and not t["disabled"]]
 
