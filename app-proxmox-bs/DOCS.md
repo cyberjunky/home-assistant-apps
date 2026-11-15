@@ -46,6 +46,29 @@ Then in Proxmox VE, **Datacenter → Storage → Add → Proxmox Backup Server**
 pvesm add pbs homeassistant --server 192.168.1.20 --datastore backups --username 'pve@pbs!backup' --password 'the-token-secret' --fingerprint AB:CD:…
 ```
 
+## Test a restore
+
+A backup is only proven by restoring it. Restore it as a **new guest with its own ID**; the original keeps running, untouched. Proxmox VE only overwrites a guest when you restore onto its own ID.
+
+1. In Proxmox VE, open the PBS storage in the tree (for example `homeassistant`), then **Backups**, and select a backup.
+2. Choose **Restore** and set:
+   - **VM ID**: a free one (for example `9108` for VM 108), never the guest's own
+   - **Storage**: where the copy's disks go; it needs room for them
+   - **Unique**: on, so the copy gets new MAC addresses
+   - **Start after restore**: off
+3. **Before starting the copy, cut its network.** It is an exact clone: the same IP address, host name and services, and for a guest that talks to the outside world (a trading bot, a mail server) a second one doing its work.
+   - For a VM: **Hardware → Network Device → Edit**, tick **Disconnect**.
+   - For a container: **Network → net0 → Edit**, tick **Disconnect**, or remove the bridge.
+4. Start the copy and check it in its **Console**: does it boot, can you log in, are the data there?
+5. Remove it afterwards: **More → Remove**, with **Destroy unreferenced disks** and **Purge from job configurations** on.
+
+Lighter checks:
+
+- **Single files**: in **Backups**, select a backup and choose **File Restore**, to browse it and download a file or folder without restoring anything.
+- **Restore time**: the restore task's log shows how long it took, a realistic figure for a real emergency.
+
+With encryption on, a successful restore also proves that the cluster's key works. Still keep a copy of that key outside the cluster.
+
 ## What is different in an app
 
 - **The network** is the machine's own (the app uses the host network): PBS is on port 8007 of Home Assistant's address. Its network, DNS and time settings are Home Assistant's; change them there.
@@ -97,7 +120,7 @@ Proxmox VE, and other PBS servers, keep using port 8007 of Home Assistant's addr
 
 - **Memory.** PBS idles lightly, but garbage collection and verifying a large datastore use memory and keep the disk busy. On a 4 GB machine, schedule them for the night (Datastore → Options).
 - **Prune** old backups with Proxmox VE's retention settings on the storage, or with a prune job. Without either, the disk fills up.
-- **Verify** with a verify job, for example weekly, to find a failing disk early.
+- **Verify** with a verify job, for example weekly, to find a failing disk early. It reads every chunk back and checks its checksum, also of encrypted backups; it doesn't show that a guest boots, a [test restore](#test-a-restore) does.
 - **Encryption**: set an encryption key on the storage in Proxmox VE; the backups are then encrypted before they leave the node.
 - **One disk is one copy.** Keep the important backups somewhere else as well, for example with a sync job to another PBS, or by rotating two disks.
 - **Packages.** On amd64 the image installs PBS from Proxmox's own repository; on aarch64 the arm64 build of the same version from [wofferl/proxmox-backup-arm64](https://github.com/wofferl/proxmox-backup-arm64), as Proxmox doesn't publish one. Both are pinned to one version and checked against checksums at build time.
