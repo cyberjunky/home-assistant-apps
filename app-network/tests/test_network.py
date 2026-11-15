@@ -175,6 +175,105 @@ def test_fritz_devices_found_by_their_device():
     # No device: the router itself by its address
     router = {"found": True, "address": "192.168.2.254", "info": {"name": "FRITZ!Box 4630"}}
     assert fritz_nodes(hosts, {}, router)["fritz!box 4630"] == "box"
+    # connected_to holds a host name: found by its address in DNS
+    hosts += [
+        {"key": "pixel", "name": "Pixel", "mac": "aa:00:00:00:00:04", "connected_to": "fritz.box", "trackers": []},
+        {"key": "plug", "name": "plug", "mac": "aa:00:00:00:00:05", "connected_to": "fritz.repeater", "trackers": []},
+        {"key": "rep2", "name": "rep2", "mac": "aa:00:00:00:00:06", "ip": "192.168.2.253", "trackers": []},
+    ]
+    found = fritz_nodes(hosts, {}, router, {"fritz.box": "192.168.2.254", "fritz.repeater": "192.168.2.253"})
+    assert found["fritz.box"] == "box" and found["fritz.repeater"] == "rep2"
+    # Not in DNS: not found
+    assert "fritz.repeater" not in fritz_nodes(hosts, {}, router, {})
+
+
+def _fritz_setup(box_url="http://192.168.178.1", rep_url="http://192.168.178.30"):
+    """A box and a repeater added to the FRITZ!Box integration, both tracked by arp-scan without a
+    name, with the names the user gave them in the box's mesh in connected_to."""
+    hosts = [
+        {"key": "box", "name": "3c:a6:2f:00:00:01", "mac": "3c:a6:2f:00:00:01", "ip": "192.168.178.1", "trackers": []},
+        {"key": "rep", "name": "192.168.178.30", "mac": "3c:a6:2f:00:00:02", "ip": "192.168.178.30", "trackers": []},
+        {
+            "key": "phone",
+            "name": "phone",
+            "mac": "aa:00:00:00:00:01",
+            "connected_to": "Woonkamer",
+            "trackers": [{"platform": "fritz", "via_device_id": "dbox"}],
+        },
+        {
+            "key": "tv",
+            "name": "tv",
+            "mac": "aa:00:00:00:00:02",
+            "connected_to": "Zolder",
+            "trackers": [{"platform": "fritz", "via_device_id": "dbox"}],
+        },
+    ]
+    devices = {
+        "dbox": {
+            "id": "dbox",
+            "name": "FRITZ!Box 7530",
+            "identifiers": [["fritz", "3C:A6:2F:00:00:01"]],
+            "connections": [["mac", "3C:A6:2F:00:00:01"]],
+            "configuration_url": box_url,
+        },
+        "drep": {
+            "id": "drep",
+            "name": "FRITZ!Repeater 600",
+            "identifiers": [["fritz", "3C:A6:2F:00:00:02"]],
+            "connections": [["mac", "3C:A6:2F:00:00:02"]],
+            "configuration_url": rep_url,
+        },
+        # The stand-in device of a tracked client: no FRITZ! device of the mesh
+        "dphone": {
+            "id": "dphone",
+            "name": "phone",
+            "connections": [["mac", "AA:00:00:00:00:01"]],
+            "via_device_id": "dbox",
+        },
+    }
+    return hosts, devices
+
+
+def test_fritz_nodes_with_any_name_and_address():
+    hosts, devices = _fritz_setup()
+    # Mesh names that match nothing in Home Assistant: their address in DNS
+    found = fritz_nodes(hosts, devices, {}, {"woonkamer": "192.168.178.1", "zolder": "192.168.178.30"})
+    assert found == {"woonkamer": "box", "zolder": "rep"}
+    # DNS gives the address the FRITZ! device was added by, and no host on the map has it
+    hosts_no_ip = [{**h, "ip": "", "mac": h["mac"] if h["key"] not in ("box", "rep") else ""} for h in hosts]
+    hosts_no_ip = [h for h in hosts_no_ip if h["key"] in ("phone", "tv")] + [
+        {"key": "box", "name": "b", "mac": "3c:a6:2f:00:00:01", "trackers": []},
+        {"key": "rep", "name": "r", "mac": "3c:a6:2f:00:00:02", "trackers": []},
+    ]
+    found = fritz_nodes(hosts_no_ip, devices, {}, {"woonkamer": "192.168.178.1", "zolder": "192.168.178.30"})
+    assert found == {"woonkamer": "box", "zolder": "rep"}
+    # No DNS: nothing to go by for two unknown names
+    assert fritz_nodes(hosts, devices, {}, {}) == {}
+    # The repeater's entry is named as in the mesh (its model, the default for both): the one name
+    # left is the box's
+    devices["drep"]["name_by_user"] = "Zolder"
+    assert fritz_nodes(hosts, devices, {}, {}) == {"woonkamer": "box", "zolder": "rep"}
+
+
+def test_fritz_box_added_by_its_host_name():
+    # Added as http://fritz.box, and the mesh calls it fritz.box (Ron's)
+    hosts, devices = _fritz_setup(box_url="http://fritz.box")
+    for h in hosts:
+        if h.get("connected_to") == "Woonkamer":
+            h["connected_to"] = "fritz.box"
+    found = fritz_nodes(hosts, devices, {}, {"fritz.box": "192.168.178.1"})
+    assert found["fritz.box"] == "box"
+    # Without DNS too: the address it was added by is the name
+    assert fritz_nodes(hosts, devices, {}, {})["fritz.box"] == "box"
+
+
+def test_fritz_box_is_what_its_trackers_hang_from():
+    # One name left, and the repeater isn't on the map: the box is the device the trackers hang from
+    hosts, devices = _fritz_setup()
+    hosts = [h for h in hosts if h["key"] != "rep" and h.get("connected_to") != "Zolder"]
+    devices["dbox2"] = {**devices["dbox"], "id": "dbox2", "connections": [["mac", "3C:A6:2F:00:00:09"]]}
+    hosts.append({"key": "box2", "name": "box2", "mac": "3c:a6:2f:00:00:09", "trackers": []})
+    assert fritz_nodes(hosts, devices, {}, {}) == {"woonkamer": "box"}
 
 
 def test_a_real_name_wins_over_a_mac_address():
@@ -623,6 +722,20 @@ async def test_rename_in_home_assistant(app, mock):
     assert missing.status == 404
 
 
+async def test_rename_clears_every_tracker_of_the_device(app, mock):
+    test, inventory, _ = app
+    named = next(e for e, x in mock.entities.items() if x.get("has_entity_name") and x.get("device_id"))
+    device_id = mock.entities[named]["device_id"]
+    # A second tracker on the same device (arp-scan next to MikroTik Network) with an old own name
+    other = next(e for e, x in mock.entities.items() if e != named and x.get("device_id") != device_id)
+    mock.entities[other].update(device_id=device_id, has_entity_name=True, name="MikroTik CR125 Switch")
+    await inventory.load()
+    answer = await test.post("/api/rename", json={"entity_id": named, "name": "MikroTik CR125 Switch", "device": True})
+    assert answer.status == 200, await answer.text()
+    assert mock.entities[named]["name"] is None and mock.entities[other]["name"] is None
+    assert mock.states[other]["attributes"]["friendly_name"] == "MikroTik CR125 Switch"
+
+
 async def test_icon_and_doc(app, mock):
     test, *_ = app
     answer = await test.post("/api/icon", json={"entity_id": "device_tracker.hp7c3b8a", "icon": "mdi:printer"})
@@ -751,6 +864,36 @@ def test_a_device_that_just_left_counts():
     iv, known = up_intervals(True, [], 0.0, until)
     assert host_stats(iv, known, 0.0, until)["drops"] == 0
     assert host_events({"a": iv}, 0.0, until) == []
+
+
+def test_an_access_point_registration_beats_fritz_lan():
+    # A client of a MikroTik access point: the FRITZ!Box sees it over the cable and says LAN
+    states = {
+        "device_tracker.plug_fritz": {
+            "entity_id": "device_tracker.plug_fritz",
+            "state": "home",
+            "attributes": {"mac": "AA:BB:CC:00:00:31", "connected_to": "fritz.box", "connection_type": "LAN"},
+        },
+        "device_tracker.plug_mikrotik": {
+            "entity_id": "device_tracker.plug_mikrotik",
+            "state": "home",
+            "attributes": {"mac": "AA:BB:CC:00:00:31", "ap_mac": "48:A9:8A:00:00:25", "ssid": "Herscheliot"},
+        },
+    }
+    (host,) = build_hosts({}, {}, {}, states)
+    assert host["wired"] is False and host["ssid"] == "Herscheliot"
+    # Through the port entities of the access point only, too
+    ports = [
+        {
+            "kind": "wifi",
+            "owner": "48:a9:8a:00:00:25",
+            "port": "wlan1",
+            "ssid": "Herscheliot",
+            "connected": ["aa:bb:cc:00:00:31"],
+        }
+    ]
+    (host,) = build_hosts({}, {}, {}, {"device_tracker.plug_fritz": states["device_tracker.plug_fritz"]}, ports)
+    assert host["wired"] is False and host["ap_mac"] == "48:a9:8a:00:00:25" and host["ssid"] == "Herscheliot"
 
 
 def test_fritz_wifi_beats_the_switch_port():

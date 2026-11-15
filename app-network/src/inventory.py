@@ -284,6 +284,11 @@ def build_hosts(
             host["sw_mac"], host["sw_port"] = p["owner"], p["port"]
             if host["wired"] is None:
                 host["wired"] = True
+    # Registered to an access point: on its Wi-Fi, whatever a router behind it says (the FRITZ!Box
+    # sees a client of a MikroTik access point through the cable to it, and calls it LAN)
+    for host in hosts:
+        if host["ap_mac"]:
+            host["wired"] = False
     # The host of the device a device is connected through (Home Assistant's via_device)
     for host in hosts:
         host["via"] = device_hosts.get(host.pop("via_device_id"), "") if host.get("via_device_id") else ""
@@ -465,9 +470,15 @@ class Inventory:
         device_id = entry.get("device_id")
         device_too = bool(device_too and device_id)
         # An entity with has_entity_name is called "<device> <its own name>": when the device gets the
-        # name, the entity gives up its own, or the name shows twice
-        own = None if device_too and entry.get("has_entity_name") else name or None
-        await self.ws.call({"type": "config/entity_registry/update", "entity_id": entity_id, "name": own})
+        # name, the entity gives up its own, or the name shows twice. That goes for every tracker of
+        # the device (arp-scan, MikroTik Network and the FRITZ!Box can each have one on it)
+        targets = [entry]
+        if device_too:
+            targets += [e for e in self.entities.values() if e is not entry and e.get("device_id") == device_id]
+        for e in targets:
+            own = None if device_too and e.get("has_entity_name") else name or None
+            if e is entry or e.get("name") != own:
+                await self.ws.call({"type": "config/entity_registry/update", "entity_id": e["entity_id"], "name": own})
         renamed_device = False
         if device_too:
             await self.ws.call(
@@ -494,34 +505,99 @@ def on_fritz_wifi(host: dict) -> dict:
     return {**host, "sw_mac": "", "sw_port": "", "wired": False}
 
 
-def fritz_nodes(hosts: list[dict], devices: dict[str, dict], router: dict) -> dict[str, str]:
-    """The FRITZ! devices (the box, repeaters) that the FRITZ!Box integration names in a tracker's
-    connected_to, by that name (lower case), as the key of their host.
+def fritz_devices(devices: dict[str, dict]) -> list[dict]:
+    """The FRITZ! devices added to the FRITZ!Box integration (a box, repeaters): the devices it
+    registers with its own identifier. The devices of what it tracks have none."""
+    return [d for d in devices.values() if any(i and i[0] == "fritz" for i in d.get("identifiers") or [])]
 
-    By the name of a tracker; else by the device of that name in Home Assistant (the FRITZ!Box
-    integration makes one per box and repeater) and its MAC address, tracked by any integration;
-    else, for the box itself, the router's tracker.
+
+def config_host(device: dict) -> str:
+    """The host a FRITZ! device was added with, from its configuration URL (http://<host>)."""
+    url = str(device.get("configuration_url") or "")
+    host = url.split("://", 1)[-1].split("/", 1)[0]
+    if host.startswith("["):  # [IPv6]:port
+        return host[1:].split("]", 1)[0].lower()
+    return host.rsplit(":", 1)[0].lower() if host.count(":") == 1 else host.lower()
+
+
+def fritz_nodes(
+    hosts: list[dict], devices: dict[str, dict], router: dict, addresses: dict[str, str] | None = None
+) -> dict[str, str]:
+    """The FRITZ! devices (the box, repeaters) that the FRITZ!Box integration names in a tracker's
+    connected_to, by that name (lower case), as the key of their host on the map.
+
+    connected_to is the name the box or repeater has in the FRITZ!Box's home network (its mesh),
+    which the user can change and Home Assistant doesn't show anywhere else. So, per name:
+    1. a host by that name (a tracker, host name or device name: arp-scan of a repeater);
+    2. a device of that name in Home Assistant (a FRITZ!Box integration entry is named after it);
+    3. a FRITZ! device added by that name as its host (http://fritz.box);
+    4. the name's address in DNS (`addresses`, name -> IP; the FRITZ!Box answers for its mesh):
+       the host with that address, or the FRITZ! device added by that address;
+    5. the name the router gives over UPnP;
+    6. what is left: one name left and one FRITZ! device left belong together; the box itself is
+       the one its trackers hang from (via_device).
+    A FRITZ! device's host on the map: by its MAC addresses, else by the address it was added by.
     """
-    names = {h["connected_to"].lower() for h in hosts if h.get("connected_to")}
+    addresses = {k.lower(): v for k, v in (addresses or {}).items()}
+    names = sorted({h["connected_to"].lower() for h in hosts if h.get("connected_to")})
     by_mac = {h["mac"]: h["key"] for h in hosts if h.get("mac")}
+
+    def by_ip(ip: str) -> str:
+        if not ip:
+            return ""
+        return next((h["key"] for h in hosts if h.get("ip") == ip), "") or next(
+            (h["key"] for h in hosts if ip in (h.get("ips") or [])), ""
+        )
+
+    def host_of(device: dict) -> str:
+        macs = [normalize_mac(v) for kind, v in device.get("connections") or [] if kind == "mac"]
+        if key := next((by_mac[m] for m in macs if m in by_mac), ""):
+            return key
+        where = config_host(device)
+        return by_ip(addresses.get(where, where))
+
+    fritz = fritz_devices(devices)
     out: dict[str, str] = {}
     for name in names:
+        key = ""
         for h in hosts:
-            tracker_names = {str(h.get(k) or "").lower() for k in ("name", "host_name")}
-            tracker_names |= {str(t.get("device_name") or "").lower() for t in h.get("trackers", [])}
-            if name in tracker_names:
-                out[name] = h["key"]
+            own = {str(h.get(k) or "").lower() for k in ("name", "host_name")}
+            own |= {str(t.get(k) or "").lower() for t in h.get("trackers", []) for k in ("device_name", "host_name")}
+            if name in own:
+                key = h["key"]
                 break
-        else:
-            for device in devices.values():
-                if name in {str(device.get(k) or "").lower() for k in ("name_by_user", "name")}:
-                    macs = [normalize_mac(v) for kind, v in device.get("connections") or [] if kind == "mac"]
-                    if key := next((by_mac[m] for m in macs if m in by_mac), ""):
-                        out[name] = key
-                        break
-            else:
-                if router.get("found") and name in {str(v).lower() for v in router["info"].values()}:
-                    out[name] = next((h["key"] for h in hosts if h.get("ip") == router["address"]), "")
+        if not key:
+            named = [
+                d for d in devices.values() if name in {str(d.get(k) or "").lower() for k in ("name_by_user", "name")}
+            ]
+            key = next((k for d in named if (k := host_of(d))), "")
+        if not key:
+            key = next((k for d in fritz if config_host(d) == name and (k := host_of(d))), "")
+        if not key and (ip := addresses.get(name, "")):
+            key = by_ip(ip) or next(
+                (k for d in fritz if addresses.get(config_host(d), config_host(d)) == ip and (k := host_of(d))), ""
+            )
+        if not key and router.get("found") and name in {str(v).lower() for v in router["info"].values()}:
+            key = by_ip(router["address"])
+        if key:
+            out[name] = key
+    # What is left pairs up: one name, one FRITZ! device
+    left_names = [n for n in names if n not in out]
+    taken = set(out.values())
+    left = [k for d in fritz if (k := host_of(d)) and k not in taken]
+    if len(left_names) == 1:
+        # The box: the device the FRITZ!Box's trackers hang from
+        boxes = {
+            t["via_device_id"]
+            for h in hosts
+            for t in h.get("trackers", [])
+            if t.get("platform") == "fritz" and t.get("via_device_id")
+        }
+        box = [k for d in fritz if d.get("id") in boxes and (k := host_of(d)) and k not in taken]
+        if len(left) == 1:
+            out[left_names[0]] = left[0]
+        elif len(box) == 1:
+            out[left_names[0]] = box[0]
     return out
 
 

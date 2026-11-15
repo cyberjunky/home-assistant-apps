@@ -5,9 +5,11 @@ come from Home Assistant's signed-in ingress proxy.
 """
 
 import asyncio
+import ipaddress
 import json
 import logging
 import os
+import socket
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -18,7 +20,7 @@ from .config import APP_VERSION, DATA_DIR, Config
 from .donate import DonatePrompt
 from .ha_client import HAClientError, HAWebSocket
 from .history import DAY, History, host_events, host_stats, merge, online_series, up_intervals
-from .inventory import Inventory, behind_bridges, fritz_nodes, on_fritz_wifi
+from .inventory import Inventory, behind_bridges, config_host, fritz_devices, fritz_nodes, on_fritz_wifi
 from .kinds import KINDS
 from .mobile import mismatch, parse_history
 from .mobile import summary as mobile_summary
@@ -26,6 +28,15 @@ from .router import Router
 from .store import Conflict, Store
 
 logger = logging.getLogger(__name__)
+
+
+def _is_ip(text: str) -> bool:
+    try:
+        ipaddress.ip_address(text)
+    except ValueError:
+        return False
+    return True
+
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 # Home Assistant's ingress proxy
@@ -58,6 +69,8 @@ class WebUI:
         self.router = router
         self._stats_cache: dict[int, tuple[float, dict, int]] = {}
         self._mobile_cache: dict[tuple, tuple[float, dict]] = {}
+        # Names of FRITZ! devices in DNS (fritz.box): name -> (IPv4 address or "", when looked up)
+        self._dns: dict[str, tuple[str, float]] = {}
         # The REST side of the connection to Home Assistant: history and map tiles
         self.ws_client = ws.client
         self.app = web.Application(client_max_size=8 * 1024 * 1024)
@@ -119,7 +132,7 @@ class WebUI:
 
     async def _hosts(self, request: web.Request) -> web.Response:
         hosts = self.inventory.hosts()
-        fritz_nodes = self._fritz_nodes(hosts)
+        fritz_nodes = await self._fritz_nodes(hosts)
         devices = self.store.doc.get("devices", {})
         behind = behind_bridges(
             hosts, self.inventory.port_list(), lambda h: (devices.get(h["key"]) or {}).get("kind") or h.get("guess")
@@ -286,9 +299,30 @@ class WebUI:
             pass
         return response
 
-    def _fritz_nodes(self, hosts: list[dict]) -> dict[str, str]:
-        """The FRITZ! devices the FRITZ!Box integration names in connected_to, as hosts on the map."""
-        return fritz_nodes(hosts, self.inventory.devices, self.router.state() if self.router else {})
+    async def _fritz_nodes(self, hosts: list[dict]) -> dict[str, str]:
+        """The FRITZ! devices the FRITZ!Box integration names in connected_to, as hosts on the map.
+        Names that look like a host name (fritz.box, fritz.repeater) are looked up in DNS too, which
+        the FRITZ!Box answers for its mesh."""
+        names = {h["connected_to"].lower() for h in hosts if h.get("connected_to")}
+        # And the host names the FRITZ! devices were added by (http://fritz.box)
+        names |= {config_host(d) for d in fritz_devices(self.inventory.devices)}
+        await asyncio.gather(*(self._resolve(n) for n in names if n and " " not in n and not _is_ip(n)))
+        addresses = {n: ip for n, (ip, _) in self._dns.items() if ip}
+        return fritz_nodes(hosts, self.inventory.devices, self.router.state() if self.router else {}, addresses)
+
+    async def _resolve(self, name: str) -> None:
+        """A name's IPv4 address, kept for ten minutes (also when it has none)."""
+        ip, at = self._dns.get(name, ("", 0.0))
+        if time.monotonic() - at < 600 and name in self._dns:
+            return
+        try:
+            infos = await asyncio.wait_for(
+                asyncio.get_running_loop().getaddrinfo(name, None, family=socket.AF_INET), timeout=3
+            )
+            ip = infos[0][4][0] if infos else ""
+        except (OSError, TimeoutError):
+            ip = ""
+        self._dns[name] = (ip, time.monotonic())
 
     async def _router(self, request: web.Request) -> web.Response:
         """The internet router: its state now, its traffic over a period, and the bytes per hour."""
