@@ -5,6 +5,7 @@ come from Home Assistant's signed-in ingress proxy.
 """
 
 import asyncio
+import ipaddress
 import json
 import logging
 import os
@@ -19,7 +20,7 @@ from .config import APP_VERSION, DATA_DIR, Config
 from .donate import DonatePrompt
 from .ha_client import HAClientError, HAWebSocket
 from .history import DAY, History, host_events, host_stats, merge, online_series, up_intervals
-from .inventory import Inventory, behind_bridges, fritz_nodes, on_fritz_wifi
+from .inventory import Inventory, behind_bridges, config_host, fritz_devices, fritz_nodes, on_fritz_wifi
 from .kinds import KINDS
 from .mobile import mismatch, parse_history
 from .mobile import summary as mobile_summary
@@ -27,6 +28,15 @@ from .router import Router
 from .store import Conflict, Store
 
 logger = logging.getLogger(__name__)
+
+
+def _is_ip(text: str) -> bool:
+    try:
+        ipaddress.ip_address(text)
+    except ValueError:
+        return False
+    return True
+
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 # Home Assistant's ingress proxy
@@ -294,7 +304,9 @@ class WebUI:
         Names that look like a host name (fritz.box, fritz.repeater) are looked up in DNS too, which
         the FRITZ!Box answers for its mesh."""
         names = {h["connected_to"].lower() for h in hosts if h.get("connected_to")}
-        await asyncio.gather(*(self._resolve(n) for n in names if " " not in n))
+        # And the host names the FRITZ! devices were added by (http://fritz.box)
+        names |= {config_host(d) for d in fritz_devices(self.inventory.devices)}
+        await asyncio.gather(*(self._resolve(n) for n in names if n and " " not in n and not _is_ip(n)))
         addresses = {n: ip for n, (ip, _) in self._dns.items() if ip}
         return fritz_nodes(hosts, self.inventory.devices, self.router.state() if self.router else {}, addresses)
 
