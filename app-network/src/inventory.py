@@ -67,6 +67,10 @@ def host_key(mac: str, entity_id: str) -> str:
 _BARE = re.compile(r"^(?:[0-9a-f]{2}[:_-]){5}[0-9a-f]{2}$|^\d{1,3}(?:[._-]\d{1,3}){3}$", re.I)
 
 
+def _ip_order(ip: str) -> tuple:
+    return tuple(int(x) if x.isdigit() else 0 for x in ip.split(".")) if "." in ip else (999, ip)
+
+
 def _bare_name(tracker: dict) -> bool:
     """A name that is only a MAC or IP address: any other name of the same device is better."""
     return bool(_BARE.match(str(tracker.get("name") or "").strip()))
@@ -156,6 +160,8 @@ def build_hosts(
                 "via_device_id": device.get("via_device_id") or "",
                 "area": (areas.get(area_id) or {}).get("name", ""),
                 "ip": str(_first(attrs, _IP) or ""),
+                # Every address it answers on, when an integration lists them (MikroTik Network)
+                "ip_addresses": [str(x) for x in attrs.get("ip_addresses") or [] if x],
                 "mac": mac,
                 "host_name": str(_first(attrs, _HOST) or ""),
                 "ssid": str(_first(attrs, _SSID) or ""),
@@ -202,7 +208,10 @@ def build_hosts(
             "trackers": group,
             "up": any(ups) if ups else None,
             "last_changed": max(changes) if changes else None,
-            "ip": pick("ip"),
+            # A device on several addresses (a FRITZ!Box): the address chosen by the integration that
+            # knows them all (MikroTik Network: its lease, else the gateway's), else the main tracker's
+            "ip": next((t["ip"] for t in group if t["ip_addresses"] and t["ip"]), "") or pick("ip"),
+            "ips": sorted({ip for t in group for ip in [t["ip"], *t["ip_addresses"]] if ip}, key=_ip_order),
             "mac": main["mac"],
             "random_mac": is_random_mac(main["mac"]),
             "host_name": pick("host_name"),

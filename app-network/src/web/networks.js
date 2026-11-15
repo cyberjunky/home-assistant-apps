@@ -73,19 +73,29 @@ function netCard(net) {
             if (!byIp.has(n)) byIp.set(n, []);
             byIp.get(n).push(h);
         });
+        // The addresses a router answers for on behalf of others: its VPN connections (WireGuard)
+        const vpn = new Map();
+        networkHosts().filter(h => ['router', 'firewall', 'modem'].includes(kindOf(h))).forEach(h => (h.ips || []).forEach(ip => {
+            const n = ipToInt(ip);
+            if (ip !== h.ip && n !== null && n >= c.start && n <= c.end) vpn.set(n, h);
+        }));
         const cells = [];
         free = 0;
         for (let n = c.start; n <= c.end && n < c.start + 256; n++) {
             const hs = byIp.get(n) || [];
             const special = n === c.start || n === c.end;
+            const router = !hs.length && vpn.get(n);
             const conflict = hs.filter(h => h.up).length > 1;
-            const cls = conflict ? 'conflict' : hs.some(h => h.up) ? 'up' : hs.length ? 'down' : special ? 'special' : '';
-            if (!hs.length && !special) free++;
-            const tip = hs.map(h => `${hostName(h)}${h.up ? '' : ' (away)'}`).join(', ') || (special ? (n === c.start ? 'network address' : 'broadcast') : '');
-            cells.push(`<i class="ip-cell ${cls}" data-addr="${intToIp(n)}"${tip ? ` data-tip="${attr(tip)}"` : ''}${hs.length ? ` data-ip="1" data-key="${attr(hs[0].key)}"` : ''}></i>`);
+            const cls = conflict ? 'conflict' : hs.some(h => h.up) ? 'up' : hs.length ? 'down' : router ? 'vpn' : special ? 'special' : '';
+            if (!hs.length && !special && !router) free++;
+            const tip = hs.map(h => `${hostName(h)}${h.up ? '' : ' (away)'}`).join(', ')
+                || (router ? `VPN address of ${hostName(router)}: it answers here for a VPN connection (WireGuard)` : '')
+                || (special ? (n === c.start ? 'network address' : 'broadcast') : '');
+            const key = hs.length ? hs[0].key : router ? router.key : '';
+            cells.push(`<i class="ip-cell ${cls}" data-addr="${intToIp(n)}"${tip ? ` data-tip="${attr(tip)}"` : ''}${key ? ` data-ip="1" data-key="${attr(key)}"` : ''}></i>`);
         }
         grid = `<div class="ip-grid">${cells.join('')}</div>
-            <div class="ip-legend"><span><i style="background:var(--success-color)"></i>online</span><span><i style="background:var(--idle)"></i>away</span><span><i style="background:var(--grid-color)"></i>free</span><span><i style="background:var(--danger-color)"></i>two devices</span>${c.size > 256 ? `<span>first 256 of ${num(c.size)}</span>` : ''}</div>`;
+            <div class="ip-legend"><span><i style="background:var(--success-color)"></i>online</span><span><i style="background:var(--idle)"></i>away</span><span><i style="background:var(--grid-color)"></i>free</span><span><i style="background:var(--danger-color)"></i>two devices</span>${vpn.size ? '<span><i class="vpn-key"></i>VPN</span>' : ''}${c.size > 256 ? `<span>first 256 of ${num(c.size)}</span>` : ''}</div>`;
     }
     return `<div class="panel net-card" style="--net:${attr(netColor(net))}"><div class="panel-body">
         <div class="net-head"><h2>${escapeHtml(net.name)}</h2>${net.vlan ? badge(`VLAN ${net.vlan}`) : ''}${net.purpose && net.purpose !== net.name ? badge(net.purpose) : ''}

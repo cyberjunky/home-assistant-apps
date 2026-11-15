@@ -269,6 +269,30 @@ def test_devices_get_their_port_from_the_switch():
     assert phone["ap_mac"] == "48:a9:8a:00:00:21" and phone["ssid"] == "Home" and phone["wired"] is False
 
 
+def test_a_device_on_several_addresses():
+    # A FRITZ!Box answers on more addresses; arp-scan saw one, MikroTik Network lists them all
+    mac = "00:7a:a4:4b:f4:4a"
+    states = {
+        "device_tracker.fritz_box": {
+            "state": "home",
+            "attributes": {"friendly_name": "fritz", "mac": mac, "ip": "192.168.2.187"},
+        },
+        "device_tracker.00_7a": {
+            "state": "home",
+            "attributes": {
+                "friendly_name": mac,
+                "mac": mac,
+                "ip": "192.168.2.254",
+                "ip_addresses": ["192.168.2.187", "192.168.2.181", "192.168.2.254"],
+            },
+        },
+    }
+    (host,) = build_hosts({}, {}, {}, states)
+    assert host["ips"] == ["192.168.2.181", "192.168.2.187", "192.168.2.254"]
+    # The address the integration that knows them all chose, not the first tracker's
+    assert host["ip"] == "192.168.2.254" and host["name"] == "fritz"
+
+
 def test_states():
     assert is_up("home") is True
     assert is_up("not_home") is False
