@@ -77,6 +77,7 @@ function setChargesRange(key) {
     localStorage.setItem(LS + 'charges_range', key);
     buildChips('charges-range', RANGES, chargesRange, setChargesRange);
     buildYearSelect('charges-year', chargesRange, setChargesRange);
+    buildDatePicker('charges-dates', chargesRange, setChargesRange);
     loadCharges(true);
 }
 
@@ -289,6 +290,7 @@ function openCharge(id) {
 onTab('charging', (force) => {
     buildChips('charges-range', RANGES, chargesRange, setChargesRange);
     buildYearSelect('charges-year', chargesRange, setChargesRange);
+    buildDatePicker('charges-dates', chargesRange, setChargesRange);
     if (chargeData && !pendingCharge) drawCharge();
     loadCharges(force);
 });

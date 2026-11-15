@@ -414,6 +414,12 @@ function rangeBounds(key) {
         const y = Number(year[1]);
         return {from: Math.floor(new Date(y, 0, 1).getTime() / 1000), to: Math.floor(new Date(y + 1, 0, 1).getTime() / 1000)};
     }
+    const days = parseDayRange(key);
+    if (days) {
+        const end = new Date(days.end + 'T00:00:00');
+        end.setDate(end.getDate() + 1);
+        return {from: Math.floor(new Date(days.start + 'T00:00:00').getTime() / 1000), to: Math.floor(end.getTime() / 1000)};
+    }
     const preset = RANGES.find(r => r.key === key) || RANGES[1];
     if (preset.key === 'all') return {from: 0, to};
     if (preset.key === 'year') return {from: Math.floor(new Date(now.getFullYear(), 0, 1).getTime() / 1000), to};
@@ -453,6 +459,70 @@ function buildYearSelect(selectId, current, onChange) {
     el.innerHTML = '<option value="">Year…</option>'
         + availableYears().map(y => `<option value="y${y}"${match && Number(match[1]) === y ? ' selected' : ''}>${y}</option>`).join('');
     el.onchange = () => { if (el.value) onChange(el.value); };
+}
+
+// A chosen day ("d2026-11-03") or span of days ("d2026-11-01~2026-11-10"), both ends included
+function parseDayRange(key) {
+    const m = /^d(\d{4}-\d{2}-\d{2})(?:~(\d{4}-\d{2}-\d{2}))?$/.exec(key || '');
+    if (!m) return null;
+    const [start, end] = [m[1], m[2] || m[1]].sort();
+    return {start, end};
+}
+
+function localIsoDay(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function dayRangeLabel(days) {
+    const fmt = (iso, withYear) => new Date(iso + 'T00:00:00').toLocaleDateString(undefined,
+        withYear ? {day: 'numeric', month: 'short', year: 'numeric'} : {day: 'numeric', month: 'short'});
+    if (days.start === days.end) return fmt(days.start, true);
+    return `${fmt(days.start, days.start.slice(0, 4) !== days.end.slice(0, 4))} – ${fmt(days.end, true)}`;
+}
+
+// A "Dates…" button beside the year dropdown: one day, or a from-to span of days
+function buildDatePicker(buttonId, current, onChange) {
+    const button = document.getElementById(buttonId);
+    if (!button) return;
+    const days = parseDayRange(current);
+    button.textContent = days ? dayRangeLabel(days) : 'Dates…';
+    button.classList.toggle('active', !!days);
+    button.onclick = (e) => {
+        e.stopPropagation();
+        const open = document.querySelector('.date-pop');
+        if (open) { const same = open.dataset.for === buttonId; open.remove(); if (same) return; }
+        const today = localIsoDay(new Date());
+        const first = app.status && app.status.data_span && app.status.data_span.first_ts
+            ? localIsoDay(new Date(app.status.data_span.first_ts * 1000)) : '';
+        const pop = document.createElement('div');
+        pop.className = 'date-pop';
+        pop.dataset.for = buttonId;
+        pop.innerHTML = `
+            <label>From<input type="date" class="car-select" name="from" max="${today}"${first ? ` min="${first}"` : ''} value="${days ? days.start : today}"></label>
+            <label>To<input type="date" class="car-select" name="to" max="${today}"${first ? ` min="${first}"` : ''} value="${days && days.end !== days.start ? days.end : ''}"></label>
+            <div class="date-pop-hint">Leave To empty for a single day</div>
+            <div class="date-pop-actions"><button type="button" class="tab chip" data-act="today">Today</button><span class="spacer"></span><button type="button" class="tab chip active" data-act="apply">Show</button></div>`;
+        document.body.appendChild(pop);
+        const rect = button.getBoundingClientRect();
+        pop.style.top = `${rect.bottom + 4}px`;
+        pop.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - pop.offsetWidth - 8))}px`;
+        const from = pop.querySelector('[name=from]'), to = pop.querySelector('[name=to]');
+        const close = () => { pop.remove(); document.removeEventListener('click', outside); document.removeEventListener('keydown', esc); };
+        const outside = (ev) => { if (!pop.contains(ev.target)) close(); };
+        const esc = (ev) => { if (ev.key === 'Escape') close(); };
+        setTimeout(() => document.addEventListener('click', outside));
+        document.addEventListener('keydown', esc);
+        const apply = (start, end) => {
+            if (!start) return;
+            const range = parseDayRange(`d${start}${end && end !== start ? '~' + end : ''}`);
+            close();
+            onChange(`d${range.start}${range.end !== range.start ? '~' + range.end : ''}`);
+        };
+        pop.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') apply(from.value, to.value); });
+        pop.querySelector('[data-act=apply]').onclick = () => apply(from.value, to.value);
+        pop.querySelector('[data-act=today]').onclick = () => apply(today, '');
+        from.focus();
+    };
 }
 
 // =====================================================================
