@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3
+
+**After updating:** nothing to do.
+
+- **A device keeps its name:** when several integrations track one device, a tracker named only after its MAC or IP address no longer names it. The MikroTik Network integration tracks your router from ARP without a host name; the router showed under its MAC address.
+- **Documentation:** already tracking with arp-scan or Nmap? Hide the FRITZ!Box trackers instead of disabling them, so this app still sees which FRITZ! device a client is on.
+
 ## 0.1.2
 
 **After updating:** nothing to do.
