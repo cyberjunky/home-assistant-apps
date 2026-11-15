@@ -88,10 +88,11 @@ Optional. With a backup server under `pbs`, the Backups page gets a **Backup ser
 ```sh
 proxmox-backup-manager user create homeassistant@pbs --comment "Home Assistant dashboard"
 proxmox-backup-manager user generate-token homeassistant@pbs dashboard
+proxmox-backup-manager acl update / Audit --auth-id homeassistant@pbs
 proxmox-backup-manager acl update / Audit --auth-id 'homeassistant@pbs!dashboard'
 ```
 
-The second command prints the secret, once. The `Audit` role only reads. A PBS token always needs its own permission, so the ACL is for the token (`--auth-id`), not the user.
+The second command prints the secret, once. The `Audit` role only reads. A PBS token never has more rights than its user, and needs its own permission too, so both get the role. With the token's alone, the Backup server section shows no datastores and says `status` and `updates` are Forbidden. Keep the quotes around the token's name: without them the shell takes `!dashboard` for its history.
 
 Without a token the app still knows which backup servers the cluster uses (from Proxmox VE's storage settings), and says so on the Backups page, with their fingerprints to copy.
 

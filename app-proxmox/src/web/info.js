@@ -74,8 +74,9 @@ pveum user token add homeassistant@pve dashboard --privsep 0</pre>
         <div class="panel"><div class="panel-body">
             <pre class="task-log" style="min-height:0">proxmox-backup-manager user create homeassistant@pbs --comment "Home Assistant dashboard"
 proxmox-backup-manager user generate-token homeassistant@pbs dashboard
+proxmox-backup-manager acl update / Audit --auth-id homeassistant@pbs
 proxmox-backup-manager acl update / Audit --auth-id 'homeassistant@pbs!dashboard'</pre>
-            <p class="panel-sub" style="margin-top:10px">Then add it under <span class="mono">pbs</span>: its address, <span class="mono">token_id: homeassistant@pbs!dashboard</span> and the secret the second command printed. The <span class="mono">Audit</span> role only reads. To pin its certificate, copy the fingerprint from the PBS storage in Proxmox VE (Datacenter → Storage) or the PBS dashboard into <span class="mono">fingerprint</span>.</p>
+            <p class="panel-sub" style="margin-top:10px">Then add it under <span class="mono">pbs</span>: its address, <span class="mono">token_id: homeassistant@pbs!dashboard</span> and the secret the second command printed. The <span class="mono">Audit</span> role only reads; the user and its token both need it, as a token never has more rights than its user. To pin its certificate, copy the fingerprint from the PBS storage in Proxmox VE (Datacenter → Storage) or the PBS dashboard into <span class="mono">fingerprint</span>.</p>
         </div></div>
         <div class="page-section"><span>About</span></div>
         <div class="info-grid">
