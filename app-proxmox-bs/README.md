@@ -57,7 +57,7 @@ and nothing more:
 
 ## Back up other computers
 
-Not only Proxmox VE: other computers can back up to the same datastore. [proxmox-backup-clients](proxmox-backup-clients/README.md) has the scripts and instructions:
+Not only Proxmox VE: other computers can back up to the same datastore. [proxmox-backup-clients](https://github.com/cyberjunky/home-assistant-apps/tree/main/app-proxmox-bs/proxmox-backup-clients) has the scripts and instructions:
 
 - **Linux** (Ubuntu, Debian): a script with Proxmox's own `proxmox-backup-client` and a nightly systemd timer
 - **Windows 11**: the native community client Salvanza (VSS, whole-machine images)
