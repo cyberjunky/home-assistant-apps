@@ -76,10 +76,11 @@ Alternatively:
 5. Start the app and choose **Open Web UI**; log in as `root` with the realm Linux PAM
 6. Under **Administration → Storage / Disks → Directory → Create: Directory**, choose your disk (with "Add as Datastore")
 7. Give Proxmox VE its own token with backup rights only, and add the datastore under Datacenter → Storage → Add → Proxmox Backup Server (the app's Documentation tab shows the commands)
+8. Test a restore once, as a new guest next to the original (see [Test a restore](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-proxmox-bs/DOCS.md#test-a-restore))
 
 ## Configuration
 
-See [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-proxmox-bs/DOCS.md) for the options, setting up a disk, connecting Proxmox VE and what to
+See [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-proxmox-bs/DOCS.md) for the options, setting up a disk, connecting Proxmox VE, testing a restore and what to
 expect.
 
 ## Disclaimer
