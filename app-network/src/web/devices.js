@@ -238,7 +238,7 @@ function hostEditorHtml(h, opts) {
         ['Area', escapeHtml(h.area || '–')],
         h.ssid ? ['Wi-Fi', `${escapeHtml(h.ssid)}${h.radio ? ` · ${escapeHtml(h.radio)}` : ''}${h.signal !== null && h.signal !== undefined ? ` · ${escapeHtml(h.signal)} dBm` : ''}`] : null,
         ap ? ['Access point', hostLink(ap)] : h.ap_mac ? ['Access point', `<span class="mono">${escapeHtml(h.ap_mac)}</span>`] : null,
-        h.behind && hostByKey(h.behind) ? ['Behind', `${hostLink(hostByKey(h.behind))} <span class="muted">· ${h.behind_by === 'wifi' ? 'on its Wi-Fi' : 'by cable'}${sw ? `, which is on ${escapeHtml(hostName(sw))} ${escapeHtml(portText(h.sw_port))}` : ''}</span>`] : null,
+        h.behind && hostByKey(h.behind) ? ['Behind', `${hostLink(hostByKey(h.behind))} <span class="muted">· ${h.behind_by === 'wifi' ? 'on its Wi-Fi' : h.behind_by === 'virtual' ? 'a VM or container on it' : 'by cable'}${sw ? `, which is on ${escapeHtml(hostName(sw))} ${escapeHtml(portText(h.sw_port))}` : ''}</span>`] : null,
         sw && !h.behind ? ['Switch', `${hostLink(sw)}${h.sw_port ? ` · ${escapeHtml(portText(h.sw_port))}` : ''}${h.vlan ? ` · VLAN ${escapeHtml(h.vlan)}` : ''}`] : null,
         h.connected_to ? ['FRITZ!', `${hostByKey(h.connected_via) ? hostLink(hostByKey(h.connected_via)) : escapeHtml(h.connected_to)}${h.connection_type ? ` · ${escapeHtml(h.connection_type === 'WLAN' ? 'Wi-Fi' : h.connection_type)}` : ''}`] : null,
         ['State', `${hostStateLabel(h)} <span class="muted">${escapeHtml(fmtAgo(h.last_changed))}</span>`],

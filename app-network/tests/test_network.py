@@ -348,6 +348,39 @@ def test_devices_behind_a_repeater_on_a_switch_port():
     assert behind["nas"] == ("sw2", "ethernet")
 
 
+def test_the_fritz_box_placeholder_is_not_the_device():
+    # The FRITZ!Box integration registers every device it tracks as "FRITZ!" / "FRITZ!Box Tracked
+    # device": not a router, and not its maker
+    entities = {"device_tracker.phone": {"entity_id": "device_tracker.phone", "platform": "fritz", "device_id": "d1"}}
+    devices = {
+        "d1": {"id": "d1", "name": "Pixel-10-Pro-XL", "manufacturer": "FRITZ!", "model": "FRITZ!Box Tracked device"}
+    }
+    states = {
+        "device_tracker.phone": {
+            "state": "home",
+            "attributes": {
+                "friendly_name": "Pixel-10-Pro-XL",
+                "mac": "aa:00:00:00:00:10",
+                "connected_to": "FRITZ!Box 4630",
+                "connection_type": "WLAN",
+                "ssid": "Herschelan",
+            },
+        }
+    }
+    (host,) = build_hosts(entities, devices, {}, states)
+    assert host["guess"] != "router" and host["model"] == "" and host["manufacturer"] == ""
+    assert host["ssid"] == "Herschelan" and host["wired"] is False
+
+
+def test_vms_behind_their_proxmox_host():
+    hosts = [
+        {"key": "pve", "mac": "aa:00:00:00:01:00", "guess": "proxmox"},
+        {"key": "vm", "mac": "aa:00:00:00:01:01", "guess": "generic"},
+    ]
+    ports = {"sw": [{"port": "ether2", "connected": ["aa:00:00:00:01:00", "aa:00:00:00:01:01"]}]}
+    assert behind_bridges(hosts, ports, lambda h: h["guess"]) == {"vm": ("pve", "virtual")}
+
+
 def test_states():
     assert is_up("home") is True
     assert is_up("not_home") is False

@@ -64,6 +64,7 @@ def host_key(mac: str, entity_id: str) -> str:
     return f"mac:{mac}" if mac else f"ent:{entity_id}"
 
 
+_PLACEHOLDER = re.compile(r"tracked device", re.I)
 _BARE = re.compile(r"^(?:[0-9a-f]{2}[:_-]){5}[0-9a-f]{2}$|^\d{1,3}(?:[._-]\d{1,3}){3}$", re.I)
 
 
@@ -148,6 +149,9 @@ def build_hosts(
         state = states.get(entity_id) or {}
         attrs = state.get("attributes") or {}
         device = devices.get(entry.get("device_id") or "") or {}
+        # A router integration's stand-in for a device it tracks (the FRITZ!Box: "FRITZ!" and "FRITZ!Box
+        # Tracked device"): not the device's own maker and model
+        placeholder = bool(_PLACEHOLDER.search(str(device.get("model") or "")))
         connections = {kind: value for kind, value in device.get("connections") or []}
         mac = normalize_mac(_first(attrs, _MAC) or connections.get("mac"))
         area_id = entry.get("area_id") or device.get("area_id") or ""
@@ -170,8 +174,10 @@ def build_hosts(
                 "device_id": entry.get("device_id") or "",
                 "device_name": device.get("name_by_user") or device.get("name") or "",
                 "device_name_by_user": device.get("name_by_user") or "",
-                "manufacturer": device.get("manufacturer") or attrs.get("manufacturer") or attrs.get("vendor") or "",
-                "model": device.get("model") or "",
+                "manufacturer": ""
+                if placeholder
+                else device.get("manufacturer") or attrs.get("manufacturer") or attrs.get("vendor") or "",
+                "model": "" if placeholder else device.get("model") or "",
                 "sw_version": device.get("sw_version") or "",
                 "via_device_id": device.get("via_device_id") or "",
                 "area": (areas.get(area_id) or {}).get("name", ""),
@@ -509,9 +515,11 @@ def fritz_nodes(hosts: list[dict], devices: dict[str, dict], router: dict) -> di
     return out
 
 
-# Devices that others hang behind: an access point (by Wi-Fi), a switch or a router (by cable)
+# Devices that others hang behind: an access point (by Wi-Fi), a Proxmox host (its VMs and
+# containers, virtually), a switch or a router (by cable)
 BRIDGES = {
     "ap": "wifi",
+    "proxmox": "virtual",
     "switch": "ethernet",
     "unmanaged_switch": "ethernet",
     "router": "ethernet",

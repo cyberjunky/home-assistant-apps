@@ -463,6 +463,8 @@ function connectionOf(h) {
     if (m) return m;
     // Behind an access point on a switch port: on its Wi-Fi, though the port sees it
     if (h.behind_by === 'wifi') return 'wifi';
+    // A VM or container behind its Proxmox host
+    if (h.behind_by === 'virtual') return 'virtual';
     if (h.wired === true) return 'wired';
     if (h.wired === false || h.ssid || h.ap_mac) return 'wifi';
     return '';
