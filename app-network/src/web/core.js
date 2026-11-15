@@ -5,7 +5,7 @@ const LS = 'network_';
 
 // What the server told us. status: /api/status; hosts and kinds: /api/hosts; doc: the maps, the hosts'
 // settings and the networks (/api/doc); stats: /api/stats per number of days
-const app = {status: null, hosts: [], kinds: {}, doc: null, stats: {}};
+const app = {status: null, hosts: [], kinds: {}, doc: null, stats: {}, ports: {}};
 
 async function api(path) {
     const response = await fetch('api/' + path);
@@ -530,6 +530,7 @@ async function loadHosts() {
     const data = await api('hosts');
     app.hosts = data.hosts;
     app.kinds = data.kinds;
+    app.ports = data.ports || {};
     app.zones = data.zones || [];
     hostIndex = new Map(app.hosts.map(h => [h.key, h]));
 }

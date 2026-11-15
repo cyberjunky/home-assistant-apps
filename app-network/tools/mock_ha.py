@@ -515,6 +515,12 @@ DEVICES = [
         {"wired": True, "sw": (SW_LIVING, 8)},
     ),
     ("", "192.168.10.50", "dc:a6:32:00:10:50", ["nmap"], "", "", "", "always", {}),
+    # A MikroTik switch and access point (MikroTik Network lists the devices on their ports, see
+    # PORTS), and two devices only Nmap sees
+    ("sw-garage", "192.168.1.20", "48:a9:8a:00:00:20", ["nmap"], "", "", "garage", "always", {}),
+    ("cAP ax Garden", "192.168.1.21", "48:a9:8a:00:00:21", ["nmap"], "", "", "garden", "always", {}),
+    ("solar-logger", "192.168.1.60", "24:0a:c4:00:01:60", ["nmap"], "", "", "garage", "always", {}),
+    ("garage-pi", "192.168.1.61", "dc:a6:32:00:01:61", ["nmap"], "", "", "garage", "always", {}),
     (
         "roborock-s8",
         "192.168.30.50",
@@ -586,6 +592,48 @@ DEVICES = [
 ]
 
 
+def _port(port: str, up: bool, connected: list[str], speed: int | None = 1000, **extra) -> dict:
+    """A port of sw-garage as MikroTik Network makes it: a link entity listing the devices on it."""
+    attrs = {
+        "friendly_name": f"sw-garage Port {port}",
+        "switch_mac": "48:A9:8A:00:00:20",
+        "port": port,
+        "connected": connected,
+        "devices": extra.pop("seen", len(connected)),
+        "disabled": extra.pop("disabled", False),
+        **({"speed_mbps": speed} if up and speed else {}),
+        **extra,
+    }
+    return {
+        "entity_id": f"binary_sensor.sw_garage_port_{port.replace('-', '_')}",
+        "state": "on" if up else "off",
+        "attributes": attrs,
+    }
+
+
+PORTS = [
+    _port("ether1-uplink", True, [], seen=34, comment="to the house"),
+    _port("ether2", True, ["24:0A:C4:00:01:60"], speed=100),
+    _port("ether3", True, ["DC:A6:32:00:01:61"]),
+    _port("ether4", True, ["DC:A6:32:00:10:50"]),
+    _port("ether5", False, []),
+    _port("ether6", True, ["48:A9:8A:00:00:21"], neighbor="cAP ax Garden"),
+    _port("ether7", False, []),
+    _port("ether8", False, [], disabled=True),
+    {
+        "entity_id": "sensor.cap_ax_garden_wi_fi_wifi1",
+        "state": "2",
+        "attributes": {
+            "friendly_name": "cAP ax Garden Wi-Fi wifi1",
+            "ap_mac": "48:A9:8A:00:00:21",
+            "interface": "wifi1",
+            "ssid": "Thuis-IoT",
+            "connected": ["68:27:19:00:30:52", "24:0A:C4:00:30:10"],
+        },
+    },
+]
+
+
 def iso(ts: float) -> str:
     return datetime.fromtimestamp(ts, UTC).isoformat()
 
@@ -621,6 +669,8 @@ class MockHA:
         self.entities: dict[str, dict] = {}
         self.devices: dict[str, dict] = {}
         self.states: dict[str, dict] = {}
+        # The switch ports and access point of MikroTik Network (PORTS), by entity
+        self.ports: dict[str, dict] = {p["entity_id"]: json.loads(json.dumps(p)) for p in PORTS}
         self.profiles: dict[str, str] = {}
         self.history: dict[str, list[tuple[float, str]]] = {}
         # Phones: (ts, state, lat, lon, accuracy, battery), from two weeks ago to tomorrow
@@ -886,6 +936,16 @@ class MockHA:
         self.states[entity_id] = new
         await self._send_event("state_changed", {"entity_id": entity_id, "old_state": old, "new_state": new})
 
+    async def set_port(self, entity_id: str, state: str | None = None, **attrs) -> None:
+        """A device plugged into or out of a port: the integration's port entity changes."""
+        old = self.ports[entity_id]
+        new = json.loads(json.dumps(old))
+        if state is not None:
+            new["state"] = state
+        new["attributes"].update(attrs)
+        self.ports[entity_id] = new
+        await self._send_event("state_changed", {"entity_id": entity_id, "old_state": old, "new_state": new})
+
     async def _simulate(self) -> None:
         while True:
             await asyncio.sleep(TICK_SECONDS)
@@ -1075,7 +1135,7 @@ class MockHA:
                 }
                 for e, n, lat, lon, r in ZONES
             ]
-            await result(list(self.states.values()) + zones)
+            await result(list(self.states.values()) + zones + list(self.ports.values()))
         elif kind == "config/entity_registry/list":
             await result(list(self.entities.values()))
         elif kind == "config/device_registry/list":
