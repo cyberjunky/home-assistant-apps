@@ -104,6 +104,60 @@ A disk that already holds a datastore (from this app before a reinstall, or from
 
 3. Add the datastore with **Datastore → Add Datastore**, the backing path `/mnt/datastore/backups` (or the folder on the disk that holds `.chunks`), and **Reuse existing datastore** on. Or: `proxmox-backup-manager datastore create backups /mnt/datastore/backups --reuse-datastore true`.
 
+## Move a datastore to another disk
+
+A datastore is a folder, `/mnt/datastore/<name>`, with a disk mounted on it. To move it to a new disk, copy the disk's contents and point the mount unit at the new disk. It stays the same datastore, with the same name, backups, jobs and permissions, so Proxmox VE and other clients need no changes. The old disk stays untouched until you remove it, so you can always go back.
+
+In PBS's **Shell**, for a datastore called `backups`, with the new disk as `/dev/sdb1`. Pick a time when no backup runs, or pause the backup jobs in Proxmox VE.
+
+1. **Check which disk is which.** The `What=` line of the mount unit holds the UUID of the current disk:
+
+   ```sh
+   blkid
+   cat /etc/systemd/system/mnt-datastore-backups.mount
+   ```
+
+2. **Format the new disk.** This erases it:
+
+   ```sh
+   mkfs.ext4 -F -L backups /dev/sdb1
+   ```
+
+3. **Make the datastore read-only, then copy.** Use the `&&`: the copy must only run when the new disk is mounted, or it goes to Home Assistant's own storage:
+
+   ```sh
+   proxmox-backup-manager datastore update backups --maintenance-mode type=read-only
+   mkdir -p /mnt/datastore/new
+   mount -t ext4 /dev/sdb1 /mnt/datastore/new && grep /mnt/datastore/new /proc/mounts && cp -a /mnt/datastore/backups/. /mnt/datastore/new/ && sync && df -h /mnt/datastore/backups /mnt/datastore/new
+   ```
+
+   Both disks should then show about the same space used, and `ls -a` the same contents (`.chunks`, `.lock`, `ct`, `host`, `vm`). Then:
+
+   ```sh
+   umount /mnt/datastore/new && rmdir /mnt/datastore/new
+   ```
+
+4. **Switch.** The app notices the changed mount unit and mounts the new disk within a few seconds:
+
+   ```sh
+   proxmox-backup-manager datastore update backups --maintenance-mode type=offline
+   NEW=$(blkid -s UUID -o value /dev/sdb1); ls -l /dev/disk/by-uuid/$NEW
+   sed -i "s|^What=.*|What=/dev/disk/by-uuid/$NEW|" /etc/systemd/system/mnt-datastore-backups.mount
+   umount /mnt/datastore/backups
+   sleep 15; grep datastore /proc/mounts
+   ```
+
+   The last line must show the new disk on `/mnt/datastore/backups`. If `ls` says the UUID's link doesn't exist yet, run the `sed` line and restart the app instead of `umount`.
+
+5. **Back online, and check every backup on the new disk.** `--ignore-verified false` reads them all, also those verified recently on the old disk:
+
+   ```sh
+   proxmox-backup-manager datastore update backups --delete maintenance-mode
+   proxmox-backup-manager verify backups --ignore-verified false
+   ```
+
+The disk is mounted by its file system's UUID, so it doesn't matter if its name changes (`sdb1` becomes `sda1` once the old disk is gone). To go back, put the old UUID in the `What=` line and unmount: the app mounts the old disk again.
+
 ## Backups of Home Assistant
 
 The backups on the datastore disks are not part of Home Assistant's backups; they would make them as large as the disks. Home Assistant's backups do contain PBS's configuration (`/data/pbs/etc`: datastores, users, tokens, jobs, the certificate), its history (`/data/pbs/lib`) and its mount units (`/data/pbs/systemd`). Task logs (`/data/pbs/log`) are left out. Restoring a Home Assistant backup therefore gives back the same server, and it finds its disks again.
@@ -137,6 +191,7 @@ Proxmox VE, and other PBS servers, keep using port 8007 of Home Assistant's addr
 - **"file system errors e2fsck -p can't fix"** in the log: connect the disk to a Linux computer and run `e2fsck -f` on it, then connect it again.
 - **Proxmox VE says the fingerprint doesn't match**: the app's data was reset, so PBS made a new certificate. Copy the new fingerprint from the datastore's Summary into the storage's settings.
 - **Login fails**: set `root_password`, restart the app, and choose the realm Linux PAM.
+- **`mount` says "already mounted or mount point busy"** while nothing is mounted there: the app's AppArmor profile refused the mount, and `mount` reports it that way. The app only lets ext4, xfs and btrfs disks be mounted below `/mnt/datastore`; mount there, and with `-t ext4` (or the file system's type)
 - **The sidebar page says PBS is not answering**: PBS is starting or has stopped; the app's Log tab says why.
 
 ## Development

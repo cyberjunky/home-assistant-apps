@@ -280,7 +280,7 @@ function renderBkCalendar(model) {
                 ...(!runs.length && !pts.length ? ['no backup'] : [])].join('\n');
             const upid = (bad[0] || okRuns[0] || {}).upid;
             const node = (bad[0] || okRuns[0] || {}).node;
-            return `<td class="bk-cell"><span class="bk-dot ${cls}" title="${attr(tip)}"${upid ? ` onclick="event.stopPropagation();showTask('${attr(node)}', '${attr(upid)}', 'Backup')"` : ''}></span></td>`;
+            return `<td class="bk-cell"><span class="bk-dot ${cls}" title="${attr(tip)}"${upid ? ` onclick="event.stopPropagation();showTask('${jsq(node)}', '${jsq(upid)}', 'Backup')"` : ''}></span></td>`;
         }).join('');
         return `<tr onclick="switchTab('backups', '${m.g.vmid}')">${td(guestLabel(m.g))}${cells}${td(rpoText(m), 'n')}</tr>`;
     });
@@ -299,7 +299,7 @@ function renderBkAttention(model) {
     model.filter(m => m.points.length && !m.verified && m.points.some(b => String(b.format || '').startsWith('pbs'))).forEach(m => add('info', `<b>${escapeHtml(guestName(m.g))}</b>: no restore point is verified yet`, m.g.vmid));
     const disabled = ((app.conf && app.conf.backup_jobs) || []).filter(j => j.enabled !== undefined && !Number(j.enabled));
     disabled.forEach(j => add('info', `Backup job <span class="mono">${escapeHtml(j.schedule || j.id)}</span> to ${escapeHtml(j.storage || '')} is switched off`));
-    pbsAlerts().forEach(a => items.push(`<a class="check ${a.kind}" href="#backups/server" onclick="${a.upid ? `showTask('${attr(a.server)}', '${attr(a.upid)}', 'Backup server', '${attr(a.server)}')` : `switchTab('backups', 'server')`};return false"><span class="sdot ${a.kind === 'info' ? '' : a.kind}"></span><span>${a.text}</span></a>`));
+    pbsAlerts().forEach(a => items.push(`<a class="check ${a.kind}" href="#backups/server" onclick="${a.upid ? `showTask('${jsq(a.server)}', '${jsq(a.upid)}', 'Backup server', '${jsq(a.server)}')` : `switchTab('backups', 'server')`};return false"><span class="sdot ${a.kind === 'info' ? '' : a.kind}"></span><span>${a.text}</span></a>`));
     document.getElementById('bk-attention').innerHTML = items.length ? `<div class="checks-list">${items.join('')}</div>`
         : '<div class="all-good"><span class="sdot ok"></span> Every guest has a recent, good backup.</div>';
 }
@@ -408,7 +408,7 @@ function renderBkJobs(model) {
         const avg = done.length ? done.reduce((a, t) => a + (t.endtime - t.starttime), 0) / done.length : null;
         const dots = mine.map(t => {
             const cls = !t.endtime ? 'run' : t.status === 'OK' ? 'ok' : /^WARNINGS/.test(t.status || '') ? 'warn' : 'bad';
-            return `<span class="bk-dot ${cls}" title="${attr(`${fmtDateTime(t.starttime)} · ${t.status || 'running'}${t.endtime ? ` · ${fmtDuration(t.endtime - t.starttime)}` : ''}${t.id ? ` · guest ${t.id}` : ''}`)}" onclick="showTask('${attr(t.node)}', '${attr(t.upid)}', 'Backup')"></span>`;
+            return `<span class="bk-dot ${cls}" title="${attr(`${fmtDateTime(t.starttime)} · ${t.status || 'running'}${t.endtime ? ` · ${fmtDuration(t.endtime - t.starttime)}` : ''}${t.id ? ` · guest ${t.id}` : ''}`)}" onclick="showTask('${jsq(t.node)}', '${jsq(t.upid)}', 'Backup')"></span>`;
         }).join('');
         const failed = mine.filter(t => t.endtime && t.status !== 'OK' && !/^WARNINGS/.test(t.status || '')).length;
         return `<tr>${td(`<span class="name">${escapeHtml(n.name)}</span>`)}${td(`<div class="bk-runs">${dots || '<span class="muted">no backup tasks</span>'}</div>`)}
@@ -470,7 +470,7 @@ function renderBkGuest(el) {
                 ${td(b.protected ? '🔒 yes' : '<span class="muted">no</span>')}${td(b.encrypted ? 'yes' : '<span class="muted">no</span>')}${td(escapeHtml(b.notes || ''), 'wrap-cell muted')}</tr>`;
         }), {empty: 'No restore points'});
     document.getElementById('bkg-runs').innerHTML = table([{label: 'Started'}, {label: 'Result'}, {label: 'Took', n: true}, {label: 'Moved', n: true}, {label: 'Speed', n: true}, {label: 'Node'}, {label: 'Message'}],
-        m.runs.map(r => `<tr onclick="showTask('${attr(r.node)}', '${attr(r.upid)}', 'Backup of ${attr(guestName(g))}')">
+        m.runs.map(r => `<tr onclick="showTask('${jsq(r.node)}', '${jsq(r.upid)}', 'Backup of ${attr(guestName(g))}')">
             ${td(escapeHtml(fmtDateTime(r.ts)))}${td(r.ok === false ? stateLabel('bad', 'failed') : r.ok ? stateLabel('ok', 'OK') : stateLabel('warn', 'running'))}
             ${td(missing(r.duration) ? '–' : escapeHtml(fmtDuration(r.duration)), 'n')}${td(r.transferred ? escapeHtml(fmtBytes(r.transferred)) : '–', 'n')}
             ${td(r.transferred && r.duration ? escapeHtml(fmtByteRate(r.transferred / r.duration)) : '–', 'n')}${td(escapeHtml(r.node))}${td(escapeHtml(r.error || ''), 'wrap-cell muted')}</tr>`),

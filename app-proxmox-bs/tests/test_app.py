@@ -225,3 +225,31 @@ def test_guard_script_refuses_home_assistants_disk():
     guard = Path(__file__).resolve().parent.parent / "rootfs/usr/libexec/pbsapp/disk-guard"
     text = guard.read_text()
     assert "hassos" in text and "exec -a" in text
+
+
+def test_before_pbs_starts_a_connected_disk_is_mounted(monkeypatch, tmp_path):
+    fake = Fake(monkeypatch, tmp_path, connected=True, mounted=False, cfg="")
+    mounts.mount_all()
+    assert fake.calls == [("mount", "/mnt/datastore/store1")]
+
+
+def test_before_pbs_starts_a_missing_disk_leaves_its_mount_point_locked(monkeypatch, tmp_path):
+    fake = Fake(monkeypatch, tmp_path, connected=False, mounted=False, cfg="")
+    mounts.mount_all()
+    assert fake.calls == [("lock", "/mnt/datastore/store1")]
+
+
+def test_pbs_waits_for_its_disks():
+    """pbs-api and pbs-proxy start only after mount-disks, which is in the user bundle."""
+    s6 = Path(__file__).resolve().parent.parent / "rootfs/etc/s6-overlay"
+    for service in ("pbs-api", "pbs-proxy"):
+        assert (s6 / "s6-rc.d" / service / "dependencies.d/mount-disks").exists()
+    assert (s6 / "user-bundles.d/user/contents.d/mount-disks").exists()
+    assert (s6 / "s6-rc.d/mount-disks/type").read_text().strip() == "oneshot"
+
+
+def test_before_pbs_starts_a_disk_that_fails_to_mount_leaves_its_mount_point_locked(monkeypatch, tmp_path):
+    fake = Fake(monkeypatch, tmp_path, connected=True, mounted=False, cfg="")
+    monkeypatch.setattr(mounts, "mount", lambda unit: fake.calls.append(("mount", unit.where)) or (False, "bad"))
+    mounts.mount_all()
+    assert fake.calls == [("mount", "/mnt/datastore/store1"), ("lock", "/mnt/datastore/store1")]

@@ -114,7 +114,7 @@ function renderOvNodes() {
         const load = n.status && n.status.loadavg ? n.status.loadavg[0] : null;
         const upd = n.conf && Array.isArray(n.conf.updates) ? n.conf.updates.length : null;
         const sub = n.conf && n.conf.subscription ? n.conf.subscription.status : '';
-        return `<tr onclick="openNode('${attr(n.name)}')">
+        return `<tr onclick="openNode('${jsq(n.name)}')">
             ${td(`<span class="name">${escapeHtml(n.name)}</span><span class="sub">${escapeHtml(n.ip)}</span>`)}
             ${td(n.online ? stateLabel('ok', 'online') : stateLabel('bad', 'offline'))}
             ${td(n.online ? meter(n.cpu, undefined, {title: `${num(n.maxcpu)} threads`}) : '–')}
@@ -177,7 +177,7 @@ function renderOvHealth() {
     if (!app.conf) { el.innerHTML = '<div class="empty-state">Reading the configuration…</div>'; return; }
     const checks = healthChecks();
     el.innerHTML = checks.length ? `<div class="checks-list">${checks.map(c => `
-        <a class="check ${c.kind}" href="#${attr(c.go)}" onclick="switchTab('${attr(c.go.split('/')[0])}', '${attr(c.go.split('/').slice(1).join('/'))}');return false">
+        <a class="check ${c.kind}" href="#${attr(c.go)}" onclick="switchTab('${jsq(c.go.split('/')[0])}', '${jsq(c.go.split('/').slice(1).join('/'))}');return false">
             <span class="sdot ${c.kind === 'info' ? '' : c.kind}"></span><span>${c.text}</span></a>`).join('')}</div>`
         : `<div class="all-good"><span class="sdot ok"></span> All good: disks, ZFS, services, backups, replication and tasks.</div>`;
 }
@@ -252,7 +252,7 @@ function renderOvSide() {
 }
 
 function taskRows(list) {
-    return list.map(t => `<tr class="${t.status && t.status !== 'OK' && !/^WARNINGS/.test(t.status) ? 'failed' : ''}" onclick="showTask('${attr(t.node)}', '${attr(t.upid)}', '${attr(taskName(t))}')">
+    return list.map(t => `<tr class="${t.status && t.status !== 'OK' && !/^WARNINGS/.test(t.status) ? 'failed' : ''}" onclick="showTask('${jsq(t.node)}', '${jsq(t.upid)}', '${jsq(taskName(t))}')">
         ${td(escapeHtml(fmtDateTime(t.starttime)), 'mono')}
         ${td(escapeHtml(taskName(t)))}
         ${td(taskTarget(t))}

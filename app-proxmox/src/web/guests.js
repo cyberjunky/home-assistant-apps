@@ -225,7 +225,7 @@ function renderGdHead(g) {
     document.getElementById('gd-head').innerHTML = `
         <h1>${guestLabel(g)}</h1>
         <div class="badges">${guestState(g)} ${g.hastate ? badge(`HA ${g.hastate}`, 'mode', 'managed by Proxmox HA') : ''} ${pool} ${tagsHtml(g)}</div>
-        <span class="meta">on <a href="#nodes/${attr(g.node)}" onclick="openNode('${attr(g.node)}');return false">${escapeHtml(g.node)}</a>${g.uptime ? ` · up ${escapeHtml(fmtUptime(g.uptime))}` : ''}</span>
+        <span class="meta">on <a href="#nodes/${attr(g.node)}" onclick="openNode('${jsq(g.node)}');return false">${escapeHtml(g.node)}</a>${g.uptime ? ` · up ${escapeHtml(fmtUptime(g.uptime))}` : ''}</span>
         <div class="controls">${consoleButton(g)}${powerButtons(g)}</div>`;
 }
 

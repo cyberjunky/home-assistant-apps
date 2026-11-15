@@ -180,7 +180,7 @@ function renderPbsJobs(s) {
         const what = kind === 'sync' ? `${escapeHtml(j.remote ? `${j.remote}:` : '')}${escapeHtml(j['remote-store'] || '')} → ${escapeHtml(j.store)}`
             : kind === 'prune' ? `${escapeHtml(j.store)}<span class="sub mono">${['keep-last', 'keep-hourly', 'keep-daily', 'keep-weekly', 'keep-monthly', 'keep-yearly'].filter(k => j[k]).map(k => `${k.slice(5)}=${j[k]}`).join(' ')}</span>`
             : escapeHtml(j.store || '');
-        const click = j['last-run-upid'] ? ` onclick="showTask('${attr(s.name)}', '${attr(j['last-run-upid'])}', '${attr(PBS_JOB_KINDS[kind])} ${attr(j.id || j.store)}', '${attr(s.name)}')"` : '';
+        const click = j['last-run-upid'] ? ` onclick="showTask('${jsq(s.name)}', '${jsq(j['last-run-upid'])}', '${jsq(PBS_JOB_KINDS[kind])} ${attr(j.id || j.store)}', '${jsq(s.name)}')"` : '';
         return `<tr${click}>
             ${td(badge(PBS_JOB_KINDS[kind], 'mode'))}
             ${td(`<span class="name mono">${escapeHtml(j.id || j.store)}</span>`)}
@@ -216,7 +216,7 @@ function renderPbsTasks(s) {
     const failed = all.filter(t => t.endtime && !pbsTaskOk(t)).length;
     document.getElementById('pbs-tasks-hint').textContent = `${failed ? `${failed} failed · ` : ''}click one for its log`;
     document.getElementById('pbs-tasks').innerHTML = table([{label: 'Started'}, {label: 'Task'}, {label: 'What'}, {label: 'User'}, {label: 'Took', n: true}, {label: 'Status'}],
-        tasks.map(t => `<tr class="${t.endtime && !pbsTaskOk(t) ? 'failed' : ''}" onclick="showTask('${attr(s.name)}', '${attr(t.upid)}', '${attr(pbsTaskName(t))}', '${attr(s.name)}')">
+        tasks.map(t => `<tr class="${t.endtime && !pbsTaskOk(t) ? 'failed' : ''}" onclick="showTask('${jsq(s.name)}', '${jsq(t.upid)}', '${jsq(pbsTaskName(t))}', '${jsq(s.name)}')">
             ${td(escapeHtml(fmtDateTime(t.starttime)), 'mono')}${td(escapeHtml(pbsTaskName(t)))}${td(escapeHtml(pbsWorker(t.worker_id)), 'mono')}
             ${td(escapeHtml(t.user || ''), 'muted')}${td(t.endtime ? escapeHtml(fmtDuration(t.endtime - t.starttime)) : '–', 'n')}
             ${td(!t.endtime ? stateLabel('warn', 'running') : pbsTaskOk(t) ? stateLabel('ok', t.status) : `<span class="state bad" title="${attr(t.status)}">${escapeHtml(String(t.status).replace(/^TASK ERROR: /, '').slice(0, 50))}</span>`)}
