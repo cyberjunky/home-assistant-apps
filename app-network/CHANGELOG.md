@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.8
+
+**After updating:** "Draw connections" keeps the cables already on a page. Remove the old cables from the MikroTik port to the FRITZ!Box Wi-Fi devices, or empty the page, then *Auto-place* and *Draw connections* with *Wi-Fi devices to their access point* ticked.
+
+- **FRITZ!Box Wi-Fi wins over the switch port:** a device the FRITZ!Box integration reports on its Wi-Fi was cabled to the MikroTik port that leads to the FRITZ!Box, since that port sees it too. Now it is a Wi-Fi device hanging from the FRITZ!Box or repeater it is connected to. A MikroTik access point that has it registered still goes first.
+
 ## 0.1.7
 
 **After updating:** to place the FRITZ!Box Wi-Fi devices again: on an emptied page, *Auto-place*, then *Draw connections* with *Wi-Fi devices to their access point* ticked.

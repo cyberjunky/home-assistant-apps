@@ -18,7 +18,7 @@ from .config import APP_VERSION, DATA_DIR, Config
 from .donate import DonatePrompt
 from .ha_client import HAClientError, HAWebSocket
 from .history import DAY, History, host_events, host_stats, merge, online_series, up_intervals
-from .inventory import Inventory, behind_bridges, fritz_nodes
+from .inventory import Inventory, behind_bridges, fritz_nodes, on_fritz_wifi
 from .kinds import KINDS
 from .mobile import mismatch, parse_history
 from .mobile import summary as mobile_summary
@@ -130,17 +130,20 @@ class WebUI:
             ids = [t["entity_id"] for t in host["trackers"]]
             seen = [first[i] for i in ids if i in first]
             gone = [last[i] for i in ids if i in last]
+            entry = on_fritz_wifi(host)
+            fritz_wifi = entry is not host
+            via = fritz_nodes.get(host.get("connected_to", "").lower(), "")
             out.append(
                 {
-                    **host,
+                    **entry,
                     "first_seen": min(seen) if seen else None,
                     "last_seen": max(gone) if gone else None,
-                    "connected_via": fritz_nodes.get(host.get("connected_to", "").lower(), ""),
+                    "connected_via": via,
                     # Behind an access point or switch that is on the same switch port
                     **(
                         {"behind": behind[host["key"]][0], "behind_by": behind[host["key"]][1]}
                         | ({"wired": False} if behind[host["key"]][1] == "wifi" else {})
-                        if host["key"] in behind
+                        if host["key"] in behind and not (fritz_wifi and via)
                         else {}
                     ),
                 }

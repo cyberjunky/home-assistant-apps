@@ -484,6 +484,16 @@ class Inventory:
         await self.load()
 
 
+def on_fritz_wifi(host: dict) -> dict:
+    """A device on the Wi-Fi of a FRITZ! device (the FRITZ!Box integration says WLAN): the switch
+    port that sees it is only the cable towards that FRITZ! device, so the FRITZ!Box's word wins and
+    the port is dropped. A copy then; else the host itself. An access point that has it registered
+    (a MikroTik's Wi-Fi) still goes first."""
+    if host.get("connection_type") != "WLAN" or host.get("ap_mac"):
+        return host
+    return {**host, "sw_mac": "", "sw_port": "", "wired": False}
+
+
 def fritz_nodes(hosts: list[dict], devices: dict[str, dict], router: dict) -> dict[str, str]:
     """The FRITZ! devices (the box, repeaters) that the FRITZ!Box integration names in a tracker's
     connected_to, by that name (lower case), as the key of their host.

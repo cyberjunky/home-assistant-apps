@@ -9,7 +9,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from src import ha_client
 from src.config import Config
 from src.history import History, host_events, host_stats, merge, online_series, up_intervals
-from src.inventory import Inventory, behind_bridges, build_hosts, fritz_nodes, is_up, port_entity
+from src.inventory import Inventory, behind_bridges, build_hosts, fritz_nodes, is_up, on_fritz_wifi, port_entity
 from src.kinds import KINDS, guess_kind, is_random_mac, mac_vendor, normalize_mac
 from src.mobile import distance, habits, haversine, mismatch, segments, summary, trips
 from src.store import Conflict, Store, clean, empty_doc
@@ -751,3 +751,26 @@ def test_a_device_that_just_left_counts():
     iv, known = up_intervals(True, [], 0.0, until)
     assert host_stats(iv, known, 0.0, until)["drops"] == 0
     assert host_events({"a": iv}, 0.0, until) == []
+
+
+def test_fritz_wifi_beats_the_switch_port():
+    # A FRITZ!Box Wi-Fi client that a MikroTik sees on the port towards the FRITZ!Box
+    host = {
+        "mac": "aa",
+        "connection_type": "WLAN",
+        "ssid": "Herschelan",
+        "sw_mac": "sw",
+        "sw_port": "ether1",
+        "ap_mac": "",
+    }
+    entry = on_fritz_wifi(host)
+    assert (
+        entry["sw_mac"] == "" and entry["sw_port"] == "" and entry["wired"] is False and entry["ssid"] == "Herschelan"
+    )
+    assert host["sw_mac"] == "sw"
+    # Wired to the FRITZ!Box, or registered to a MikroTik access point: unchanged
+    assert on_fritz_wifi({**host, "connection_type": "LAN"})["sw_mac"] == "sw"
+    assert (
+        on_fritz_wifi({**host, "ap_mac": "ap"}) is not None
+        and on_fritz_wifi({**host, "ap_mac": "ap"})["sw_mac"] == "sw"
+    )
