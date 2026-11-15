@@ -456,10 +456,14 @@ class Inventory:
         if entry is None:
             raise KeyError(entity_id)
         name = name.strip()
-        await self.ws.call({"type": "config/entity_registry/update", "entity_id": entity_id, "name": name or None})
         device_id = entry.get("device_id")
+        device_too = bool(device_too and device_id)
+        # An entity with has_entity_name is called "<device> <its own name>": when the device gets the
+        # name, the entity gives up its own, or the name shows twice
+        own = None if device_too and entry.get("has_entity_name") else name or None
+        await self.ws.call({"type": "config/entity_registry/update", "entity_id": entity_id, "name": own})
         renamed_device = False
-        if device_too and device_id:
+        if device_too:
             await self.ws.call(
                 {"type": "config/device_registry/update", "device_id": device_id, "name_by_user": name or None}
             )

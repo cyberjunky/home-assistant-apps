@@ -538,10 +538,21 @@ async def test_rename_in_home_assistant(app, mock):
     entity_id = "device_tracker.hp7c3b8a"
     answer = await test.post("/api/rename", json={"entity_id": entity_id, "name": "Office printer", "device": True})
     assert answer.status == 200, await answer.text()
-    assert mock.entities[entity_id]["name"] == "Office printer"
+    # A UniFi tracker is named after its device: the device gets the name, the tracker keeps none
+    assert mock.entities[entity_id]["has_entity_name"] and mock.entities[entity_id]["name"] is None
     assert mock.devices[mock.entities[entity_id]["device_id"]]["name_by_user"] == "Office printer"
     hosts = {h["entity_id"]: h for h in inventory.hosts()}
     assert hosts[entity_id]["name"] == "Office printer"
+    # A tracker named after its device (has_entity_name): the device gets the name, the tracker
+    # gives up its own, so it isn't "MikroTik hAP mini MikroTik hAP mini"
+    named = next(e for e, x in mock.entities.items() if x.get("has_entity_name") and x.get("device_id"))
+    await test.post("/api/rename", json={"entity_id": named, "name": "MikroTik hAP mini", "device": True})
+    assert mock.entities[named]["name"] is None
+    assert mock.devices[mock.entities[named]["device_id"]]["name_by_user"] == "MikroTik hAP mini"
+    assert mock.states[named]["attributes"]["friendly_name"] == "MikroTik hAP mini"
+    # Only the tracker: its own name, after the device's
+    await test.post("/api/rename", json={"entity_id": named, "name": "LAN", "device": False})
+    assert mock.states[named]["attributes"]["friendly_name"] == "MikroTik hAP mini LAN"
     # Empty gives the integration's own name back
     await test.post("/api/rename", json={"entity_id": entity_id, "name": ""})
     assert mock.entities[entity_id]["name"] is None

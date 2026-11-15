@@ -1166,14 +1166,17 @@ class MockHA:
             await result(error=f"Unknown command {kind}")
 
     async def _refresh_name(self, entity_id: str) -> None:
-        """The friendly name as Home Assistant makes it: the registry's name, else the device's."""
+        """The friendly name as Home Assistant makes it. With has_entity_name: the device's name, then
+        the entity's own (its registry name, else the integration's) when it has one; else the
+        registry's name, else the integration's."""
         entry = self.entities[entity_id]
         device = self.devices.get(entry.get("device_id") or "") or {}
-        name = entry.get("name") or (
-            (device.get("name_by_user") or device.get("name"))
-            if entry.get("has_entity_name")
-            else entry.get("original_name")
-        )
+        if entry.get("has_entity_name"):
+            own = entry.get("name") or entry.get("original_name")
+            device_name = device.get("name_by_user") or device.get("name") or ""
+            name = f"{device_name} {own}".strip() if own else device_name
+        else:
+            name = entry.get("name") or entry.get("original_name")
         attrs = {"friendly_name": name or entity_id}
         if entry.get("icon"):
             attrs["icon"] = entry["icon"]
