@@ -1026,7 +1026,7 @@ async function mapSuggestLinks() {
         const m = meta(h.key);
         const candidates = [];
         if (m.uplink) candidates.push({key: m.uplink, kind: connectionOf(h) === 'wifi' ? 'wifi' : (m.connection || 'ethernet'), label: m.port || ''});
-        if (h.behind) candidates.push({key: h.behind, kind: h.behind_by === 'wifi' ? 'wifi' : 'ethernet', label: ''});
+        if (h.behind) candidates.push({key: h.behind, kind: ['wifi', 'virtual'].includes(h.behind_by) ? h.behind_by : 'ethernet', label: ''});
         if (h.ap_mac) { const ap = hostByMac(h.ap_mac); if (ap) candidates.push({key: ap.key, kind: 'wifi', label: ''}); }
         if (h.sw_mac) { const sw = hostByMac(h.sw_mac); if (sw) candidates.push({key: sw.key, kind: 'ethernet', label: m.port || portText(h.sw_port)}); }
         if (h.connected_via) candidates.push({key: h.connected_via, kind: h.connection_type === 'WLAN' ? 'wifi' : 'ethernet', label: m.port || ''});
