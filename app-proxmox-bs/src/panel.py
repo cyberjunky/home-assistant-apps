@@ -10,6 +10,8 @@ runs on plain http. PBS itself is unchanged; what this module adjusts on the way
 - PBS's login ticket cookie (__Host-PBSAuthCookie, HttpOnly: https and the root path only) is kept
   in the browser as PBSAppAuth on the ingress path, and given back to PBS under its own name. The
   readable PBSAuthCookie its page sets itself (the shim moves that one to the ingress path) keeps its name
+- Home Assistant's ingress passes a Content-Type without its parameters; the shim gives PBS's
+  console its JSON answers' type back with the charset it requires
 - "Show Connection Information" leaves out Home Assistant's port: Proxmox VE connects to port 8007
 """
 
@@ -65,9 +67,11 @@ def base_path(request: web.Request) -> str:
 
 
 def rewrite_page(html: str, base: str, shim: str) -> str:
-    """PBS's page with its root links below `base`, and the shim before anything else runs."""
+    """PBS's page with its root links below `base`, and the shim before anything else runs. Its
+    charset first: Home Assistant's ingress drops it from the Content-Type, and PBS's console page
+    doesn't name it itself."""
     html = ROOT_LINK.sub(lambda m: f"{m.group(1)}={m.group(2)}{base}/", html)
-    head = f"<script>window.PBSAPP_BASE = {json.dumps(base)};\n{shim}</script>"
+    head = f'<meta charset="utf-8"><script>window.PBSAPP_BASE = {json.dumps(base)};\n{shim}</script>'
     match = re.search(r"<head[^>]*>", html, re.IGNORECASE)
     if match:
         return html[: match.end()] + head + html[match.end() :]

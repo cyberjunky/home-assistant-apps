@@ -36,6 +36,20 @@
   XMLHttpRequest.prototype.open = function (method, url, ...rest) {
     return open.call(this, method, fix(String(url)), ...rest);
   };
+  // Home Assistant's ingress passes a Content-Type without its parameters: PBS's
+  // "application/json;charset=UTF-8" arrives as "application/json", and PBS's console
+  // (pve-xtermjs) only takes JSON with the ';'. Give PBS's code the header as PBS sent it
+  const getResponseHeader = XMLHttpRequest.prototype.getResponseHeader;
+  const withCharset = type => (typeof type === 'string' && /^application\/json\s*$/i.test(type) ? 'application/json;charset=UTF-8' : type);
+  XMLHttpRequest.prototype.getResponseHeader = function (name) {
+    const value = getResponseHeader.call(this, name);
+    return String(name).toLowerCase() === 'content-type' ? withCharset(value) : value;
+  };
+  const getAllResponseHeaders = XMLHttpRequest.prototype.getAllResponseHeaders;
+  XMLHttpRequest.prototype.getAllResponseHeaders = function () {
+    const all = getAllResponseHeaders.call(this);
+    return typeof all === 'string' ? all.replace(/^(content-type:\s*)application\/json\s*$/gim, '$1application/json;charset=UTF-8') : all;
+  };
   const realFetch = window.fetch;
   if (realFetch) {
     window.fetch = function (input, init) {

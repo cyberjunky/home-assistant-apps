@@ -24,7 +24,9 @@ def test_page_links_go_below_the_ingress_path_and_the_shim_comes_first():
     assert "src='/api/hassio_ingress/tok/pbs/js/proxmox-backup-gui.js'" in html
     assert 'href="//example.org/x"' in html
     head = html.index("<head>") + len("<head>")
-    assert html[head:].startswith('<script>window.PBSAPP_BASE = "/api/hassio_ingress/tok/pbs";\n/*shim*/</script>')
+    assert html[head:].startswith(
+        '<meta charset="utf-8"><script>window.PBSAPP_BASE = "/api/hassio_ingress/tok/pbs";\n/*shim*/</script>'
+    )
 
 
 def test_login_cookie_is_kept_on_the_ingress_path_and_given_back_under_its_own_name():
