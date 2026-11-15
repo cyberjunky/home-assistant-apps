@@ -393,7 +393,7 @@ function hostLink(h) {
 function openHost(key) { showHostDialog(key); }
 const platformsText = h => h.platforms.map(p => PLATFORM_NAMES[p] || p).join(', ');
 const PLATFORM_NAMES = {unifi: 'UniFi', nmap_tracker: 'Nmap', fritz: 'FRITZ!Box', mobile_app: 'Mobile app', ping: 'Ping', asuswrt: 'ASUSWRT',
-    netgear: 'Netgear', tplink_omada: 'Omada', huawei_lte: 'Huawei LTE', keenetic_ndms2: 'Keenetic', mikrotik: 'MikroTik', luci: 'OpenWrt',
+    netgear: 'Netgear', tplink_omada: 'Omada', huawei_lte: 'Huawei LTE', keenetic_ndms2: 'Keenetic', mikrotik: 'MikroTik', mikrotik_network: 'MikroTik Network', luci: 'OpenWrt',
     ubus: 'OpenWrt', bluetooth_le_tracker: 'Bluetooth LE', ruckus_unleashed: 'Ruckus', arpscan_tracker: 'ARP scan', opnsense: 'OPNsense', pfsense: 'pfSense',
     vodafone_station: 'Vodafone Station', freebox: 'Freebox', synology_srm: 'Synology SRM', tado: 'tado', icloud: 'iCloud', owntracks: 'OwnTracks', person: 'Person'};
 
@@ -443,6 +443,20 @@ function netChip(net) {
     if (!net) return '<span class="vlan-chip untagged">no network</span>';
     return `<span class="vlan-chip" style="--vlan:${attr(netColor(net))}">${escapeHtml(net.name)}${net.vlan ? ` · ${escapeHtml(net.vlan)}` : ''}</span>`;
 }
+// The integrations that tell where a device plugs in, and how many devices each tells it for
+const PORT_SOURCES = [
+    {platform: 'mikrotik_network', name: 'MikroTik Network', url: 'https://github.com/cyberjunky/home-assistant-mikrotik', what: 'the switch port, VLAN or access point of every device on your MikroTiks'},
+    {platform: 'fritz', name: 'FRITZ!Box', url: 'https://www.home-assistant.io/integrations/fritz/', what: 'the FRITZ! device (box or repeater) and cable or Wi-Fi, with network device tracking on'},
+    {platform: 'unifi', name: 'UniFi Network', url: 'https://www.home-assistant.io/integrations/unifi/', what: 'the switch port or access point of every UniFi client'},
+];
+const hasPortData = h => Boolean(h.sw_mac || h.ap_mac || h.connected_to);
+function portSourceLink(s) {
+    return `<a href="${attr(s.url)}" target="_blank" rel="noopener">${escapeHtml(s.name)}</a>`;
+}
+
+// A switch port as a cable label: UniFi gives a number (port 9), others a name (ether2, LAN 1)
+const portText = port => /^\d+$/.test(String(port)) ? `port ${port}` : String(port || '');
+
 // How a host connects: what you set, else what the integration says
 function connectionOf(h) {
     const m = meta(h.key).connection;
@@ -557,6 +571,10 @@ function connectLive() {
     live.source = new EventSource('api/live');
     live.source.addEventListener('hello', () => { live.ok = true; scheduleLive(); });
     live.source.addEventListener('ping', () => { live.ok = true; });
+    live.source.addEventListener('router', (e) => {
+        live.ok = true;
+        try { internetLive(JSON.parse(e.data)); } catch (err) { /* the next one comes in 10 seconds */ }
+    });
     live.source.onmessage = (e) => {
         live.ok = true;
         try { JSON.parse(e.data).changed.forEach(id => live.changed.add(id)); } catch (err) { /* only a hint */ }

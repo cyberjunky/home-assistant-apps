@@ -22,6 +22,7 @@ from .inventory import Inventory
 from .kinds import KINDS
 from .mobile import mismatch, parse_history
 from .mobile import summary as mobile_summary
+from .router import Router
 from .store import Conflict, Store
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,14 @@ LIVE_HEARTBEAT = 20
 
 class WebUI:
     def __init__(
-        self, port: int, config: Config, ws: HAWebSocket, inventory: Inventory, history: History, store: Store
+        self,
+        port: int,
+        config: Config,
+        ws: HAWebSocket,
+        inventory: Inventory,
+        history: History,
+        store: Store,
+        router: Router | None = None,
     ):
         self.port = port
         self.config = config
@@ -47,6 +55,7 @@ class WebUI:
         self.inventory = inventory
         self.history = history
         self.store = store
+        self.router = router
         self._stats_cache: dict[int, tuple[float, dict, int]] = {}
         self._mobile_cache: dict[tuple, tuple[float, dict]] = {}
         # The REST side of the connection to Home Assistant: history and map tiles
@@ -61,6 +70,7 @@ class WebUI:
         r.add_get("/api/stats", self._stats)
         r.add_get("/api/mobile", self._mobile)
         r.add_get("/api/live", self._live)
+        r.add_get("/api/router", self._router)
         r.add_get("/api/map-tiles/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.png", self._map_tile)
         r.add_post("/api/rename", self._rename)
         r.add_post("/api/icon", self._icon)
@@ -101,6 +111,7 @@ class WebUI:
                     "history_days": self.config.history_days,
                     "keep_days": self.config.keep_days,
                     "include_disabled": self.config.include_disabled,
+                    "router": self.config.router,
                     "log_level": self.config.log_level,
                 },
             }
@@ -108,13 +119,21 @@ class WebUI:
 
     async def _hosts(self, request: web.Request) -> web.Response:
         hosts = self.inventory.hosts()
+        fritz_nodes = self._fritz_nodes(hosts)
         first, last = await asyncio.to_thread(lambda: (self.history.first_seen(), self.history.last_seen()))
         out = []
         for host in hosts:
             ids = [t["entity_id"] for t in host["trackers"]]
             seen = [first[i] for i in ids if i in first]
             gone = [last[i] for i in ids if i in last]
-            out.append({**host, "first_seen": min(seen) if seen else None, "last_seen": max(gone) if gone else None})
+            out.append(
+                {
+                    **host,
+                    "first_seen": min(seen) if seen else None,
+                    "last_seen": max(gone) if gone else None,
+                    "connected_via": fritz_nodes.get(host.get("connected_to", "").lower(), ""),
+                }
+            )
         return web.json_response(
             {
                 "hosts": out,
@@ -229,6 +248,7 @@ class WebUI:
         response.headers["X-Accel-Buffering"] = "no"
         await response.prepare(request)
         seen = self.inventory.version
+        router_seen = self.router.version if self.router else 0
         last_write = time.monotonic()
         try:
             await response.write(f"event: hello\ndata: {json.dumps({'version': seen})}\n\n".encode())
@@ -239,12 +259,52 @@ class WebUI:
                     seen = self.inventory.version
                     await response.write(f"data: {json.dumps({'version': seen, 'changed': changed})}\n\n".encode())
                     last_write = time.monotonic()
+                if self.router and self.router.version != router_seen:
+                    router_seen = self.router.version
+                    await response.write(f"event: router\ndata: {json.dumps(self.router.state())}\n\n".encode())
+                    last_write = time.monotonic()
                 elif time.monotonic() - last_write >= LIVE_HEARTBEAT:
                     await response.write(b"event: ping\ndata: {}\n\n")
                     last_write = time.monotonic()
         except (ConnectionResetError, TimeoutError, asyncio.CancelledError):
             pass
         return response
+
+    def _fritz_nodes(self, hosts: list[dict]) -> dict[str, str]:
+        """The FRITZ! devices the FRITZ!Box integration names in connected_to, by name: the host
+        with that name, or for the box itself the router's tracker."""
+        names = {h["connected_to"].lower() for h in hosts if h.get("connected_to")}
+        out = {}
+        for name in names:
+            for h in hosts:
+                if name in {str(h.get(k) or "").lower() for k in ("name", "host_name")} | {
+                    str(t.get("device_name") or "").lower() for t in h.get("trackers", [])
+                }:
+                    out[name] = h["key"]
+                    break
+            else:
+                router = self.router.state() if self.router else {}
+                if router.get("found") and name in {str(v).lower() for v in router["info"].values()}:
+                    out[name] = next((h["key"] for h in hosts if h.get("ip") == router["address"]), "")
+        return out
+
+    async def _router(self, request: web.Request) -> web.Response:
+        """The internet router: its state now, its traffic over a period, and the bytes per hour."""
+        if not self.router:
+            return web.json_response({"found": False, "error": "Not read"})
+        try:
+            hours = min(24 * 31, max(1, int(request.query.get("hours", "24"))))
+        except ValueError:
+            hours = 24
+        now = time.time()
+        # Per minute for a day, per 10 minutes for a week, per hour beyond that
+        step = 60 if hours <= 24 else 600 if hours <= 7 * 24 else 3600
+        minutes, per_hour = await asyncio.to_thread(
+            lambda: (self.history.router_minutes(now - hours * 3600, step), self.history.router_hours(now - 32 * DAY))
+        )
+        return web.json_response(
+            {**self.router.state(), "minutes": minutes, "hours": per_hour, "recent": self.router.recent_series()}
+        )
 
     async def _map_tile(self, request: web.Request) -> web.Response:
         """An OpenStreetMap raster tile through Home Assistant's map tile proxy."""

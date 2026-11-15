@@ -10,6 +10,7 @@ from .config import APP_VERSION, DATA_DIR, WEB_PORT, Config
 from .ha_client import HAClient, HAWebSocket
 from .history import History
 from .inventory import Inventory
+from .router import Router
 from .store import Store
 from .webui import WebUI
 
@@ -58,12 +59,14 @@ async def main() -> int:
         # Done: no reason to stop the app
         await asyncio.Event().wait()
 
-    webui = WebUI(WEB_PORT, config, ws, inventory, history, store)
+    router = Router(inventory, store, history, config.router)
+    webui = WebUI(WEB_PORT, config, ws, inventory, history, store, router)
     services = [
         asyncio.create_task(webui.start(), name="webui"),
         asyncio.create_task(ws.run(), name="websocket"),
         asyncio.create_task(backfill(), name="backfill"),
         asyncio.create_task(keep_tidy(history), name="tidy"),
+        asyncio.create_task(router.run(), name="router"),
     ]
 
     stop = asyncio.Event()

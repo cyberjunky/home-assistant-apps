@@ -1,4 +1,6 @@
-// Network dashboard - Map: pages to drag hosts onto, with groups, connections and notes.
+// Network dashboard - Network map: pages to drag hosts onto, with groups, connections and notes.
+// It opens to look at (move around, zoom, click a device for its details, a page tile to go in);
+// Edit turns on the device list, the shapes, the side panel and changing the drawing.
 //
 // A page has nodes (a host, or a shape such as "Internet" that is no tracker), groups (a box with a
 // name and colour, often one network or VLAN), links (a cable, Wi-Fi, fiber or VPN between two nodes)
@@ -28,6 +30,8 @@ const mapState = {
     search: '',
     built: false,
     frame: 0,
+    // Looking, or changing the drawing: every visit starts looking
+    edit: false,
 };
 
 const mapPages = () => (app.doc && app.doc.pages) || [];
@@ -64,18 +68,18 @@ function nodeLabel(n) {
     if (n.ref) return 'Gone from Home Assistant';
     return kindLabel(n.kind || 'generic');
 }
-function nodeSub(n) {
+function nodeSub(n, page) {
     if (n.page) {
         const s = pageSummary(pageById(n.page));
         return `${s.total} devices · ${s.up} online`;
     }
     const h = nodeHost(n);
-    if (!h) return n.note || '';
+    if (!h) return n.note || (!n.ref && NO_IP_KINDS.has(n.kind) ? 'no IP' : '');
     const net = networkOf(h).net;
-    return [h.ip || (h.gps_only ? 'GPS' : ''), net && !groupOfNetwork(net.id) ? net.name : ''].filter(Boolean).join(' · ');
+    return [h.ip || (h.gps_only ? 'GPS' : ''), net && !groupOfNetwork(net.id, page) ? net.name : ''].filter(Boolean).join(' · ');
 }
 // Whether this page has a group for the network already (then the node needn't say it)
-const groupOfNetwork = id => mapPage().groups.find(g => g.network === id) || null;
+const groupOfNetwork = (id, page) => (page || mapPage()).groups.find(g => g.network === id) || null;
 const snap = v => mapState.snap ? Math.round(v / GRID) * GRID : Math.round(v);
 const inGroup = (n, g) => n.x + NODE_W / 2 >= g.x && n.x + NODE_W / 2 <= g.x + g.w && n.y + NODE_H / 2 >= g.y && n.y + NODE_H / 2 <= g.y + g.h;
 
@@ -136,7 +140,7 @@ const mapRedo = () => mapUndoRedo(mapState.redo, mapState.undo);
 function mapBuild() {
     const el = document.getElementById('tab-map');
     el.innerHTML = `
-        <div class="map-shell">
+        <div class="map-shell${mapState.edit ? '' : ' viewing'}" id="map-shell">
             <aside class="map-palette" id="map-palette">
                 <div class="mp-section">
                     <input class="input" id="mp-search" type="search" placeholder="Search devices…" aria-label="Search devices">
@@ -198,7 +202,7 @@ function mapTabs() {
     const parent = current && current.parent ? pageById(current.parent) : null;
     el.innerHTML = `${parent ? `<button type="button" class="btn btn-small back-btn" data-page="${attr(parent.id)}" title="Back to the page this one is a tile on">← ${escapeHtml(parent.name)}</button>` : ''}
         <div class="tabs" role="tablist">${mapPages().map(p => `<button type="button" class="tab${p === current ? ' active' : ''}" data-page="${attr(p.id)}" title="Double-click to rename">${p.parent ? '<span class="sub-mark">›</span>' : ''}${escapeHtml(p.name)}</button>`).join('')}
-        <button type="button" class="tab icon-tab" data-act="add-page" title="New page">+</button></div>`;
+        ${mapState.edit ? '<button type="button" class="tab icon-tab" data-act="add-page" title="New page">+</button>' : ''}</div>`;
     el.onclick = (e) => {
         const b = e.target.closest('button');
         if (!b) return;
@@ -214,6 +218,7 @@ function mapTabs() {
         }
     };
     el.ondblclick = (e) => {
+        if (!mapState.edit) return;
         const b = e.target.closest('[data-page]');
         if (b) mapPageDialog(b.dataset.page);
     };
@@ -223,7 +228,16 @@ function mapToolbar() {
     const el = document.getElementById('map-tools');
     if (!el) return;
     const k = getView().k;
-    el.innerHTML = `
+    const zoom = `<div class="tabs" role="group" aria-label="Zoom">
+            <button type="button" class="tab icon-tab" data-act="out" title="Zoom out">−</button>
+            <button type="button" class="tab zoom-text" data-act="fit" title="Fit the page">${Math.round(k * 100)}%</button>
+            <button type="button" class="tab icon-tab" data-act="in" title="Zoom in">+</button>
+        </div>`;
+    if (!mapState.edit) {
+        el.innerHTML = `${zoom}
+            <button type="button" class="btn btn-small" data-act="export" title="Save the page as an image">Export ▾</button>
+            <button type="button" class="btn btn-small btn-primary edit-toggle" data-act="edit" title="Change the drawing: place devices and shapes, group and connect them">✎ Edit</button>`;
+    } else el.innerHTML = `
         <div class="tabs" role="group" aria-label="Edit">
             <button type="button" class="tab icon-tab" data-act="undo" title="Undo (Ctrl+Z)" ${mapState.undo.length ? '' : 'disabled'}>↶</button>
             <button type="button" class="tab icon-tab" data-act="redo" title="Redo (Ctrl+Y)" ${mapState.redo.length ? '' : 'disabled'}>↷</button>
@@ -236,7 +250,8 @@ function mapToolbar() {
             <button type="button" class="tab icon-tab" data-act="in" title="Zoom in">+</button>
         </div>
         <button type="button" class="tab icon-tab snap-btn${mapState.snap ? ' on' : ''}" data-act="snap" title="Snap to the grid: ${mapState.snap ? 'on' : 'off'}">#</button>
-        <button type="button" class="btn btn-small" data-act="export" title="Save the page as an image">Export ▾</button>`;
+        <button type="button" class="btn btn-small" data-act="export" title="Save the page as an image">Export ▾</button>
+        <button type="button" class="btn btn-small btn-primary edit-toggle" data-act="done" title="Stop changing the drawing (it is saved as you go)">Done</button>`;
     el.onclick = (e) => {
         const b = e.target.closest('[data-act]');
         if (!b) return;
@@ -245,6 +260,7 @@ function mapToolbar() {
             in: () => mapZoom(1.25), out: () => mapZoom(0.8),
             snap: () => { mapState.snap = !mapState.snap; store('map_snap', mapState.snap ? '1' : '0'); mapToolbar(); },
             export: () => mapExportMenu(b),
+            edit: () => mapSetEdit(true), done: () => mapSetEdit(false),
         })[b.dataset.act]();
     };
 }
@@ -282,13 +298,12 @@ function mapRender() {
     if (mapState.frame) return;
     mapState.frame = requestAnimationFrame(() => { mapState.frame = 0; mapDraw(); });
 }
-function mapDraw() {
-    const page = mapPage();
-    if (!page || !document.getElementById('map-vp')) return;
-    const v = getView();
-    document.getElementById('map-vp').setAttribute('transform', `translate(${v.x} ${v.y}) scale(${v.k})`);
-    const sel = mapState.sel;
-    document.getElementById('map-groups').innerHTML = page.groups.map(g => {
+// A page as SVG: its groups, links, nodes and texts. While editing with what is selected, the resize
+// corners and the dots to connect with; while looking without
+function pageSvg(page, opts) {
+    const sel = opts.sel || new Set();
+    const edit = Boolean(opts.edit);
+    const groups = page.groups.map(g => {
         const net = g.network ? networkById(g.network) : null;
         const color = g.color || (net && net.color) || GROUP_COLORS[7];
         const sub = net ? [net.vlan ? `VLAN ${net.vlan}` : '', net.subnet].filter(Boolean).join(' · ') : (g.note || '');
@@ -297,13 +312,13 @@ function mapDraw() {
             <rect class="mg-head" x="${g.x}" y="${g.y}" width="${g.w}" height="34" rx="12"/>
             <text class="mg-name" x="${g.x + 14}" y="${g.y + 22}">${escapeHtml(g.name || 'Group')}</text>
             ${sub ? `<text class="mg-sub" x="${g.x + g.w - 14}" y="${g.y + 22}" text-anchor="end">${escapeHtml(sub)}</text>` : ''}
-            <path class="mg-resize" data-resize="${attr(g.id)}" d="M${g.x + g.w - 16} ${g.y + g.h - 4}L${g.x + g.w - 4} ${g.y + g.h - 16}M${g.x + g.w - 10} ${g.y + g.h - 4}L${g.x + g.w - 4} ${g.y + g.h - 10}"/>
-            <rect class="mg-grip" data-resize="${attr(g.id)}" x="${g.x + g.w - 20}" y="${g.y + g.h - 20}" width="20" height="20"/>
+            ${edit ? `<path class="mg-resize" data-resize="${attr(g.id)}" d="M${g.x + g.w - 16} ${g.y + g.h - 4}L${g.x + g.w - 4} ${g.y + g.h - 16}M${g.x + g.w - 10} ${g.y + g.h - 4}L${g.x + g.w - 4} ${g.y + g.h - 10}"/>
+            <rect class="mg-grip" data-resize="${attr(g.id)}" x="${g.x + g.w - 20}" y="${g.y + g.h - 20}" width="20" height="20"/>` : ''}
         </g>`;
     }).join('');
-    const nodes = new Map(page.nodes.map(n => [n.id, n]));
-    document.getElementById('map-links').innerHTML = page.links.map(l => {
-        const a = nodes.get(l.from), b = nodes.get(l.to);
+    const byId = new Map(page.nodes.map(n => [n.id, n]));
+    const links = page.links.map(l => {
+        const a = byId.get(l.from), b = byId.get(l.to);
         if (!a || !b) return '';
         const [p, q] = linkEnds(a, b);
         const ha = nodeHost(a), hb = nodeHost(b);
@@ -318,13 +333,13 @@ function mapDraw() {
             ${label ? `<rect class="ml-label-bg" x="${mx - w / 2}" y="${my - 9}" width="${w}" height="18" rx="9"/><text class="ml-label" x="${mx}" y="${my + 4}" text-anchor="middle">${escapeHtml(label)}</text>` : ''}
         </g>`;
     }).join('');
-    document.getElementById('map-nodes').innerHTML = page.nodes.map(n => {
+    const nodes = page.nodes.map(n => {
         const h = nodeHost(n);
         const ps = n.page ? pageSummary(pageById(n.page)) : null;
         const state = ps ? `pagenode ${ps.downInfra ? 'unknown' : ps.total && ps.up === ps.total ? 'up' : ''}` : h ? hostState(h) : n.ref ? 'gone' : 'shape';
         const kind = nodeKind(n);
         const name = nodeLabel(n);
-        const sub = nodeSub(n);
+        const sub = nodeSub(n, page);
         return `<g class="mnode ${state} fam-${kindFamily(kind)}${sel.has('n:' + n.id) ? ' sel' : ''}" data-node="${attr(n.id)}" transform="translate(${n.x} ${n.y})">
             <title>${escapeHtml([name, h ? `${h.ip || ''} ${h.mac || ''}`.trim() : '', h ? (h.up ? 'online' : h.up === false ? 'away ' + fmtAgo(h.last_changed) : 'unknown') : ''].filter(Boolean).join('\n'))}</title>
             <rect class="mn-bg" x="0.75" y="0.75" width="${NODE_W - 1.5}" height="${NODE_H - 1.5}" rx="12"/>
@@ -333,14 +348,29 @@ function mapDraw() {
             ${sub ? `<text class="mn-sub" x="54" y="41">${escapeHtml(clip(sub, 24))}</text>` : ''}
             ${h || n.ref || n.page ? `<circle class="mn-dot" cx="40" cy="40" r="5"/>` : ''}
             ${n.page ? `<rect class="mn-stack" x="4" y="${NODE_H}" width="${NODE_W - 8}" height="5" rx="2"/>` : ''}
-            <circle class="mn-port" data-port="${attr(n.id)}" cx="${NODE_W}" cy="${NODE_H / 2}" r="6"><title>Drag to another device to connect them</title></circle>
+            ${edit ? `<circle class="mn-port" data-port="${attr(n.id)}" cx="${NODE_W}" cy="${NODE_H / 2}" r="6"><title>Drag to another device to connect them</title></circle>` : ''}
         </g>`;
     }).join('');
-    document.getElementById('map-texts').innerHTML = page.texts.map(t => `<text class="mtext${sel.has('t:' + t.id) ? ' sel' : ''}" data-text="${attr(t.id)}" x="${t.x}" y="${t.y}" style="font-size:${Number(t.size) || 14}px">${String(t.text || 'Text').split('\n').map((line, i) => `<tspan x="${t.x}" dy="${i ? '1.25em' : 0}">${escapeHtml(line) || ' '}</tspan>`).join('')}</text>`).join('');
+    const texts = page.texts.map(t => `<text class="mtext${sel.has('t:' + t.id) ? ' sel' : ''}" data-text="${attr(t.id)}" x="${t.x}" y="${t.y}" style="font-size:${Number(t.size) || 14}px">${String(t.text || 'Text').split('\n').map((line, i) => `<tspan x="${t.x}" dy="${i ? '1.25em' : 0}">${escapeHtml(line) || ' '}</tspan>`).join('')}</text>`).join('');
+    return {groups, links, nodes, texts};
+}
+
+function mapDraw() {
+    const page = mapPage();
+    if (!page || !document.getElementById('map-vp')) return;
+    const v = getView();
+    document.getElementById('map-vp').setAttribute('transform', `translate(${v.x} ${v.y}) scale(${v.k})`);
+    const parts = pageSvg(page, {sel: mapState.edit ? mapState.sel : new Set(), edit: mapState.edit});
+    document.getElementById('map-groups').innerHTML = parts.groups;
+    document.getElementById('map-links').innerHTML = parts.links;
+    document.getElementById('map-nodes').innerHTML = parts.nodes;
+    document.getElementById('map-texts').innerHTML = parts.texts;
     const empty = document.getElementById('map-empty');
     const nothing = !page.nodes.length && !page.groups.length && !page.texts.length;
     empty.hidden = !nothing;
-    if (nothing) empty.innerHTML = `<div><b>An empty page.</b><br>Drag devices from the list on the left onto it, or let the app start:<br>
+    if (nothing && !mapState.edit) empty.innerHTML = `<div><b>An empty page.</b><br>Turn on Edit to place your devices on it.<br>
+        <button type="button" class="btn btn-primary" onclick="mapSetEdit(true)">✎ Edit</button></div>`;
+    else if (nothing) empty.innerHTML = `<div><b>An empty page.</b><br>Drag devices from the list on the left onto it, or let the app start:<br>
         <button type="button" class="btn btn-primary" onclick="mapAutoPlace()">Place every device by network</button></div>`;
     mapOverlay();
 }
@@ -399,6 +429,7 @@ function mapBindCanvas() {
     }, {passive: false});
     svg.addEventListener('dragover', (e) => { if (e.dataTransfer.types.includes('text/x-network')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } });
     svg.addEventListener('drop', (e) => {
+        if (!mapState.edit) return;
         const what = e.dataTransfer.getData('text/x-network');
         if (!what) return;
         e.preventDefault();
@@ -421,9 +452,9 @@ function mapDown(e) {
     const text = t.closest('[data-text]');
     const additive = e.shiftKey || e.ctrlKey || e.metaKey;
     svg.setPointerCapture(e.pointerId);
-    if (e.button === 1 || (!port && !resize && !node && !group && !link && !text && !additive)) {
+    if (!mapState.edit || e.button === 1 || (!port && !resize && !node && !group && !link && !text && !additive)) {
         const v = getView();
-        mapState.drag = {type: 'pan', cx: e.clientX, cy: e.clientY, vx: v.x, vy: v.y, moved: false};
+        mapState.drag = {type: 'pan', cx: e.clientX, cy: e.clientY, vx: v.x, vy: v.y, moved: false, node: node ? node.dataset.node : ''};
         svg.classList.add('panning');
         return;
     }
@@ -507,7 +538,12 @@ function mapUp(e) {
     if (!d) return;
     if (d.type === 'pan') {
         keepView();
-        if (!d.moved) { mapState.sel.clear(); mapSide(); mapRender(); }
+        if (!d.moved && !mapState.edit) {
+            // Looking: a device shows its details, a page tile goes in
+            const n = d.node ? nodeById(d.node) : null;
+            if (n && n.page && pageById(n.page)) mapOpenPage(n.page);
+            else if (n && n.ref && hostByKey(n.ref)) openHost(n.ref);
+        } else if (!d.moved) { mapState.sel.clear(); mapSide(); mapRender(); }
         return;
     }
     if (d.type === 'move' || d.type === 'resize') {
@@ -529,6 +565,7 @@ function mapUp(e) {
 }
 
 function mapDouble(e) {
+    if (!mapState.edit) return;
     const node = e.target.closest('[data-node]');
     const group = e.target.closest('[data-group]');
     const text = e.target.closest('[data-text]');
@@ -550,6 +587,7 @@ function mapDouble(e) {
 }
 
 function mapKey(e) {
+    if (!mapState.edit) return;
     const ctrl = e.ctrlKey || e.metaKey;
     if (ctrl && e.key.toLowerCase() === 'z') { e.preventDefault(); return e.shiftKey ? mapRedo() : mapUndo(); }
     if (ctrl && e.key.toLowerCase() === 'y') { e.preventDefault(); return mapRedo(); }
@@ -936,6 +974,8 @@ function uplinkOf(h) {
     if (sw) return sw.key;
     const ap = h.ap_mac ? hostByMac(h.ap_mac) : null;
     if (ap) return ap.key;
+    // The FRITZ! device (box or repeater) the FRITZ!Box integration names
+    if (h.connected_via && hostByKey(h.connected_via)) return h.connected_via;
     return h.via || '';
 }
 
@@ -944,7 +984,7 @@ function uplinkOf(h) {
 async function mapSuggestLinks() {
     const opts = await formDialog({
         title: 'Draw connections', confirmLabel: 'Draw',
-        body: `<p class="panel-sub">From what Home Assistant knows (the switch port or access point of a UniFi client, the device a device connects through) and the "Connected to" you set on a device. Connections that are there already stay.</p>
+        body: `<p class="panel-sub">From what Home Assistant knows (the switch and port or the access point a device tracker names, the FRITZ! device of a FRITZ!Box client, the device a device connects through) and the "Connected to" you set on a device. Connections that are there already stay, and get their port as a label when they have none.</p>
             <label class="check-row" style="margin-top:12px"><input type="checkbox" name="gear" checked> Between network gear (routers, switches, access points)</label>
             <label class="check-row" style="margin-top:8px"><input type="checkbox" name="wired" checked> Wired devices to their switch</label>
             <label class="check-row" style="margin-top:8px"><input type="checkbox" name="wifi"> Wi-Fi devices to their access point <span class="muted">(many lines)</span></label>`,
@@ -956,6 +996,7 @@ async function mapSuggestLinks() {
     page.nodes.filter(n => n.page).forEach(tile => pageHosts(pageById(tile.page)).forEach(key => { if (!byRef.has(key)) byRef.set(key, tile); }));
     const exists = (a, b) => page.links.some(l => (l.from === a && l.to === b) || (l.from === b && l.to === a));
     const add = [];
+    const relabel = [];
     const sources = page.nodes.filter(n => n.ref).map(n => ({n, h: nodeHost(n)}));
     page.nodes.filter(n => n.page).forEach(tile => pageHosts(pageById(tile.page)).forEach(key => sources.push({n: tile, h: hostByKey(key)})));
     sources.forEach(({n, h}) => {
@@ -964,23 +1005,29 @@ async function mapSuggestLinks() {
         const candidates = [];
         if (m.uplink) candidates.push({key: m.uplink, kind: connectionOf(h) === 'wifi' ? 'wifi' : (m.connection || 'ethernet'), label: m.port || ''});
         if (h.ap_mac) { const ap = hostByMac(h.ap_mac); if (ap) candidates.push({key: ap.key, kind: 'wifi', label: ''}); }
-        if (h.sw_mac) { const sw = hostByMac(h.sw_mac); if (sw) candidates.push({key: sw.key, kind: 'ethernet', label: m.port || (h.sw_port ? `port ${h.sw_port}` : '')}); }
+        if (h.sw_mac) { const sw = hostByMac(h.sw_mac); if (sw) candidates.push({key: sw.key, kind: 'ethernet', label: m.port || portText(h.sw_port)}); }
+        if (h.connected_via) candidates.push({key: h.connected_via, kind: h.connection_type === 'WLAN' ? 'wifi' : 'ethernet', label: m.port || ''});
         if (h.via) candidates.push({key: h.via, kind: connectionOf(h) === 'wifi' ? 'wifi' : 'ethernet', label: ''});
         const c = candidates.find(x => byRef.has(x.key));
         if (!c) return;
         const other = byRef.get(c.key);
         const bothGear = isInfra(h) && (!other.ref || isInfra(hostByKey(other.ref) || {key: '', trackers: [], guess: 'generic'}));
         if (bothGear ? !opts.gear : c.kind === 'wifi' ? !opts.wifi : !opts.wired) return;
+        const have = page.links.find(l => (l.from === n.id && l.to === other.id) || (l.from === other.id && l.to === n.id));
+        if (have && !have.label && c.label) relabel.push({id: have.id, label: c.label});
         if (other.id === n.id || exists(n.id, other.id) || add.some(l => (l.from === n.id && l.to === other.id) || (l.to === n.id && l.from === other.id))) return;
         add.push({id: uid(), from: other.id, to: n.id, kind: c.kind, label: c.label || undefined});
     });
-    if (!add.length) {
+    if (!add.length && !relabel.length) {
         toast('No new connections: Home Assistant doesn\'t say where these devices connect. Set "Connected to" on a device, or drag from the dot on its right edge to another device.');
         return;
     }
-    mapEdit(p => p.links.push(...add));
+    mapEdit(p => {
+        p.links.push(...add);
+        relabel.forEach(r => { const l = p.links.find(x => x.id === r.id); if (l) l.label = r.label; });
+    });
     mapSide();
-    toast(`${add.length} connections drawn`, 'success');
+    toast([add.length ? `${add.length} connections drawn` : '', relabel.length ? `${relabel.length} given their port` : ''].filter(Boolean).join(', '), 'success');
 }
 
 // =====================================================================
@@ -1261,6 +1308,16 @@ function mapExport(as, bg) {
 // =====================================================================
 // The tab
 // =====================================================================
+function mapSetEdit(on) {
+    mapState.edit = Boolean(on);
+    mapState.sel.clear();
+    mapState.drag = null;
+    const shell = document.getElementById('map-shell');
+    if (shell) shell.classList.toggle('viewing', !mapState.edit);
+    mapTabs();
+    mapRefresh();
+}
+
 function mapRefresh() {
     if (!mapPage()) return;
     // Selections of things that are gone

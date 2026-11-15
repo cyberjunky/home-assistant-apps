@@ -1,5 +1,5 @@
 name: Network
-version: "0.1.0"
+version: "0.1.1"
 slug: app-network
 description: "Every device tracker in Home Assistant as a map of your network: drag them onto pages, group them per room or VLAN, connect them, rename them, and see who drops off the network"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-network"
@@ -21,10 +21,12 @@ options:
   history_days: 10
   keep_days: 365
   include_disabled: false
+  router: ""
   log_level: info
 
 schema:
   history_days: int(0,90)?
   keep_days: int(7,3650)?
   include_disabled: bool?
+  router: str?
   log_level: list(debug|info|warning|error)?

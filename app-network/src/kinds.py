@@ -19,6 +19,12 @@ KINDS: dict[str, tuple[str, str, bool]] = {
     "firewall": ("Firewall", "mdi:wall-fire", True),
     "switch": ("Switch", "mdi:switch", True),
     "ap": ("Access point", "mdi:access-point", True),
+    # Gear without an IP address of its own: never a tracker, only drawn on the map
+    "unmanaged_switch": ("Unmanaged switch", "mdi:lan-connect", True),
+    "patch_panel": ("Patch panel", "mdi:ethernet", True),
+    "poe_injector": ("PoE injector", "mdi:power-plug", True),
+    "media_converter": ("Media converter", "mdi:ethernet-cable", True),
+    "powerline": ("Powerline adapter", "mdi:power-socket-eu", True),
     "server": ("Server", "mdi:server", False),
     "proxmox": ("Proxmox host", "mdi:server-network", False),
     "ha_green": ("Home Assistant Green", "mdi:home-assistant", False),
@@ -123,9 +129,12 @@ _RULES: list[tuple[str, str]] = [
     ),
     (
         "ap",
-        r"\buap\b|\bu6\b|\bu7\b|access ?point|unifi ?ap|\bap\b|\bap-|mesh|deco|eero|orbi|wifi ?extender|repeater|\bnanohd\b|\bflexhd\b",
+        r"\buap\b|\bu6\b|\bu7\b|access ?point|unifi ?ap|\bap\b|\bap-|mesh|deco|eero|orbi|wifi ?extender|repeater|\bnanohd\b|\bflexhd\b|\bcap ?(ax|ac|xl|lite)\b|\bwap ?(ax|ac|lte)\b",
     ),
-    ("switch", r"\busw\b|\bswitch\b|unifi ?switch|gs1\d\d|gs3\d\d|\bcrs\d|\bsg\d{3}|catalyst|procurve"),
+    (
+        "switch",
+        r"\busw\b|\bswitch\b|unifi ?switch|gs1\d\d|gs3\d\d|\bcrs\d|\bcss\d|\bsg\d{3}|catalyst|procurve|^sw[-_ ]",
+    ),
     ("firewall", r"firewall|pfsense|opnsense|fortigate|watchguard|sophos|sonicwall|palo ?alto"),
     ("modem", r"modem|\bont\b|genexis|\bdsl\b|cable ?modem|connectbox|ziggo"),
     (
