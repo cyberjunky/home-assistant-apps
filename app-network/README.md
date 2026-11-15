@@ -26,8 +26,8 @@ their Wi-Fi agrees with their GPS.
 The dashboard starts with your internet connection, read from your router over UPnP (a FRITZ!Box
 and most others, no password): the speed now, the data today and per day, how long it has been
 connected, and its external addresses. The map draws the cables Home Assistant knows of, with the
-port on them: from UniFi, the FRITZ!Box integration, or any integration that names a tracker's
-switch and port.
+port on them: from UniFi, the [MikroTik Network](https://github.com/cyberjunky/home-assistant-mikrotik)
+integration, the FRITZ!Box integration, or any integration that names a tracker's switch and port.
 
 ![The map: network gear as a tree, a group per network, live state on every device (light theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-network/screenshots/map-light.webp)
 

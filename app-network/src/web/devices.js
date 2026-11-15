@@ -187,7 +187,7 @@ function hostEditorHtml(h, opts) {
         ['Area', escapeHtml(h.area || '–')],
         h.ssid ? ['Wi-Fi', `${escapeHtml(h.ssid)}${h.radio ? ` · ${escapeHtml(h.radio)}` : ''}${h.signal !== null && h.signal !== undefined ? ` · ${escapeHtml(h.signal)} dBm` : ''}`] : null,
         ap ? ['Access point', hostLink(ap)] : h.ap_mac ? ['Access point', `<span class="mono">${escapeHtml(h.ap_mac)}</span>`] : null,
-        sw ? ['Switch', `${hostLink(sw)}${h.sw_port ? ` · port ${escapeHtml(h.sw_port)}` : ''}`] : null,
+        sw ? ['Switch', `${hostLink(sw)}${h.sw_port ? ` · ${escapeHtml(portText(h.sw_port))}` : ''}${h.vlan ? ` · VLAN ${escapeHtml(h.vlan)}` : ''}`] : null,
         h.connected_to ? ['FRITZ!', `${hostByKey(h.connected_via) ? hostLink(hostByKey(h.connected_via)) : escapeHtml(h.connected_to)}${h.connection_type ? ` · ${escapeHtml(h.connection_type === 'WLAN' ? 'Wi-Fi' : h.connection_type)}` : ''}`] : null,
         ['State', `${hostStateLabel(h)} <span class="muted">${escapeHtml(fmtAgo(h.last_changed))}</span>`],
         ['First seen', h.first_seen ? escapeHtml(fmtDateTime(h.first_seen)) : '<span class="muted">not in the history</span>'],
@@ -215,7 +215,7 @@ function hostEditorHtml(h, opts) {
             <div class="form-field"><label>Network</label><select class="select" data-f="network">${networkOptions(h)}</select></div>
             <div class="form-field"><label>Connection</label><select class="select" data-f="connection">${Object.entries(CONNECTIONS).map(([k, v]) => `<option value="${k}"${k === (m.connection || '') ? ' selected' : ''}>${k === '' ? `Automatic${connectionOf(h) && !m.connection ? ` (${CONNECTIONS[connectionOf(h)]})` : ''}` : escapeHtml(v)}</option>`).join('')}</select></div>
             <div class="form-field"><label>Connected to</label><select class="select" data-f="uplink">${uplinkOptions(h)}</select></div>
-            <div class="form-field"><label>Port or socket</label><input class="input" data-f="port" value="${attr(m.port || '')}" placeholder="${attr(h.sw_port ? `port ${h.sw_port}` : 'e.g. port 7, wall socket B2')}"></div>
+            <div class="form-field"><label>Port or socket</label><input class="input" data-f="port" value="${attr(m.port || '')}" placeholder="${attr(h.sw_port ? portText(h.sw_port) : 'e.g. port 7, wall socket B2')}"></div>
             <div class="form-field"><label>Label on the map</label><input class="input" data-f="label" value="${attr(m.label || '')}" placeholder="${attr(h.name)}"></div>
             <div class="form-field full"><label>Notes</label><textarea class="input textarea" data-f="notes" rows="3" placeholder="Serial number, where it is, who it belongs to…">${escapeHtml(m.notes || '')}</textarea></div>
         </div>

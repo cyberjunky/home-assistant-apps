@@ -1005,7 +1005,7 @@ async function mapSuggestLinks() {
         const candidates = [];
         if (m.uplink) candidates.push({key: m.uplink, kind: connectionOf(h) === 'wifi' ? 'wifi' : (m.connection || 'ethernet'), label: m.port || ''});
         if (h.ap_mac) { const ap = hostByMac(h.ap_mac); if (ap) candidates.push({key: ap.key, kind: 'wifi', label: ''}); }
-        if (h.sw_mac) { const sw = hostByMac(h.sw_mac); if (sw) candidates.push({key: sw.key, kind: 'ethernet', label: m.port || (h.sw_port ? `port ${h.sw_port}` : '')}); }
+        if (h.sw_mac) { const sw = hostByMac(h.sw_mac); if (sw) candidates.push({key: sw.key, kind: 'ethernet', label: m.port || portText(h.sw_port)}); }
         if (h.connected_via) candidates.push({key: h.connected_via, kind: h.connection_type === 'WLAN' ? 'wifi' : 'ethernet', label: m.port || ''});
         if (h.via) candidates.push({key: h.via, kind: connectionOf(h) === 'wifi' ? 'wifi' : 'ethernet', label: ''});
         const c = candidates.find(x => byRef.has(x.key));

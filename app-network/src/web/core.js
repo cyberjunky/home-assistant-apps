@@ -393,7 +393,7 @@ function hostLink(h) {
 function openHost(key) { showHostDialog(key); }
 const platformsText = h => h.platforms.map(p => PLATFORM_NAMES[p] || p).join(', ');
 const PLATFORM_NAMES = {unifi: 'UniFi', nmap_tracker: 'Nmap', fritz: 'FRITZ!Box', mobile_app: 'Mobile app', ping: 'Ping', asuswrt: 'ASUSWRT',
-    netgear: 'Netgear', tplink_omada: 'Omada', huawei_lte: 'Huawei LTE', keenetic_ndms2: 'Keenetic', mikrotik: 'MikroTik', luci: 'OpenWrt',
+    netgear: 'Netgear', tplink_omada: 'Omada', huawei_lte: 'Huawei LTE', keenetic_ndms2: 'Keenetic', mikrotik: 'MikroTik', mikrotik_network: 'MikroTik Network', luci: 'OpenWrt',
     ubus: 'OpenWrt', bluetooth_le_tracker: 'Bluetooth LE', ruckus_unleashed: 'Ruckus', arpscan_tracker: 'ARP scan', opnsense: 'OPNsense', pfsense: 'pfSense',
     vodafone_station: 'Vodafone Station', freebox: 'Freebox', synology_srm: 'Synology SRM', tado: 'tado', icloud: 'iCloud', owntracks: 'OwnTracks', person: 'Person'};
 
@@ -443,6 +443,9 @@ function netChip(net) {
     if (!net) return '<span class="vlan-chip untagged">no network</span>';
     return `<span class="vlan-chip" style="--vlan:${attr(netColor(net))}">${escapeHtml(net.name)}${net.vlan ? ` · ${escapeHtml(net.vlan)}` : ''}</span>`;
 }
+// A switch port as a cable label: UniFi gives a number (port 9), others a name (ether2, LAN 1)
+const portText = port => /^\d+$/.test(String(port)) ? `port ${port}` : String(port || '');
+
 // How a host connects: what you set, else what the integration says
 function connectionOf(h) {
     const m = meta(h.key).connection;
