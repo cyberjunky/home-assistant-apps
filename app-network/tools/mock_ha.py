@@ -19,6 +19,8 @@ from datetime import UTC, datetime, timedelta
 
 from aiohttp import WSMsgType, web
 
+from src.inventory import strip_prefix
+
 logger = logging.getLogger("mock_ha")
 
 TOKEN = "mock-token"
@@ -1148,6 +1150,8 @@ class MockHA:
                 return await result(error="Entity not found")
             for field in ("name", "icon"):
                 if field in data:
+                    if field == "name" and data["name"] != entry.get("name"):
+                        entry["compat_name"] = None
                     entry[field] = data[field]
             await result({"entity_entry": entry})
             await self._send_event("entity_registry_updated", {"action": "update", "entity_id": entry["entity_id"]})
@@ -1157,6 +1161,15 @@ class MockHA:
             if device is None:
                 return await result(error="Device not found")
             device["name_by_user"] = data.get("name_by_user")
+            # Home Assistant pins the stripped own name of entities without has_entity_name, so the
+            # new device name isn't put in front twice
+            for entry in self.entities.values():
+                if (
+                    entry.get("device_id") == device["id"]
+                    and not entry.get("has_entity_name")
+                    and entry.get("name") is None
+                ):
+                    entry["name"] = entry.get("original_name_unprefixed")
             await result(device)
             await self._send_event("device_registry_updated", {"action": "update", "device_id": device["id"]})
             for entry in self.entities.values():
@@ -1166,17 +1179,28 @@ class MockHA:
             await result(error=f"Unknown command {kind}")
 
     async def _refresh_name(self, entity_id: str) -> None:
-        """The friendly name as Home Assistant makes it. With has_entity_name: the device's name, then
-        the entity's own (its registry name, else the integration's) when it has one; else the
-        registry's name, else the integration's."""
+        """The friendly name as Home Assistant 2026.11 makes it: an old name kept from before
+        (compat_name); else the device's name, then the entity's own name: its registry name when
+        set (also ""), else the integration's (without the device's name in front of it)."""
         entry = self.entities[entity_id]
         device = self.devices.get(entry.get("device_id") or "") or {}
-        if entry.get("has_entity_name"):
-            own = entry.get("name") or entry.get("original_name")
-            device_name = device.get("name_by_user") or device.get("name") or ""
-            name = f"{device_name} {own}".strip() if own else device_name
+        device_name = device.get("name_by_user") or device.get("name") or ""
+        if entry.get("compat_name") is not None:
+            name = entry["compat_name"]
         else:
-            name = entry.get("name") or entry.get("original_name")
+            own = entry.get("name")
+            if own is None:
+                original = entry.get("original_name") or ""
+                stripped = (
+                    None if entry.get("has_entity_name") or not device_name else strip_prefix(original, device_name)
+                )
+                own = original if stripped is None else stripped
+            name = " ".join(part for part in (device_name, own) if part)
+        entry["original_name_unprefixed"] = (
+            None
+            if entry.get("has_entity_name") or not device_name
+            else strip_prefix(entry.get("original_name") or "", device_name)
+        )
         attrs = {"friendly_name": name or entity_id}
         if entry.get("icon"):
             attrs["icon"] = entry["icon"]
