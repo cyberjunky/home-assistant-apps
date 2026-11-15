@@ -70,7 +70,7 @@ Drag a device from the list on the left onto a page, or double-click it. The sha
 
 - **UniFi**: the switch and port, or the access point, of every client.
 - **MikroTik**: the [MikroTik Network](https://github.com/cyberjunky/home-assistant-mikrotik) integration works out, over all your MikroTiks, on which port (and VLAN) or access point every device is, and puts it on its trackers. Add every MikroTik to it, also the switches and access points.
-- **FRITZ!Box** (its integration, with *network device tracking* on): the FRITZ! device a client is on (the box, or a FRITZ!Repeater), by cable or Wi-Fi. That FRITZ! device has to be on the map as a tracker (the box itself: the tracker that is your router).
+- **FRITZ!Box** (the [FRITZ!Box Tools](https://www.home-assistant.io/integrations/fritz/) integration, with *network device tracking* on): the FRITZ! device a client is on (the box, or a FRITZ!Repeater), by cable or Wi-Fi. That FRITZ! device has to be on the map as a tracker (the box itself: the tracker that is your router).
 - **Any integration** that puts these attributes on its device trackers: `sw_mac` (the switch's MAC address) with `sw_port` (the port, as you want it on the cable), or `ap_mac` (the access point's MAC address) for a Wi-Fi client. The switch or access point needs a tracker of its own with that MAC. These are the names UniFi uses; your own integration for MikroTik or another switch only has to fill them in.
 - Home Assistant's *connected through* (`via_device`) of a device.
 - What you set yourself under **Connected to** and **Port or socket** on a device. That always comes first.

@@ -297,3 +297,6 @@ button.nitem:hover, button.nitem:focus-visible { background: var(--hover-bg); ou
 .map-shell.viewing #map-svg.panning { cursor: grabbing; }
 .map-shell.viewing .mnode { cursor: pointer; }
 .edit-toggle { min-width: 64px; }
+
+/* What an integration tells, under its name on the Info page */
+.info-value .src-what { font-family: 'IBM Plex Sans', Roboto, -apple-system, 'Segoe UI', sans-serif; font-size: 12px; }

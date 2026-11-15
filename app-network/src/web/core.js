@@ -443,6 +443,17 @@ function netChip(net) {
     if (!net) return '<span class="vlan-chip untagged">no network</span>';
     return `<span class="vlan-chip" style="--vlan:${attr(netColor(net))}">${escapeHtml(net.name)}${net.vlan ? ` · ${escapeHtml(net.vlan)}` : ''}</span>`;
 }
+// The integrations that tell where a device plugs in, and how many devices each tells it for
+const PORT_SOURCES = [
+    {platform: 'mikrotik_network', name: 'MikroTik Network', url: 'https://github.com/cyberjunky/home-assistant-mikrotik', what: 'the switch port, VLAN or access point of every device on your MikroTiks'},
+    {platform: 'fritz', name: 'FRITZ!Box', url: 'https://www.home-assistant.io/integrations/fritz/', what: 'the FRITZ! device (box or repeater) and cable or Wi-Fi, with network device tracking on'},
+    {platform: 'unifi', name: 'UniFi Network', url: 'https://www.home-assistant.io/integrations/unifi/', what: 'the switch port or access point of every UniFi client'},
+];
+const hasPortData = h => Boolean(h.sw_mac || h.ap_mac || h.connected_to);
+function portSourceLink(s) {
+    return `<a href="${attr(s.url)}" target="_blank" rel="noopener">${escapeHtml(s.name)}</a>`;
+}
+
 // A switch port as a cable label: UniFi gives a number (port 9), others a name (ether2, LAN 1)
 const portText = port => /^\d+$/.test(String(port)) ? `port ${port}` : String(port || '');
 

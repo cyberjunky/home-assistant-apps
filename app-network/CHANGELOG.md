@@ -7,7 +7,7 @@
 - **Dashboard** (was *Overview*): your internet connection on top, read from the router over UPnP without a password (a FRITZ!Box and most others): download and upload now, data today, how long it has been connected, the external IPv4 and IPv6 address, the link, and the traffic live, over 24 hours, 7 or 30 days and per day. Below it every group of a map page as a card with its network, how many are online and its devices.
 - **Network map** (was *Map*): opens to look at, with zoom, export and a click for a device's details; **Edit** turns on changing it.
 - **Shapes without an IP**: an unmanaged switch, patch panel, PoE injector, media converter, powerline adapter and a blank device for the gear that has no address.
-- **Where devices connect**: the switch port and VLAN from the [MikroTik Network](https://github.com/cyberjunky/home-assistant-mikrotik) integration, and the FRITZ! device (box or repeater) from the FRITZ!Box integration. *Draw connections* puts the port on every cable, also on the ones you drew already.
+- **Where devices connect**: the switch port and VLAN from the [MikroTik Network](https://github.com/cyberjunky/home-assistant-mikrotik) integration, and the FRITZ! device (box or repeater) from the FRITZ!Box integration. *Draw connections* puts the port on every cable, also on the ones you drew already. The Info page shows which of these integrations (and UniFi Network) are in use, and the Dashboard points to them while none says where your devices plug in.
 - **Live on every page**: a device that comes or goes shows within a second, on every page.
 - **More kinds**: Starlink, solar inverter, soundbar, fitness gear, MikroTik switches and access points, and more; the maker from the MAC address when no integration says.
 

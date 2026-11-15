@@ -20,6 +20,9 @@ function attentionItems() {
     if (unplaced.length) out.push({kind: '', text: `${unplaced.length} device${unplaced.length > 1 ? 's are' : ' is'} on no page of the map yet`, href: '#map'});
     const noNet = networks().length ? networkHosts().filter(h => h.ip && isPrivateIp(h.ip) && !networkOf(h).net) : [];
     if (noNet.length) out.push({kind: '', text: `${noNet.length} device${noNet.length > 1 ? 's have' : ' has'} an IP in none of your networks`, href: '#networks'});
+    if (app.hosts.length && !networkHosts().some(hasPortData)) {
+        out.push({kind: 'info', text: `No integration says yet where your devices plug in. ${PORT_SOURCES.map(portSourceLink).join(', ')} do: the switch port or access point of every device, for <i>Draw connections</i> on the Network map`, href: '#info'});
+    }
     if (!networks().length && app.hosts.length) out.push({kind: '', text: 'No networks yet: the Networks page can make them from the IP addresses it sees', href: '#networks'});
     return out;
 }

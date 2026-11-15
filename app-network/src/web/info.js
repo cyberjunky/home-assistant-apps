@@ -17,6 +17,11 @@ function renderInfo() {
                 infoRow('History', s.backfill.done ? `${num(s.backfill.rows)} changes read from the recorder${s.backfill.error ? ` <span class="neg">· ${escapeHtml(s.backfill.error)}</span>` : ''}` : 'reading…'),
                 infoRow('Integrations', [...platforms.entries()].sort((a, b) => b[1] - a[1]).map(([p, n]) => `${escapeHtml(PLATFORM_NAMES[p] || p)} <span class="muted">${n}</span>`).join('<br>') || '–'),
             ].join(''))}
+            ${panel('Where devices connect', 'integrations that tell the switch port or access point', PORT_SOURCES.map(s => {
+                const n = app.hosts.filter(h => h.platforms.includes(s.platform) && hasPortData(h)).length;
+                const used = app.hosts.some(h => h.platforms.includes(s.platform));
+                return infoRow(portSourceLink(s), `${used ? (n ? stateLabel('ok', `${n} device${n > 1 ? 's' : ''}`) : '<span class="muted">in use, no ports yet</span>') : '<span class="muted">not installed</span>'}<br><span class="muted src-what">${escapeHtml(s.what)}</span>`);
+            }).join(''))}
             ${panel('Options', 'change them in the app\'s configuration', [
                 infoRow('History read at start', `${num(c.history_days)} days`),
                 infoRow('Kept', `${num(c.keep_days)} days`),
@@ -32,7 +37,7 @@ function renderInfo() {
 
 <b>Online</b> means a tracker says home. GPS trackers of the mobile app say where a phone is, not whether it is on the network: they are left out of the map and the statistics, and shown under Devices → GPS.
 
-<b>Connections</b>: "Draw connections" on the map uses what Home Assistant knows (the access point and switch port of a UniFi client, the device a device is connected through) and the "Connected to" you set on a device.</div>`, {cls: 'wide'})}
+<b>Connections</b>: "Draw connections" on the Network map uses what Home Assistant knows (the switch port, VLAN or access point from the integrations above, the device a device is connected through) and the "Connected to" you set on a device. The app logs in to none of your devices itself.</div>`, {cls: 'wide'})}
         </div>`;
 }
 
