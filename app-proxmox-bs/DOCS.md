@@ -116,11 +116,7 @@ passes it through Home Assistant, so there is no certificate to accept. Log in a
 
 PBS is unchanged. On the way through, the app points PBS's own paths at Home Assistant's address,
 keeps PBS's login cookie on that address, and leaves Home Assistant's port out of **Show Connection
-Information** (Proxmox VE connects to port 8007). **Open in new tab** opens PBS directly on port 8007
-in a tab of its own (`https://<Home Assistant's address>:8007`, its certificate to accept once): a
-tab through Home Assistant would stop working once Home Assistant's page is closed, as Home
-Assistant only keeps the app's page reachable while that page is open. From outside your network,
-use the sidebar.
+Information** (Proxmox VE connects to port 8007). **Open in new tab** opens it in a tab of its own.
 
 Proxmox VE, and other PBS servers, keep using port 8007 of Home Assistant's address.
 
