@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.9
+
+**After updating:** rename a device whose name shows twice once more, with *Rename its device too* ticked. Then *Auto-place* again to put Wi-Fi devices back in their Wi-Fi network's group.
+
+- **FRITZ!Box and repeaters found by any name:** the FRITZ!Box integration names the box or repeater a device is on by the name it has in the FRITZ!Box's home network (`fritz.box` by default, but it can be changed). The app didn't recognise `fritz.box`, so devices on the box's Wi-Fi landed behind the repeater. A box or repeater is now found by that name in any integration, by the address it was added to the FRITZ!Box integration with, by the name's address in DNS, or, when one name and one FRITZ! device are left, by elimination. No name or address is assumed.
+- **Renaming the device too, for every tracker:** a device with several trackers (arp-scan, MikroTik Network, the FRITZ!Box) kept an old name on one of them, so the name still showed twice ("FRITZ!Box 4630 FRITZ!Box 4630"). Now every tracker of the device gives up its own name.
+- **Wi-Fi of a MikroTik access point:** a device registered to an access point is on its Wi-Fi, also when the FRITZ!Box behind it says LAN (it sees the device over the cable to the access point). It goes back into its Wi-Fi network's group, such as the MikroTik's SSID.
+
 ## 0.1.8
 
 **After updating:** "Draw connections" keeps the cables already on a page. Remove the old cables from the MikroTik port to the FRITZ!Box Wi-Fi devices, or empty the page, then *Auto-place* and *Draw connections* with *Wi-Fi devices to their access point* ticked.
