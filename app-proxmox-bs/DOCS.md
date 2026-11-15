@@ -71,7 +71,7 @@ With encryption on, a successful restore also proves that the cluster's key work
 
 ## Back up other computers
 
-Linux computers, Windows 11 PCs (through WSL) and the Proxmox VE nodes' own configuration can back up folders to the same datastore with Proxmox's `proxmox-backup-client`. Scripts and instructions: [proxmox-backup-clients](https://github.com/cyberjunky/home-assistant-apps/tree/main/proxmox-backup-clients).
+Linux computers and the Proxmox VE nodes' own configuration can back up folders to the same datastore with Proxmox's `proxmox-backup-client`, and Windows 11 PCs with the native community client Salvanza. Scripts and instructions: [proxmox-backup-clients](https://github.com/cyberjunky/home-assistant-apps/tree/main/proxmox-backup-clients).
 
 ## What is different in an app
 

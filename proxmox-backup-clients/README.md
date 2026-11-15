@@ -9,7 +9,7 @@ Back up computers other than Proxmox VE to a Proxmox Backup Server, for example 
 | Computer | How |
 |---|---|
 | [Ubuntu / Debian](ubuntu/README.md) | `pbs-backup` script, settings file, systemd timer |
-| [Windows 11](windows/README.md) | the same script inside WSL, started by Task Scheduler |
+| [Windows 11](windows/README.md) | the native Salvanza client (VSS, whole machine, a service) |
 | [Proxmox VE node](proxmox-ve/README.md) | the node's own configuration (`/etc/pve`, `/etc`, ...), which vzdump doesn't back up |
 
 Proxmox VE's VMs and containers don't need these: Proxmox VE backs them up to PBS itself (see the app's [Connect Proxmox VE](../app-proxmox-bs/DOCS.md#connect-proxmox-ve)).
