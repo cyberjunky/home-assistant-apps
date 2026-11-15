@@ -20,6 +20,19 @@ function fmtBits(bitsPerSecond) {
     return missing(bitsPerSecond) ? '–' : fmtRate(bitsPerSecond / 8).replace(/\.0 /, ' ');
 }
 
+// The axis of a chart: short, the unit is under the chart (48M for 48 Mbit/s, 37G for 37 GiB)
+function compact(value, steps) {
+    for (const [size, unit] of steps) {
+        if (Math.abs(value) >= size) {
+            const v = value / size;
+            return `${num(v, v < 10 && v % 1 ? 1 : 0)}${unit}`;
+        }
+    }
+    return num(value);
+}
+const rateTick = bytesPerSecond => compact(bytesPerSecond * 8, [[1e9, 'G'], [1e6, 'M'], [1e3, 'k']]);
+const bytesTick = bytes => compact(bytes, [[2 ** 40, 'T'], [2 ** 30, 'G'], [2 ** 20, 'M'], [2 ** 10, 'k']]);
+
 async function loadInternet() {
     if (internet.loading) return internet.loading;
     const hours = internet.period === 'live' ? 24 : Number(internet.period);
@@ -124,7 +137,7 @@ function drawInternetTraffic() {
         ],
         xTicks: timeAxisTicks(src.x[0], src.x[src.x.length - 1], el.clientWidth < 520 ? 3 : 6),
         formatX: t => span > 2 * 86400 ? fmtDateTime(t) : live ? new Date(t * 1000).toLocaleTimeString() : fmtTime(t),
-        formatY: v => fmtRate(v), formatTick: v => fmtRate(v),
+        formatY: v => fmtRate(v), formatTick: rateTick,
         empty: live ? 'Collecting the first readings…' : 'No traffic recorded yet: it fills from now on',
     });
 }
@@ -136,7 +149,7 @@ function drawInternetDays() {
     barChart(el, {
         data: days.map(r => ({label: fmtDay(r.ts), tipTitle: new Date(r.ts * 1000).toLocaleDateString([], {weekday: 'long', day: 'numeric', month: 'long'}), values: [r.down, r.up]})),
         series: [{name: 'Down', color: DOWN_COLOR}, {name: 'Up', color: UP_COLOR}],
-        height: 200, format: v => fmtBytes(v), formatTick: v => fmtBytes(v), labelWidth: 52,
+        height: 200, format: v => fmtBytes(v), formatTick: bytesTick, labelWidth: 52,
         empty: 'No days recorded yet',
     });
 }
@@ -161,8 +174,8 @@ function renderInternet(rebuild) {
         el.innerHTML = `
             <div class="panel net-panel"><div class="panel-body" id="net-head"></div></div>
             <div class="dash-grid net-charts">
-                ${panel('Internet traffic', chipsHtml('net-period', INTERNET_PERIODS, internet.period, 'Period'), `<div id="net-traffic" class="chart"></div><div class="legend">${legendHtml([{name: 'Down', color: DOWN_COLOR}, {name: 'Up', color: UP_COLOR}])}</div>`)}
-                ${panel('Per day', 'the last 30 days', `<div id="net-days" class="chart"></div>`)}
+                ${panel('Internet traffic', chipsHtml('net-period', INTERNET_PERIODS, internet.period, 'Period'), `<div id="net-traffic" class="chart"></div><div class="legend">${legendHtml([{name: 'Down', color: DOWN_COLOR}, {name: 'Up', color: UP_COLOR}])}<span class="muted">in bit/s</span></div>`)}
+                ${panel('Per day', 'the last 30 days', `<div id="net-days" class="chart"></div><div class="legend">${legendHtml([{name: 'Down', color: DOWN_COLOR}, {name: 'Up', color: UP_COLOR}])}<span class="muted">in bytes</span></div>`)}
             </div>`;
         bindChips('net-period', key => {
             internet.period = key;
