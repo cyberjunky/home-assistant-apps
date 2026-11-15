@@ -317,3 +317,8 @@ button.nitem:hover, button.nitem:focus-visible { background: var(--hover-bg); ou
 
 /* An address the router answers for on behalf of a VPN connection */
 .ip-cell.vpn, .ip-legend .vpn-key { background: #8b6fdc; }
+
+/* The bars above the map and the cards: every button as high as a group of tabs (28 + 2 x 2 padding
+   + 2 x 1 border), and a loose tab framed like a group */
+.map-bar .btn { height: 34px; }
+.map-tools > .tab, .map-tabs > .tab { height: 34px; border: var(--card-border); border-radius: 6px; background: var(--ha-background); }
