@@ -252,7 +252,7 @@ function hostEditorHtml(h, opts) {
         <div class="form-field"><label>Name in Home Assistant</label>
             <div class="input-row"><input class="input" data-f="ha-name" value="${attr(main ? main.name : h.name)}" ${main ? '' : 'disabled'} maxlength="100" spellcheck="false">
             <button type="button" class="btn btn-small btn-primary" data-act="rename" ${main ? '' : 'disabled'}>Rename</button></div>
-            ${device ? `<label class="check-row he-check"><input type="checkbox" data-f="rename-device" ${main.has_entity_name || !main.registry_name ? 'checked' : ''}> Rename its device "${escapeHtml(main.device_name)}" too</label>` : ''}
+            ${device ? `<label class="check-row he-check"><input type="checkbox" data-f="rename-device" checked> Rename its device "${escapeHtml(main.device_name)}" too <span class="muted">(without: Home Assistant shows "${escapeHtml(main.device_name)}" in front of the name)</span></label>` : ''}
             ${renameHint}</div>
         <div class="form-grid${opts.compact ? ' one' : ''}">
             <div class="form-field"><label>Kind</label><select class="select" data-f="kind">${kindOptions(kindOf(h), h.guess)}</select></div>

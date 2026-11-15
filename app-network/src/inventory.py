@@ -462,37 +462,66 @@ class Inventory:
     # ------------------------------------------------------------------
     async def rename(self, entity_id: str, name: str, device_too: bool) -> dict:
         """Rename a tracker in Home Assistant, and its device when asked. An empty name gives back
-        the integration's own name."""
+        the integration's own name.
+
+        Home Assistant (2026.11) names an entity of a device "<device name> <its own name>", also
+        when the user sets its own name. So with the device: the device gets the name and every
+        tracker of it (arp-scan, MikroTik Network and the FRITZ!Box can each have one) an empty own
+        name; the device first, as renaming a device pins the own name of some entities. Without
+        the device: the own name is what follows the device's name, when the name starts with it.
+        """
         entry = self.entities.get(entity_id)
         if entry is None:
             raise KeyError(entity_id)
         name = name.strip()
-        device_id = entry.get("device_id")
+        device_id = entry.get("device_id") or ""
+        device = self.devices.get(device_id) or {}
         device_too = bool(device_too and device_id)
-        # An entity with has_entity_name is called "<device> <its own name>": when the device gets the
-        # name, the entity gives up its own, or the name shows twice. That goes for every tracker of
-        # the device (arp-scan, MikroTik Network and the FRITZ!Box can each have one on it)
-        targets = [entry]
-        if device_too:
-            targets += [e for e in self.entities.values() if e is not entry and e.get("device_id") == device_id]
-        for e in targets:
-            own = None if device_too and e.get("has_entity_name") else name or None
-            if e is entry or e.get("name") != own:
-                await self.ws.call({"type": "config/entity_registry/update", "entity_id": e["entity_id"], "name": own})
-        renamed_device = False
         if device_too:
             await self.ws.call(
                 {"type": "config/device_registry/update", "device_id": device_id, "name_by_user": name or None}
             )
-            renamed_device = True
+            own: str | None = "" if name else None
+            for e in [
+                entry,
+                *(e for e in self.entities.values() if e is not entry and e.get("device_id") == device_id),
+            ]:
+                await self._set_name(e, own)
+        else:
+            own = name or None
+            device_name = (device.get("name_by_user") or device.get("name") or "") if device_id else ""
+            if own and device_name:
+                rest = strip_prefix(own, device_name)
+                if rest is not None:
+                    own = rest
+            await self._set_name(entry, own)
         await self.load()
-        return {"entity_id": entity_id, "name": name, "device": renamed_device}
+        return {"entity_id": entity_id, "name": name, "device": device_too}
+
+    async def _set_name(self, entry: dict, own: str | None) -> None:
+        """An entity's own name. Home Assistant keeps a name from before 2026.11 (compat_name) as the
+        whole name until the own name changes: when it is already this one, it changes once in between."""
+        update = {"type": "config/entity_registry/update", "entity_id": entry["entity_id"]}
+        if entry.get("name") == own:
+            await self.ws.call({**update, "name": None if own is not None else ""})
+        await self.ws.call({**update, "name": own})
 
     async def set_icon(self, entity_id: str, icon: str) -> None:
         if entity_id not in self.entities:
             raise KeyError(entity_id)
         await self.ws.call({"type": "config/entity_registry/update", "entity_id": entity_id, "icon": icon or None})
         await self.load()
+
+
+def strip_prefix(name: str, prefix: str) -> str | None:
+    """The part of a name after a prefix (the device's name), as Home Assistant strips it: "" for
+    the prefix itself, None when the name doesn't start with it as a word."""
+    if not name.casefold().startswith(prefix.casefold()):
+        return None
+    rest = name[len(prefix) :]
+    if rest and rest[0] not in " -:":
+        return None
+    return rest.lstrip(" -:")
 
 
 def on_fritz_wifi(host: dict) -> dict:
