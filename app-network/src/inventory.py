@@ -357,3 +357,34 @@ class Inventory:
             raise KeyError(entity_id)
         await self.ws.call({"type": "config/entity_registry/update", "entity_id": entity_id, "icon": icon or None})
         await self.load()
+
+
+def fritz_nodes(hosts: list[dict], devices: dict[str, dict], router: dict) -> dict[str, str]:
+    """The FRITZ! devices (the box, repeaters) that the FRITZ!Box integration names in a tracker's
+    connected_to, by that name (lower case), as the key of their host.
+
+    By the name of a tracker; else by the device of that name in Home Assistant (the FRITZ!Box
+    integration makes one per box and repeater) and its MAC address, tracked by any integration;
+    else, for the box itself, the router's tracker.
+    """
+    names = {h["connected_to"].lower() for h in hosts if h.get("connected_to")}
+    by_mac = {h["mac"]: h["key"] for h in hosts if h.get("mac")}
+    out: dict[str, str] = {}
+    for name in names:
+        for h in hosts:
+            tracker_names = {str(h.get(k) or "").lower() for k in ("name", "host_name")}
+            tracker_names |= {str(t.get("device_name") or "").lower() for t in h.get("trackers", [])}
+            if name in tracker_names:
+                out[name] = h["key"]
+                break
+        else:
+            for device in devices.values():
+                if name in {str(device.get(k) or "").lower() for k in ("name_by_user", "name")}:
+                    macs = [normalize_mac(v) for kind, v in device.get("connections") or [] if kind == "mac"]
+                    if key := next((by_mac[m] for m in macs if m in by_mac), ""):
+                        out[name] = key
+                        break
+            else:
+                if router.get("found") and name in {str(v).lower() for v in router["info"].values()}:
+                    out[name] = next((h["key"] for h in hosts if h.get("ip") == router["address"]), "")
+    return out

@@ -18,7 +18,7 @@ from .config import APP_VERSION, DATA_DIR, Config
 from .donate import DonatePrompt
 from .ha_client import HAClientError, HAWebSocket
 from .history import DAY, History, host_events, host_stats, merge, online_series, up_intervals
-from .inventory import Inventory
+from .inventory import Inventory, fritz_nodes
 from .kinds import KINDS
 from .mobile import mismatch, parse_history
 from .mobile import summary as mobile_summary
@@ -271,22 +271,8 @@ class WebUI:
         return response
 
     def _fritz_nodes(self, hosts: list[dict]) -> dict[str, str]:
-        """The FRITZ! devices the FRITZ!Box integration names in connected_to, by name: the host
-        with that name, or for the box itself the router's tracker."""
-        names = {h["connected_to"].lower() for h in hosts if h.get("connected_to")}
-        out = {}
-        for name in names:
-            for h in hosts:
-                if name in {str(h.get(k) or "").lower() for k in ("name", "host_name")} | {
-                    str(t.get("device_name") or "").lower() for t in h.get("trackers", [])
-                }:
-                    out[name] = h["key"]
-                    break
-            else:
-                router = self.router.state() if self.router else {}
-                if router.get("found") and name in {str(v).lower() for v in router["info"].values()}:
-                    out[name] = next((h["key"] for h in hosts if h.get("ip") == router["address"]), "")
-        return out
+        """The FRITZ! devices the FRITZ!Box integration names in connected_to, as hosts on the map."""
+        return fritz_nodes(hosts, self.inventory.devices, self.router.state() if self.router else {})
 
     async def _router(self, request: web.Request) -> web.Response:
         """The internet router: its state now, its traffic over a period, and the bytes per hour."""

@@ -9,7 +9,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from src import ha_client
 from src.config import Config
 from src.history import History, host_events, host_stats, merge, online_series, up_intervals
-from src.inventory import Inventory, build_hosts, is_up
+from src.inventory import Inventory, build_hosts, fritz_nodes, is_up
 from src.kinds import KINDS, guess_kind, is_random_mac, mac_vendor, normalize_mac
 from src.mobile import distance, habits, haversine, mismatch, segments, summary, trips
 from src.store import Conflict, Store, clean, empty_doc
@@ -128,6 +128,53 @@ def test_what_the_fritz_box_integration_says():
     tv, tablet = hosts["aa:bb:cc:00:00:09"], hosts["aa:bb:cc:00:00:0a"]
     assert tv["connected_to"] == "FRITZ!Repeater 2400" and tv["connection_type"] == "LAN" and tv["wired"] is True
     assert tablet["connected_to"] == "FRITZ!Box 7590" and tablet["wired"] is False
+
+
+def test_fritz_devices_found_by_their_device():
+    # The repeater is tracked by arp-scan under its MAC; the FRITZ!Box integration names it in
+    # connected_to, and has a device with that name and MAC
+    hosts = [
+        {
+            "key": "rep",
+            "name": "192.168.2.20",
+            "host_name": "",
+            "mac": "dc:39:6f:00:00:01",
+            "ip": "192.168.2.20",
+            "trackers": [],
+        },
+        {
+            "key": "box",
+            "name": "fritz.box",
+            "host_name": "",
+            "mac": "00:7a:a4:4b:f4:4a",
+            "ip": "192.168.2.254",
+            "trackers": [],
+        },
+        {
+            "key": "tv",
+            "name": "tv",
+            "mac": "aa:00:00:00:00:01",
+            "connected_to": "FRITZ!WLAN Repeater 1750E",
+            "trackers": [],
+        },
+        {"key": "pc", "name": "pc", "mac": "aa:00:00:00:00:02", "connected_to": "FRITZ!Box 4630", "trackers": []},
+        {"key": "x", "name": "x", "mac": "aa:00:00:00:00:03", "connected_to": "Unknown Repeater", "trackers": []},
+    ]
+    devices = {
+        "d1": {"id": "d1", "name": "FRITZ!WLAN Repeater 1750E", "connections": [["mac", "DC:39:6F:00:00:01"]]},
+        "d2": {
+            "id": "d2",
+            "name": "FRITZ!Box 4630",
+            "name_by_user": None,
+            "connections": [["mac", "00:7A:A4:4B:F4:4A"]],
+        },
+    }
+    found = fritz_nodes(hosts, devices, {})
+    assert found["fritz!wlan repeater 1750e"] == "rep" and found["fritz!box 4630"] == "box"
+    assert "unknown repeater" not in found
+    # No device: the router itself by its address
+    router = {"found": True, "address": "192.168.2.254", "info": {"name": "FRITZ!Box 4630"}}
+    assert fritz_nodes(hosts, {}, router)["fritz!box 4630"] == "box"
 
 
 def test_states():
