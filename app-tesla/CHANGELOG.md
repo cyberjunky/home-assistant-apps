@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.2
+
+**After updating:** nothing to do.
+
+- **Pick a day or a span of days** on Trips and Charging: **Dates…** next to the year opens From and To. Leave To empty for one day; **Today** jumps to today. Both days count in full. The button shows the chosen dates, and each page remembers them like the other periods.
+
 ## 0.8.1
 
 **After updating:** nothing to do.

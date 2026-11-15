@@ -97,6 +97,7 @@ function setTripsRange(key) {
     localStorage.setItem(LS + 'trips_range', key);
     buildChips('trips-range', RANGES, tripsRange, setTripsRange);
     buildYearSelect('trips-year', tripsRange, setTripsRange);
+    buildDatePicker('trips-dates', tripsRange, setTripsRange);
     loadTrips(true);
 }
 
@@ -266,6 +267,7 @@ function openTrip(id) {
 onTab('trips', (force) => {
     buildChips('trips-range', RANGES, tripsRange, setTripsRange);
     buildYearSelect('trips-year', tripsRange, setTripsRange);
+    buildDatePicker('trips-dates', tripsRange, setTripsRange);
     if (tripData && !pendingTrip) {
         drawTrip();
     }

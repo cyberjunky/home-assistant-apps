@@ -134,10 +134,10 @@ overrides that).
 - **Dashboard** — Map with the car, the drive in progress and the last 24 hours of routes;
   battery, range and charge limit; what the car is doing right now; vehicle details; totals
   for today, 7 days and 30 days; recent activity. 📍 keeps the car in view.
-- **Trips** — Pick a period, click a trip. The map shows the route coloured by speed; hover
+- **Trips** — Pick a period (or one day or a span of days with **Dates…**), click a trip. The map shows the route coloured by speed; hover
   the chart (speed, power, elevation or battery) to see where on the route you were. **GPX**
   downloads the track.
-- **Charging** — Pick a session to see where it was, its power curve and battery level.
+- **Charging** — Pick a period the same way, then a session to see where it was, its power curve and battery level.
   **Set cost** overrides the calculated cost, for example for a fast charger with its own
   price.
 - **Stats** — Pick a period and bar size, including tire pressure over time. Hover any chart for exact values; click a record
