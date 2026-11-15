@@ -273,16 +273,16 @@ table.data.dev-table .meter { min-width: 120px; }
 .view-bar #dv-mode { margin-left: 2px; }
 .ncards { columns: 3 320px; column-gap: 12px; padding: 12px; background: var(--ha-background); }
 .ncards > .empty-state { column-span: all; }
-.ncard { break-inside: avoid; margin: 0 0 12px; background: var(--ha-card-background); border: var(--card-border); border-radius: 10px; overflow: hidden; box-shadow: inset 4px 0 0 var(--g); }
-.ncard-head { display: flex; align-items: baseline; gap: 8px; padding: 10px 12px 6px 16px; flex-wrap: wrap; }
+.ncard { break-inside: avoid; margin: 0 0 12px; background: var(--ha-card-background); border: var(--card-border); border-radius: 6px; overflow: hidden; }
+.ncard-head { display: flex; align-items: baseline; gap: 8px; padding: 12px 14px 6px; flex-wrap: wrap; }
 .ncard-name { font-weight: 600; font-size: 13.5px; }
 .ncard-sub { font-family: var(--mono); font-size: 11.5px; color: var(--secondary-text-color); }
 .ncard-count { font-family: var(--mono); font-size: 12px; color: var(--secondary-text-color); }
 .ncard-count b { color: var(--primary-text-color); font-weight: 600; }
 .ncard-count.has-away b { color: var(--warning-color); }
-.ncard-bar { height: 3px; margin: 0 12px 8px 16px; background: var(--divider-color); border-radius: 2px; overflow: hidden; }
+.ncard-bar { height: 3px; margin: 0 14px 8px; background: var(--divider-color); border-radius: 2px; overflow: hidden; }
 .ncard-bar i { display: block; height: 100%; background: var(--g); }
-.ncard-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 2px; padding: 0 8px 10px 12px; }
+.ncard-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 2px; padding: 0 8px 10px; }
 .nitem { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 5px 6px; border: 0; border-radius: 7px; background: none; color: inherit; font: inherit; text-align: left; }
 button.nitem { cursor: pointer; }
 button.nitem:hover, button.nitem:focus-visible { background: var(--hover-bg); outline: none; }
