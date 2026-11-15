@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4
+
+- **The Shell opens in Home Assistant's sidebar**: 0.1.3 showed "Connection failed (got unexpected content type application/json)". Home Assistant's ingress passes the content type without its charset, which PBS's console requires; the app now gives it back in the browser. PBS's pages also name their charset themselves now
+
 ## 0.1.3
 
 - **PBS inside Home Assistant, also on `http://`**: the sidebar page now passes PBS's interface through Home Assistant itself instead of loading it from port 8007, so it works on http and https, through Nabu Casa too, and without a certificate to accept. The Shell works in it as well. PBS is unchanged; Proxmox VE keeps using port 8007
