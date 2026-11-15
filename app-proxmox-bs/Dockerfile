@@ -32,14 +32,14 @@ RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d && chmod +x /usr/sbin
             > /etc/apt/sources.list.d/proxmox.sources \
         && apt-get update \
         && apt-get install -y --no-install-recommends "proxmox-backup-server=${PBS_VERSION}" \
-            msmtp-mta smartmontools e2fsprogs xfsprogs gdisk util-linux python3 tzdata ; \
+            msmtp-mta smartmontools e2fsprogs xfsprogs gdisk util-linux python3 python3-aiohttp tzdata ; \
     elif [ "${arch}" = "arm64" ]; then \
         mkdir /tmp/debs && cd /tmp/debs \
         && grep -o '[^ ]*\.deb$' /tmp/pbs-arm64.sha256 | while read -r deb; do \
             curl -fsSLO "https://github.com/wofferl/proxmox-backup-arm64/releases/download/${PBS_VERSION}/${deb}"; done \
         && sha256sum -c /tmp/pbs-arm64.sha256 \
         && apt-get install -y --no-install-recommends ./*.deb \
-            msmtp-mta smartmontools e2fsprogs xfsprogs gdisk util-linux python3 tzdata \
+            msmtp-mta smartmontools e2fsprogs xfsprogs gdisk util-linux python3 python3-aiohttp tzdata \
         && cd / && rm -rf /tmp/debs ; \
     else \
         echo "unsupported architecture ${arch}" >&2; exit 1; \

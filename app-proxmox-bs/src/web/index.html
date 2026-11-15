@@ -21,7 +21,7 @@
   <span class="spacer"></span>
   <div class="tabs" role="group" aria-label="PBS">
     <button type="button" class="tab" id="reload" title="Reload PBS's interface">Reload</button>
-    <a class="tab" id="open-tab" target="_blank" rel="noopener" title="Open PBS's interface in its own browser tab">Open in new tab</a>
+    <a class="tab" id="open-tab" href="pbs/" target="_blank" rel="noopener" title="PBS's interface in its own browser tab">Open in new tab</a>
   </div>
   <div class="tabs" role="group" aria-label="Theme">
     <button type="button" id="theme-toggle" class="tab icon-tab" onclick="cycleTheme()" title="Theme"><span id="theme-icon" aria-hidden="true">☀️</span></button>
@@ -36,8 +36,7 @@
       <h2 id="msg-title"></h2>
       <div id="msg-body"></div>
       <div class="row">
-        <a class="btn btn-primary" id="msg-open" target="_blank" rel="noopener">Open Proxmox Backup Server</a>
-        <button type="button" class="btn" id="msg-retry">Try again</button>
+        <button type="button" class="btn btn-primary" id="msg-retry">Try again</button>
       </div>
     </div>
   </div>
