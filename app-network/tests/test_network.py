@@ -866,6 +866,36 @@ def test_a_device_that_just_left_counts():
     assert host_events({"a": iv}, 0.0, until) == []
 
 
+def test_an_access_point_registration_beats_fritz_lan():
+    # A client of a MikroTik access point: the FRITZ!Box sees it over the cable and says LAN
+    states = {
+        "device_tracker.plug_fritz": {
+            "entity_id": "device_tracker.plug_fritz",
+            "state": "home",
+            "attributes": {"mac": "AA:BB:CC:00:00:31", "connected_to": "fritz.box", "connection_type": "LAN"},
+        },
+        "device_tracker.plug_mikrotik": {
+            "entity_id": "device_tracker.plug_mikrotik",
+            "state": "home",
+            "attributes": {"mac": "AA:BB:CC:00:00:31", "ap_mac": "48:A9:8A:00:00:25", "ssid": "Herscheliot"},
+        },
+    }
+    (host,) = build_hosts({}, {}, {}, states)
+    assert host["wired"] is False and host["ssid"] == "Herscheliot"
+    # Through the port entities of the access point only, too
+    ports = [
+        {
+            "kind": "wifi",
+            "owner": "48:a9:8a:00:00:25",
+            "port": "wlan1",
+            "ssid": "Herscheliot",
+            "connected": ["aa:bb:cc:00:00:31"],
+        }
+    ]
+    (host,) = build_hosts({}, {}, {}, {"device_tracker.plug_fritz": states["device_tracker.plug_fritz"]}, ports)
+    assert host["wired"] is False and host["ap_mac"] == "48:a9:8a:00:00:25" and host["ssid"] == "Herscheliot"
+
+
 def test_fritz_wifi_beats_the_switch_port():
     # A FRITZ!Box Wi-Fi client that a MikroTik sees on the port towards the FRITZ!Box
     host = {

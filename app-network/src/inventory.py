@@ -284,6 +284,11 @@ def build_hosts(
             host["sw_mac"], host["sw_port"] = p["owner"], p["port"]
             if host["wired"] is None:
                 host["wired"] = True
+    # Registered to an access point: on its Wi-Fi, whatever a router behind it says (the FRITZ!Box
+    # sees a client of a MikroTik access point through the cable to it, and calls it LAN)
+    for host in hosts:
+        if host["ap_mac"]:
+            host["wired"] = False
     # The host of the device a device is connected through (Home Assistant's via_device)
     for host in hosts:
         host["via"] = device_hosts.get(host.pop("via_device_id"), "") if host.get("via_device_id") else ""
