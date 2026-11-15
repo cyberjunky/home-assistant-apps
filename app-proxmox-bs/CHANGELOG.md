@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.6
+
+- **`mount` works in PBS's Shell**: it printed "already mounted or mount point busy" for any disk, because the Shell didn't get the setting that makes mounts pass the app's AppArmor profile. Mounting a disk below `/mnt/datastore` from the Shell now works
+- The Documentation tab describes how to **move a datastore to another disk** without recreating it or losing backups
+
 ## 0.1.5
 
 - **The datastore disks are mounted before PBS starts**: after an update or restart PBS could start a moment before its disk was mounted, and briefly find no datastore ("read fs info ... No such file or directory"). The app now mounts every connected disk first, then starts PBS
