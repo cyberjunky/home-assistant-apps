@@ -465,9 +465,15 @@ class Inventory:
         device_id = entry.get("device_id")
         device_too = bool(device_too and device_id)
         # An entity with has_entity_name is called "<device> <its own name>": when the device gets the
-        # name, the entity gives up its own, or the name shows twice
-        own = None if device_too and entry.get("has_entity_name") else name or None
-        await self.ws.call({"type": "config/entity_registry/update", "entity_id": entity_id, "name": own})
+        # name, the entity gives up its own, or the name shows twice. That goes for every tracker of
+        # the device (arp-scan, MikroTik Network and the FRITZ!Box can each have one on it)
+        targets = [entry]
+        if device_too:
+            targets += [e for e in self.entities.values() if e is not entry and e.get("device_id") == device_id]
+        for e in targets:
+            own = None if device_too and e.get("has_entity_name") else name or None
+            if e is entry or e.get("name") != own:
+                await self.ws.call({"type": "config/entity_registry/update", "entity_id": e["entity_id"], "name": own})
         renamed_device = False
         if device_too:
             await self.ws.call(

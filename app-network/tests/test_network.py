@@ -623,6 +623,20 @@ async def test_rename_in_home_assistant(app, mock):
     assert missing.status == 404
 
 
+async def test_rename_clears_every_tracker_of_the_device(app, mock):
+    test, inventory, _ = app
+    named = next(e for e, x in mock.entities.items() if x.get("has_entity_name") and x.get("device_id"))
+    device_id = mock.entities[named]["device_id"]
+    # A second tracker on the same device (arp-scan next to MikroTik Network) with an old own name
+    other = next(e for e, x in mock.entities.items() if e != named and x.get("device_id") != device_id)
+    mock.entities[other].update(device_id=device_id, has_entity_name=True, name="MikroTik CR125 Switch")
+    await inventory.load()
+    answer = await test.post("/api/rename", json={"entity_id": named, "name": "MikroTik CR125 Switch", "device": True})
+    assert answer.status == 200, await answer.text()
+    assert mock.entities[named]["name"] is None and mock.entities[other]["name"] is None
+    assert mock.states[other]["attributes"]["friendly_name"] == "MikroTik CR125 Switch"
+
+
 async def test_icon_and_doc(app, mock):
     test, *_ = app
     answer = await test.post("/api/icon", json={"entity_id": "device_tracker.hp7c3b8a", "icon": "mdi:printer"})
