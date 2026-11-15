@@ -16,6 +16,8 @@ ENV S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0
 # Mount the datastore disks with the classic mount call, which the app's AppArmor profile checks
 # (file system, disk, mount point); the newer fd-based one passes through other checks it refuses
 ENV LIBMOUNT_FORCE_MOUNT2=always
+# The same for PBS's Shell, which logs in through PAM and gets its environment from /etc/environment
+RUN echo "LIBMOUNT_FORCE_MOUNT2=always" >> /etc/environment
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
