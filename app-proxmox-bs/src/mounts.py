@@ -240,6 +240,7 @@ class Watcher:
                 if not mounted:
                     ok, message = mount(unit)
                     if not ok:
+                        lock(unit.where)
                         self._report(unit, "error", f"can't mount {unit.what}: {message}", logging.ERROR)
                         continue
                     self._report(unit, "mounted", f"mounted {unit.what}")
@@ -270,6 +271,7 @@ def mount_all(unit_dir: Path | None = None) -> None:
             if ok:
                 logger.info(f"{unit.where}: {message} ({unit.what})")
             else:
+                lock(unit.where)
                 logger.error(f"{unit.where}: can't mount {unit.what}: {message}")
         else:
             lock(unit.where)

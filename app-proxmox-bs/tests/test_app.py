@@ -246,3 +246,10 @@ def test_pbs_waits_for_its_disks():
         assert (s6 / "s6-rc.d" / service / "dependencies.d/mount-disks").exists()
     assert (s6 / "user-bundles.d/user/contents.d/mount-disks").exists()
     assert (s6 / "s6-rc.d/mount-disks/type").read_text().strip() == "oneshot"
+
+
+def test_before_pbs_starts_a_disk_that_fails_to_mount_leaves_its_mount_point_locked(monkeypatch, tmp_path):
+    fake = Fake(monkeypatch, tmp_path, connected=True, mounted=False, cfg="")
+    monkeypatch.setattr(mounts, "mount", lambda unit: fake.calls.append(("mount", unit.where)) or (False, "bad"))
+    mounts.mount_all()
+    assert fake.calls == [("mount", "/mnt/datastore/store1"), ("lock", "/mnt/datastore/store1")]
