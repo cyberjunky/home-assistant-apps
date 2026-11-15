@@ -184,7 +184,7 @@ def test_fritz_devices_found_by_their_device():
     found = fritz_nodes(hosts, {}, router, {"fritz.box": "192.168.2.254", "fritz.repeater": "192.168.2.253"})
     assert found["fritz.box"] == "box" and found["fritz.repeater"] == "rep2"
     # Not in DNS: not found
-    assert "fritz.box" not in fritz_nodes(hosts, {}, router, {})
+    assert "fritz.repeater" not in fritz_nodes(hosts, {}, router, {})
 
 
 def test_a_real_name_wins_over_a_mac_address():
