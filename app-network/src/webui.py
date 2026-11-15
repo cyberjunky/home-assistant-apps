@@ -18,7 +18,7 @@ from .config import APP_VERSION, DATA_DIR, Config
 from .donate import DonatePrompt
 from .ha_client import HAClientError, HAWebSocket
 from .history import DAY, History, host_events, host_stats, merge, online_series, up_intervals
-from .inventory import Inventory, fritz_nodes
+from .inventory import Inventory, behind_bridges, fritz_nodes
 from .kinds import KINDS
 from .mobile import mismatch, parse_history
 from .mobile import summary as mobile_summary
@@ -120,6 +120,10 @@ class WebUI:
     async def _hosts(self, request: web.Request) -> web.Response:
         hosts = self.inventory.hosts()
         fritz_nodes = self._fritz_nodes(hosts)
+        devices = self.store.doc.get("devices", {})
+        behind = behind_bridges(
+            hosts, self.inventory.port_list(), lambda h: (devices.get(h["key"]) or {}).get("kind") or h.get("guess")
+        )
         first, last = await asyncio.to_thread(lambda: (self.history.first_seen(), self.history.last_seen()))
         out = []
         for host in hosts:
@@ -132,6 +136,13 @@ class WebUI:
                     "first_seen": min(seen) if seen else None,
                     "last_seen": max(gone) if gone else None,
                     "connected_via": fritz_nodes.get(host.get("connected_to", "").lower(), ""),
+                    # Behind an access point or switch that is on the same switch port
+                    **(
+                        {"behind": behind[host["key"]][0], "behind_by": behind[host["key"]][1]}
+                        | ({"wired": False} if behind[host["key"]][1] == "wifi" else {})
+                        if host["key"] in behind
+                        else {}
+                    ),
                 }
             )
         return web.json_response(

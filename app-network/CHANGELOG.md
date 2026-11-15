@@ -6,6 +6,7 @@
 
 - **Wi-Fi networks as groups:** *Auto-place* can put Wi-Fi devices in a group per Wi-Fi network (SSID, from UniFi, MikroTik Network or the FRITZ!Box) instead of the group of their IP network. It asks when Home Assistant knows a Wi-Fi network of a device; wired devices stay in their network's group.
 - **The right address:** when the trackers of one device disagree, the address from a router or controller (MikroTik Network, UniFi, the FRITZ!Box) wins over a network scan (arp-scan, Nmap, Ping). A scan sees whatever answers: a FRITZ!Box answers for its VPN connections too, and arp-scan gave it one of those addresses.
+- **Behind a repeater or switch:** a FRITZ!Repeater (or another access point or switch) on a MikroTik port made the devices on its Wi-Fi look as if they were cabled to that port: the port sees them all. Devices a port lists together with one access point, switch or router now hang behind that one (by Wi-Fi behind an access point), and *Draw connections* draws them so. It uses the kind you set on the map, else the guessed one.
 - **Renaming a device too:** with *Rename its device too* ticked, a tracker named after its device (most integrations, arp-scan too) showed the name twice ("MikroTik hAP mini MikroTik hAP mini"): the device and the tracker both got it. The device gets the name now and the tracker gives up its own. A name already doubled is fixed by renaming once more.
 
 ## 0.1.5

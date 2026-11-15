@@ -507,3 +507,34 @@ def fritz_nodes(hosts: list[dict], devices: dict[str, dict], router: dict) -> di
                 if router.get("found") and name in {str(v).lower() for v in router["info"].values()}:
                     out[name] = next((h["key"] for h in hosts if h.get("ip") == router["address"]), "")
     return out
+
+
+# Devices that others hang behind: an access point (by Wi-Fi), a switch or a router (by cable)
+BRIDGES = {
+    "ap": "wifi",
+    "switch": "ethernet",
+    "unmanaged_switch": "ethernet",
+    "router": "ethernet",
+    "firewall": "ethernet",
+    "modem": "ethernet",
+    "powerline": "ethernet",
+}
+
+
+def behind_bridges(hosts: list[dict], ports: dict[str, list[dict]], kind_of) -> dict[str, tuple[str, str]]:
+    """Devices a switch port lists together with an access point, switch or router (a FRITZ!Repeater
+    on a MikroTik port): they hang behind that one, not on the port. key -> (its key, wifi/ethernet).
+    kind_of(host) gives a host's kind (what is set on the map, else the guess)."""
+    by_mac = {h["mac"]: h for h in hosts if h.get("mac")}
+    out: dict[str, tuple[str, str]] = {}
+    for port_list in ports.values():
+        for port in port_list:
+            on = [by_mac[m] for m in port["connected"] if m in by_mac]
+            bridges = [h for h in on if kind_of(h) in BRIDGES]
+            if len(bridges) != 1 or len(on) < 2:
+                continue
+            bridge = bridges[0]
+            for h in on:
+                if h is not bridge and not h.get("ap_mac"):
+                    out[h["key"]] = (bridge["key"], BRIDGES[kind_of(bridge)])
+    return out

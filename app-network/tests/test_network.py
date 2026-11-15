@@ -9,7 +9,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from src import ha_client
 from src.config import Config
 from src.history import History, host_events, host_stats, merge, online_series, up_intervals
-from src.inventory import Inventory, build_hosts, fritz_nodes, is_up, port_entity
+from src.inventory import Inventory, behind_bridges, build_hosts, fritz_nodes, is_up, port_entity
 from src.kinds import KINDS, guess_kind, is_random_mac, mac_vendor, normalize_mac
 from src.mobile import distance, habits, haversine, mismatch, segments, summary, trips
 from src.store import Conflict, Store, clean, empty_doc
@@ -319,6 +319,33 @@ def test_a_router_knows_the_address_better_than_a_scan():
     (host,) = build_hosts(entities, {}, {}, states)
     assert host["name"] == "fritz" and host["ip"] == "192.168.2.254"
     assert host["ips"] == ["192.168.2.187", "192.168.2.254"]
+
+
+def test_devices_behind_a_repeater_on_a_switch_port():
+    # A FRITZ!Repeater on a MikroTik port: its Wi-Fi clients are seen on that port too
+    hosts = [
+        {"key": "rep", "mac": "dc:39:6f:00:00:01", "guess": "ap"},
+        {"key": "phone", "mac": "aa:00:00:00:00:01", "guess": "phone"},
+        {"key": "tv", "mac": "aa:00:00:00:00:02", "guess": "tv", "ap_mac": "48:a9:8a:00:00:21"},
+        {"key": "pi", "mac": "aa:00:00:00:00:03", "guess": "sbc"},
+        {"key": "sw2", "mac": "aa:00:00:00:00:04", "guess": "generic"},
+        {"key": "nas", "mac": "aa:00:00:00:00:05", "guess": "nas"},
+    ]
+    ports = {
+        "48:a9:8a:00:00:20": [
+            {"port": "ether5", "connected": ["dc:39:6f:00:00:01", "aa:00:00:00:00:01", "aa:00:00:00:00:02"]},
+            {"port": "ether6", "connected": ["aa:00:00:00:00:03"]},
+            {"port": "ether7", "connected": ["aa:00:00:00:00:04", "aa:00:00:00:00:05"]},
+        ]
+    }
+    kinds = {"sw2": "unmanaged_switch"}
+    behind = behind_bridges(hosts, ports, lambda h: kinds.get(h["key"]) or h["guess"])
+    # The phone hangs on the repeater's Wi-Fi; a device another access point names stays there
+    assert behind["phone"] == ("rep", "wifi") and "tv" not in behind and "rep" not in behind
+    # Alone on its port: on the port
+    assert "pi" not in behind
+    # Behind a switch set on the map (unmanaged, no tracker of its own would say so)
+    assert behind["nas"] == ("sw2", "ethernet")
 
 
 def test_states():

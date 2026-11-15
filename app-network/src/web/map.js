@@ -990,6 +990,8 @@ async function mapAutoPlace() {
 function uplinkOf(h) {
     const m = meta(h.key);
     if (m.uplink && hostByKey(m.uplink)) return m.uplink;
+    // Behind an access point or switch on the same switch port (a repeater on a MikroTik port)
+    if (h.behind && hostByKey(h.behind)) return h.behind;
     const sw = h.sw_mac ? hostByMac(h.sw_mac) : null;
     if (sw) return sw.key;
     const ap = h.ap_mac ? hostByMac(h.ap_mac) : null;
@@ -1024,6 +1026,7 @@ async function mapSuggestLinks() {
         const m = meta(h.key);
         const candidates = [];
         if (m.uplink) candidates.push({key: m.uplink, kind: connectionOf(h) === 'wifi' ? 'wifi' : (m.connection || 'ethernet'), label: m.port || ''});
+        if (h.behind) candidates.push({key: h.behind, kind: h.behind_by === 'wifi' ? 'wifi' : 'ethernet', label: ''});
         if (h.ap_mac) { const ap = hostByMac(h.ap_mac); if (ap) candidates.push({key: ap.key, kind: 'wifi', label: ''}); }
         if (h.sw_mac) { const sw = hostByMac(h.sw_mac); if (sw) candidates.push({key: sw.key, kind: 'ethernet', label: m.port || portText(h.sw_port)}); }
         if (h.connected_via) candidates.push({key: h.connected_via, kind: h.connection_type === 'WLAN' ? 'wifi' : 'ethernet', label: m.port || ''});
