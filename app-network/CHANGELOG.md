@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.7
+
+**After updating:** to place the FRITZ!Box Wi-Fi devices again: on an emptied page, *Auto-place*, then *Draw connections* with *Wi-Fi devices to their access point* ticked.
+
+- **FRITZ!Box devices are no routers:** the FRITZ!Box integration registers every device it tracks with the model "FRITZ!Box Tracked device" and the maker "FRITZ!". That made them all routers (network gear): they went into the network gear, not into their Wi-Fi network's group, and got no Wi-Fi link to the box or repeater. Such a stand-in model and maker are ignored now.
+- **Units on the charts:** the unit above the axis (Mbit/s, GiB) and plain numbers on it, instead of 48M and 37G.
+- **VMs behind their Proxmox host:** devices that share a switch port with a Proxmox host hang behind it, by a virtual link (give the host the kind *Proxmox host*).
+- **The map's bar:** every button as high as the others.
+
 ## 0.1.6
 
 **After updating:** nothing to do.
