@@ -1,0 +1,11 @@
+[Unit]
+Description=Back up directories to Proxmox Backup Server
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/pbs-backup
+# Stay out of the way of what the host is doing
+Nice=10
+IOSchedulingClass=idle
