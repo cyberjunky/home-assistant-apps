@@ -20,16 +20,6 @@ function fmtBits(bitsPerSecond) {
     return missing(bitsPerSecond) ? '–' : fmtRate(bitsPerSecond / 8).replace(/\.0 /, ' ');
 }
 
-// The axis of a chart: short, the unit is under the chart (48M for 48 Mbit/s, 37G for 37 GiB)
-function compact(value, steps) {
-    for (const [size, unit] of steps) {
-        if (Math.abs(value) >= size) {
-            const v = value / size;
-            return `${num(v, v < 10 && v % 1 ? 1 : 0)}${unit}`;
-        }
-    }
-    return num(value);
-}
 // An axis in one unit, picked by the largest value: plain numbers on the axis, the unit above it
 function axisUnit(max, steps) {
     const [size, unit] = steps.find(([s]) => max >= s) || steps[steps.length - 1];
