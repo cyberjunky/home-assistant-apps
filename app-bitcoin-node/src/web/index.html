@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- The top bar is as high as Home Assistant's own header (its --header-height, 56px by default) -->
+    <script>try{const h=getComputedStyle(window.parent.document.documentElement).getPropertyValue('--header-height').trim();if(h)document.documentElement.style.setProperty('--ha-header-height',h);}catch(e){}</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Node</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f7931a' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2l8.5 5v10L12 22l-8.5-5V7z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="static/app.css?v=__VERSION__"/>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l8.5 5v10L12 22l-8.5-5V7z"/><circle cx="12" cy="12" r="3"/></svg>
+            <span class="brand-name">BITCOIN NODE</span>
+        </div>
+        <nav class="tabs" id="nav" aria-label="Views">
+            <button type="button" class="tab" data-tab="overview" onclick="switchTab('overview')">Overview</button>
+            <button type="button" class="tab" data-tab="node" onclick="switchTab('node')">Blockchain</button>
+            <button type="button" class="tab" data-tab="mempool" onclick="switchTab('mempool')">Mempool</button>
+            <button type="button" class="tab" data-tab="peers" onclick="switchTab('peers')">Peers</button>
+            <button type="button" class="tab" data-tab="lightning" onclick="switchTab('lightning')">Lightning</button>
+            <button type="button" class="tab" data-tab="tor" onclick="switchTab('tor')">Tor</button>
+            <span class="tab-sep" aria-hidden="true"></span>
+            <button type="button" class="tab" data-tab="info" onclick="switchTab('info')" title="Info"><span class="tab-label">Info</span><span class="tab-icon" aria-hidden="true">ⓘ</span></button>
+        </nav>
+        <span class="spacer"></span>
+        <div class="tabs" role="group" aria-label="Theme">
+            <button type="button" id="theme-toggle" class="tab icon-tab" onclick="cycleTheme()" title="Theme"><span id="theme-icon" aria-hidden="true">🌓</span></button>
+        </div>
+        <span id="clock" class="clock"></span>
+    </header>
+
+    <div class="views">
+        <div class="pages" id="pages">
+            <div class="container">
+                <div id="notices"></div>
+                <div id="nodata" class="panel" hidden></div>
+                <div id="tab-overview" class="tab-content"></div>
+                <div id="tab-node" class="tab-content"></div>
+                <div id="tab-mempool" class="tab-content"></div>
+                <div id="tab-peers" class="tab-content"></div>
+                <div id="tab-lightning" class="tab-content"></div>
+                <div id="tab-tor" class="tab-content"></div>
+                <div id="tab-info" class="tab-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="statusbar" id="statusbar"></footer>
+    <div id="toast-root"></div>
+    <div id="modal-root"></div>
+
+    <script src="static/core.js?v=__VERSION__"></script>
+    <script src="static/charts.js?v=__VERSION__"></script>
+    <script src="static/node.js?v=__VERSION__"></script>
+    <script src="static/lightning.js?v=__VERSION__"></script>
+    <script src="static/main.js?v=__VERSION__"></script>
+    <script src="static/donate.js?v=__VERSION__" data-app="Bitcoin Node" data-api="api/donate"></script>
+</body>
+</html>
