@@ -591,7 +591,8 @@ class Admin:
             await asyncio.sleep(SAMPLE_SECONDS)
 
     async def sample(self) -> None:
-        """Counters of every database once a minute; the charts show the change per minute."""
+        """Counters of every database once a minute; the charts show the change per minute. The connections
+        by state leave out the one this count runs on, which would always show as running a query."""
         pool = await self.pool("postgres")
         rows = await pool.fetch(
             """SELECT datname, numbackends, xact_commit + xact_rollback AS xacts, tup_inserted, tup_updated,
@@ -600,7 +601,7 @@ class Admin:
         )
         states = await pool.fetch(
             """SELECT coalesce(state, 'other') AS state, count(*) AS n FROM pg_stat_activity
-               WHERE backend_type = 'client backend' GROUP BY 1"""
+               WHERE backend_type = 'client backend' AND pid <> pg_backend_pid() GROUP BY 1"""
         )
         self.samples.append(
             {

@@ -66,7 +66,7 @@ async function loadActivity() {
         format: v => `${fmtValue(v)}/min`, empty: 'Collecting: a point every minute',
     });
     timeChart(document.getElementById('act-conns'), {
-        x: series.t, height: 180, compact: true, title: 'Connections', filename: 'chronicle-connections',
+        x: series.t, height: 180, compact: true, fromZero: true, title: 'Connections', filename: 'chronicle-connections',
         series: [{name: 'running a query', color: colors[1], values: series.active}, {name: 'idle', color: colors[2], values: series.idle}],
         format: v => fmtValue(v), empty: 'Collecting: a point every minute',
     });
