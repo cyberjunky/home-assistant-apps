@@ -3,6 +3,7 @@
 ## 0.1.11
 
 - **Phone battery from its sensor:** the Companion app reports a phone's battery as a sensor of the phone (`sensor.<phone>_battery_level`), not on its device tracker, so the Mobile page said "The app doesn't report the battery". A tracker without a battery level of its own now uses the battery sensor of its device: the level in the list and the tile, live, and the battery chart from the sensor's history.
+- **WiFi purpose:** a network can have *WiFi* as its purpose.
 
 ## 0.1.10
 
