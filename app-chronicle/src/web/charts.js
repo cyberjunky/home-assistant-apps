@@ -294,6 +294,7 @@ async function chartImage(el, title, legendItems, draw) {
 //   csv()                the CSV of what is shown (defaults to the series)
 //   barSize              bars: width in px at most
 //   compact              a small chart: fewer y labels, dashed lines across, none down
+//   fromZero             the y axis starts at 0 (counts), instead of fitting the values
 //   format(v)            a value as text in the tooltip (default: the number and its unit)
 //   formatAxis(v)        a value as text on the y axis
 //   tipTitle(t)          the tooltip's title for a time
@@ -369,7 +370,7 @@ function buildTimeChart(el, cfg) {
             range: (_u, min, max) => {
                 if (missing(min) || missing(max)) return [0, 1];
                 let lo = min, hi = max;
-                if (bars || (lo >= 0 && lo < hi * 0.25)) lo = Math.min(0, lo);
+                if (bars || cfg.fromZero || (lo >= 0 && lo < hi * 0.25)) lo = Math.min(0, lo);
                 if (hi === lo) { hi += Math.abs(hi) * 0.1 || 1; lo -= bars ? 0 : Math.abs(lo) * 0.1 || 1; }
                 const padY = (hi - lo) * 0.08;
                 return [lo === 0 ? 0 : lo - padY, hi + padY];
