@@ -134,14 +134,36 @@ def port_entity(state: dict) -> dict | None:
     }
 
 
+def battery_value(state: dict | None) -> float | None:
+    """A battery sensor's level in %, or None when it has none now."""
+    try:
+        return float((state or {}).get("state"))
+    except (TypeError, ValueError):
+        return None
+
+
+def is_battery_sensor(state: dict) -> bool:
+    a = state.get("attributes") or {}
+    return (
+        state.get("entity_id", "").startswith("sensor.")
+        and a.get("device_class") == "battery"
+        and a.get("unit_of_measurement") == "%"
+    )
+
+
 def build_hosts(
     entities: dict[str, dict],
     devices: dict[str, dict],
     areas: dict[str, dict],
     states: dict[str, dict],
     ports: list[dict] | None = None,
+    batteries: dict[str, float | None] | None = None,
 ) -> list[dict]:
-    """The hosts from the registries and the states. Pure, so the tests can feed it."""
+    """The hosts from the registries and the states. Pure, so the tests can feed it.
+
+    `batteries`: the level of a device's battery sensor, by device id, for a tracker without a
+    battery_level of its own (the Companion app has it as a sensor of the phone)."""
+    batteries = batteries or {}
     trackers: list[dict] = []
     ids = set(states) | set(entities)
     for entity_id in sorted(i for i in ids if i.startswith(DOMAIN)):
@@ -200,7 +222,9 @@ def build_hosts(
                 "latitude": attrs.get("latitude"),
                 "longitude": attrs.get("longitude"),
                 "gps_accuracy": attrs.get("gps_accuracy"),
-                "battery": attrs.get("battery_level"),
+                "battery": attrs.get("battery_level")
+                if isinstance(attrs.get("battery_level"), int | float)
+                else batteries.get(entry.get("device_id") or ""),
                 "updated": _ts(state.get("last_updated")),
                 "gps": attrs.get("source_type") == "gps",
             }
@@ -309,6 +333,8 @@ class Inventory:
         self.ports: dict[str, dict] = {}
         self.areas: dict[str, dict] = {}
         self.states: dict[str, dict] = {}
+        # Battery sensors (device_class battery, in %) by device id: (entity_id, state)
+        self.batteries: dict[str, tuple[str, dict]] = {}
         # Home Assistant's zones: home, work... with their position and radius
         self.zones: dict[str, dict] = {}
         self.ha_version = ""
@@ -348,6 +374,13 @@ class Inventory:
         self.states = {s["entity_id"]: s for s in states or [] if s.get("entity_id", "").startswith(DOMAIN)}
         self.zones = {s["entity_id"]: s for s in states or [] if s.get("entity_id", "").startswith("zone.")}
         self.ports = {p["entity_id"]: p for p in (port_entity(s) for s in states or []) if p}
+        device_of = {e["entity_id"]: e.get("device_id") for e in entities or [] if e.get("device_id")}
+        tracked = {e.get("device_id") for e in self.entities.values() if e.get("device_id")}
+        self.batteries = {}
+        for s in states or []:
+            device_id = device_of.get(s.get("entity_id", ""))
+            if device_id in tracked and is_battery_sensor(s) and device_id not in self.batteries:
+                self.batteries[device_id] = (s["entity_id"], s)
         self._hosts = None
         self._bump("*")
         self.loaded_at = time.time()
@@ -372,7 +405,8 @@ class Inventory:
                 states = {k: v for k, v in self.states.items() if not (self.entities.get(k) or {}).get("disabled_by")}
             else:
                 states = self.states
-            self._hosts = build_hosts(entities, self.devices, self.areas, states, list(self.ports.values()))
+            batteries = {d: battery_value(s) for d, (_, s) in self.batteries.items()}
+            self._hosts = build_hosts(entities, self.devices, self.areas, states, list(self.ports.values()), batteries)
         return self._hosts
 
     def port_list(self) -> dict[str, list[dict]]:
@@ -402,6 +436,11 @@ class Inventory:
                 )
         return out
 
+    def battery_sensor(self, tracker_id: str) -> str:
+        """The battery sensor of a tracker's device, when it has one."""
+        device_id = (self.entities.get(tracker_id) or {}).get("device_id") or ""
+        return self.batteries[device_id][0] if device_id in self.batteries else ""
+
     def home(self) -> tuple[float, float] | None:
         a = (self.zones.get("zone.home") or {}).get("attributes") or {}
         if isinstance(a.get("latitude"), int | float):
@@ -422,6 +461,17 @@ class Inventory:
                 self.zones.pop(entity_id, None)
             self._bump(entity_id)
             return
+        if entity_id.startswith("sensor."):
+            for device_id, (sensor_id, _) in self.batteries.items():
+                if sensor_id == entity_id:
+                    if data.get("new_state"):
+                        self.batteries[device_id] = (sensor_id, data["new_state"])
+                    self._hosts = None
+                    # The trackers of the device show the battery: they changed
+                    for tracker_id, e in self.entities.items():
+                        if e.get("device_id") == device_id:
+                            self._bump(tracker_id)
+                    return
         if not entity_id.startswith(DOMAIN):
             port = port_entity(data["new_state"]) if data.get("new_state") else None
             if port or entity_id in self.ports:

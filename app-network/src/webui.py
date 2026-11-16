@@ -5,6 +5,7 @@ come from Home Assistant's signed-in ingress proxy.
 """
 
 import asyncio
+import contextlib
 import ipaddress
 import json
 import logging
@@ -22,7 +23,7 @@ from .ha_client import HAClientError, HAWebSocket
 from .history import DAY, History, host_events, host_stats, merge, online_series, up_intervals
 from .inventory import Inventory, behind_bridges, config_host, fritz_devices, fritz_nodes, on_fritz_wifi
 from .kinds import KINDS
-from .mobile import mismatch, parse_history
+from .mobile import battery_history, mismatch, parse_history
 from .mobile import summary as mobile_summary
 from .router import Router
 from .store import Conflict, Store
@@ -253,6 +254,14 @@ class WebUI:
         points = parse_history(series[0] if series else [])
         offset = time.localtime(now).tm_gmtoff
         result = mobile_summary(points, since, now, self.inventory.home(), offset)
+        # The Companion app reports the battery as a sensor of the phone, not on its tracker
+        sensor = "" if result["battery"] else self.inventory.battery_sensor(entity_id)
+        if sensor:
+            with contextlib.suppress(HAClientError):
+                rows = await self.ws_client.get_history(
+                    [sensor], datetime.fromtimestamp(since, UTC), datetime.fromtimestamp(now, UTC)
+                )
+                result["battery"] = battery_history(rows[0] if rows else [])
         wifi_key = request.query.get("wifi", "")
         if wifi_key:
             stats = await asyncio.to_thread(self.stats, days, now, True)
