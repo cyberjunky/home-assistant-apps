@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+**After updating:** nothing to do.
+
+- **Far fewer connections to each bot:** a poll made its requests at the same time, each over its own connection, and Freqtrade closes those again within seconds. With several bots that left hundreds of closed connections lingering on the machine the bots run on. The requests of a poll now go one after the other over one connection.
+
 ## 0.1.1
 
 **After updating:** nothing to do.

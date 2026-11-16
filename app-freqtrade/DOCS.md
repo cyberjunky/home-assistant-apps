@@ -75,7 +75,7 @@ bot: API server  ──REST──────▶ every poll_seconds: state, bala
 ```
 
 - **Two connections per bot.** Freqtrade's WebSocket only carries events, such as an entry, an exit with its profit, a warning or a protection. Balances, profit and trades are only in the REST API. So the app reads the state over REST, and an event on the WebSocket reads it again at once: a trade shows up within seconds.
-- **Light on the bot.** The state is a handful of small requests per `poll_seconds`. Statistics, the profit per day, week and month, and the closed trades are read every 5 minutes or after a trade. Closed trades are read once, and after that only the new ones, up to the latest 5000.
+- **Light on the bot.** The state is a handful of small requests per `poll_seconds`. They are made one after the other over one connection, so a poll opens one connection to the bot, not one per request. Statistics, the profit per day, week and month, and the closed trades are read every 5 minutes or after a trade. Closed trades are read once, and after that only the new ones, up to the latest 5000.
 - **Reconnecting.** A bot that can't be reached is tried again at every interval. The WebSocket reconnects after 5 seconds, backing off to once a minute.
 - **Older Freqtrade versions** work too. What a version doesn't have, such as the long and short split of the profit or the wallet history, is left out.
 

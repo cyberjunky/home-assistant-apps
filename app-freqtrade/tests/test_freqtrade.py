@@ -155,6 +155,32 @@ async def test_refresh_reads_everything(mock_bot, tmp_path):
         await client._session.close()
 
 
+async def test_refresh_uses_one_connection(mock_bot, tmp_path):
+    """The calls of a poll go one after the other: one connection to the bot, not one per call."""
+    _, server = mock_bot
+    client = await started(client_for(server, tmp_path))
+    real_request = client.request
+    busy, most = 0, 0
+
+    async def request(method, path, body=None, **params):
+        nonlocal busy, most
+        busy += 1
+        most = max(most, busy)
+        try:
+            return await real_request(method, path, body, **params)
+        finally:
+            busy -= 1
+
+    client.request = request
+    try:
+        await client.refresh()
+        assert client.slow_updated and most == 1
+        assert len(client._session.connector._conns) == 1
+        assert sum(len(conns) for conns in client._session.connector._conns.values()) == 1
+    finally:
+        await client._session.close()
+
+
 async def test_wrong_password(mock_bot, tmp_path):
     _, server = mock_bot
     client = await started(client_for(server, tmp_path, password="wrong"))
