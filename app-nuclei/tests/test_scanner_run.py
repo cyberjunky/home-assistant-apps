@@ -68,9 +68,9 @@ async def test_nuclei_flags_are_the_ones_nuclei_has(templates):
 
 def test_targets_are_split_by_what_they_speak():
     web, protocol = scanner_module.split_targets(
-        ["10.0.0.5:8000", "10.0.0.5:22", "10.0.0.5:445", "10.0.0.5:7777", "https://host.example", "10.0.0.5:443"]
+        ["10.0.0.5:8000", "10.0.0.5:22", "10.0.0.5:445", "10.0.0.5:7777", "10.0.0.5:443"]
     )
-    assert web == ["10.0.0.5:8000", "10.0.0.5:7777", "https://host.example", "10.0.0.5:443"]
+    assert web == ["10.0.0.5:8000", "10.0.0.5:7777", "10.0.0.5:443"]
     assert protocol == ["10.0.0.5:22", "10.0.0.5:445", "10.0.0.5:7777"]  # an unknown port gets both
 
 

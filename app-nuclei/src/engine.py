@@ -44,10 +44,6 @@ class Engine:
         self._lock = asyncio.Lock()
         self.updating_templates = False
 
-    @property
-    def busy(self) -> bool:
-        return self._lock.locked()
-
     def check(self, device: dict | None) -> None:
         if not device:
             raise NotScannable("no such device")

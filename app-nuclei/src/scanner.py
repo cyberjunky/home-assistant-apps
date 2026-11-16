@@ -1,7 +1,7 @@
 """Running the scanners: naabu for open ports, then nuclei for vulnerabilities.
 
-The flow for one target:
-  1. naabu finds open ports (skipped for a URL target, which already names host and port).
+The flow for one device:
+  1. naabu finds open ports.
   2. nuclei runs against host:port pairs. It carries the whole community template set, so every
      applicable CVE and exposure template is tried; its matchers mean only real hits are reported,
      and -automatic-scan fingerprints each host so only templates relevant to the detected technology
@@ -225,19 +225,11 @@ PROTOCOL_PROTOCOLS = ("tcp", "javascript", "ssl")
 
 
 def split_targets(targets: list[str]) -> tuple[list[str], list[str]]:
-    """Targets for the web pass and for the protocol pass. A URL is always web; host:port goes by its port."""
+    """host:port targets for the web pass and for the protocol pass, by their port."""
     web: list[str] = []
     protocol: list[str] = []
     for target in targets:
-        if "://" in target:
-            web.append(target)
-            continue
-        try:
-            port = int(target.rsplit(":", 1)[1])
-        except (IndexError, ValueError):
-            web.append(target)
-            protocol.append(target)
-            continue
+        port = int(target.rsplit(":", 1)[1])
         if port in WEB_PORTS:
             web.append(target)
         elif port in NON_WEB_PORTS:
@@ -437,7 +429,7 @@ class Scanner:
         return argv
 
     async def scan_targets(self, targets: list[str], on_finding) -> int:
-        """Run nuclei against host:port (or URL) targets, in two passes so every target gets the templates
+        """Run nuclei against host:port targets, in two passes so every target gets the templates
         that fit it: web templates (http and TLS) on web ports, and protocol templates (ssh, smb, ftp,
         databases, TLS and so on) on the others. A port that is neither known to be web nor known not to be
         gets both. Every finding goes to on_finding; the caller decides which become issues. Returns the count."""

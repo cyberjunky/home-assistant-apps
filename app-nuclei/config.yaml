@@ -1,6 +1,6 @@
 # https://developers.home-assistant.io/docs/apps/configuration
 name: Nuclei Scanner
-version: "0.1.9"
+version: "0.2.0"
 slug: app-nuclei
 description: "Internal vulnerability scanner for the devices Home Assistant tracks - open ports, CVEs and exposed services, as issues you work through"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-nuclei"
@@ -22,14 +22,14 @@ options:
   rescan_days: 7
   max_concurrent_hosts: 25
   requests_per_second: 150
-  # The lowest severity worth a ticket: info, low, medium, high or critical
+  # The lowest severity that becomes an issue: info, low, medium, high or critical
   min_severity: low
   nuclei_tags: ""
   nuclei_exclude_tags: "dos,fuzzing,intrusive"
   # nuclei's default-login checks: each product's own factory login. Off by default: it makes real
   # login attempts, which can lock accounts and trip alarms.
   default_credentials: false
-  # Keep resolved findings and closed scans this many days (open tickets are always kept)
+  # Keep resolved issues and finished scans this many days (issues still there are always kept)
   retention_days: 365
   update_templates: true
   log_level: info

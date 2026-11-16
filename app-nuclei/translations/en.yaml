@@ -12,7 +12,7 @@ configuration:
     description: The rate limit for naabu and nuclei together. Lower it to be gentler on a target.
   min_severity:
     name: Minimum severity
-    description: The lowest severity that becomes a ticket.
+    description: The lowest severity that becomes an issue.
   nuclei_tags:
     name: Only these tags
     description: Limit nuclei to templates with these tags (comma separated). Empty runs all applicable templates.
@@ -26,7 +26,7 @@ configuration:
       lock accounts and trip alarms. There is no password stuffing from a file.
   retention_days:
     name: Keep data (days)
-    description: Resolved tickets and finished scans older than this are removed. Open tickets are always kept.
+    description: Resolved issues and finished scans older than this are removed. Issues that are still there are always kept.
   update_templates:
     name: Update templates
     description: Pull the newest nuclei templates before a scan, so you always have the latest CVE checks.

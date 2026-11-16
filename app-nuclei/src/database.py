@@ -16,7 +16,6 @@ from .trackers import scannable
 DB_FILE = DATA_DIR / "scanner.db"
 
 # An issue is open until acknowledged; it is resolved when a later scan of its device no longer finds it
-ISSUE_STATES = ("open", "acknowledged", "resolved")
 UNRESOLVED = ("open", "acknowledged")
 # A failed scan is tried again after this long, not after the whole rescan period
 RETRY_FAILED_AFTER = 3600
@@ -426,11 +425,6 @@ class Database:
                 "SELECT COUNT(*) AS n FROM scans WHERE started_at >= ? AND status = 'done'", (week_ago,)
             )["n"],
             "last_scan": self._row("SELECT MAX(finished_at) AS t FROM scans WHERE status = 'done'")["t"],
-            "top_findings": self._rows(
-                "SELECT name, severity, COUNT(*) AS devices FROM issues WHERE state IN ('open','acknowledged')"
-                " GROUP BY template_id ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1"
-                " WHEN 'medium' THEN 2 ELSE 3 END, devices DESC LIMIT 5"
-            ),
         }
 
     def snapshot_day(self, day: str | None = None) -> None:
@@ -464,6 +458,3 @@ class Database:
             self._db.execute(f"DELETE FROM {table}")
         self._db.commit()
         self._db.execute("VACUUM")
-
-    def size_bytes(self) -> int:
-        return self.path.stat().st_size if self.path.exists() else 0

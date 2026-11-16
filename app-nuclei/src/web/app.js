@@ -216,20 +216,22 @@ async function loadDashboard() {
   document.getElementById('sev-tiles').innerHTML = SEVS.map(sev => {
     const total = s.unresolved[sev], open = s.needs_attention[sev];
     return `<div class="sev-tile c-${sev} ${total ? '' : 'zero'}" data-sev="${sev}" title="Show these issues">
-      <div class="l"><span class="sev c-${sev}" style="padding:0;background:none">${sev}</span></div>
+      <div class="l">${sev}</div>
       <div class="v">${total}</div>
-      <div class="s">${total ? (open ? `<b>${open}</b> need${open === 1 ? 's' : ''} attention` : 'all acknowledged') : 'none'}</div></div>`;
+      <div><div class="s">${total ? (open ? `<b>${open}</b> need${open === 1 ? 's' : ''} attention` : 'all acknowledged') : 'none'}</div>
+      <div class="m" style="margin-top:8px" title="${open} of ${total} not acknowledged yet"><i style="width:${total ? Math.round(100 * open / total) : 0}%"></i></div></div></div>`;
   }).join('');
+  const allTotal = SEVS.reduce((n, sev) => n + s.unresolved[sev], 0), allOpen = SEVS.reduce((n, sev) => n + s.needs_attention[sev], 0);
+  document.getElementById('sev-total').innerHTML = allTotal ? `<b style="color:var(--text)">${allOpen}</b> of ${allTotal} need attention` : 'nothing found';
   document.querySelectorAll('.sev-tile').forEach(t => t.onclick = () => { issueState = 'unresolved'; issueSev = t.dataset.sev; showTab('issues'); });
 
   const d = s.devices;
   const pct = d.scannable ? Math.round(100 * d.covered / d.scannable) : 0;
-  document.getElementById('coverage-card').innerHTML = `<h2>Coverage</h2>
-    <div><span class="big">${d.covered}</span><span class="muted"> of ${d.scannable} devices</span></div>
-    <div class="small muted">scanned in the last ${o.config.rescan_days} days</div>
+  document.getElementById('coverage-card').innerHTML = `<div class="card-head"><h2>Coverage</h2><span class="cov-pct">${pct}%</span></div>
+    <div><span class="big">${d.covered}</span><span class="cov-of">of ${d.scannable} devices scanned in ${o.config.rescan_days} days</span></div>
     <div class="bar" title="${pct}% covered"><i style="width:${pct}%;background:var(--primary)"></i></div>
-    <dl class="facts"><dt>Home now</dt><dd>${d.online} / ${d.tracked}</dd><dt>Never scanned yet</dt><dd>${d.never_scanned}</dd>
-    <dt>Excluded</dt><dd>${d.excluded}</dd><dt>Scans this week</dt><dd>${s.scans_this_week}</dd></dl>`;
+    <dl class="facts two"><dt>Home now</dt><dd>${d.online}/${d.tracked}</dd><dt>Scans this week</dt><dd>${s.scans_this_week}</dd>
+    <dt>Never scanned</dt><dd>${d.never_scanned}</dd><dt>Excluded</dt><dd>${d.excluded}</dd></dl>`;
 
   scoreChart(document.getElementById('chart-score'), hist);
   issuesChart(document.getElementById('chart-issues'), hist);
