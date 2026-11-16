@@ -41,6 +41,19 @@ use, for example the free ones on mamedev.org.
 
 [:books: Documentation](app-arcade/DOCS.md) · [:memo: Changelog](app-arcade/CHANGELOG.md) · [:lock: Security](app-arcade/SECURITY.md)
 
+### <img src="app-bitcoin-node/icon.png" alt="" width="36" align="absmiddle"> [Bitcoin Node](app-bitcoin-node/)
+
+![Version][bitcoin-node-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+Unofficial dashboard for your own Bitcoin node, opened from the sidebar. The chain, the mempool,
+fee estimates and peers from Bitcoin Core, your Lightning wallet, channels and routing from LND,
+and Tor. Charts over time, a health list, the node in Home Assistant over MQTT with events for
+blocks and payments, and a copy of LND's channel backup. It only reads.
+
+[:books: Documentation](app-bitcoin-node/DOCS.md) · [:memo: Changelog](app-bitcoin-node/CHANGELOG.md) · [:lock: Security](app-bitcoin-node/SECURITY.md)
+
 ### <img src="app-chronicle/icon.png" alt="" width="36" align="absmiddle"> [Chronicle](app-chronicle/)
 
 ![Version][chronicle-version-shield]
@@ -291,6 +304,7 @@ software each app packages keeps its own license, noted in the app's README.
 [maintenance-shield]: https://img.shields.io/badge/maintainer-cyberjunky-blue.svg?style=for-the-badge
 [aarch64-shield]: https://img.shields.io/badge/aarch64-yes-green.svg?style=for-the-badge
 [amd64-shield]: https://img.shields.io/badge/amd64-yes-green.svg?style=for-the-badge
+[bitcoin-node-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-bitcoin-node%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [pgadmin4-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-pgadmin4%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [timescaledb-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-timescaledb%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [dishylink-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-dishylink%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge

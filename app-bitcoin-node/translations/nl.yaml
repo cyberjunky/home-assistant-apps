@@ -1,0 +1,86 @@
+configuration:
+  bitcoin:
+    name: Bitcoin Core
+    description: >-
+      De JSON-RPC-interface van je node. Gebruik een RPC-gebruiker die alleen
+      mag lezen (rpcwhitelist), zie de documentatie.
+    fields:
+      url:
+        name: Adres
+        description: Adres van de RPC van Bitcoin Core, bijvoorbeeld http://192.168.1.50:8332.
+      username:
+        name: RPC-gebruiker
+        description: De naam van de rpcauth-gebruiker.
+      password:
+        name: RPC-wachtwoord
+        description: Het wachtwoord van die gebruiker.
+  lightning:
+    name: Lightning (LND)
+    description: >-
+      Optioneel. De REST-interface van LND, voor je wallet en kanalen. Laat het
+      adres leeg voor een node zonder Lightning.
+    fields:
+      url:
+        name: Adres
+        description: Adres van de REST-API van LND, bijvoorbeeld https://192.168.1.50:8080.
+      macaroon:
+        name: Alleen-lezen-macaroon
+        description: De inhoud van readonly.macaroon als hex of base64. Nooit de admin-macaroon.
+      tls_cert:
+        name: Certificaat
+        description: >-
+          De inhoud van tls.cert van LND, zodat de app controleert dat hij met
+          jouw node praat. Zonder wordt de verbinding niet gecontroleerd.
+      read_only:
+        name: Alleen lezen
+        description: >-
+          Deze versie leest alleen. Laat aan staan, zodat een latere versie die
+          kan betalen uit blijft tot je dit uitzet.
+  tor:
+    name: Tor
+    description: >-
+      Optioneel. De control port van Tor, voor de opstartstatus, de circuits en
+      het verkeer. De onion-adressen worden ook zonder getoond.
+    fields:
+      control:
+        name: Control port
+        description: Adres en poort, bijvoorbeeld 192.168.1.50:9051.
+      password:
+        name: Wachtwoord
+        description: Het wachtwoord achter HashedControlPassword in torrc.
+  poll_seconds:
+    name: Lezen elke (seconden)
+    description: Hoe vaak de node wordt gelezen.
+  history_days:
+    name: Geschiedenis bewaren (dagen)
+    description: Hoe lang de getallen achter de grafieken worden bewaard.
+  mqtt:
+    name: MQTT
+    description: >-
+      Publiceert de node naar Home Assistant. Laat de host leeg om de broker te
+      gebruiken die Home Assistant kent.
+    fields:
+      enabled:
+        name: Aan
+        description: Publiceer de node via MQTT.
+      host:
+        name: Host
+        description: Adres van de broker.
+      port:
+        name: Poort
+        description: Poort van de broker.
+      user:
+        name: Gebruiker
+        description: Gebruiker voor de broker.
+      password:
+        name: Wachtwoord
+        description: Wachtwoord voor de broker.
+      base_topic:
+        name: Basistopic
+        description: Topic waaronder de status en de gebeurtenissen van de node worden gepubliceerd.
+      discovery_prefix:
+        name: Discovery-prefix
+        description: De discovery-prefix van Home Assistant.
+  log_level:
+    name: Logniveau
+    description: Hoeveelheid logging.

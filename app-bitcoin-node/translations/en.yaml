@@ -1,0 +1,86 @@
+configuration:
+  bitcoin:
+    name: Bitcoin Core
+    description: >-
+      Your node's JSON-RPC interface. Use an RPC user that may only read
+      (rpcwhitelist), see the documentation.
+    fields:
+      url:
+        name: Address
+        description: Address of Bitcoin Core's RPC, for example http://192.168.1.50:8332.
+      username:
+        name: RPC user
+        description: The name of the rpcauth user.
+      password:
+        name: RPC password
+        description: The password of that user.
+  lightning:
+    name: Lightning (LND)
+    description: >-
+      Optional. LND's REST interface, for your wallet and channels. Leave the
+      address empty for a node without Lightning.
+    fields:
+      url:
+        name: Address
+        description: Address of LND's REST API, for example https://192.168.1.50:8080.
+      macaroon:
+        name: Read-only macaroon
+        description: The content of readonly.macaroon as hex or base64. Never the admin macaroon.
+      tls_cert:
+        name: Certificate
+        description: >-
+          The content of LND's tls.cert, so the app checks that it talks to
+          your node. Without it the connection is not checked.
+      read_only:
+        name: Read-only
+        description: >-
+          This version only reads. Leave on, so a later version that can pay
+          stays off until you turn this off.
+  tor:
+    name: Tor
+    description: >-
+      Optional. Tor's control port, for its bootstrap, circuits and traffic.
+      The onion addresses are shown without it.
+    fields:
+      control:
+        name: Control port
+        description: Address and port, for example 192.168.1.50:9051.
+      password:
+        name: Password
+        description: The password behind HashedControlPassword in torrc.
+  poll_seconds:
+    name: Read every (seconds)
+    description: How often the node is read.
+  history_days:
+    name: Keep history (days)
+    description: How long the numbers behind the charts are kept.
+  mqtt:
+    name: MQTT
+    description: >-
+      Publishes the node to Home Assistant. Leave the host empty to use the
+      broker Home Assistant knows.
+    fields:
+      enabled:
+        name: Enabled
+        description: Publish the node over MQTT.
+      host:
+        name: Host
+        description: Address of the broker.
+      port:
+        name: Port
+        description: Port of the broker.
+      user:
+        name: User
+        description: User for the broker.
+      password:
+        name: Password
+        description: Password for the broker.
+      base_topic:
+        name: Base topic
+        description: Topic under which the node's state and events are published.
+      discovery_prefix:
+        name: Discovery prefix
+        description: Home Assistant's discovery prefix.
+  log_level:
+    name: Log level
+    description: Amount of logging.

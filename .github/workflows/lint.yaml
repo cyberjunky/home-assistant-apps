@@ -52,6 +52,7 @@ jobs:
       matrix:
         app:
           - app-arcade
+          - app-bitcoin-node
           - app-chronicle
           - app-fireservicerota
           - app-freqtrade
