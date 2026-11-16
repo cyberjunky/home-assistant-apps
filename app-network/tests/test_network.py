@@ -935,3 +935,32 @@ def test_fritz_wifi_beats_the_switch_port():
         on_fritz_wifi({**host, "ap_mac": "ap"}) is not None
         and on_fritz_wifi({**host, "ap_mac": "ap"})["sw_mac"] == "sw"
     )
+
+
+def test_battery_from_the_devices_sensor():
+    """The Companion app has the battery as a sensor of the phone, not on its tracker."""
+    entities = {"device_tracker.pixel": {"entity_id": "device_tracker.pixel", "device_id": "d1"}}
+    states = {
+        "device_tracker.pixel": {
+            "entity_id": "device_tracker.pixel",
+            "state": "home",
+            "attributes": {"source_type": "gps"},
+        }
+    }
+    (host,) = build_hosts(entities, {}, {}, states, None, {"d1": 30.0})
+    assert host["trackers"][0]["battery"] == 30.0
+    # Its own battery_level comes first
+    states["device_tracker.pixel"]["attributes"]["battery_level"] = 55
+    (host,) = build_hosts(entities, {}, {}, states, None, {"d1": 30.0})
+    assert host["trackers"][0]["battery"] == 55
+
+
+def test_battery_history():
+    from src.mobile import battery_history
+
+    rows = [
+        {"state": "31", "last_changed": "2026-11-16T10:00:00+00:00"},
+        {"state": "unavailable", "last_changed": "2026-11-16T10:05:00+00:00"},
+        {"state": "30", "last_changed": "2026-11-16T10:10:00+00:00"},
+    ]
+    assert [v for _, v in battery_history(rows)] == [31.0, 30.0]

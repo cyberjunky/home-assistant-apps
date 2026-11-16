@@ -49,6 +49,21 @@ def parse_history(items: list[dict]) -> list[dict]:
     return out
 
 
+def battery_history(items: list[dict]) -> list[tuple[float, float]]:
+    """A battery sensor's recorder rows as (ts, %), the last 500."""
+    out = []
+    for item in items:
+        ts = _ts(item.get("last_changed") or item.get("last_updated"))
+        try:
+            value = float(item.get("state"))
+        except (TypeError, ValueError):
+            continue
+        if ts is not None:
+            out.append((ts, value))
+    out.sort()
+    return out[-500:]
+
+
 def segments(points: list[dict], since: float, until: float) -> list[dict]:
     """The states as stretches of time: {from, to, state}."""
     out: list[dict] = []

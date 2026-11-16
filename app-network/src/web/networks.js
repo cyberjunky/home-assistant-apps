@@ -1,7 +1,7 @@
 // Network dashboard - Networks: your networks and VLANs, which devices are in them, and every
 // address of a subnet as a grid: used, free, and two devices on one address.
 
-const NET_PURPOSES = ['LAN', 'Servers', 'IoT', 'Cameras', 'Guests', 'Management', 'VPN', 'WAN', 'Other'];
+const NET_PURPOSES = ['LAN', 'WiFi', 'Servers', 'IoT', 'Cameras', 'Guests', 'Management', 'VPN', 'WAN', 'Other'];
 
 function netHosts(net) {
     return networkHosts().filter(h => (networkOf(h).net || {}).id === net.id);
