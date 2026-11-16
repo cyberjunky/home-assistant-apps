@@ -103,6 +103,9 @@ function loadTab() {
   return run().catch(e => toast(e.message, true));
 }
 
+// The database file and its write-ahead log together: new rows sit in the log first
+function fmtBytes(n) { return n < 1048576 ? `${Math.max(1, Math.round(n / 1024))} kB` : `${(n / 1048576).toFixed(1)} MB`; }
+
 // ---- tooltip ----
 const tip = document.getElementById('tooltip');
 function showTip(html, x, y) {
@@ -152,6 +155,9 @@ function scoreChart(el, days) {
   svg.querySelector('.hit').onmouseleave = () => { cross.setAttribute('visibility', 'hidden'); hideTip(); };
 }
 function issuesChart(el, days) {
+  // The legend sits below the chart, not in it: the chart has a fixed height that the drawing fills
+  const legend = document.getElementById('chart-issues-legend');
+  legend.innerHTML = days.length ? SEVS.map(s => `<span><i style="background:${SEV_COLOR(s)}"></i>${s}</span>`).join('') : '';
   if (!days.length) { el.innerHTML = '<div class="empty small">No history yet.</div>'; return; }
   const f = chartFrame(el);
   const totals = days.map(d => SEVS.reduce((a, s) => a + d[s], 0));
@@ -179,8 +185,7 @@ function issuesChart(el, days) {
     <g class="grid">${ticks.map(v => `<line x1="${f.l}" x2="${f.w - f.r}" y1="${y(v)}" y2="${y(v)}"/>`).join('')}</g>
     <g class="axis">${ticks.map(v => `<text x="${f.l - 6}" y="${y(v) + 3}" text-anchor="end">${v}</text>`).join('')}${xLabels(days, f, x)}</g>
     ${bars}
-    ${days.map((d, i) => `<rect class="hit" data-i="${i}" x="${f.l + band * i}" y="0" width="${band}" height="${f.h - f.b}"/>`).join('')}</svg>
-    <div class="legend">${SEVS.map(s => `<span><i style="background:${SEV_COLOR(s)}"></i>${s}</span>`).join('')}</div>`;
+    ${days.map((d, i) => `<rect class="hit" data-i="${i}" x="${f.l + band * i}" y="0" width="${band}" height="${f.h - f.b}"/>`).join('')}</svg>`;
   el.querySelectorAll('.hit').forEach(r => {
     r.onmousemove = e => {
       const d = days[Number(r.dataset.i)];
@@ -502,7 +507,7 @@ async function loadSettings() {
      <p class="muted small" style="margin-top:8px">Change these on the app's Configuration tab in Home Assistant.</p>`;
   const db = await api('database');
   document.getElementById('settings-db').innerHTML = `<table><tbody>
-    <tr><td class="muted">On disk</td><td class="mono">${(db.size / 1048576).toFixed(2)} MB</td></tr>
+    <tr><td class="muted">On disk</td><td class="mono">${fmtBytes(db.size + db.wal_size)}</td></tr>
     <tr><td class="muted">Devices</td><td class="mono">${db.counts.devices}</td></tr>
     <tr><td class="muted">Scans</td><td class="mono">${db.counts.scans}</td></tr>
     <tr><td class="muted">Issues</td><td class="mono">${db.counts.issues}</td></tr></tbody></table>`;
