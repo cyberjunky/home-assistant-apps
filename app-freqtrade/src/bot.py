@@ -14,7 +14,7 @@ import logging
 import re
 import time
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from typing import Any
 
 import aiohttp
@@ -90,6 +90,21 @@ class FreqtradeError(Exception):
 
 class NotFound(FreqtradeError):
     """An endpoint this bot's Freqtrade version doesn't have."""
+
+
+async def in_turn(*calls: Coroutine) -> list:
+    """The answers of these calls, made one after the other so they share one connection.
+
+    Freqtrade's API server closes a connection that is idle for 5 seconds, so every poll opens new
+    ones. Made at the same time, each call takes its own: 7 per poll and per bot, and each one stays
+    in the bot machine's TCP table for minutes after it closed. In turn it is one connection per poll.
+    """
+    try:
+        return [await call for call in calls]
+    finally:
+        # After a failure: the calls that were never made
+        for call in calls:
+            call.close()
 
 
 def trimmed_trade(trade: dict) -> dict:
@@ -253,7 +268,7 @@ class BotClient:
     async def refresh(self) -> None:
         """Read the state; the slower details too when they are due. Raises FreqtradeError."""
         slow = self._slow_due or not self.slow_updated or time.time() - self.slow_updated >= SLOW_SECONDS
-        config, balance, profit_all, count, status, locks, health = await asyncio.gather(
+        config, balance, profit_all, count, status, locks, health = await in_turn(
             self.get("show_config"),
             self.get("balance"),
             self._profit_all(),
@@ -304,7 +319,7 @@ class BotClient:
             wallet,
             sysinfo,
             plot,
-        ) = await asyncio.gather(
+        ) = await in_turn(
             self.get("performance"),
             self.optional("entries"),
             self.optional("exits"),
