@@ -1,12 +1,13 @@
 // Nuclei Scanner dashboard. Plain scripts, one scope. Served through Home Assistant ingress.
 'use strict';
-const SEVERITIES = ['critical', 'high', 'medium', 'low', 'info'];
-const STATUSES = ['open', 'in_progress', 'false_positive', 'wont_fix', 'resolved'];
-const STATUS_LABEL = {open: 'Open', in_progress: 'In progress', false_positive: 'False positive', wont_fix: "Won't fix", resolved: 'Resolved'};
+const SEVS = ['critical', 'high', 'medium', 'low'];
+const SEV_COLOR = s => `var(--${s})`;
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
 // day/month/year spelled unambiguously (never all-numeric: "09/11/2026" reads as Sep 11 or Nov 9 depending on locale)
 const fmtTime = t => t ? new Date(t * 1000).toLocaleString([], {day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false}) : '–';
+const fmtDay = d => new Date(d + 'T12:00:00').toLocaleDateString([], {day: 'numeric', month: 'short'});
 let activeTab = 'dashboard';
+let overview = null;
 
 async function api(path, options) {
   const opts = options || {};
@@ -16,11 +17,29 @@ async function api(path, options) {
   if (!r.ok) throw new Error((data && data.error) || `Request failed (${r.status})`);
   return data;
 }
-function toast(message) {
-  const el = document.createElement('div'); el.className = 'toast'; el.textContent = message;
+function toast(message, error) {
+  const el = document.createElement('div'); el.className = 'toast' + (error ? ' err' : ''); el.textContent = message;
   document.body.appendChild(el); setTimeout(() => el.remove(), 4000);
 }
-function sevBadge(s) { return `<span class="sev ${s}">${s}</span>`; }
+const sevBadge = s => `<span class="sev c-${s}">${s}</span>`;
+function ago(ts) {
+  if (!ts) return 'never';
+  const s = Math.max(0, Date.now() / 1000 - ts);
+  if (s < 90) return 'just now';
+  if (s < 5400) return Math.round(s / 60) + ' min ago';
+  if (s < 129600) return Math.round(s / 3600) + ' h ago';
+  return Math.round(s / 86400) + ' d ago';
+}
+function inTime(ts) {
+  const s = ts - Date.now() / 1000;
+  if (s <= 0) return 'due';
+  if (s < 5400) return 'in ' + Math.round(s / 60) + ' min';
+  if (s < 129600) return 'in ' + Math.round(s / 3600) + ' h';
+  return 'in ' + Math.round(s / 86400) + ' d';
+}
+const gradeColor = g => ({A: 'var(--ok)', B: '#5aa833', C: 'var(--medium)', D: 'var(--high)', F: 'var(--critical)'}[g] || 'var(--text3)');
+const scoreGrade = v => v >= 90 ? 'A' : v >= 80 ? 'B' : v >= 65 ? 'C' : v >= 50 ? 'D' : 'F';
+const VERDICT = {A: 'Looking good', B: 'Mostly fine', C: 'Some work to do', D: 'Needs work', F: 'Exposed'};
 
 // ---- theme: the same toggle as the other apps (auto follows Home Assistant, then light, then dark) ----
 const THEME_ICONS = {auto: '🌓', light: '☀️', dark: '🌙'};
@@ -70,241 +89,375 @@ updateClock();
 setInterval(updateClock, 10000);
 
 // ---- tabs ----
-document.querySelectorAll('.tab[data-tab]').forEach(tab => tab.onclick = () => {
-  activeTab = tab.dataset.tab;
-  document.querySelectorAll('.tab[data-tab]').forEach(t => t.classList.toggle('active', t === tab));
-  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + activeTab));
+function showTab(name) {
+  activeTab = name;
+  history.replaceState(null, '', name === 'dashboard' ? location.pathname + location.search : '#' + name);
+  document.querySelectorAll('.tab[data-tab]').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + name));
   loadTab();
-});
+}
+document.querySelectorAll('.tab[data-tab]').forEach(tab => tab.onclick = () => showTab(tab.dataset.tab));
+document.querySelectorAll('[data-goto]').forEach(b => b.onclick = () => showTab(b.dataset.goto));
 function loadTab() {
-  if (activeTab === 'dashboard') loadDashboard();
-  else if (activeTab === 'devices') loadDevices();
-  else if (activeTab === 'tickets') loadTickets();
-  else if (activeTab === 'objects') loadObjects();
-  else if (activeTab === 'templates') loadTemplates();
-  else if (activeTab === 'settings') loadSettings();
+  const run = {dashboard: loadDashboard, issues: loadIssues, devices: loadDevices, scanner: loadScanner, settings: loadSettings}[activeTab];
+  return run().catch(e => toast(e.message, true));
+}
+
+// ---- tooltip ----
+const tip = document.getElementById('tooltip');
+function showTip(html, x, y) {
+  tip.innerHTML = html; tip.hidden = false;
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  tip.style.left = Math.min(window.innerWidth - w - 8, x + 14) + 'px';
+  tip.style.top = Math.max(8, y - h - 10) + 'px';
+}
+function hideTip() { tip.hidden = true; }
+
+// ---- charts (inline SVG, one axis each) ----
+function chartFrame(el) {
+  const w = Math.max(280, el.clientWidth), h = el.clientHeight || 190;
+  return {w, h, l: 34, r: 8, t: 8, b: 22};
+}
+function xLabels(days, f, x) {
+  const step = Math.max(1, Math.ceil(days.length / 6));
+  return days.map((d, i) => (i % step === 0 || i === days.length - 1) && (i === days.length - 1 || days.length - 1 - i >= step / 2)
+    ? `<text x="${x(i)}" y="${f.h - 6}" text-anchor="middle">${fmtDay(d.day)}</text>` : '').join('');
+}
+function scoreChart(el, days) {
+  if (days.length < 2) { el.innerHTML = '<div class="empty small">The trend shows up after the first days of scanning.</div>'; return; }
+  const f = chartFrame(el);
+  const x = i => f.l + (f.w - f.l - f.r) * i / (days.length - 1);
+  const y = v => f.t + (f.h - f.t - f.b) * (1 - v / 100);
+  const pts = days.map((d, i) => `${x(i).toFixed(1)},${y(d.score).toFixed(1)}`);
+  const last = days[days.length - 1];
+  const color = gradeColor(scoreGrade(last.score));
+  el.innerHTML = `<svg viewBox="0 0 ${f.w} ${f.h}" preserveAspectRatio="none">
+    <defs><linearGradient id="sg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".18"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
+    <g class="grid">${[0, 50, 100].map(v => `<line x1="${f.l}" x2="${f.w - f.r}" y1="${y(v)}" y2="${y(v)}"/>`).join('')}</g>
+    <g class="axis">${[0, 50, 100].map(v => `<text x="${f.l - 6}" y="${y(v) + 3}" text-anchor="end">${v}</text>`).join('')}${xLabels(days, f, x)}</g>
+    <path d="M${pts.join(' L')} L${x(days.length - 1)},${y(0)} L${x(0)},${y(0)} Z" fill="url(#sg)"/>
+    <polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>
+    <circle cx="${x(days.length - 1)}" cy="${y(last.score)}" r="4" fill="${color}" stroke="var(--card)" stroke-width="2"/>
+    <line class="cross" id="sx" y1="${f.t}" y2="${f.h - f.b}" visibility="hidden"/>
+    <rect class="hit" x="${f.l}" y="0" width="${f.w - f.l - f.r}" height="${f.h}"/></svg>`;
+  const svg = el.querySelector('svg'), cross = el.querySelector('#sx');
+  svg.querySelector('.hit').onmousemove = e => {
+    const r = svg.getBoundingClientRect();
+    const px = (e.clientX - r.left) * f.w / r.width;
+    const i = Math.max(0, Math.min(days.length - 1, Math.round((px - f.l) / (f.w - f.l - f.r) * (days.length - 1))));
+    cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i)); cross.setAttribute('visibility', 'visible');
+    const d = days[i];
+    showTip(`<div class="t">${fmtDay(d.day)}</div><div class="r"><span>Score</span><b>${d.score} (${scoreGrade(d.score)})</b></div><div class="r"><span>Devices scanned</span><b>${d.devices}</b></div><div class="r"><span>Scans that day</span><b>${d.scans}</b></div>`, e.clientX, e.clientY);
+  };
+  svg.querySelector('.hit').onmouseleave = () => { cross.setAttribute('visibility', 'hidden'); hideTip(); };
+}
+function issuesChart(el, days) {
+  if (!days.length) { el.innerHTML = '<div class="empty small">No history yet.</div>'; return; }
+  const f = chartFrame(el);
+  const totals = days.map(d => SEVS.reduce((a, s) => a + d[s], 0));
+  const max = Math.max(4, ...totals);
+  const nice = max <= 8 ? Math.ceil(max / 4) * 4 : Math.ceil(max / 10) * 10;
+  const band = (f.w - f.l - f.r) / days.length;
+  const bw = Math.max(3, Math.min(22, band - 3));
+  const x = i => f.l + band * i + band / 2;
+  const y = v => f.t + (f.h - f.t - f.b) * (1 - v / nice);
+  let bars = '';
+  days.forEach((d, i) => {
+    let base = 0;
+    // stacked from the bottom: low first, critical on top; 2px surface gap between segments
+    [...SEVS].reverse().forEach((s, si, arr) => {
+      if (!d[s]) return;
+      const y0 = y(base), y1 = y(base + d[s]);
+      base += d[s];
+      const isTop = !arr.slice(si + 1).some(t => d[t]);
+      const hgt = Math.max(1, y0 - y1 - (base === d[s] ? 0 : 2));
+      bars += `<rect x="${x(i) - bw / 2}" y="${y1}" width="${bw}" height="${hgt}" fill="${SEV_COLOR(s)}" rx="${isTop ? 3 : 0}"/>`;
+    });
+  });
+  const ticks = [0, nice / 2, nice];
+  el.innerHTML = `<svg viewBox="0 0 ${f.w} ${f.h}" preserveAspectRatio="none">
+    <g class="grid">${ticks.map(v => `<line x1="${f.l}" x2="${f.w - f.r}" y1="${y(v)}" y2="${y(v)}"/>`).join('')}</g>
+    <g class="axis">${ticks.map(v => `<text x="${f.l - 6}" y="${y(v) + 3}" text-anchor="end">${v}</text>`).join('')}${xLabels(days, f, x)}</g>
+    ${bars}
+    ${days.map((d, i) => `<rect class="hit" data-i="${i}" x="${f.l + band * i}" y="0" width="${band}" height="${f.h - f.b}"/>`).join('')}</svg>
+    <div class="legend">${SEVS.map(s => `<span><i style="background:${SEV_COLOR(s)}"></i>${s}</span>`).join('')}</div>`;
+  el.querySelectorAll('.hit').forEach(r => {
+    r.onmousemove = e => {
+      const d = days[Number(r.dataset.i)];
+      showTip(`<div class="t">${fmtDay(d.day)}</div>${SEVS.map(s => `<div class="r"><span><span class="sev c-${s}" style="background:none;padding:0">${s}</span></span><b>${d[s]}</b></div>`).join('')}`, e.clientX, e.clientY);
+    };
+    r.onmouseleave = hideTip;
+  });
 }
 
 // ---- dashboard ----
+function gauge(value, grade) {
+  const r = 54, c = 2 * Math.PI * r, part = value == null ? 0 : value / 100;
+  return `<div class="gauge"><svg viewBox="0 0 132 132"><circle cx="66" cy="66" r="${r}" fill="none" stroke="var(--grid)" stroke-width="11"/>
+    <circle cx="66" cy="66" r="${r}" fill="none" stroke="${gradeColor(grade)}" stroke-width="11" stroke-linecap="round" stroke-dasharray="${(c * part).toFixed(1)} ${c.toFixed(1)}"/></svg>
+    <div class="num"><b>${value ?? '–'}</b><span>of 100</span></div></div>`;
+}
 async function loadDashboard() {
-  const s = await api('status');
-  const sum = s.summary;
-  const sev = sum.open_by_severity || {};
-  const kpi = (l, v, cls, title) => `<div class="kpi"${title ? ` title="${esc(title)}"` : ''}><div class="l">${l}</div><div class="v" style="color:${cls || 'var(--text)'}">${v}</div></div>`;
-  document.getElementById('kpis').innerHTML =
-    kpi('Open tickets', sum.open_total || 0) +
-    kpi('Critical', sev.critical || 0, 'var(--critical)') +
-    kpi('High', sev.high || 0, 'var(--high)') +
-    kpi('Medium', sev.medium || 0, 'var(--medium)') +
-    kpi('Devices online', `${sum.devices_online || 0}<span class="muted" style="font-size:15px"> / ${sum.devices_total || 0}</span>`) +
-    kpi('Scan objects', sum.objects || 0) +
-    kpi('Last scan', sum.last_scan ? agoAgo(sum.last_scan) : '–', null, sum.last_scan ? fmtTime(sum.last_scan) : '');
-  const scans = (await api('scans')).scans.slice(0, 8);
-  document.getElementById('recent-scans').innerHTML = scans.length ? table(
-    ['Target', 'Trigger', 'Status', 'Ports', 'Findings', 'Started'],
-    scans.map(sc => [esc(sc.target), sc.trigger, scanStatus(sc), sc.open_ports, sc.findings, fmtTime(sc.started_at)])
-  ) : '<div class="empty">No scans yet. Add a scan object and run one.</div>';
-  const tickets = (await api('tickets?status=open')).tickets.slice(0, 8);
-  document.getElementById('recent-tickets').innerHTML = tickets.length ? ticketTable(tickets) : '<div class="empty">No open tickets.</div>';
-  document.querySelectorAll('#recent-tickets tbody tr').forEach(tr => tr.onclick = () => openTicket(tr.dataset.id));
+  const o = overview = await api('overview');
+  const s = o.summary;
+  const ha = o.home_assistant;
+  document.getElementById('ha-banner').innerHTML = ha.error ? `<div class="banner"><b>Can't read Home Assistant's device trackers:</b> ${esc(ha.error)}. Devices already known are still shown; nothing new is scanned until this works.</div>` : '';
+
+  const hist = o.history;
+  const weekAgo = hist.length > 7 ? hist[hist.length - 8].score : (hist[0] ? hist[0].score : null);
+  const delta = weekAgo == null ? 0 : s.score - weekAgo;
+  const noScans = !s.last_scan;
+  document.getElementById('score-card').innerHTML = gauge(noScans ? null : s.score, s.grade) + `
+    <div class="score-meta"><div class="label">Security score</div>
+      <div class="verdict">${noScans ? 'No scans yet' : `<span class="grade" style="background:${gradeColor(s.grade)}">${s.grade}</span> ${VERDICT[s.grade]}`}</div>
+      <div class="small muted">${delta ? `<span class="delta ${delta > 0 ? 'up' : 'down'}">${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}</span> in 7 days` : 'unchanged in 7 days'}</div>
+      <div class="small muted" style="margin-top:6px">${s.new_this_week} new · ${s.resolved_this_week} resolved this week</div></div>`;
+
+  document.getElementById('sev-tiles').innerHTML = SEVS.map(sev => {
+    const total = s.unresolved[sev], open = s.needs_attention[sev];
+    return `<div class="sev-tile c-${sev} ${total ? '' : 'zero'}" data-sev="${sev}" title="Show these issues">
+      <div class="l"><span class="sev c-${sev}" style="padding:0;background:none">${sev}</span></div>
+      <div class="v">${total}</div>
+      <div class="s">${total ? (open ? `<b>${open}</b> need${open === 1 ? 's' : ''} attention` : 'all acknowledged') : 'none'}</div></div>`;
+  }).join('');
+  document.querySelectorAll('.sev-tile').forEach(t => t.onclick = () => { issueState = 'unresolved'; issueSev = t.dataset.sev; showTab('issues'); });
+
+  const d = s.devices;
+  const pct = d.scannable ? Math.round(100 * d.covered / d.scannable) : 0;
+  document.getElementById('coverage-card').innerHTML = `<h2>Coverage</h2>
+    <div><span class="big">${d.covered}</span><span class="muted"> of ${d.scannable} devices</span></div>
+    <div class="small muted">scanned in the last ${o.config.rescan_days} days</div>
+    <div class="bar" title="${pct}% covered"><i style="width:${pct}%;background:var(--primary)"></i></div>
+    <dl class="facts"><dt>Home now</dt><dd>${d.online} / ${d.tracked}</dd><dt>Never scanned yet</dt><dd>${d.never_scanned}</dd>
+    <dt>Excluded</dt><dd>${d.excluded}</dd><dt>Scans this week</dt><dd>${s.scans_this_week}</dd></dl>`;
+
+  scoreChart(document.getElementById('chart-score'), hist);
+  issuesChart(document.getElementById('chart-issues'), hist);
+
+  const attention = (await api('issues?state=open')).issues;
+  const el = document.getElementById('attention');
+  el.innerHTML = attention.length ? attention.slice(0, 7).map(i => `<div class="issue-row" data-id="${i.id}">
+      ${sevBadge(i.severity)}<div style="min-width:0"><div class="name">${esc(i.name)}</div><div class="sub">${esc(i.device_name)}${i.port ? ' · port ' + i.port : ''}${i.cve ? ' · ' + esc(i.cve.split(',')[0]) : ''} · found ${ago(i.first_seen)}</div></div>
+      <button class="btn btn-small" data-ack="${i.id}">Acknowledge</button></div>`).join('') +
+      (attention.length > 7 ? `<div class="small muted" style="padding:8px 4px">and ${attention.length - 7} more</div>` : '') :
+    `<div class="empty"><span class="ok-icon">✓</span>Nothing needs your attention.${s.acknowledged ? `<div class="small">${s.acknowledged} acknowledged issue${s.acknowledged === 1 ? ' is' : 's are'} still there.</div>` : ''}</div>`;
+  const attIds = attention.slice(0, 7).map(x => x.id);
+  el.querySelectorAll('.issue-row').forEach(r => r.onclick = e => { if (!e.target.dataset.ack) openIssue(r.dataset.id, {ids: attIds}); });
+  el.querySelectorAll('[data-ack]').forEach(b => b.onclick = () => setIssue(b.dataset.ack, 'acknowledged'));
+
+  renderActivity(o);
 }
-function scanStatus(sc) {
-  // The detail line (which passes ran, on how many targets, whether the credential check was on) is
-  // on every pill as a title, so hovering a scan says what actually ran without reading the app log.
-  const detail = esc(sc.detail || (sc.status === 'running' ? 'starting…' : ''));
-  if (sc.status === 'running') return `<span class="pill in_progress" title="${detail}">running</span>`;
-  if (sc.status === 'failed') return `<span class="pill" style="color:var(--critical)" title="${esc(sc.error || '')}${sc.error && detail ? ' · ' : ''}${detail}">failed</span>`;
-  return `<span class="pill resolved" title="${detail}">done</span>`;
+const PHASES = [['templates', 'Templates'], ['ports', 'Ports'], ['vulnerabilities', 'Vulnerabilities']];
+function renderActivity(o) {
+  const run = o.running;
+  const queue = o.queue.filter(q => !run || q.id !== run.device_id);
+  let html = '<h2>Scanning</h2>';
+  if (run) {
+    const at = PHASES.findIndex(p => p[0] === run.phase);
+    html += `<div class="now"><span class="pulse"></span><div style="min-width:0"><b>${esc(run.device_name)}</b> <span class="mono muted small">${esc(run.ip)}</span>
+      <div class="small muted">${esc(run.reason)} · started ${ago(run.started_at)} · ${run.open_ports} open port${run.open_ports === 1 ? '' : 's'} · ${run.findings} issue${run.findings === 1 ? '' : 's'} so far</div></div></div>
+      <div class="steps">${PHASES.map(([k, l], i) => `<span class="${i < at ? 'done' : i === at ? 'active' : ''}">${i < at ? '✓ ' : ''}${l}</span>`).join('')}</div>`;
+  } else {
+    const last = o.summary.last_scan;
+    html += `<div class="now"><span class="pulse idle"></span><div><b>Idle</b><div class="small muted">${last ? 'last scan ' + ago(last) : 'waiting for devices to come home'}</div></div></div>`;
+  }
+  if (queue.length) html += `<div class="queue">Next: ${queue.slice(0, 4).map(q => `${esc(q.name)} <span class="muted">(${esc(q.reason)})</span>`).join(', ')}${queue.length > 4 ? ` and ${queue.length - 4} more` : ''}</div>`;
+  document.getElementById('activity-card').innerHTML = html;
 }
-function table(headers, rows) {
-  return `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${
-    rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+const COMPONENT = {nuclei: 'nuclei engine', naabu: 'naabu port scanner', templates: 'Community templates'};
+function freshState(c) {
+  if (!c.installed) return '<span class="state bad">not found</span>';
+  if (c.outdated) return `<span class="state warn">${esc(c.latest)} available</span>`;
+  return c.latest ? '<span class="state good">latest</span>' : '<span class="state">latest unknown</span>';
+}
+
+// ---- issues ----
+let issueState = 'open';
+let issueSev = '';
+let issueList = [];
+const STATE_LABEL = {open: 'Needs attention', acknowledged: 'Acknowledged', resolved: 'Resolved', unresolved: 'All still there'};
+async function loadIssues() {
+  document.getElementById('issue-states').innerHTML = Object.entries(STATE_LABEL).map(([k, l]) =>
+    `<button class="${k === issueState ? 'active' : ''}" data-s="${k}">${l}</button>`).join('');
+  document.getElementById('issue-sevs').innerHTML = ['', ...SEVS].map(s =>
+    `<button class="${s === issueSev ? 'active' : ''}" data-v="${s}">${s || 'Any severity'}</button>`).join('');
+  document.querySelectorAll('#issue-states button').forEach(b => b.onclick = () => { issueState = b.dataset.s; loadIssues(); });
+  document.querySelectorAll('#issue-sevs button').forEach(b => b.onclick = () => { issueSev = b.dataset.v; loadIssues(); });
+  issueList = (await api('issues?state=' + issueState)).issues;
+  renderIssues();
+}
+function renderIssues() {
+  const q = document.getElementById('issue-search').value.trim().toLowerCase();
+  const shown = issueList.filter(i => (!issueSev || i.severity === issueSev) &&
+    (!q || [i.name, i.device_name, i.device_ip, i.cve, i.template_id].some(v => (v || '').toLowerCase().includes(q))));
+  document.getElementById('ack-shown').hidden = issueState !== 'open' || !shown.length;
+  document.getElementById('issues-table').innerHTML = shown.length ?
+    `<table><thead><tr><th>Severity</th><th>Issue</th><th>Device</th><th class="hide-sm">Port</th><th class="hide-sm">CVE</th><th class="hide-sm">${issueState === 'resolved' ? 'Resolved' : 'Found'}</th>${issueState === 'unresolved' ? '<th>State</th>' : ''}</tr></thead><tbody>${shown.map(i =>
+      `<tr class="click" data-id="${i.id}"><td>${sevBadge(i.severity)}</td><td>${esc(i.name)}</td><td>${esc(i.device_name)} <span class="mono muted small">${esc(i.device_ip || '')}</span></td>
+       <td class="mono hide-sm">${i.port || '–'}</td><td class="mono small hide-sm">${esc((i.cve || '').split(',')[0]) || '–'}</td><td class="small muted hide-sm">${ago(issueState === 'resolved' ? i.resolved_at : i.first_seen)}</td>
+       ${issueState === 'unresolved' ? `<td><span class="pill ${i.state === 'open' ? 'open' : 'ack'}">${i.state === 'open' ? 'needs attention' : 'acknowledged'}</span></td>` : ''}</tr>`).join('')}</tbody></table>` :
+    `<div class="empty">${issueState === 'open' ? '<span class="ok-icon">✓</span>Nothing needs your attention.' : 'No issues here.'}</div>`;
+  const shownIds = shown.map(i => i.id);
+  document.querySelectorAll('#issues-table tbody tr').forEach(tr => tr.onclick = () => openIssue(tr.dataset.id, {ids: shownIds}));
+  document.getElementById('ack-shown').onclick = async () => {
+    if (!confirm(`Acknowledge ${shown.length} issue${shown.length === 1 ? '' : 's'}?`)) return;
+    for (const i of shown) await api('issues/' + i.id, {method: 'PATCH', body: {state: 'acknowledged'}});
+    toast(`${shown.length} acknowledged`); loadIssues();
+  };
+}
+document.getElementById('issue-search').oninput = renderIssues;
+// The list an issue was opened from, so the detail can step through it (prev/next) and go back.
+let issueNav = null;
+async function setIssue(id, state, reopen) {
+  try {
+    await api('issues/' + id, {method: 'PATCH', body: {state}});
+    toast(state === 'acknowledged' ? 'Acknowledged' : 'Needs attention again');
+    if (reopen) { await openIssue(id, issueNav); loadTab().catch(() => {}); }
+    else { closeModal(); loadTab(); }
+  } catch (e) { toast(e.message, true); }
+}
+async function openIssue(id, nav) {
+  id = Number(id);
+  issueNav = nav && nav.ids && nav.ids.length ? nav : null;
+  const i = await api('issues/' + id);
+  const refs = (i.reference || '').split(',').map(s => s.trim()).filter(Boolean);
+  const stateLine = i.state === 'resolved' ? `<span class="pill resolved">resolved ${ago(i.resolved_at)}</span> - the latest scan didn't find it any more`
+    : i.state === 'acknowledged' ? `<span class="pill ack">acknowledged ${ago(i.acknowledged_at)}</span> - still counts in the score until a scan no longer finds it`
+    : '<span class="pill open">needs attention</span>';
+  const pos = issueNav ? issueNav.ids.indexOf(id) : -1;
+  const pager = pos >= 0 && issueNav.ids.length > 1 ? `<div class="pager">
+      <button class="btn btn-small" id="i-prev" ${pos === 0 ? 'disabled' : ''} title="Previous (←)">←</button>
+      <span class="small muted">${pos + 1} of ${issueNav.ids.length}</span>
+      <button class="btn btn-small" id="i-next" ${pos === issueNav.ids.length - 1 ? 'disabled' : ''} title="Next (→)">→</button></div>` : '';
+  modal(`
+    <div class="row">${sevBadge(i.severity)}${i.kind === 'open_port' ? '<span class="pill">exposed service</span>' : ''}</div>
+    <h3 style="margin-top:8px">${esc(i.name)}</h3>
+    <div class="muted">${esc(i.device_name)} <span class="mono small">${esc(i.device_ip || '')}${i.port ? ':' + i.port : ''}</span></div>
+    <div style="margin-top:8px" class="small">${stateLine}</div>
+    <div class="kv"><div><span>CVE</span><b>${esc(i.cve || '–')}</b></div><div><span>CVSS</span><b>${i.cvss ?? '–'}</b></div>
+      <div><span>First found</span><b>${fmtTime(i.first_seen)}</b></div><div><span>Last seen</span><b>${fmtTime(i.last_seen)}</b></div></div>
+    ${i.description ? `<div class="section"><h4>What it is</h4><div>${esc(i.description)}</div></div>` : ''}
+    ${i.remediation ? `<div class="section"><h4>What to do</h4><div>${esc(i.remediation)}</div></div>` : ''}
+    ${i.proof ? `<div class="section"><h4>Proof</h4><pre>${esc(i.proof)}</pre></div>` : ''}
+    <div class="section"><h4>Check</h4><div class="mono small">${esc(i.template_id || '')}${i.matched_at ? ' · ' + esc(i.matched_at) : ''}</div></div>
+    ${refs.length ? `<div class="section"><h4>References</h4>${refs.slice(0, 6).map(r => `<div class="small"><a href="${esc(r)}" target="_blank" rel="noopener noreferrer">${esc(r)}</a></div>`).join('')}</div>` : ''}
+    <div class="row" style="margin-top:18px">
+      ${nav && nav.back ? `<button class="btn" id="i-back">← ${esc(nav.backLabel || 'Back')}</button>` : ''}
+      ${i.state === 'open' ? `<button class="btn btn-primary" id="i-ack">Acknowledge</button>` : ''}
+      ${i.state === 'acknowledged' ? `<button class="btn" id="i-open">Needs attention again</button>` : ''}
+      <span class="spacer"></span>
+      ${pager}
+      <button class="btn" data-close>Close</button></div>`);
+  const ack = document.getElementById('i-ack'); if (ack) ack.onclick = () => setIssue(i.id, 'acknowledged', true);
+  const reopen = document.getElementById('i-open'); if (reopen) reopen.onclick = () => setIssue(i.id, 'open', true);
+  const back = document.getElementById('i-back'); if (back) back.onclick = () => issueNav.back();
+  const go = step => { const n = issueNav.ids[pos + step]; if (n != null) openIssue(n, issueNav); };
+  const prev = document.getElementById('i-prev'); if (prev) prev.onclick = () => go(-1);
+  const next = document.getElementById('i-next'); if (next) next.onclick = () => go(1);
 }
 
 // ---- devices ----
-let deviceTag = '';
-let deviceState = '';
-const DEVICE_TAG_SUGGESTIONS = ['linux', 'windows', 'macos', 'router', 'switch', 'access-point', 'firewall', 'server', 'nas', 'camera', 'doorbell', 'nvr', 'tv', 'speaker', 'printer', 'phone', 'tablet', 'laptop', 'iot', 'smart-home-hub', 'thermostat', 'light', 'alarm', 'voip-phone', 'media-server', 'hypervisor', 'database', 'ups', 'game-console', 'guest', 'critical'];
-function statusDot(d) {
-  if (d.online === null || d.online === undefined) return '<span class="dot" style="background:var(--text3)" title="Not checked yet"></span>';
-  return `<span class="dot ${d.online ? 'ok' : 'bad'}" title="${d.online ? 'Online' : 'Offline'}"></span>`;
-}
-function ago(ts) {
-  if (!ts) return '';
-  const s = Math.max(0, Date.now() / 1000 - ts);
-  if (s < 90) return 'just now';
-  if (s < 5400) return Math.round(s / 60) + ' min';
-  if (s < 129600) return Math.round(s / 3600) + ' h';
-  return Math.round(s / 86400) + ' d';
-}
-// Like ago(), but reads as a full phrase: "just now", "3 min ago", "2 d ago"
-function agoAgo(ts) {
-  const a = ago(ts);
-  return a === 'just now' ? a : a + ' ago';
-}
-function statusText(d) {
-  if (d.online === null || d.online === undefined) return 'not checked yet';
-  return d.online ? `online for ${ago(d.status_changed_at)}` : `offline for ${ago(d.status_changed_at)}`;
-}
-function deviceLabel(d) { return d.name || d.guessed_type || d.host; }
-function serviceChips(d) {
-  return d.services.length ? d.services.map(s =>
-    `<span class="pill" ${s.risky ? 'style="color:var(--high);border:1px solid var(--high)" title="Shouldn\'t normally be exposed"' : ''}>${esc(s.service)}:${s.port}</span>`).join(' ') : '<span class="muted">none open</span>';
-}
+let deviceFilter = 'home';
+let deviceData = null;
+const DEVICE_FILTERS = {home: 'Home now', issues: 'With issues', all: 'All', excluded: 'Excluded'};
 async function loadDevices() {
-  const d = await api('devices');
-  const tags = [...new Set(d.devices.flatMap(x => x.tags))].sort();
-  document.getElementById('device-filters').innerHTML = ['', ...tags].map(t =>
-    `<button class="chip ${t === deviceTag ? 'active' : ''}" data-t="${esc(t)}">${t ? esc(t) : 'All'}</button>`).join('');
-  const states = [['', 'Any'], ['online', 'Online'], ['offline', 'Offline']];
-  document.getElementById('device-filters').innerHTML += '<span class="spacer"></span>' + states.map(([k, l]) =>
-    `<button class="chip ${k === deviceState ? 'active' : ''}" data-s="${k}">${l}</button>`).join('');
-  document.querySelectorAll('#device-filters .chip[data-t]').forEach(c => c.onclick = () => { deviceTag = c.dataset.t; loadDevices(); });
-  document.querySelectorAll('#device-filters .chip[data-s]').forEach(c => c.onclick = () => { deviceState = c.dataset.s; loadDevices(); });
-  const shown = d.devices.filter(x => (!deviceTag || x.tags.includes(deviceTag)) &&
-    (!deviceState || (deviceState === 'online' ? x.online === 1 : x.online === 0)));
-  document.getElementById('devices-table').innerHTML = shown.length ?
-    `<table><thead><tr><th>Status</th><th>Device</th><th>Address</th><th>Services</th><th>Tags</th><th>Open tickets</th><th>Last seen</th></tr></thead><tbody>${shown.map(x =>
-      `<tr data-id="${x.id}"><td>${statusDot(x)} <span class="muted">${x.online === 1 ? 'online' : x.online === 0 ? 'offline' : '–'}</span></td><td>${esc(deviceLabel(x))}${!x.name && x.guessed_type ? ' <span class="muted">(guess)</span>' : ''}</td><td class="mono">${esc(x.host)}</td><td>${serviceChips(x)}</td><td>${x.tags.map(t => `<span class="pill">${esc(t)}</span>`).join(' ')}</td><td>${x.open_tickets || 0}</td><td>${fmtTime(x.last_seen)}</td></tr>`).join('')}</tbody></table>` :
-    '<div class="empty">No devices yet. They appear once a scan finds open ports.</div>';
-  document.querySelectorAll('#devices-table tbody tr').forEach(tr => tr.onclick = () => editDevice(Number(tr.dataset.id), d.devices.find(x => x.id === Number(tr.dataset.id))));
+  deviceData = await api('devices');
+  renderDevices();
 }
-function editDevice(id, d) {
+function deviceState(d) {
+  if (d.scanning) return '<span class="state warn">scanning now</span>';
+  if (d.excluded) return '<span class="state">excluded</span>';
+  if (!d.scannable) return `<span class="state">${d.ip ? 'not a local address' : 'no address'}</span>`;
+  if (d.queued) return '<span class="state warn">queued</span>';
+  if (d.last_scan_status === 'failed') return '<span class="state bad">last scan failed</span>';
+  if (!d.last_scan_at) return '<span class="state">not scanned yet</span>';
+  return `<span class="state good">scanned ${ago(d.last_scan_at)}</span>`;
+}
+function sevbar(c) {
+  const total = SEVS.reduce((a, s) => a + c[s], 0);
+  if (!total) return '<div class="sevbar"></div>';
+  return `<div class="sevbar">${SEVS.filter(s => c[s]).map(s => `<i style="flex:${c[s]};background:${SEV_COLOR(s)}" title="${c[s]} ${s}"></i>`).join('')}</div>`;
+}
+function renderDevices() {
+  const list = deviceData.devices;
+  const counts = {home: list.filter(d => d.in_ha && d.online).length, issues: list.filter(d => SEVS.some(s => d.issues[s])).length,
+    all: list.length, excluded: list.filter(d => d.excluded).length};
+  document.getElementById('device-filter').innerHTML = Object.entries(DEVICE_FILTERS).map(([k, l]) =>
+    `<button class="${k === deviceFilter ? 'active' : ''}" data-f="${k}">${l}<span class="n">${counts[k]}</span></button>`).join('');
+  document.querySelectorAll('#device-filter button').forEach(b => b.onclick = () => { deviceFilter = b.dataset.f; renderDevices(); });
+  document.getElementById('device-note').textContent = `A device is scanned when it is new, and again when it is home and its last scan is ${deviceData.rescan_days} days old.`;
+  const q = document.getElementById('device-search').value.trim().toLowerCase();
+  const shown = list.filter(d => ({home: d.in_ha && d.online, issues: SEVS.some(s => d.issues[s]), all: true, excluded: d.excluded})[deviceFilter] &&
+    (!q || [d.name, d.ip, d.entity_id].some(v => (v || '').toLowerCase().includes(q))));
+  document.getElementById('devices').innerHTML = shown.length ? shown.map(d => {
+    const total = SEVS.reduce((a, s) => a + d.issues[s], 0);
+    return `<div class="device ${d.online ? '' : 'away'}" data-id="${d.id}">
+      <div class="top"><span class="dot ${d.online ? 'ok' : 'off'}" title="${d.online ? 'Home' : 'Away'}"></span>
+        <div style="min-width:0"><div class="nm">${esc(d.name)}</div><div class="ip">${esc(d.ip || 'no address')}</div></div>
+        ${d.score == null ? '<span class="score none">–</span>' : `<span class="score" style="background:${gradeColor(scoreGrade(d.score))}" title="Security score ${d.score}">${d.score}</span>`}</div>
+      ${sevbar(d.issues)}
+      <div class="meta"><span>${total ? `${total} issue${total === 1 ? '' : 's'}${d.needs_attention ? ` · <b style="color:var(--text)">${d.needs_attention} to check</b>` : ''}` : (d.last_scan_at ? 'no issues' : '')}</span>${deviceState(d)}</div>
+    </div>`;
+  }).join('') : '<div class="empty" style="grid-column:1/-1">No devices here.</div>';
+  document.querySelectorAll('#devices .device').forEach(c => c.onclick = () => openDevice(Number(c.dataset.id)));
+}
+document.getElementById('device-search').oninput = () => deviceData && renderDevices();
+async function openDevice(id) {
+  const d = deviceData.devices.find(x => x.id === id);
+  const issues = (await api('issues?state=unresolved&device=' + id)).issues;
   modal(`
-    <h3>${esc(deviceLabel(d))}</h3>
-    <div class="mono muted">${esc(d.host)}${d.guessed_type ? ' · guess: ' + esc(d.guessed_type) : ''}</div>
-    <div style="margin-top:6px">${statusDot(d)} ${esc(statusText(d))}${d.last_online && !d.online ? ' · last seen online ' + fmtTime(d.last_online) : ''}</div>
-    <label>Services</label><div>${serviceChips(d)}</div>
-    ${d.signals.length ? `<label>Detected</label><div class="muted">${d.signals.map(esc).join(', ')}</div>` : ''}
-    <label>Name</label><input id="d-name" value="${esc(d.name || '')}" placeholder="${esc(d.guessed_type || d.host)}" style="width:100%">
-    <label>Description</label><textarea id="d-desc" class="note-field" placeholder="What is it, where is it, who owns it">${esc(d.description || '')}</textarea>
-    <label>Tags (comma separated)</label><input id="d-tags" value="${esc(d.tags.join(', '))}" style="width:100%">
-    <div class="filters" style="margin-top:6px;max-height:110px;overflow:auto">${DEVICE_TAG_SUGGESTIONS.map(t => `<button class="chip" data-add="${t}">+ ${t}</button>`).join('')}</div>
-    <div class="row" style="margin-top:14px"><button class="btn btn-primary" id="d-save">Save</button><button class="btn" id="d-rescan" ${d.object_id ? 'title="Runs a new scan of the scan object this device belongs to"' : 'disabled title="The scan object this device came from was removed"'}>Rescan</button><button class="btn btn-danger" id="d-del">Remove</button><button class="btn" data-close>Close</button></div>
-  `);
-  document.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {
-    const input = document.getElementById('d-tags');
-    const list = input.value.split(',').map(s => s.trim()).filter(Boolean);
-    if (!list.includes(b.dataset.add)) list.push(b.dataset.add);
-    input.value = list.join(', ');
-  });
-  document.getElementById('d-save').onclick = async () => {
-    try {
-      await api('devices/' + id, {method: 'PATCH', body: {name: document.getElementById('d-name').value, description: document.getElementById('d-desc').value, tags: document.getElementById('d-tags').value}});
-      closeModal(); loadDevices();
-    } catch (e) { toast(e.message); }
+    <div class="row"><span class="dot ${d.online ? 'ok' : 'off'}"></span><span class="small muted">${d.online ? 'home' : 'away'}${d.last_online && !d.online ? ' · last home ' + ago(d.last_online) : ''}</span></div>
+    <h3 style="margin-top:6px">${esc(d.name)}</h3>
+    <div class="mono small muted">${esc(d.ip || 'no address')}${d.mac ? ' · ' + esc(d.mac) : ''} · ${esc(d.entity_id)}</div>
+    <div class="kv"><div><span>Score</span><b>${d.score ?? '–'}</b></div><div><span>Last scan</span><b>${d.last_scan_at ? ago(d.last_scan_at) : 'never'}</b></div>
+      <div><span>Next scan</span><b>${d.excluded ? 'excluded' : d.next_scan_at ? (d.online ? inTime(d.next_scan_at) : 'when home, ' + inTime(d.next_scan_at)) : 'when home'}</b></div><div><span>First seen</span><b>${fmtTime(d.first_seen)}</b></div></div>
+    <div class="section"><h4>Open ports</h4><div class="row">${d.services.length ? d.services.map(s => `<span class="pill ${s.risky ? 'risky' : ''}" ${s.risky ? 'title="Shouldn\'t normally be exposed"' : ''}>${esc(s.service)} ${s.port}</span>`).join('') : '<span class="muted small">none found</span>'}</div></div>
+    <div class="section"><h4>Issues</h4>${issues.length ? issues.map(i => `<div class="issue-row" data-id="${i.id}">${sevBadge(i.severity)}<div style="min-width:0"><div class="name">${esc(i.name)}</div><div class="sub">${i.port ? 'port ' + i.port + ' · ' : ''}${i.state === 'open' ? 'needs attention' : 'acknowledged'}</div></div><span></span></div>`).join('') : '<div class="muted small">None.</div>'}</div>
+    <div class="row" style="margin-top:18px">
+      <button class="btn btn-primary" id="d-scan" ${d.online && d.scannable && !d.excluded ? '' : 'disabled'}>Scan now</button>
+      <button class="btn" id="d-excl">${d.excluded ? 'Scan this device again' : 'Never scan this device'}</button>
+      <span class="spacer"></span><button class="btn" data-close>Close</button></div>`);
+  const devIssueIds = issues.map(x => x.id);
+  const nav = {ids: devIssueIds, back: () => openDevice(id), backLabel: d.name};
+  document.querySelectorAll('.modal .issue-row').forEach(r => r.onclick = () => openIssue(r.dataset.id, nav));
+  document.getElementById('d-scan').onclick = async () => {
+    try { await api(`devices/${id}/scan`, {method: 'POST'}); toast('Queued for a scan'); closeModal(); loadDevices(); } catch (e) { toast(e.message, true); }
   };
-  document.getElementById('d-rescan').onclick = async () => {
-    try {
-      await api(`objects/${d.object_id}/scan`, {method: 'POST'});
-      toast('Scan started');
-      closeModal();
-    } catch (e) { toast(e.message); }
-  };
-  document.getElementById('d-del').onclick = async () => {
-    if (!confirm('Remove this device? A later scan will add it again.')) return;
-    await api('devices/' + id, {method: 'DELETE'}); closeModal(); loadDevices();
+  document.getElementById('d-excl').onclick = async () => {
+    await api('devices/' + id, {method: 'PATCH', body: {excluded: !d.excluded}}); closeModal(); loadDevices();
   };
 }
 
-// ---- tickets ----
-let ticketFilter = 'open';
-function loadTickets() {
-  const filters = ['open', ...STATUSES.filter(s => s !== 'open' && s !== 'in_progress'), 'in_progress'];
-  document.getElementById('ticket-filters').innerHTML = filters.map(f =>
-    `<button class="chip ${f === ticketFilter ? 'active' : ''}" data-f="${f}">${STATUS_LABEL[f] || f}</button>`).join('');
-  document.querySelectorAll('#ticket-filters .chip').forEach(c => c.onclick = () => { ticketFilter = c.dataset.f; loadTickets(); });
-  api('tickets?status=' + ticketFilter).then(d => {
-    document.getElementById('tickets-table').innerHTML = d.tickets.length ? ticketTable(d.tickets) : '<div class="empty">No tickets here.</div>';
-    document.querySelectorAll('#tickets-table tbody tr').forEach(tr => tr.onclick = () => openTicket(tr.dataset.id));
-  });
+// ---- scanner ----
+async function loadScanner() {
+  const s = await api('scanner');
+  const f = s.freshness, t = f.templates || {};
+  document.getElementById('components').innerHTML = f.components.map(c => `<div class="fresh-row"><span class="k">${COMPONENT[c.key]}</span>${c.key === 'templates' && s.updating ? '<span class="state warn">updating…</span>' : freshState(c)}
+    <span class="d">installed <span class="mono">${c.installed ? 'v' + esc(c.installed) : '–'}</span> · latest <span class="mono">${c.latest ? 'v' + esc(c.latest) : 'unknown'}</span>${c.outdated && c.key !== 'templates' ? ' · arrives with an app update' : ''}</span></div>`).join('') +
+    `<p class="small muted" style="margin:10px 0 0">Latest releases checked ${ago(f.latest_checked_at)}. The templates update themselves every day${overview && !overview.config.update_templates ? ' (turned off in the options)' : ''}; nuclei and naabu come with the app.</p>`;
+  const btn = document.getElementById('update-now');
+  btn.disabled = s.updating;
+  btn.onclick = async () => { try { await api('scanner/update', {method: 'POST'}); toast('Updating templates'); setTimeout(loadScanner, 800); } catch (e) { toast(e.message, true); } };
+  document.getElementById('template-stats').innerHTML = `<dl class="facts" style="font-size:13px">
+    <dt>Last updated</dt><dd>${t.updated_at ? ago(t.updated_at) : 'never'}</dd>
+    <dt>Checks installed</dt><dd>${(t.total || 0).toLocaleString()}</dd>
+    <dt>CVE checks</dt><dd>${(t.cves || 0).toLocaleString()}</dd>
+    <dt>Newest CVE covered</dt><dd>${esc(t.newest_cve || '–')}</dd></dl>`;
+  const scans = (await api('scans')).scans;
+  document.getElementById('scans-table').innerHTML = scans.length ? `<table><thead><tr><th>Device</th><th>Why</th><th>Result</th><th class="hide-sm">Ports</th><th class="hide-sm">Issues</th><th class="hide-sm">Took</th><th>Started</th></tr></thead><tbody>${scans.slice(0, 25).map(sc =>
+    `<tr><td>${esc(sc.device_name || '–')} <span class="mono muted small">${esc(sc.ip)}</span></td><td class="small">${esc(sc.reason)}</td>
+     <td>${sc.status === 'running' ? '<span class="state warn">running</span>' : sc.status === 'failed' ? `<span class="state bad" title="${esc(sc.error || '')}">failed</span>` : `<span class="state good">done</span>${sc.new_issues ? ` <span class="small muted">+${sc.new_issues}</span>` : ''}${sc.resolved_issues ? ` <span class="small muted">−${sc.resolved_issues}</span>` : ''}`}</td>
+     <td class="mono hide-sm">${sc.open_ports}</td><td class="mono hide-sm">${sc.findings}</td><td class="mono small hide-sm">${sc.finished_at ? Math.max(1, Math.round((sc.finished_at - sc.started_at) / 60)) + ' min' : '–'}</td><td class="small muted">${fmtTime(sc.started_at)}</td></tr>`).join('')}</tbody></table>` :
+    '<div class="empty">No scans yet.</div>';
+  await loadTemplates();
 }
-// A named device shows its name, with the address underneath in small print; otherwise just the address
-function hostLabel(t) {
-  const addr = esc(t.host) + (t.port ? ':' + t.port : '');
-  return t.device_name ? `${esc(t.device_name)}<div class="muted mono" style="font-size:11px">${addr}</div>` : `<span class="mono">${addr}</span>`;
-}
-function ticketTable(tickets) {
-  const rows = tickets.map(t => `<tr data-id="${t.id}"><td>${sevBadge(t.severity)}</td><td>${esc(t.name)}${t.cve ? ` <span class="pill">${esc(t.cve)}</span>` : ''}</td><td>${hostLabel(t)}</td><td><span class="pill ${t.status}">${STATUS_LABEL[t.status] || t.status}</span></td><td>${t.cvss ?? '–'}</td><td>${fmtTime(t.last_seen)}</td></tr>`).join('');
-  return `<table><thead><tr><th>Sev</th><th>Issue</th><th>Host</th><th>Status</th><th>CVSS</th><th>Last seen</th></tr></thead><tbody>${rows}</tbody></table>`;
-}
-async function openTicket(id) {
-  const t = await api('tickets/' + id);
-  const field = (l, v) => v ? `<label>${l}</label><div class="mono" style="white-space:pre-wrap;word-break:break-word">${esc(v)}</div>` : '';
-  modal(`
-    <h3>${sevBadge(t.severity)} ${esc(t.name)}</h3>
-    <div class="row" style="margin-bottom:8px">${t.cve ? `<span class="pill">${esc(t.cve)}</span>` : ''}${t.cvss ? `<span class="pill">CVSS ${t.cvss}</span>` : ''}<span>${t.device_name ? `${esc(t.device_name)} · ` : ''}<span class="mono">${esc(t.host)}${t.port ? ':' + t.port : ''}</span></span></div>
-    <label>Status</label>
-    <select id="t-status">${STATUSES.map(s => `<option value="${s}" ${s === t.status ? 'selected' : ''}>${STATUS_LABEL[s]}</option>`).join('')}</select>
-    ${field('Where', t.matched_at)}
-    ${field('Proof', t.proof)}
-    ${field('Description', t.description)}
-    ${field('Remediation', t.remediation)}
-    ${field('Reference', t.reference)}
-    <label>Note</label><textarea id="t-note" class="note-field">${esc(t.note || '')}</textarea>
-    <div class="muted" style="margin-top:6px">Seen ${t.times_seen}× · first ${fmtTime(t.first_seen)} · last ${fmtTime(t.last_seen)}</div>
-    <div class="row" style="margin-top:14px"><button class="btn btn-primary" id="t-save">Save</button><button class="btn" data-close>Close</button></div>
-  `);
-  document.getElementById('t-save').onclick = async () => {
-    try {
-      await api('tickets/' + id, {method: 'PATCH', body: {status: document.getElementById('t-status').value, note: document.getElementById('t-note').value}});
-      closeModal(); loadTab();
-    } catch (e) { toast(e.message); }
-  };
-}
-
-// ---- objects ----
-async function loadObjects() {
-  const d = await api('objects');
-  const rows = d.objects.map(o => `<tr><td class="mono">${esc(o.target)}</td><td>${esc(o.name || '')}</td><td>${o.kind}</td><td>${o.authorised ? '<span class="dot ok"></span> yes' : '<span class="dot bad"></span> no'}</td><td>${o.schedule || '–'}</td><td>${o.last_scan_at ? fmtTime(o.last_scan_at) : 'never'}</td><td><div class="row"><button class="btn btn-small" data-scan="${o.id}">Scan</button><button class="btn btn-small btn-danger" data-del="${o.id}">×</button></div></td></tr>`).join('');
-  document.getElementById('objects-table').innerHTML = d.objects.length ?
-    `<table><thead><tr><th>Target</th><th>Name</th><th>Kind</th><th>Authorised</th><th>Schedule</th><th>Last scan</th><th></th></tr></thead><tbody>${rows}</tbody></table>` :
-    '<div class="empty">No scan objects yet.</div>';
-  document.querySelectorAll('[data-scan]').forEach(b => b.onclick = async () => {
-    try { await api(`objects/${b.dataset.scan}/scan`, {method: 'POST'}); toast('Scan started'); } catch (e) { toast(e.message); }
-  });
-  document.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
-    if (!confirm('Remove this scan object?')) return;
-    await api('objects/' + b.dataset.del, {method: 'DELETE'}); loadObjects();
-  });
-}
-document.getElementById('obj-preview').onclick = async () => {
-  const target = document.getElementById('obj-target').value.trim();
-  if (!target) return;
-  let p;
-  try { p = await api('objects/preview', {method: 'POST', body: {target}}); } catch (e) { return toast(e.message); }
-  const name = document.getElementById('obj-name').value.trim();
-  const schedule = document.getElementById('obj-schedule').value;
-  const hostList = p.hosts ? `<label>${p.host_count} host${p.host_count === 1 ? '' : 's'}</label><div class="mono" style="max-height:160px;overflow:auto">${p.hosts.map(esc).join('<br>')}${p.host_count > p.hosts.length ? '<br>…' : ''}</div>` : '';
-  modal(`
-    <h3>Review target</h3>
-    <div class="mono" style="margin-bottom:8px">${esc(p.target)} <span class="pill">${p.kind}</span>${p.private ? '<span class="pill">private</span>' : ''}</div>
-    ${hostList}
-    ${p.private ? '<p class="muted">A private range, treated as yours.</p>' :
-      '<p class="muted">This is not a private range. Only continue if you are authorised to scan it.</p>'}
-    <label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="obj-auth" style="width:auto"> I am authorised to scan this target</label>
-    <div class="row" style="margin-top:14px"><button class="btn btn-primary" id="obj-add">Add object</button><button class="btn" data-close>Cancel</button></div>
-  `);
-  document.getElementById('obj-add').onclick = async () => {
-    if (!document.getElementById('obj-auth').checked) return toast('Confirm you are authorised first');
-    try {
-      await api('objects', {method: 'POST', body: {target: p.target, name, schedule, authorised: true}});
-      closeModal(); document.getElementById('obj-target').value = ''; document.getElementById('obj-name').value = ''; loadObjects();
-    } catch (e) { toast(e.message); }
-  };
-};
 
 // ---- templates ----
 async function loadTemplates() {
   const d = await api('templates');
-  const kpi = (l, v) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div></div>`;
-  document.getElementById('template-kpis').innerHTML =
-    kpi('Community templates', d.community_count || 0) +
-    kpi('Last updated', d.community_updated_at ? ago(d.community_updated_at) + ' ago' : 'never') +
-    kpi('Your templates', d.templates.length);
   document.getElementById('templates-table').innerHTML = d.templates.length ?
     `<table><tbody>${d.templates.map(t => `<tr><td class="mono">${esc(t.name)}</td><td>${t.size} bytes</td><td><div class="row"><button class="btn btn-small" data-edit="${esc(t.name)}">Edit</button><button class="btn btn-small btn-danger" data-delt="${esc(t.name)}">×</button></div></td></tr>`).join('')}</tbody></table>` :
-    '<div class="empty">No custom templates yet.</div>';
+    '<div class="empty small">No templates of your own.</div>';
   document.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => editTemplate(b.dataset.edit));
   document.querySelectorAll('[data-delt]').forEach(b => b.onclick = async () => {
     if (!confirm('Delete this template?')) return;
@@ -335,32 +488,30 @@ async function editTemplate(name) {
 
 // ---- settings ----
 async function loadSettings() {
-  const s = await api('status');
-  const c = s.config;
+  const c = (overview || await api('overview')).config;
   const rows = [
-    ['Minimum severity', c.min_severity], ['Requests per second', c.requests_per_second],
+    ['Rescan after', c.rescan_days + ' days'], ['Minimum severity', c.min_severity], ['Requests per second', c.requests_per_second],
     ['Concurrent hosts', c.max_concurrent_hosts], ['Default-credential check', c.default_credentials ? 'on' : 'off'],
-    ['Update templates', c.update_templates ? 'on' : 'off'], ['Online check', c.presence_interval_minutes ? 'every ' + c.presence_interval_minutes + ' min' : 'off'], ['Keep data', c.retention_days + ' days'],
-    ['Exclude tags', c.nuclei_exclude_tags || '–'],
+    ['Update templates', c.update_templates ? 'daily' : 'off'], ['Keep resolved issues', c.retention_days + ' days'],
+    ['Only these tags', c.nuclei_tags || '–'], ['Exclude tags', c.nuclei_exclude_tags || '–'],
   ];
   document.getElementById('settings-options').innerHTML =
     `<table><tbody>${rows.map(([l, v]) => `<tr><td class="muted">${l}</td><td class="mono">${esc(v)}</td></tr>`).join('')}</tbody></table>
-     <p class="muted" style="margin-top:8px">Change these on the app's Configuration tab in Home Assistant.</p>`;
+     <p class="muted small" style="margin-top:8px">Change these on the app's Configuration tab in Home Assistant.</p>`;
   const db = await api('database');
   document.getElementById('settings-db').innerHTML = `<table><tbody>
     <tr><td class="muted">On disk</td><td class="mono">${(db.size / 1048576).toFixed(2)} MB</td></tr>
-    <tr><td class="muted">Scan objects</td><td class="mono">${db.counts.scan_objects}</td></tr>
-    <tr><td class="muted">Scans</td><td class="mono">${db.counts.scans}</td></tr>
     <tr><td class="muted">Devices</td><td class="mono">${db.counts.devices}</td></tr>
-    <tr><td class="muted">Tickets</td><td class="mono">${db.counts.findings}</td></tr></tbody></table>`;
+    <tr><td class="muted">Scans</td><td class="mono">${db.counts.scans}</td></tr>
+    <tr><td class="muted">Issues</td><td class="mono">${db.counts.issues}</td></tr></tbody></table>`;
 }
 document.getElementById('wipe-btn').onclick = () => {
-  modal(`<h3>Delete all data</h3><p class="muted">This removes every scan object, scan and ticket. Type <b>delete</b> to confirm.</p>
+  modal(`<h3>Delete all data</h3><p class="muted">This removes every device, scan, issue and the history. Type <b>delete</b> to confirm.</p>
     <input id="wipe-confirm" placeholder="delete" style="width:100%">
     <div class="row" style="margin-top:14px"><button class="btn btn-danger" id="wipe-go">Delete everything</button><button class="btn" data-close>Cancel</button></div>`);
   document.getElementById('wipe-go').onclick = async () => {
     try { await api('wipe', {method: 'POST', body: {confirm: document.getElementById('wipe-confirm').value}}); closeModal(); toast('Database emptied'); loadTab(); }
-    catch (e) { toast(e.message); }
+    catch (e) { toast(e.message, true); }
   };
 };
 
@@ -371,21 +522,44 @@ function modal(html) {
   root.querySelector('.overlay').onclick = e => { if (e.target.classList.contains('overlay')) closeModal(); };
   root.querySelectorAll('[data-close]').forEach(b => b.onclick = closeModal);
 }
-function closeModal() { document.getElementById('modal-root').innerHTML = ''; }
+function closeModal() { document.getElementById('modal-root').innerHTML = ''; issueNav = null; }
+// Esc closes a modal; ← / → step through issues when the detail is open from a list
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('modal-root').innerHTML) return;
+  if (e.key === 'Escape') return closeModal();
+  if (issueNav && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+    const btn = document.getElementById(e.key === 'ArrowLeft' ? 'i-prev' : 'i-next');
+    if (btn && !btn.disabled) btn.click();
+  }
+});
 
 // ---- status bar + startup ----
-async function refreshStatus() {
+function renderStatus() {
+  const o = overview;
+  if (!o) return;
+  const ha = o.home_assistant;
+  document.getElementById('statusbar').innerHTML =
+    `<span><span class="dot ${ha.error ? 'bad' : 'ok'}"></span> Home Assistant ${ha.error ? 'unreachable' : 'trackers read ' + ago(ha.last_sync)}</span>` +
+    `<span>${o.running ? 'scanning ' + esc(o.running.device_name) : 'idle'}${o.queue.length ? ` · ${o.queue.length} queued` : ''}</span>` +
+    `<span class="spacer"></span><span class="muted">Nuclei Scanner ${esc(o.version)} · internal use</span>`;
+}
+async function tick() {
   try {
-    const s = await api('status');
-    const sc = s.scanners;
-    document.getElementById('statusbar').innerHTML =
-      `<span><span class="dot ${sc.nuclei && sc.naabu ? 'ok' : 'bad'}"></span> scanners ${sc.nuclei && sc.naabu ? 'ready' : 'missing'}</span>` +
-      `<span>${s.running.length ? s.running.length + ' scan(s) running' : 'idle'}</span>` +
-      `<span class="spacer"></span><span class="muted">Nuclei Scanner ${esc(s.version)} · internal use</span>`;
+    if (activeTab === 'dashboard') await loadDashboard();
+    else { overview = await api('overview'); if (activeTab === 'devices' || activeTab === 'scanner') await loadTab(); }
+    renderStatus();
   } catch (e) {
     document.getElementById('statusbar').innerHTML = '<span><span class="dot bad"></span> cannot reach the app</span>';
   }
 }
-loadDashboard().catch(e => toast(e.message));
-refreshStatus();
-setInterval(() => { refreshStatus(); if (activeTab === 'dashboard' || activeTab === 'objects') loadTab(); }, 5000);
+const startTab = location.hash.slice(1);
+if (startTab && document.getElementById('tab-' + startTab)) showTab(startTab);
+// Deep link to one issue: #issue-<id> opens it, stepping through its device's issues
+const deepIssue = (location.hash.match(/^#issue-(\d+)$/) || [])[1];
+if (deepIssue) api('issues/' + deepIssue).then(i =>
+  api('issues?state=unresolved&device=' + i.device_id).then(d =>
+    openIssue(deepIssue, {ids: d.issues.map(x => x.id), back: () => showTab('devices'), backLabel: i.device_name}))).catch(() => {});
+tick();
+setInterval(() => { if (!document.getElementById('modal-root').innerHTML) tick(); }, 5000);
+let resizeTimer;
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => activeTab === 'dashboard' && overview && (scoreChart(document.getElementById('chart-score'), overview.history), issuesChart(document.getElementById('chart-issues'), overview.history)), 150); });

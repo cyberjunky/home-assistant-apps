@@ -6,7 +6,7 @@ The flow for one target:
      applicable CVE and exposure template is tried; its matchers mean only real hits are reported,
      and -automatic-scan fingerprints each host so only templates relevant to the detected technology
      run. Templates are kept current in /data (see update_templates).
-  3. nuclei's JSONL output becomes findings (tickets).
+  3. nuclei's JSONL output becomes findings; the engine turns them into issues.
 
 Everything the scanners emit is parsed as data: one bad line can't stop the scan. The templates and
 their matchers come from ProjectDiscovery; this module only runs the binaries and reads their output.
@@ -17,6 +17,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import shutil
 import tempfile
 import time
@@ -32,6 +33,10 @@ NAABU = "naabu"
 TEMPLATES_DIR = DATA_DIR / "nuclei-templates"
 # Written whenever the community templates are updated, so "last updated" survives a restart
 TEMPLATES_UPDATED_FILE = DATA_DIR / "templates-updated-at"
+# A community template file named after the CVE it checks, such as CVE-2026-12345.yaml
+CVE_NAME = re.compile(r"^CVE-(\d{4})-(\d{4,7})$", re.IGNORECASE)
+# The first version number in a scanner's version output ("Nuclei Engine Version: v3.11.1")
+VERSION = re.compile(r"v?(\d+\.\d+\.\d+)")
 # Ports naabu checks by default: its "top 100", enough for the usual exposed services without a full sweep
 DEFAULT_TOP_PORTS = "100"
 # A big network takes hours: completeness matters more than speed. This only stops a scanner that hangs.
@@ -51,9 +56,11 @@ class HostResult:
     open_ports: list[int] = field(default_factory=list)
 
 
-def fingerprint(host: str, port, template_id: str, matched_at: str) -> str:
-    """Identifies the same issue on the same host across scans, so a repeat updates one ticket."""
-    raw = f"{host}|{port or ''}|{template_id or ''}|{matched_at or ''}"
+def fingerprint(device: str, ip: str, port, template_id: str, matched_at: str) -> str:
+    """Identifies the same issue on the same device across scans, so a repeat updates one issue. The device's
+    address is taken out of where it matched, so a device that gets a new address keeps its issues."""
+    where = (matched_at or "").replace(ip, "{ip}") if ip else matched_at or ""
+    raw = f"{device}|{port or ''}|{template_id or ''}|{where}"
     return hashlib.sha256(raw.encode()).hexdigest()[:32]
 
 
@@ -97,7 +104,6 @@ def parse_nuclei_line(line: str) -> dict | None:
         severity = "info"
     refs = info.get("reference") or []
     return {
-        "fingerprint": fingerprint(host, port, template_id, matched),
         "host": host,
         "port": port,
         "kind": "vulnerability",
@@ -294,6 +300,45 @@ class Scanner:
         return sum(1 for _ in TEMPLATES_DIR.rglob("*.yaml")) if TEMPLATES_DIR.exists() else 0
 
     @staticmethod
+    def template_stats() -> dict:
+        """What the installed community templates cover: how many, how many check a CVE, and the newest CVE
+        among them (by year, then number), which says how current the set is at a glance."""
+        total = cves = 0
+        newest: tuple[int, int] | None = None
+        if TEMPLATES_DIR.exists():
+            for path in TEMPLATES_DIR.rglob("*.yaml"):
+                total += 1
+                if m := CVE_NAME.match(path.stem):
+                    cves += 1
+                    key = (int(m.group(1)), int(m.group(2)))
+                    newest = max(newest, key) if newest else key
+        return {
+            "total": total,
+            "cves": cves,
+            "newest_cve": f"CVE-{newest[0]}-{newest[1]}" if newest else None,
+        }
+
+    async def versions(self) -> dict:
+        """The installed nuclei, naabu and template versions, from the binaries themselves."""
+        out: dict[str, str | None] = {"nuclei": None, "naabu": None, "templates": None}
+        for key, argv in (
+            ("nuclei", [NUCLEI, "-version"]),
+            ("naabu", [NAABU, "-version"]),
+            ("templates", [NUCLEI, "-templates-version"]),
+        ):
+            if not shutil.which(argv[0]) and self._run == self._run_process:
+                continue
+            lines: list[str] = []
+            try:
+                _, stderr = await self._run(argv, lines.append)
+            except (OSError, ScannerError) as e:
+                logger.debug("%s failed: %s", " ".join(argv), e)
+                continue
+            if m := VERSION.search("\n".join([*lines, stderr])):
+                out[key] = m.group(1)
+        return out
+
+    @staticmethod
     def templates_updated_at() -> int | None:
         """When the community templates were last successfully updated, or None if never."""
         try:
@@ -360,9 +405,8 @@ class Scanner:
 
     def _nuclei_argv(self, targets_file: str, protocols: tuple[str, ...]) -> list[str]:
         """The nuclei command for one pass. Flag names checked against nuclei v3.11.1: -t runs templates from a
-        folder, -pt limits them to protocol types, -duc skips nuclei's own update check (templates are updated
-        separately). No -s: every severity runs, because the informational templates are what tell devices
-        apart; the minimum severity only decides which findings become tickets."""
+        folder, -pt limits them to protocol types, -s to the severities that can become an issue, -duc skips
+        nuclei's own update check (templates are updated separately)."""
         exclude = [t for t in self.config.nuclei_exclude_tags.split(",") if t.strip()]
         if not self.config.default_credentials and "default-login" not in exclude:
             exclude.append("default-login")
@@ -376,6 +420,8 @@ class Scanner:
             targets_file,
             "-pt",
             ",".join(protocols),
+            "-s",
+            ",".join(SEVERITIES[SEVERITIES.index(self.config.min_severity) :]),
             "-rl",
             str(self.config.requests_per_second),
             "-t",
@@ -390,24 +436,11 @@ class Scanner:
             argv += ["-etags", ",".join(exclude)]
         return argv
 
-    def scan_summary(self, targets: list[str]) -> str:
-        """A short, human-readable line of what a nuclei run on these targets will do: which passes run,
-        on how many targets, and whether the default-credential check is active. Shown on the scan so
-        it is possible to tell, without reading the container log, whether the credential check ran."""
-        web, protocol = split_targets(targets)
-        parts = []
-        if web:
-            parts.append(f"web pass: {len(web)} target{'s' if len(web) != 1 else ''}")
-        if protocol:
-            parts.append(f"protocol pass: {len(protocol)} target{'s' if len(protocol) != 1 else ''}")
-        parts.append(f"credential check: {'on' if self.config.default_credentials else 'off'}")
-        return " · ".join(parts)
-
     async def scan_targets(self, targets: list[str], on_finding) -> int:
         """Run nuclei against host:port (or URL) targets, in two passes so every target gets the templates
         that fit it: web templates (http and TLS) on web ports, and protocol templates (ssh, smb, ftp,
         databases, TLS and so on) on the others. A port that is neither known to be web nor known not to be
-        gets both. Every finding goes to on_finding; the caller decides which become tickets. Returns the count."""
+        gets both. Every finding goes to on_finding; the caller decides which become issues. Returns the count."""
         web, protocol = split_targets(targets)
         count = 0
 

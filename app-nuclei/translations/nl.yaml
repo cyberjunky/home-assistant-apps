@@ -1,4 +1,9 @@
 configuration:
+  rescan_days:
+    name: Opnieuw scannen na (dagen)
+    description: >-
+      Een apparaat wordt gescand als het nieuw is, en opnieuw zodra het thuis is en de laatste scan
+      zoveel dagen oud is. Een laptop die twee weken weg was, wordt kort na thuiskomst gescand.
   max_concurrent_hosts:
     name: Gelijktijdige hosts
     description: Hoeveel hosts naabu tegelijk op open poorten controleert.
@@ -23,9 +28,6 @@ configuration:
   retention_days:
     name: Gegevens bewaren (dagen)
     description: Opgeloste tickets en afgeronde scans die ouder zijn worden verwijderd. Open tickets blijven altijd.
-  presence_interval_minutes:
-    name: Online-controle (minuten)
-    description: Hoe vaak bekende apparaten worden gecontroleerd op online zijn. 0 zet de controle uit.
   update_templates:
     name: Templates bijwerken
     description: Haal voor een scan de nieuwste nuclei-templates op, zodat je altijd de laatste CVE-controles hebt.

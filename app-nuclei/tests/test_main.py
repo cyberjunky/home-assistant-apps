@@ -24,7 +24,7 @@ async def test_stays_up_until_stopped(app_env):
     task = asyncio.create_task(main._amain())
     await asyncio.sleep(0.5)
     assert not task.done(), "the app must not stop on its own"
-    assert (app_env / "nuclei.db").exists()
+    assert (app_env / "scanner.db").exists()
     os.kill(os.getpid(), signal.SIGTERM)
     assert await asyncio.wait_for(task, 5) == 0
 

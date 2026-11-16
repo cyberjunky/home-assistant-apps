@@ -58,9 +58,9 @@ async def test_nuclei_flags_are_the_ones_nuclei_has(templates):
     for flag in ("-jsonl", "-silent", "-duc", "-l", "-pt", "-rl", "-t", "-etags"):
         assert flag in argv, flag
     assert "-templates-directory" not in argv and "-severity" not in argv
-    # No -s and no -as: every severity must run (the informational templates identify devices), and
-    # -as only runs templates for detected web technology
-    assert "-s" not in argv and "-as" not in argv
+    # -s from the minimum severity: what is below it can't become an issue, so it isn't run. No -as: it
+    # only runs templates for detected web technology
+    assert argv[argv.index("-s") + 1] == "low,medium,high,critical" and "-as" not in argv
     assert argv[argv.index("-t") + 1] == str(scanner_module.TEMPLATES_DIR)
     # default-login is excluded unless the credential check is on
     assert "default-login" in argv[argv.index("-etags") + 1]
@@ -87,8 +87,8 @@ async def test_a_pass_with_no_targets_does_not_run(templates):
     assert [argv[argv.index("-pt") + 1] for argv in s.calls] == ["tcp,javascript,ssl"]
 
 
-async def test_every_finding_reaches_the_caller_whatever_its_severity(templates):
-    """The engine decides what becomes a ticket; info findings are how devices are recognised."""
+async def test_every_line_nuclei_prints_reaches_the_caller(templates):
+    """The scanner passes on whatever nuclei reports; the engine applies the minimum severity again."""
     lines = [
         '{"template-id":"a","info":{"name":"n","severity":"info"},"host":"h"}',
         '{"template-id":"b","info":{"name":"n","severity":"high"},"host":"h"}',
@@ -139,33 +139,22 @@ def test_no_templates_means_no_scan(tmp_path, monkeypatch):
         Scanner(Config()).require_templates()
 
 
-async def test_a_failing_scanner_marks_the_scan_failed_and_keeps_tickets(tmp_path, templates):
+async def test_a_failing_scanner_marks_the_scan_failed_and_keeps_issues(tmp_path, templates):
     db = Database(tmp_path / "n.db")
-    oid = db.add_object("10.0.0.5", "ip", "", None, authorised=True)
-    f = {
-        "fingerprint": "x",
-        "object_id": oid,
-        "host": "10.0.0.5",
-        "port": 80,
-        "kind": "vulnerability",
-        "template_id": "t",
-        "name": "n",
-        "severity": "high",
-        "cve": None,
-        "cvss": None,
-        "matched_at": "u",
-        "proof": "",
-        "description": "",
-        "remediation": "",
-        "reference": "",
-    }
-    db.record_finding(f)
-    engine = Engine(db, Config(update_templates=False), scanner_with(code=2, stderr="crashed"))
-    await engine.scan_object(oid)
+    db.sync_trackers(
+        [{"entity_id": "device_tracker.nas", "name": "NAS", "ip": "10.0.0.5", "mac": None, "online": True}]
+    )
+    device = db.devices()[0]
+    db.record_issue(
+        {"fingerprint": "x", "device_id": device["id"], "port": 80, "kind": "vulnerability", "template_id": "t",
+         "name": "n", "severity": "high", "matched_at": "u"}
+    )  # fmt: skip
+    engine = Engine(db, Config(update_templates=False), scanner_with(code=1, stderr="crashed"))
+    await engine.scan_device(db.device(device["id"]), "rescan")
     scan = db.scans()[0]
     assert scan["status"] == "failed" and "crashed" in scan["error"]
     # A scan that never ran must not resolve what earlier scans found
-    assert db.finding(db.findings()[0]["id"])["status"] == "open"
+    assert db.issues("open")[0]["fingerprint"] == "x"
     db.close()
 
 

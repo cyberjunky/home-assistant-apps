@@ -1,4 +1,9 @@
 configuration:
+  rescan_days:
+    name: Rescan after (days)
+    description: >-
+      A device is scanned when it is new, and again once it is home and its last scan is this many days
+      old. A laptop that was away for two weeks is scanned soon after it comes home.
   max_concurrent_hosts:
     name: Concurrent hosts
     description: How many hosts naabu probes for open ports at once.
@@ -22,9 +27,6 @@ configuration:
   retention_days:
     name: Keep data (days)
     description: Resolved tickets and finished scans older than this are removed. Open tickets are always kept.
-  presence_interval_minutes:
-    name: Online check (minutes)
-    description: How often known devices are checked for being online. 0 turns the check off.
   update_templates:
     name: Update templates
     description: Pull the newest nuclei templates before a scan, so you always have the latest CVE checks.

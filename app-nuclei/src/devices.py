@@ -1,44 +1,6 @@
-"""Best-guess labels for a discovered host, from its open ports and nuclei's detections.
+"""What the open ports of a device are, and which of them should not be exposed on a network."""
 
-The guess is only a hint to start from; the person renames the device and sets their own tags. nuclei's
-automatic scan fingerprints technology on each host, and those detection findings (info severity) plus the
-open ports are collected here into a short list of signals and one best-guess type.
-"""
-
-# A few well-known ports to a service name and a device hint. Not exhaustive; a starting point.
-PORT_HINTS = {
-    22: ("ssh", "server"),
-    23: ("telnet", "device"),
-    3389: ("rdp", "windows"),
-    445: ("smb", "windows"),
-    139: ("netbios", "windows"),
-    80: ("http", "web"),
-    443: ("https", "web"),
-    8080: ("http-alt", "web"),
-    554: ("rtsp", "camera"),
-    8554: ("rtsp", "camera"),
-    1883: ("mqtt", "iot"),
-    8883: ("mqtt", "iot"),
-    5900: ("vnc", "server"),
-    53: ("dns", "server"),
-    161: ("snmp", "network"),
-    631: ("ipp", "printer"),
-    9100: ("jetdirect", "printer"),
-    548: ("afp", "nas"),
-    5000: ("upnp", "iot"),
-    32400: ("plex", "media"),
-    1900: ("ssdp", "iot"),
-    123: ("ntp", "server"),
-    25: ("smtp", "mail"),
-    110: ("pop3", "mail"),
-    143: ("imap", "mail"),
-    3306: ("mysql", "database"),
-    5432: ("postgres", "database"),
-    6379: ("redis", "database"),
-    27017: ("mongodb", "database"),
-}
-
-# Service names for more ports, used to label what a device exposes. Not a hint about the device type.
+# Port to its usual service name; a label for what a device exposes
 SERVICE_NAMES = {
     21: "ftp",
     22: "ssh",
@@ -162,88 +124,9 @@ RISKY_SERVICES = {
     111: ("low", "rpcbind lists services running on the host.", "Turn it off where it isn't needed."),
 }
 
-# Signals that point at a device type, matched case-insensitively against a host's collected signals.
-TYPE_KEYWORDS = {
-    "camera": (
-        "camera",
-        "rtsp",
-        "hikvision",
-        "dahua",
-        "ipcam",
-        "webcam",
-        "onvif",
-        "axis",
-        "reolink",
-        "amcrest",
-        "foscam",
-        "wyze",
-    ),
-    "nvr": ("nvr", "surveillance", "blue iris", "frigate", "zoneminder", "synology surveillance"),
-    "doorbell": ("doorbell", "ring ", "nest hello", "eufy", "video doorbell", "reolink doorbell"),
-    "printer": ("printer", "jetdirect", "ipp", "cups", "laserjet", "officejet", "brother", "epson", "canon", "xerox"),
-    "windows": ("windows", "rdp", "iis", "microsoft-ds", "netbios", "winrm", "microsoft"),
-    "linux": ("linux", "ubuntu", "debian", "openssh", "apache", "nginx", "centos", "fedora", "alpine", "raspbian"),
-    "macos": ("macos", "darwin", "apple", "airplay", "afp", "bonjour"),
-    "router": (
-        "router",
-        "mikrotik",
-        "openwrt",
-        "pfsense",
-        "opnsense",
-        "edgeos",
-        "routeros",
-        "dd-wrt",
-        "fritz",
-        "ubiquiti",
-        "unifi",
-    ),
-    "access-point": ("access point", "wifi", "wireless", "unifi ap", "ruckus", "meraki", "omada"),
-    "switch": ("switch", "cisco", "juniper", "procurve", "aruba", "netgear", "tp-link", "d-link", "zyxel"),
-    "firewall": ("firewall", "fortigate", "palo alto", "sonicwall", "checkpoint", "sophos", "watchguard"),
-    "nas": ("synology", "qnap", "nas", "freenas", "truenas", "unraid", "diskstation", "readynas"),
-    "tv": (
-        "tv",
-        "roku",
-        "chromecast",
-        "appletv",
-        "apple tv",
-        "webos",
-        "tizen",
-        "android tv",
-        "fire tv",
-        "bravia",
-        "smart tv",
-    ),
-    "speaker": ("sonos", "speaker", "alexa", "echo", "google home", "homepod", "airplay speaker", "bose"),
-    "game-console": ("playstation", "xbox", "nintendo", "steam deck", "console"),
-    "iot": ("mqtt", "tasmota", "esphome", "shelly", "tuya", "homeassistant", "zigbee", "zwave", "sonoff", "wled"),
-    "smart-home-hub": ("home assistant", "hubitat", "smartthings", "homebridge", "openhab", "domoticz", "hue bridge"),
-    "light": ("hue", "lifx", "nanoleaf", "wled", "smart light", "bulb"),
-    "plug": ("smart plug", "tasmota", "shelly plug", "kasa", "tp-link plug"),
-    "thermostat": ("thermostat", "toon", "nest", "tado", "ecobee", "honeywell"),
-    "alarm": ("alarm", "alarm panel", "satel", "paradox", "ajax", "texecom"),
-    "access-control": ("door controller", "access control", "intercom", "badge reader", "keypad"),
-    "voip-phone": ("voip", "sip", "yealink", "snom", "grandstream", "polycom", "asterisk", "freepbx"),
-    "media-server": ("plex", "jellyfin", "emby", "kodi", "sonarr", "radarr", "media server"),
-    "hypervisor": ("proxmox", "esxi", "vmware", "xen", "hyper-v", "kvm", "virtualbox"),
-    "container-host": ("docker", "portainer", "kubernetes", "k3s", "containerd", "podman"),
-    "database": ("mysql", "mariadb", "postgres", "mongodb", "redis", "mssql", "oracle", "elasticsearch", "influxdb"),
-    "web-server": ("nginx", "apache", "iis", "caddy", "lighttpd", "traefik", "haproxy"),
-    "mail-server": ("smtp", "imap", "pop3", "postfix", "exim", "dovecot", "exchange"),
-    "dns-server": ("dns", "bind", "pihole", "pi-hole", "adguard", "unbound", "dnsmasq"),
-    "ups": ("ups", "apc", "eaton", "cyberpower", "nut"),
-    "pdu": ("pdu", "power distribution", "raritan", "apc pdu"),
-    "sdr-radio": ("rtl-sdr", "hackrf", "sdr", "airspy"),
-    "mining": ("bitaxe", "antminer", "whatsminer", "cgminer", "bfgminer", "miner"),
-    "3d-printer": ("octoprint", "klipper", "moonraker", "prusa", "bambu", "creality"),
-    "solar-inverter": ("inverter", "goodwe", "sma", "solaredge", "growatt", "fronius", "victron"),
-    "ev-charger": ("charger", "wallbox", "easee", "zaptec", "openevse", "tesla wall"),
-    "vacuum": ("roomba", "roborock", "vacuum", "dreame", "ecovacs"),
-}
-
 
 def service_name(port: int) -> str:
-    return SERVICE_NAMES.get(port) or (PORT_HINTS[port][0] if port in PORT_HINTS else "unknown")
+    return SERVICE_NAMES.get(port, "unknown")
 
 
 def services(open_ports: list[int]) -> list[dict]:
@@ -255,7 +138,7 @@ def services(open_ports: list[int]) -> list[dict]:
 
 
 def risky_findings(host: str, open_ports: list[int]) -> list[dict]:
-    """Findings for services that shouldn't be exposed, as tickets, one per host and port."""
+    """Issues for services that shouldn't be exposed, one per open port."""
     out = []
     for port in sorted(set(open_ports)):
         if port not in RISKY_SERVICES:
@@ -280,24 +163,3 @@ def risky_findings(host: str, open_ports: list[int]) -> list[dict]:
             }
         )
     return out
-
-
-def guess(open_ports: list[int], signals: list[str]) -> dict:
-    """A best-guess type and the signals behind it. signals are free text from detection findings."""
-    collected = list(signals)
-    for port in open_ports:
-        if port in PORT_HINTS:
-            service, hint = PORT_HINTS[port]
-            collected.append(service)
-            collected.append(hint)
-    text = " ".join(collected).lower()
-    scores: dict[str, int] = {}
-    for device_type, keywords in TYPE_KEYWORDS.items():
-        hits = sum(1 for kw in keywords if kw in text)
-        if hits:
-            scores[device_type] = hits
-    best = max(scores, key=scores.get) if scores else None
-    return {
-        "type": best,
-        "signals": sorted(set(s for s in collected if s)),
-    }

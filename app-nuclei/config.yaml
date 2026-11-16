@@ -2,7 +2,7 @@
 name: Nuclei Scanner
 version: "0.1.9"
 slug: app-nuclei
-description: "Internal vulnerability scanner - CVEs, exposed services and open ports, as tickets you work through"
+description: "Internal vulnerability scanner for the devices Home Assistant tracks - open ports, CVEs and exposed services, as issues you work through"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-nuclei"
 init: false
 arch:
@@ -12,26 +12,29 @@ image: "ghcr.io/cyberjunky/app-nuclei"
 ingress: true
 panel_icon: mdi:shield-search
 panel_title: Nuclei
-# Scanning needs to reach the hosts you register; the host's network gives naabu and nuclei direct access
+# Scanning needs to reach your devices; the host's network gives naabu and nuclei direct access
 host_network: true
+# The devices to scan are Home Assistant's device trackers that are home, on a private address
+homeassistant_api: true
 options:
-  # Scans only ever run against the objects you register in the app, after acknowledging you are allowed
-  # to scan them. Nothing here opens that up.
+  # Only device trackers that are home, on a private, loopback or link-local address, are ever scanned.
+  # A device is scanned when it is new, and again once it is home and its last scan is this many days old
+  rescan_days: 7
   max_concurrent_hosts: 25
   requests_per_second: 150
   # The lowest severity worth a ticket: info, low, medium, high or critical
   min_severity: low
   nuclei_tags: ""
   nuclei_exclude_tags: "dos,fuzzing,intrusive"
-  # A light default-credential check against discovered login services. Off by default: it can lock
-  # accounts and trips alarms. The list is small and built in; there is no password stuffing from a file.
+  # nuclei's default-login checks: each product's own factory login. Off by default: it makes real
+  # login attempts, which can lock accounts and trip alarms.
   default_credentials: false
   # Keep resolved findings and closed scans this many days (open tickets are always kept)
   retention_days: 365
-  presence_interval_minutes: 5
   update_templates: true
   log_level: info
 schema:
+  rescan_days: int(1,365)
   max_concurrent_hosts: int(1,500)
   requests_per_second: int(1,1000)
   min_severity: list(info|low|medium|high|critical)
@@ -39,6 +42,5 @@ schema:
   nuclei_exclude_tags: str?
   default_credentials: bool
   retention_days: int(1,3650)
-  presence_interval_minutes: int(0,1440)
   update_templates: bool
   log_level: list(debug|info|warning|error)

@@ -1,3 +1,5 @@
+"""The dashboard's API: overview, issues, devices, scanner, templates, backup and the danger zone."""
+
 import asyncio
 import json
 import sqlite3
@@ -9,7 +11,9 @@ from src import custom_templates
 from src.config import Config
 from src.database import Database
 from src.engine import Engine
+from src.freshness import Freshness
 from src.scanner import HostResult
+from src.scheduler import Scheduler
 from src.webui import WebUI
 
 
@@ -26,6 +30,12 @@ class Scan:
     def templates_updated_at(self):
         return 1700000000
 
+    def template_stats(self):
+        return {"total": 4321, "cves": 1200, "newest_cve": "CVE-2026-1234"}
+
+    async def versions(self):
+        return {"nuclei": "3.11.1", "naabu": "2.7.0", "templates": "10.3.4"}
+
     async def discover_ports(self, hosts):
         return [HostResult(hosts[0], [23])]
 
@@ -33,91 +43,101 @@ class Scan:
         return 0
 
 
+class Trackers:
+    async def fetch(self):
+        return [
+            {"entity_id": "device_tracker.nas", "name": "NAS", "ip": "192.168.1.20", "mac": None, "online": True},
+            {"entity_id": "device_tracker.phone", "name": "Phone", "ip": "192.168.1.100", "mac": None, "online": False},
+            {"entity_id": "device_tracker.vps", "name": "VPS", "ip": "8.8.8.8", "mac": None, "online": True},
+        ]
+
+
+async def latest(repo):
+    return {"projectdiscovery/nuclei": "3.11.2"}.get(repo)
+
+
 @pytest.fixture
 async def client(tmp_path, monkeypatch):
     monkeypatch.setattr(custom_templates, "CUSTOM_DIR", tmp_path / "custom")
     db = Database(tmp_path / "n.db")
-    ui = WebUI(0, db, Engine(db, Config(update_templates=False), Scan()))
+    engine = Engine(db, Config(update_templates=False), Scan())
+    scheduler = Scheduler(engine, db, Trackers())
+    await scheduler.sync()
+    ui = WebUI(0, db, engine, scheduler, Freshness(engine.scanner, latest=latest))
 
     async def ok(path):
         return True, "ok"
 
     ui.templates._validate = ok
     async with TestClient(TestServer(ui.app)) as c:
-        c.db = db
+        c.db, c.engine, c.scheduler = db, engine, scheduler
         yield c
     db.close()
 
 
-async def post(c, path, body, method="post"):
-    r = await getattr(c, method)(f"/api/{path}", data=json.dumps(body), headers={"Content-Type": "application/json"})
+async def call(c, path, body=None, method="post"):
+    kwargs = {"data": json.dumps(body), "headers": {"Content-Type": "application/json"}} if body is not None else {}
+    r = await getattr(c, method)(f"/api/{path}", **kwargs)
     return r.status, await r.json()
 
 
-async def test_page_and_status(client):
+def device(c, name):
+    return next(d for d in c.db.devices() if d["name"] == name)
+
+
+async def test_page_and_overview(client):
     page = await (await client.get("/")).text()
-    assert "__VERSION__" not in page and "Nuclei" in page
-    status = await (await client.get("/api/status")).json()
-    assert status["summary"]["open_total"] == 0 and "scanners" in status
+    assert "__VERSION__" not in page and "NUCLEI" in page
+    status, o = await call(client, "overview", method="get")
+    assert status == 200 and o["summary"]["devices"]["tracked"] == 3
+    assert [q["name"] for q in o["queue"]] == ["NAS"] and o["home_assistant"]["error"] is None
+    nuclei = next(c for c in o["freshness"]["components"] if c["key"] == "nuclei")
+    assert nuclei == {"key": "nuclei", "installed": "3.11.1", "latest": "3.11.2", "outdated": True}
+    assert o["freshness"]["templates"]["newest_cve"] == "CVE-2026-1234"
 
 
-async def test_object_flow_and_gate(client):
-    status, preview = await post(client, "objects/preview", {"target": "10.0.0.0/30"})
-    assert status == 200 and preview["private"] and preview["host_count"] == 2
-    assert (await post(client, "objects/preview", {"target": "nonsense!"}))[0] == 400
-    assert (await post(client, "objects/preview", {"target": "10.0.0.0/8"}))[0] == 400  # too large
+async def test_scan_a_device_and_work_its_issues(client):
+    nas = device(client, "NAS")
+    await client.engine.scan_device(nas, "new device")
+    status, devices = await call(client, "devices", method="get")
+    assert status == 200 and devices["rescan_days"] == 7
+    nas = next(d for d in devices["devices"] if d["name"] == "NAS")
+    assert nas["open_ports"] == [23] and nas["issues"]["high"] == 1 and nas["next_scan_at"]
+    issue = (await call(client, "issues?state=open", method="get"))[1]["issues"][0]
+    assert issue["name"] == "TELNET exposed on port 23" and issue["device_name"] == "NAS"
+    assert (await call(client, f"issues/{issue['id']}", {"state": "resolved"}, "patch"))[0] == 400
+    assert (await call(client, f"issues/{issue['id']}", {"state": "acknowledged"}, "patch"))[1][
+        "state"
+    ] == "acknowledged"
+    assert (await call(client, "issues?state=open", method="get"))[1]["issues"] == []
+    assert (await call(client, f"issues?state=unresolved&device={nas['id']}", method="get"))[1]["issues"]
 
-    # An object added without confirming authorisation can't be scanned
-    status, obj = await post(client, "objects", {"target": "10.0.0.5", "authorised": False})
-    assert status == 200 and not obj["authorised"]
-    assert (await post(client, "objects", {"target": "10.0.0.5"}))[0] == 409  # no duplicates
-    status, refused = await post(client, f"objects/{obj['id']}/scan", {})
-    assert status == 403 and "authorised" in refused["error"]
 
-    status, patched = await post(client, f"objects/{obj['id']}", {"authorised": True}, method="patch")
-    assert patched["authorised"] == 1
-    assert (await post(client, f"objects/{obj['id']}/scan", {}))[0] == 200
-
-
-async def test_scan_creates_device_and_tickets_that_can_be_worked(client):
-    _, obj = await post(client, "objects", {"target": "10.0.0.5", "authorised": True})
-    await post(client, f"objects/{obj['id']}/scan", {})
-    for _ in range(50):
-        if (await (await client.get("/api/tickets")).json())["tickets"]:
-            break
-        await asyncio.sleep(0.02)
-    tickets = (await (await client.get("/api/tickets")).json())["tickets"]
-    assert tickets and tickets[0]["name"].startswith("TELNET")
-    tid = tickets[0]["id"]
-    _status, updated = await post(client, f"tickets/{tid}", {"status": "false_positive", "note": "lab"}, method="patch")
-    assert updated["status"] == "false_positive" and updated["note"] == "lab"
-    assert (await post(client, f"tickets/{tid}", {"status": "bogus"}, method="patch"))[0] == 400
-    assert not (await (await client.get("/api/tickets?status=open")).json())["tickets"]
-
-    devices = (await (await client.get("/api/devices")).json())["devices"]
-    assert devices[0]["services"][0]["service"] == "telnet"
-    _status, device = await post(
-        client, f"devices/{devices[0]['id']}", {"name": "Old switch", "tags": ["switch"]}, method="patch"
-    )
-    assert device["name"] == "Old switch" and device["tags"] == ["switch"]
+async def test_scan_now_and_exclude(client):
+    nas, phone, vps = device(client, "NAS"), device(client, "Phone"), device(client, "VPS")
+    assert (await call(client, f"devices/{nas['id']}/scan"))[1] == {"queued": True}
+    assert client.db.device(nas["id"])["scan_requested"] == 1
+    # Not home, or not on your own network: refused
+    assert (await call(client, f"devices/{phone['id']}/scan"))[0] == 409
+    assert (await call(client, f"devices/{vps['id']}/scan"))[0] == 403
+    assert (await call(client, f"devices/{nas['id']}", {"excluded": True}, "patch"))[1]["excluded"] == 1
+    await client.scheduler.sync()
+    assert client.scheduler.queue == []
 
 
 async def test_templates_roundtrip(client):
-    assert (await post(client, "templates/my-check", {"body": "id: my-check"}, method="put"))[0] == 200
-    payload = await (await client.get("/api/templates")).json()
-    assert payload["templates"][0]["name"] == "my-check"
-    assert payload["community_count"] == 4321 and payload["community_updated_at"] == 1700000000
-    assert (await post(client, "templates/Bad Name", {"body": "x"}, method="put"))[0] == 400
+    assert (await call(client, "templates/my-check", {"body": "id: my-check"}, "put"))[0] == 200
+    assert (await call(client, "templates", method="get"))[1]["templates"][0]["name"] == "my-check"
+    assert (await call(client, "templates/Bad Name", {"body": "x"}, "put"))[0] == 400
     assert (await client.delete("/api/templates/my-check")).status == 200
 
 
 async def test_backup_is_a_database_and_wipe_needs_confirmation(client, tmp_path):
-    await post(client, "objects", {"target": "10.0.0.5", "authorised": True})
     response = await client.get("/api/backup")
     assert response.status == 200 and "nuclei-" in response.headers["Content-Disposition"]
     copy = tmp_path / "copy.db"
     copy.write_bytes(await response.read())
-    assert sqlite3.connect(copy).execute("SELECT COUNT(*) FROM scan_objects").fetchone()[0] == 1
+    assert sqlite3.connect(copy).execute("SELECT COUNT(*) FROM devices").fetchone()[0] == 3
     # The temporary copy goes once the handler finishes, just after the client got the last byte
     for _ in range(50):
         if not list(client.db.path.parent.glob("backup-*")):
@@ -125,23 +145,19 @@ async def test_backup_is_a_database_and_wipe_needs_confirmation(client, tmp_path
         await asyncio.sleep(0.02)
     assert not list(client.db.path.parent.glob("backup-*"))
 
-    assert (await post(client, "wipe", {}))[0] == 400
-    assert (await post(client, "wipe", {"confirm": "no"}))[0] == 400
-    assert client.db.summary()["objects"] == 1
-    assert (await post(client, "wipe", {"confirm": "delete"}))[0] == 200
-    assert client.db.summary()["objects"] == 0
-    report = await (await client.get("/api/database")).json()
-    assert report["counts"]["scan_objects"] == 0
+    assert (await call(client, "wipe", {}))[0] == 400
+    assert (await call(client, "wipe", {"confirm": "no"}))[0] == 400
+    assert (await call(client, "wipe", {"confirm": "delete"}))[0] == 200
+    assert (await call(client, "database", method="get"))[1]["counts"]["devices"] == 0
 
 
 async def test_under_home_assistant_only_ingress_may_change(client, monkeypatch):
     monkeypatch.setenv("SUPERVISOR_TOKEN", "x")
-    status, _ = await post(client, "objects", {"target": "10.0.0.5", "authorised": True})
-    assert status == 403
-    assert (await client.get("/api/status")).status == 200
-    assert (await client.get("/api/backup")).status == 200
+    nas = device(client, "NAS")
+    assert (await call(client, f"devices/{nas['id']}/scan"))[0] == 403
+    assert (await client.get("/api/overview")).status == 200
 
 
 async def test_json_only(client):
-    r = await client.post("/api/objects", data="x=1", headers={"Content-Type": "text/plain"})
+    r = await client.post("/api/issues/acknowledge", data="x=1", headers={"Content-Type": "text/plain"})
     assert r.status == 415

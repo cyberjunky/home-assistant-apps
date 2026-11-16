@@ -19,10 +19,9 @@
   </div>
   <nav class="tabs" aria-label="Views">
     <button type="button" class="tab active" data-tab="dashboard">Dashboard</button>
+    <button type="button" class="tab" data-tab="issues">Issues</button>
     <button type="button" class="tab" data-tab="devices">Devices</button>
-    <button type="button" class="tab" data-tab="tickets">Tickets</button>
-    <button type="button" class="tab" data-tab="objects">Scan objects</button>
-    <button type="button" class="tab" data-tab="templates">Templates</button>
+    <button type="button" class="tab" data-tab="scanner">Scanner</button>
     <span class="tab-sep" aria-hidden="true"></span>
     <button type="button" class="tab" data-tab="settings" title="Settings"><span class="tab-label">Settings</span><span class="tab-icon" aria-hidden="true">⚙</span></button>
   </nav>
@@ -35,57 +34,68 @@
 
 <div class="container">
   <div id="tab-dashboard" class="tab-content active">
-    <div class="kpis" id="kpis"></div>
-    <div class="panel"><h2>Recent scans</h2><div id="recent-scans"></div></div>
-    <div class="panel"><h2>Newest open tickets</h2><div id="recent-tickets"></div></div>
+    <div id="ha-banner"></div>
+    <div class="hero">
+      <div class="card score-card" id="score-card"></div>
+      <div class="sev-tiles" id="sev-tiles"></div>
+      <div class="card" id="coverage-card"></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><div class="card-head"><h2>Security score</h2><span class="muted small">last 30 days</span></div><div id="chart-score" class="chart"></div></div>
+      <div class="card"><div class="card-head"><h2>Issues still there</h2><span class="muted small">last 30 days</span></div><div id="chart-issues" class="chart"></div></div>
+    </div>
+    <div class="card" id="activity-card"></div>
+    <div class="card"><div class="card-head"><h2>Needs attention</h2><button class="link-btn" data-goto="issues">All issues →</button></div><div id="attention"></div></div>
+  </div>
+
+  <div id="tab-issues" class="tab-content">
+    <div class="toolbar">
+      <div class="seg" id="issue-states"></div>
+      <div class="seg" id="issue-sevs"></div>
+      <input id="issue-search" type="search" placeholder="Search issue, device or CVE">
+      <span class="spacer"></span>
+      <button class="btn btn-small" id="ack-shown">Acknowledge all shown</button>
+    </div>
+    <div class="card flush"><div id="issues-table"></div></div>
   </div>
 
   <div id="tab-devices" class="tab-content">
-    <div class="filters" id="device-filters"></div>
-    <div class="panel"><div id="devices-table"></div></div>
-  </div>
-
-  <div id="tab-tickets" class="tab-content">
-    <div class="filters" id="ticket-filters"></div>
-    <div class="panel"><div id="tickets-table"></div></div>
-  </div>
-
-  <div id="tab-objects" class="tab-content">
-    <div class="panel">
-      <h2>Add a scan object</h2>
-      <div class="row">
-        <input id="obj-target" placeholder="IP, 10.0.0.0/24, host.example, https://host, AS12345" style="flex:1;min-width:220px">
-        <input id="obj-name" placeholder="name (optional)" style="width:160px">
-        <select id="obj-schedule"><option value="">no schedule</option><option value="daily">daily</option><option value="weekly">weekly</option><option value="monthly">monthly</option></select>
-        <button class="btn btn-primary" id="obj-preview">Review…</button>
-      </div>
-      <p class="muted" style="margin:8px 0 0">You confirm you are authorised to scan a target before it is added. Private ranges are treated as yours.</p>
+    <div class="toolbar">
+      <div class="seg" id="device-filter"></div>
+      <input id="device-search" type="search" placeholder="Search name or address">
+      <span class="spacer"></span>
+      <span class="muted small" id="device-note"></span>
     </div>
-    <div class="panel"><div id="objects-table"></div></div>
+    <div class="device-grid" id="devices"></div>
   </div>
 
-  <div id="tab-templates" class="tab-content">
-    <div class="kpis" id="template-kpis"></div>
-    <div class="panel">
-      <div class="row"><h2 style="flex:1">Your templates</h2><button class="btn btn-primary btn-small" id="tpl-new">New template</button></div>
-      <p class="muted">Paste nuclei templates (YAML). They run alongside the community set on every scan. Each is checked by nuclei before it is saved.</p>
+  <div id="tab-scanner" class="tab-content">
+    <div class="grid2">
+      <div class="card"><div class="card-head"><h2>Scanners</h2><button class="btn btn-small" id="update-now">Update templates now</button></div><div id="components"></div></div>
+      <div class="card"><h2>Templates</h2><div id="template-stats"></div></div>
+    </div>
+    <div class="card flush"><div class="card-head pad"><h2>Recent scans</h2></div><div id="scans-table"></div></div>
+    <div class="card">
+      <div class="card-head"><h2>Your templates</h2><button class="btn btn-small" id="tpl-new">New template</button></div>
+      <p class="muted small">Your own nuclei templates (YAML) run alongside the community set on every scan. nuclei checks each one before it is saved.</p>
       <div id="templates-table"></div>
     </div>
   </div>
 
   <div id="tab-settings" class="tab-content">
-    <div class="panel"><h2>Options</h2><div id="settings-options" class="muted">Change these on the app's Configuration tab in Home Assistant.</div></div>
-    <div class="panel"><h2>Database</h2><div id="settings-db"></div>
+    <div class="card"><h2>Options</h2><div id="settings-options"></div></div>
+    <div class="card"><h2>Database</h2><div id="settings-db"></div>
       <div class="row" style="margin-top:12px"><a class="btn" href="api/backup" download>Database backup</a></div>
-      <p class="muted" style="margin-top:8px">A copy of all scan objects, scans and tickets. No secrets are stored.</p>
+      <p class="muted small" style="margin-top:8px">A copy of the devices, scans, issues and history. No secrets are stored.</p>
     </div>
-    <div class="panel danger"><h2>Danger zone</h2>
-      <p class="muted">Delete every scan object, scan and ticket. This cannot be undone.</p>
+    <div class="card danger"><h2>Danger zone</h2>
+      <p class="muted">Delete every device, scan, issue and the history. This cannot be undone.</p>
       <button class="btn btn-danger" id="wipe-btn">Delete all data…</button>
     </div>
   </div>
 </div>
 
+<div id="tooltip" class="tooltip" hidden></div>
 <div class="statusbar" id="statusbar"></div>
 <div id="modal-root"></div>
 <script src="static/app.js?v=__VERSION__"></script>

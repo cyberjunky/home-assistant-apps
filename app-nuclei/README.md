@@ -12,22 +12,23 @@
 
 <img src="https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-nuclei/icon.png" alt="Nuclei Scanner" width="128" align="right">
 
-> **Internal use.** A vulnerability scanner for systems you own or are authorised to test. It will not scan a target until you register it and confirm you are allowed to.
+> **Internal use.** It scans the devices Home Assistant tracks on your own network, and nothing else.
 
-An internal vulnerability scanner with a ticket workflow, built on
+An internal vulnerability scanner built on
 [nuclei](https://github.com/projectdiscovery/nuclei) and
-[naabu](https://github.com/projectdiscovery/naabu) from ProjectDiscovery. It finds open
-ports, known CVEs and exposed or misconfigured services, and turns each finding into a
-ticket you work through.
+[naabu](https://github.com/projectdiscovery/naabu) from ProjectDiscovery. It scans the devices
+Home Assistant's device trackers report as home, finds open ports, known CVEs and exposed or
+misconfigured services, and turns each finding into an issue you work through.
 
 ## Supported Features
 
-- 🔎 **Open ports** with naabu, then **CVEs and exposures** with nuclei's community templates, which carry essentially every public CVE that has a template. You don't curate lists, and a scan is thorough rather than quick: web templates run on web ports, and protocol templates (SSH, SMB, FTP, databases, TLS and more) on the other ports
-- 🔄 **Templates kept current**: the community set updates on its own; paste your own templates in the app and they run alongside it
-- 🖥️ **Devices**: every host found is listed with its services, a best-guess type and whether it is online; rename it, describe it and tag it (linux, switch, camera, doorbell, tv and more)
-- 🎫 **Tickets**: every finding is a ticket with a status, the proof, a description, remediation, the CVE and CVSS score, and a severity; a later scan reopens a ticket that comes back or resolves one that is gone
-- 🔐 **Ownership gate**: a scan only ever runs against objects you register and confirm you are authorised to test
-- 📅 **Schedules**: scan an object daily, weekly or monthly
+- 📡 **Your devices, nothing to add**: the devices come from Home Assistant's device trackers; only those that are home, on a private address, are scanned
+- 🕒 **Scanned when it matters**: a new device straight away, and a device that comes home once its last scan is older than the rescan period
+- 🔎 **Open ports** with naabu, then **CVEs and exposures** with nuclei's community templates: web templates on web ports, protocol templates (SSH, SMB, FTP, databases, TLS and more) on the others
+- 🎫 **Issues**: each with the proof, what to do, the CVE and CVSS score; acknowledge it, and a later scan resolves what is gone
+- 📊 **Dashboard**: a security score, issues per severity, coverage, a 30-day trend, the scan that is running and what needs attention
+- 🔄 **Up to date**: the templates update themselves; the Scanner page shows nuclei, naabu and the templates against the newest releases, and the newest CVE covered
+- ✍️ **Your own templates** run alongside the community set, checked by nuclei before they are saved
 - 💾 **Your data**: the database stays in the app's data folder, with a backup download and a danger-zone delete
 
 ## Installation
@@ -40,21 +41,12 @@ Alternatively:
 2. Open the menu (⋮) and choose **Repositories**
 3. Add `https://github.com/cyberjunky/home-assistant-apps`
 4. Install **Nuclei Scanner** from the store, start it and open it from the sidebar
-5. Add a scan object (an IP range, host name, URL or ASN), confirm you are authorised to
-   scan it, and run or schedule a scan
-
-## The ownership gate
-
-A scan only ever runs against objects you register, and only after you confirm you are
-authorised to scan them. A public IP or network is expanded to a list of hosts you see
-and approve before it can be scanned; a host name, URL or ASN must be authorised
-explicitly. Private ranges (RFC1918, loopback) are treated as yours. Do not point this at
-systems you do not own or have permission to test.
+5. The devices Home Assistant tracks appear by themselves; the first scans start within a minute
 
 ## Configuration
 
-See [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-nuclei/DOCS.md) for every option, how the two-pass scan works, the data it
-handles, the requirements and development notes.
+See [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-nuclei/DOCS.md) for every option, which devices are scanned and when, how a
+scan works, and development notes.
 
 ## License
 
