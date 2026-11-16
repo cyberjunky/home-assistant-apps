@@ -1,179 +1,96 @@
+"""A scan of one device: open ports, exposed services and nuclei's findings become issues; a later scan
+resolves what is gone."""
+
 import pytest
 
 from src.config import Config
 from src.database import Database
-from src.engine import Engine, NotAuthorised
+from src.engine import Engine, NotScannable
 from src.scanner import HostResult
 
 
-class FakeScanner:
-    def __init__(self):
-        self.updated = False
+class Scanner:
+    """Stands in for naabu and nuclei: these ports are open, nuclei reports these findings."""
+
+    def __init__(self, ports=(), findings=()):
+        self.ports = list(ports)
+        self.findings = list(findings)
+        self.targets = None
 
     def require_templates(self):
         pass
 
+    def templates_updated_at(self):
+        return None
+
+    def template_count(self):
+        return 100
+
     async def update_templates(self):
-        self.updated = True
         return True
 
     async def discover_ports(self, hosts):
-        return [HostResult(hosts[0], [443])]
-
-    def scan_summary(self, targets):
-        return f"web pass: {len(targets)} target(s) · credential check: off"
+        return [HostResult(hosts[0], self.ports)] if self.ports else []
 
     async def scan_targets(self, targets, on_finding):
-        on_finding(
-            {
-                "fingerprint": "f1",
-                "host": targets[0].split(":")[0],
-                "port": 443,
-                "kind": "vulnerability",
-                "template_id": "CVE-1",
-                "name": "Issue",
-                "severity": "high",
-                "cve": "CVE-1",
-                "cvss": 7.5,
-                "matched_at": "u",
-                "proof": "p",
-                "description": "d",
-                "remediation": "r",
-                "reference": "",
-            }
-        )
-        return 1
+        self.targets = targets
+        for f in self.findings:
+            on_finding(dict(f))
+        return len(self.findings)
+
+
+def finding(template_id, severity, port=80):
+    return {"host": "192.168.1.20", "port": port, "kind": "vulnerability", "template_id": template_id, "name": template_id,
+            "severity": severity, "cve": None, "cvss": None, "matched_at": f"http://192.168.1.20:{port}/x",
+            "proof": "", "description": "", "remediation": "", "reference": ""}  # fmt: skip
 
 
 @pytest.fixture
-def setup(tmp_path):
-    db = Database(tmp_path / "n.db")
-    engine = Engine(db, Config(update_templates=True), FakeScanner())
-    yield db, engine
-    db.close()
+def db(tmp_path):
+    d = Database(tmp_path / "n.db")
+    d.sync_trackers([
+        {"entity_id": "device_tracker.nas", "name": "NAS", "ip": "192.168.1.20", "mac": None, "online": True},
+        {"entity_id": "device_tracker.vps", "name": "VPS", "ip": "8.8.8.8", "mac": None, "online": True},
+    ])  # fmt: skip
+    yield d
+    d.close()
 
 
-async def test_scan_needs_authorisation(setup):
-    db, engine = setup
-    oid = db.add_object("10.0.0.5", "ip", "", None, authorised=False)
-    with pytest.raises(NotAuthorised):
-        await engine.scan_object(oid)
+def device(db, name):
+    return next(d for d in db.devices() if d["name"] == name)
 
 
-async def test_disabled_object_is_not_scanned(setup):
-    db, engine = setup
-    oid = db.add_object("10.0.0.5", "ip", "", None, authorised=True)
-    db.update_object(oid, {"enabled": 0})
-    with pytest.raises(NotAuthorised):
-        await engine.scan_object(oid)
-
-
-async def test_asn_cannot_be_scanned_directly(setup):
-    db, engine = setup
-    oid = db.add_object("AS12345", "asn", "", None, authorised=True)
-    with pytest.raises(NotAuthorised):
-        await engine.scan_object(oid)
-
-
-async def test_full_scan_creates_tickets(setup):
-    db, engine = setup
-    oid = db.add_object("10.0.0.5", "ip", "", None, authorised=True)
-    count = await engine.scan_object(oid)
-    assert count == 1
-    assert engine.scanner.updated
-    tickets = db.findings(status="open", object_id=oid)
-    assert len(tickets) == 1 and tickets[0]["severity"] == "high"
+async def test_a_scan_turns_findings_into_issues(db):
+    scanner = Scanner(ports=[23, 80], findings=[finding("cve-x", "critical"), finding("noise", "info")])
+    engine = Engine(db, Config(update_templates=False, min_severity="low"), scanner)
+    nas = device(db, "NAS")
+    assert await engine.scan_device(nas, "new device") == 2
+    issues = {i["template_id"]: i for i in db.issues("open")}
+    # Telnet open is an issue by itself; the info finding is below the minimum severity
+    assert set(issues) == {"open-port-23", "cve-x"} and issues["open-port-23"]["severity"] == "high"
+    assert scanner.targets == ["192.168.1.20:23", "192.168.1.20:80"]
+    nas = db.device(nas["id"])
+    assert nas["open_ports"] == [23, 80] and nas["last_scan_status"] == "done"
     scan = db.scans()[0]
-    assert scan["status"] == "done" and scan["findings"] == 1 and scan["open_ports"] == 1
+    assert scan["status"] == "done" and scan["open_ports"] == 2 and scan["new_issues"] == 2
+
+    # Telnet closed and the CVE fixed: the next scan resolves both
+    engine.scanner = Scanner(ports=[80])
+    assert await engine.scan_device(db.device(nas["id"]), "rescan") == 0
+    assert db.issues("open") == [] and len(db.issues("resolved")) == 2
+    assert db.scans()[0]["resolved_issues"] == 2
 
 
-async def test_url_object_skips_port_scan(setup):
-    db, engine = setup
-    oid = db.add_object("https://10.0.0.5", "url", "", None, authorised=True)
-    assert await engine.scan_object(oid) == 1
-    assert db.scans()[0]["open_ports"] == 0
+async def test_no_open_ports_means_no_nuclei_run(db):
+    scanner = Scanner()
+    await Engine(db, Config(update_templates=False), scanner).scan_device(device(db, "NAS"), "new device")
+    assert scanner.targets is None and db.scans()[0]["status"] == "done"
 
 
-async def test_scan_detail_records_what_ran(setup):
-    db, engine = setup
-    oid = db.add_object("10.0.0.5", "ip", "", None, authorised=True)
-    await engine.scan_object(oid)
-    assert db.scans()[0]["detail"] == "web pass: 1 target(s) · credential check: off"
-
-
-async def test_risky_ports_become_tickets_and_devices_are_labelled(tmp_path):
-    class Scan(FakeScanner):
-        async def discover_ports(self, hosts):
-            return [HostResult(hosts[0], [22, 23, 445])]
-
-        async def scan_targets(self, targets, on_finding):
-            on_finding(
-                {
-                    "fingerprint": "d1",
-                    "host": "10.0.0.5",
-                    "port": 443,
-                    "kind": "vulnerability",
-                    "template_id": "tech-detect",
-                    "name": "Hikvision Web",
-                    "severity": "info",
-                    "cve": None,
-                    "cvss": None,
-                    "matched_at": "u",
-                    "proof": "",
-                    "description": "",
-                    "remediation": "",
-                    "reference": "",
-                }
-            )
-            return 1
-
-    db = Database(tmp_path / "n.db")
-    engine = Engine(db, Config(), Scan())
-    oid = db.add_object("10.0.0.5", "ip", "", None, authorised=True)
-    await engine.scan_object(oid)
-    names = {t["name"] for t in db.findings(status="open", object_id=oid)}
-    assert {"TELNET exposed on port 23", "SMB exposed on port 445"} <= names
-    assert not any("Hikvision" in n for n in names)  # an info detection is not a ticket
-    device = db.device_by_host("10.0.0.5")
-    assert "Hikvision Web" in device["signals"]
-    assert {s["service"] for s in device["services"]} == {"ssh", "telnet", "smb"}
-
-    # Fixing the issue resolves the tickets on the next scan
-    class Clean(Scan):
-        async def discover_ports(self, hosts):
-            return [HostResult(hosts[0], [22])]
-
-    engine.scanner = Clean()
-    await engine.scan_object(oid)
-    assert not db.findings(status="open", object_id=oid)
-    db.close()
-
-
-async def test_min_severity_decides_tickets_but_not_what_is_learned(tmp_path):
-    class Scan(FakeScanner):
-        async def scan_targets(self, targets, on_finding):
-            base = {
-                "host": "10.0.0.5",
-                "port": 443,
-                "kind": "vulnerability",
-                "cve": None,
-                "cvss": None,
-                "matched_at": "u",
-                "proof": "",
-                "description": "",
-                "remediation": "",
-                "reference": "",
-            }
-            on_finding({**base, "fingerprint": "i", "template_id": "tech", "name": "Hikvision Web", "severity": "info"})
-            on_finding({**base, "fingerprint": "l", "template_id": "low", "name": "Low issue", "severity": "low"})
-            on_finding({**base, "fingerprint": "h", "template_id": "high", "name": "High issue", "severity": "high"})
-            return 3
-
-    db = Database(tmp_path / "n.db")
-    engine = Engine(db, Config(min_severity="high"), Scan())
-    oid = db.add_object("10.0.0.5", "ip", "", None, authorised=True)
-    await engine.scan_object(oid)
-    names = {t["name"] for t in db.findings(status="open", object_id=oid)}
-    assert "High issue" in names and "Low issue" not in names
-    assert "Hikvision Web" in db.device_by_host("10.0.0.5")["signals"]
-    db.close()
+async def test_only_your_own_network(db):
+    engine = Engine(db, Config(update_templates=False), Scanner(ports=[80]))
+    with pytest.raises(NotScannable, match="not an address on your own network"):
+        await engine.scan_device(device(db, "VPS"), "requested")
+    with pytest.raises(NotScannable):
+        engine.check(None)
+    assert db.scans() == []

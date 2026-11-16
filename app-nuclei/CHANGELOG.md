@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0
+
+**After updating:** the app starts over. Scan objects and tickets from earlier versions are not carried over (their file, `nuclei.db`, stays in the app's data folder but is no longer read). Nothing to set up: the devices come from Home Assistant, and the first scans start by themselves.
+
+- **Devices come from Home Assistant:** the app scans the device trackers that are home, on a private, loopback or link-local address. There are no scan objects to register any more, and the app's own online check and its option are gone.
+- **When a device is scanned:** straight away when it is new, and again once it is home and its last scan is older than the new **Rescan after** option (7 days). One device at a time. A device can be excluded on the Devices page.
+- **Issues instead of tickets:** an issue is open until you acknowledge it, and it is resolved by the next scan of its device that no longer finds it.
+- **New dashboard:** a security score with its trend over 30 days, the issues that are still there per severity, how many devices were scanned in time, the scan that is running, and what needs attention.
+- **Scanner page:** nuclei, naabu and the community templates against their newest releases, the recent scans, and your own templates.
+- **Issue detail:** the arrow keys step through the list you opened it from.
+
 ## 0.1.9
 
 **After updating:** nothing to do.

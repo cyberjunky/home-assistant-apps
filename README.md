@@ -138,10 +138,9 @@ every address, who drops off the network and when, and your phones' tracks and h
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
 
-Internal vulnerability scanner, opened from the sidebar. Finds open ports, known CVEs and exposed
-services on the networks you register, with nuclei and naabu, and turns every finding into a
-ticket you work through. Lists the devices it finds with their services, and whether they are online.
-For systems you own or are authorised to test.
+Internal vulnerability scanner, opened from the sidebar. Scans the devices Home Assistant's
+trackers report as home on your own network, with nuclei and naabu: open ports, known CVEs and
+exposed services, each as an issue you work through, with a security score and its trend.
 
 [:books: Documentation](app-nuclei/DOCS.md) · [:memo: Changelog](app-nuclei/CHANGELOG.md) · [:lock: Security](app-nuclei/SECURITY.md)
 

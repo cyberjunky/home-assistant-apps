@@ -1,6 +1,10 @@
+"""The devices from Home Assistant's trackers, when they are due, and the life of an issue."""
+
+import time
+
 import pytest
 
-from src.database import Database
+from src.database import Database, database_report
 
 
 @pytest.fixture
@@ -10,143 +14,116 @@ def db(tmp_path):
     d.close()
 
 
-def finding(fp="fp1", host="10.0.0.5", sev="high", template="CVE-1"):
-    return {
-        "fingerprint": fp,
-        "object_id": None,
-        "host": host,
-        "port": 443,
-        "kind": "vulnerability",
-        "template_id": template,
-        "name": "Issue",
-        "severity": sev,
-        "cve": "CVE-1",
-        "cvss": 7.5,
-        "matched_at": "u",
-        "proof": "p",
-        "description": "d",
-        "remediation": "r",
-        "reference": "ref",
-    }
+def tracker(entity, ip="192.168.1.20", online=True, name=None, mac=None):
+    return {"entity_id": f"device_tracker.{entity}", "name": name or entity, "ip": ip, "mac": mac, "online": online}
 
 
-def test_object_lifecycle(db):
-    oid = db.add_object("10.0.0.0/24", "cidr", "lan", "weekly", True)
-    o = db.object(oid)
-    assert o["authorised"] == 1 and o["authorised_at"]
-    db.update_object(oid, {"name": "network", "enabled": 0})
-    assert db.object(oid)["name"] == "network" and db.object(oid)["enabled"] == 0
-    assert db.object_by_target("10.0.0.0/24")["id"] == oid
-    db.delete_object(oid)
-    assert db.object(oid) is None
+def issue(device_id, fp, severity="high", **kw):
+    return {"fingerprint": fp, "device_id": device_id, "port": 80, "kind": "vulnerability", "template_id": "t-" + fp,
+            "name": "n", "severity": severity, "matched_at": "u", **kw}  # fmt: skip
 
 
-def test_findings_dedupe_and_reopen(db):
-    oid = db.add_object("10.0.0.5", "ip", "", None, True)
-    f = finding()
-    f["object_id"] = oid
-    fid, is_new = db.record_finding(f)
-    assert is_new
-    fid2, is_new2 = db.record_finding(f)
-    assert fid2 == fid and not is_new2
-    assert db.finding(fid)["times_seen"] == 2
-    # resolve, then a later scan sees it again -> reopens
-    db.set_ticket_status(fid, "resolved")
-    assert db.finding(fid)["status"] == "resolved"
-    db.record_finding(f)
-    assert db.finding(fid)["status"] == "open"
+def scanned(db, device, status="done"):
+    db.finish_scan(db.start_scan(db.device(device["id"]), "x"), status)
 
 
-def test_status_transitions_logged(db):
-    fid, _ = db.record_finding(finding())
-    db.set_ticket_status(fid, "in_progress")
-    db.set_ticket_status(fid, "false_positive")
-    assert db.set_ticket_status(fid, "nonsense") is None
-    events = db.finding(fid)["events"]
-    assert [e["new_value"] for e in events if e["field"] == "status"] == ["in_progress", "false_positive"]
+def test_trackers_become_devices(db):
+    db.sync_trackers([tracker("nas", mac="00:11"), tracker("phone", "192.168.1.100", online=False)])
+    nas = db.devices()[0]
+    assert nas["name"] == "nas" and nas["online"] == 1 and nas["in_ha"] == 1 and nas["scannable"]
+    # An address that Home Assistant stops reporting is kept; a new one replaces it
+    db.sync_trackers([tracker("nas", ip=None, name="NAS"), tracker("phone", "192.168.1.101")])
+    nas = next(d for d in db.devices() if d["entity_id"] == "device_tracker.nas")
+    assert nas["ip"] == "192.168.1.20" and nas["name"] == "NAS" and nas["mac"] == "00:11"
+    # A tracker that is gone stays, with its history, as no longer in Home Assistant and not home
+    db.sync_trackers([tracker("phone", "192.168.1.101")])
+    nas = next(d for d in db.devices() if d["entity_id"] == "device_tracker.nas")
+    assert nas["in_ha"] == 0 and nas["online"] == 0
 
 
-def test_auto_resolve(db):
-    oid = db.add_object("10.0.0.5", "ip", "", None, True)
-    a = finding("a")
-    a["object_id"] = oid
-    b = finding("b")
-    b["object_id"] = oid
-    db.record_finding(a)
-    db.record_finding(b)
-    closed = db.auto_resolve(oid, {"a"})  # b not seen this time
-    assert closed == 1
-    statuses = {f["fingerprint"]: f["status"] for f in db.findings(status=None, object_id=oid)}
-    assert statuses["a"] in ("open", "in_progress") and statuses["b"] == "resolved"
+def test_which_devices_are_due(db):
+    db.sync_trackers([
+        tracker("nas"), tracker("phone", "192.168.1.100"), tracker("away", "192.168.1.101", online=False),
+        tracker("vps", "185.199.108.25"), tracker("noip", None),
+    ])  # fmt: skip
+    due = db.due_devices(7)
+    # Only home, on your own network: new ones first
+    assert sorted(d["name"] for d in due) == ["nas", "phone"] and {d["reason"] for d in due} == {"new device"}
+    nas = next(d for d in db.devices() if d["name"] == "nas")
+    phone = next(d for d in db.devices() if d["name"] == "phone")
+    scanned(db, nas)
+    scanned(db, phone)
+    assert db.due_devices(7) == []
+    # Due again once the last scan is older than the period
+    assert [d["reason"] for d in db.due_devices(7, time.time() + 8 * 86400)] == ["rescan", "rescan"]
+    # Asked for by hand goes first; excluded never
+    db.set_device(phone["id"], {"scan_requested": True})
+    db.set_device(nas["id"], {"excluded": True})
+    assert [(d["name"], d["reason"]) for d in db.due_devices(7, time.time() + 8 * 86400)] == [("phone", "requested")]
 
 
-def test_summary_and_wipe(db):
-    oid = db.add_object("10.0.0.5", "ip", "", None, True)
-    f = finding()
-    f["object_id"] = oid
-    db.record_finding(f)
-    s = db.summary()
-    assert s["objects"] == 1 and s["open_total"] == 1 and s["open_by_severity"]["high"] == 1
+def test_a_failed_scan_is_tried_again_after_an_hour(db):
+    db.sync_trackers([tracker("nas")])
+    nas = db.devices()[0]
+    scanned(db, nas, "failed")
+    assert db.due_devices(7) == []
+    assert db.due_devices(7, time.time() + 3700)[0]["reason"] == "new device"
+
+
+def test_issue_life(db):
+    db.sync_trackers([tracker("nas")])
+    did = db.devices()[0]["id"]
+    assert db.record_issue(issue(did, "a")) is True
+    assert db.record_issue(issue(did, "a", proof="again")) is False
+    db.set_issue_state(db.issues("open")[0]["id"], "acknowledged")
+    # Seen again, an acknowledged issue stays acknowledged
+    assert db.record_issue(issue(did, "a")) is False
+    assert [i["fingerprint"] for i in db.issues("acknowledged")] == ["a"] and db.issues("open") == []
+    assert db.resolve_missing(did, set()) == 1
+    resolved = db.issues("resolved")[0]
+    assert resolved["resolved_at"] and db.set_issue_state(resolved["id"], "open")["state"] == "resolved"
+    # It comes back: needs attention again
+    assert db.record_issue(issue(did, "a")) is True and db.issues("open")
+
+
+def test_acknowledge_all(db):
+    db.sync_trackers([tracker("nas")])
+    did = db.devices()[0]["id"]
+    db.record_issue(issue(did, "a", "critical"))
+    db.record_issue(issue(did, "b", "low"))
+    assert db.acknowledge_all("low") == 1
+    assert db.acknowledge_all() == 1
+    assert db.issues("open") == []
+
+
+def test_summary_counts_and_score(db):
+    db.sync_trackers([tracker("nas"), tracker("tv", "192.168.1.50"), tracker("vps", "8.8.8.8")])
+    nas = next(d for d in db.devices() if d["name"] == "nas")
+    db.record_issue(issue(nas["id"], "a", "critical"))
+    db.record_issue(issue(nas["id"], "b", "low"))
+    db.set_issue_state(db.issues("open")[1]["id"], "acknowledged")
+    scanned(db, nas)
+    s = db.summary(7)
+    assert s["unresolved"] == {"low": 1, "medium": 0, "high": 0, "critical": 1}
+    assert s["needs_attention"]["critical"] == 1 and s["acknowledged"] == 1
+    # Acknowledged issues still count in the score: 25 + 1 points, halved at 50
+    assert s["score"] == round(100 * 50 / 76) == 66 and s["grade"] == "C"
+    assert s["devices"] == {"tracked": 3, "online": 3, "scannable": 2, "covered": 1, "never_scanned": 1, "excluded": 0}
+    devices = {d["name"]: d for d in db.devices()}
+    assert devices["nas"]["score"] == s["score"] and devices["tv"]["score"] is None
+
+
+def test_history_prune_and_wipe(db, tmp_path):
+    db.sync_trackers([tracker("nas")])
+    did = db.devices()[0]["id"]
+    db.record_issue(issue(did, "old"))
+    db.resolve_missing(did, set())
+    db._db.execute("UPDATE issues SET resolved_at = 1")
+    db.record_issue(issue(did, "open-one"))
+    db.snapshot_day()
+    assert db.history()[0]["high"] == 1
+    db.prune(30)
+    assert [i["fingerprint"] for i in db.issues("unresolved")] == ["open-one"] and db.issues("resolved") == []
+    assert database_report(db.path)["counts"]["issues"] == 1
     db.wipe()
-    assert db.summary()["objects"] == 0 and not db.findings(status=None)
-
-
-def test_devices_keep_the_persons_edits(db):
-    did = db.record_device("10.0.0.5", None, "linux", ["ssh"], [22, 80])
-    db.update_device(did, {"name": "NAS", "description": "in the cupboard", "tags": ["Linux", "nas", "linux", " "]})
-    d = db.device(did)
-    assert d["name"] == "NAS" and d["tags"] == ["linux", "nas"]
-    # A later scan refreshes the guess, signals and ports but never the person's name, description or tags
-    db.record_device("10.0.0.5", None, "windows", ["rdp"], [3389])
-    d = db.device(did)
-    assert d["name"] == "NAS" and d["description"] == "in the cupboard" and d["tags"] == ["linux", "nas"]
-    assert d["guessed_type"] == "windows" and d["open_ports"] == [3389]
-    assert {"ssh", "rdp"} <= set(d["signals"])
-    assert [s["service"] for s in d["services"]] == ["rdp"] and d["services"][0]["risky"]
-
-
-def test_devices_count_open_tickets(db):
-    db.record_device("10.0.0.5", None, None, [], [23])
-    f = finding()
-    f["host"] = "10.0.0.5"
-    db.record_finding(f)
-    assert db.devices()[0]["open_tickets"] == 1
-
-
-def test_a_database_from_an_older_version_gets_the_new_columns(tmp_path):
-    import sqlite3
-
-    path = tmp_path / "old.db"
-    old = sqlite3.connect(path)
-    old.executescript(
-        """
-        CREATE TABLE devices (id INTEGER PRIMARY KEY, host TEXT NOT NULL UNIQUE, object_id INTEGER, name TEXT,
-            description TEXT, tags TEXT NOT NULL DEFAULT '', guessed_type TEXT, signals TEXT NOT NULL DEFAULT '',
-            open_ports TEXT NOT NULL DEFAULT '', first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL);
-        INSERT INTO devices (host, first_seen, last_seen) VALUES ('10.0.0.5', 1, 1);
-        """
-    )
-    old.commit()
-    old.close()
-    db = Database(path)
-    device = db.devices()[0]
-    assert device["host"] == "10.0.0.5" and device["online"] is None
-    db.set_presence(device["id"], True)
-    assert db.device(device["id"])["online"] == 1
-    db.close()
-    Database(path).close()  # opening it again must not try to add them twice
-
-
-def test_findings_carry_the_devices_name(db):
-    db.record_device("10.0.0.5", None, "linux", [], [22])
-    device = db.device_by_host("10.0.0.5")
-    db.update_device(device["id"], {"name": "Backup server"})
-    db.record_finding(finding(host="10.0.0.5"))
-    db.record_finding(finding(fp="fp2", host="10.0.0.9"))  # no device: unaffected
-
-    rows = {r["host"]: r["device_name"] for r in db.findings()}
-    assert rows["10.0.0.5"] == "Backup server"
-    assert rows["10.0.0.9"] is None
-
-    one = db.findings()[0] if db.findings()[0]["host"] == "10.0.0.5" else db.findings()[1]
-    assert db.finding(one["id"])["device_name"] == "Backup server"
+    assert db.devices() == [] and db.history() == []

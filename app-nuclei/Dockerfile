@@ -51,6 +51,6 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 LABEL \
     org.opencontainers.image.title="Home Assistant App: Nuclei Scanner" \
-    org.opencontainers.image.description="Internal vulnerability scanner with ticketing, built on nuclei and naabu" \
+    org.opencontainers.image.description="Internal vulnerability scanner for the devices Home Assistant tracks, built on nuclei and naabu" \
     org.opencontainers.image.source="https://github.com/cyberjunky/home-assistant-apps" \
     org.opencontainers.image.licenses="MIT"

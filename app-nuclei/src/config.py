@@ -10,6 +10,8 @@ from pathlib import Path
 DATA_DIR = Path(os.environ.get("NUCLEI_APP_DATA_DIR", "/data"))
 OPTIONS_FILE = Path(os.environ.get("NUCLEI_APP_OPTIONS", str(DATA_DIR / "options.json")))
 WEB_PORT = int(os.environ.get("NUCLEI_APP_PORT", "8099"))
+# Points the app at the development stand-in for Home Assistant (tools/mock.py)
+SUPERVISOR_URL = os.environ.get("NUCLEI_APP_SUPERVISOR_URL", "http://supervisor").rstrip("/")
 
 
 def nuclei_env() -> dict[str, str]:
@@ -45,6 +47,8 @@ APP_VERSION = app_version()
 class Config:
     """Application configuration, read from the app options."""
 
+    # A device is scanned when it is new, and again when it is online and its last scan is this many days old
+    rescan_days: int = 7
     max_concurrent_hosts: int = 25
     requests_per_second: int = 150
     min_severity: str = "low"
@@ -52,8 +56,6 @@ class Config:
     nuclei_exclude_tags: str = "dos,fuzzing,intrusive"
     default_credentials: bool = False
     retention_days: int = 365
-    # How often known devices are checked for being online, in minutes; 0 turns the check off
-    presence_interval_minutes: int = 5
     update_templates: bool = True
     log_level: str = "info"
 
@@ -73,6 +75,7 @@ class Config:
         if severity not in SEVERITIES:
             severity = "low"
         return cls(
+            rescan_days=max(1, min(365, int(options.get("rescan_days") or 7))),
             max_concurrent_hosts=max(1, int(options.get("max_concurrent_hosts") or 25)),
             requests_per_second=max(1, int(options.get("requests_per_second") or 150)),
             min_severity=severity,
@@ -80,7 +83,6 @@ class Config:
             nuclei_exclude_tags=str(options.get("nuclei_exclude_tags") or "").strip(),
             default_credentials=bool(options.get("default_credentials", False)),
             retention_days=max(1, int(options.get("retention_days") or 365)),
-            presence_interval_minutes=max(0, min(1440, int(options.get("presence_interval_minutes", 5) or 0))),
             update_templates=bool(options.get("update_templates", True)),
             log_level=str(options.get("log_level") or "info").lower(),
         )
@@ -88,6 +90,7 @@ class Config:
     def public(self) -> dict:
         """The options to show on the Settings page; nothing secret to hide here."""
         return {
+            "rescan_days": self.rescan_days,
             "max_concurrent_hosts": self.max_concurrent_hosts,
             "requests_per_second": self.requests_per_second,
             "min_severity": self.min_severity,
@@ -95,7 +98,6 @@ class Config:
             "nuclei_exclude_tags": self.nuclei_exclude_tags,
             "default_credentials": self.default_credentials,
             "retention_days": self.retention_days,
-            "presence_interval_minutes": self.presence_interval_minutes,
             "update_templates": self.update_templates,
             "log_level": self.log_level,
         }
