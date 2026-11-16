@@ -103,6 +103,9 @@ function loadTab() {
   return run().catch(e => toast(e.message, true));
 }
 
+// The database file and its write-ahead log together: new rows sit in the log first
+function fmtBytes(n) { return n < 1048576 ? `${Math.max(1, Math.round(n / 1024))} kB` : `${(n / 1048576).toFixed(1)} MB`; }
+
 // ---- tooltip ----
 const tip = document.getElementById('tooltip');
 function showTip(html, x, y) {
@@ -504,7 +507,7 @@ async function loadSettings() {
      <p class="muted small" style="margin-top:8px">Change these on the app's Configuration tab in Home Assistant.</p>`;
   const db = await api('database');
   document.getElementById('settings-db').innerHTML = `<table><tbody>
-    <tr><td class="muted">On disk</td><td class="mono">${(db.size / 1048576).toFixed(2)} MB</td></tr>
+    <tr><td class="muted">On disk</td><td class="mono">${fmtBytes(db.size + db.wal_size)}</td></tr>
     <tr><td class="muted">Devices</td><td class="mono">${db.counts.devices}</td></tr>
     <tr><td class="muted">Scans</td><td class="mono">${db.counts.scans}</td></tr>
     <tr><td class="muted">Issues</td><td class="mono">${db.counts.issues}</td></tr></tbody></table>`;
