@@ -370,7 +370,7 @@ function renderNotices() {
     else if (!n.connected) hint('bad', `<b>Bitcoin Core does not answer.</b> ${escapeHtml(n.error || 'Waiting for its first answer.')}`);
     else if (!n.synced) hint('', `<b>Bitcoin Core is still syncing:</b> ${escapeHtml(plainPct(n.progress, 2))} done. The pages fill in as it catches up.`);
     if (ln.configured && !ln.connected) hint('bad', `<b>LND does not answer.</b> ${escapeHtml(ln.error || 'Waiting for its first answer.')}`);
-    if (t.configured && !t.connected && t.error) hint('bad', `<b>Tor's control port does not answer.</b> ${escapeHtml(t.error)}`);
+    if (t.configured && !t.connected && t.error) hint('bad', `<b>Tor's control port:</b> ${escapeHtml(t.error)}`);
     fill('notices', parts.join(''));
     fill('nodata', `<div class="panel-body"><div class="empty-state">${n.configured ? 'Waiting for the first answer from Bitcoin Core…' : 'Nothing to show until a node is set up.'}</div></div>`);
     document.querySelectorAll('.tab[data-tab="lightning"]').forEach(tab => { tab.hidden = !ln.configured; });

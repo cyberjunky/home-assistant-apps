@@ -155,7 +155,7 @@ class TorClient:
             try:
                 await self._command(reader, writer, f"AUTHENTICATE {quoted(self.config.tor_password)}")
             except TorError as e:
-                raise TorError(f"the control port refused the password ({e})") from e
+                raise TorError(f"it answers, but refused the password in tor.password ({e})") from e
             info = parse_reply(await self._command(reader, writer, "GETINFO " + " ".join(INFO_KEYS)))
             circuits = parse_reply(await self._command(reader, writer, "GETINFO circuit-status"))
             writer.write(b"QUIT\r\n")
