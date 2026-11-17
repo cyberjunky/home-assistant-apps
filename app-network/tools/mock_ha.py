@@ -521,6 +521,8 @@ DEVICES = [
     # PORTS), and two devices only Nmap sees
     ("sw-garage", "192.168.1.20", "48:a9:8a:00:00:20", ["nmap"], "", "", "garage", "always", {}),
     ("cAP ax Garden", "192.168.1.21", "48:a9:8a:00:00:21", ["nmap"], "", "", "garden", "always", {}),
+    # A NETGEAR Plus switch: its integration has an entity per port (NETGEAR_PORTS), no trackers
+    ("sw-office", "192.168.1.22", "28:80:88:00:00:22", ["nmap"], "", "", "", "always", {}),
     ("solar-logger", "192.168.1.60", "24:0a:c4:00:01:60", ["nmap"], "", "", "garage", "always", {}),
     ("garage-pi", "192.168.1.61", "dc:a6:32:00:01:61", ["nmap"], "", "", "garage", "always", {}),
     (
@@ -613,6 +615,40 @@ def _port(port: str, up: bool, connected: list[str], speed: int | None = 1000, *
     }
 
 
+# sw-office as the NETGEAR Plus integration (ha-netgear-plus) makes it: per port a link and a speed
+# entity, told apart by their unique ids, and the address it was added by. (port, link, Mbit/s)
+NETGEAR_SWITCH = "gs105ev2_192_168_1_22"
+NETGEAR_PORTS = [(1, True, 1000), (2, True, 1000), (3, True, 100), (4, False, 0), (5, False, 0)]
+
+
+def netgear_entities() -> tuple[list[dict], list[dict]]:
+    """The registry entries and the states of sw-office's entities."""
+    made = [("sensor.gs105ev2_ip_address", "switch_ip", "192.168.1.22")]
+    for port, up, speed in NETGEAR_PORTS:
+        made.append((f"binary_sensor.gs105ev2_port_{port}_status", f"port_{port}_status", "on" if up else "off"))
+        made.append((f"sensor.gs105ev2_port_{port}_link_speed", f"port_{port}_connection_speed", str(speed)))
+    entries = [
+        {
+            "entity_id": entity_id,
+            "id": f"netgear{n:02d}",
+            "platform": "netgear_plus",
+            "device_id": "netgear_sw_office",
+            "unique_id": f"{NETGEAR_SWITCH}-{key}-0",
+            "name": None,
+            "original_name": None,
+            "has_entity_name": False,
+            "icon": None,
+            "area_id": None,
+            "disabled_by": None,
+            "hidden_by": None,
+            "entity_category": None,
+        }
+        for n, (entity_id, key, _) in enumerate(made)
+    ]
+    states = [{"entity_id": entity_id, "state": state, "attributes": {}} for entity_id, _, state in made]
+    return entries, states
+
+
 PORTS = [
     _port("ether1-uplink", True, [], seen=34, comment="to the house"),
     _port("ether2", True, ["24:0A:C4:00:01:60"], speed=100),
@@ -673,6 +709,9 @@ class MockHA:
         self.states: dict[str, dict] = {}
         # The switch ports and access point of MikroTik Network (PORTS), by entity
         self.ports: dict[str, dict] = {p["entity_id"]: json.loads(json.dumps(p)) for p in PORTS}
+        # And the port entities of the NETGEAR Plus switch
+        self.netgear_entries, netgear_states = netgear_entities()
+        self.ports.update({s["entity_id"]: s for s in netgear_states})
         self.profiles: dict[str, str] = {}
         self.history: dict[str, list[tuple[float, str]]] = {}
         # Phones: (ts, state, lat, lon, accuracy, battery), from two weeks ago to tomorrow
@@ -1139,7 +1178,7 @@ class MockHA:
             ]
             await result(list(self.states.values()) + zones + list(self.ports.values()))
         elif kind == "config/entity_registry/list":
-            await result(list(self.entities.values()))
+            await result(list(self.entities.values()) + self.netgear_entries)
         elif kind == "config/device_registry/list":
             await result(list(self.devices.values()))
         elif kind == "config/area_registry/list":

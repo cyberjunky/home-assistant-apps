@@ -9,7 +9,17 @@ from aiohttp.test_utils import TestClient, TestServer
 from src import ha_client
 from src.config import Config
 from src.history import History, host_events, host_stats, merge, online_series, up_intervals
-from src.inventory import Inventory, behind_bridges, build_hosts, fritz_nodes, is_up, on_fritz_wifi, port_entity
+from src.inventory import (
+    Inventory,
+    behind_bridges,
+    build_hosts,
+    fritz_nodes,
+    is_up,
+    netgear_ports,
+    netgear_roles,
+    on_fritz_wifi,
+    port_entity,
+)
 from src.kinds import KINDS, guess_kind, is_random_mac, mac_vendor, normalize_mac
 from src.mobile import distance, habits, haversine, mismatch, segments, summary, trips
 from src.store import Conflict, Store, clean, empty_doc
@@ -327,6 +337,45 @@ def test_a_port_that_lists_its_devices():
     assert (
         port_entity({"entity_id": "sensor.x", "state": "1", "attributes": {"connected": [], "port": "ether1"}}) is None
     )
+
+
+def test_netgear_plus_ports_from_its_entities():
+    def entry(entity_id, key, platform="netgear_plus", **more):
+        return {"entity_id": entity_id, "platform": platform, "unique_id": f"gs105ev2_192_168_2_9-{key}-0", **more}
+
+    roles = netgear_roles(
+        [
+            entry("sensor.sw_ip", "switch_ip"),
+            entry("binary_sensor.sw_p1", "port_1_status"),
+            entry("sensor.sw_p1_speed", "port_1_connection_speed"),
+            entry("binary_sensor.sw_p2", "port_2_status"),
+            entry("sensor.sw_p2_speed", "port_2_connection_speed"),
+            entry("binary_sensor.sw_p3", "port_3_status", disabled_by="user"),
+            entry("sensor.sw_p1_rx", "port_1_sum_rx_mbytes"),  # traffic: not read
+            entry("binary_sensor.other", "port_1_status", platform="other"),
+        ]
+    )
+    assert roles["binary_sensor.sw_p1"] == ("gs105ev2_192_168_2_9", "1", "status")
+    assert roles["sensor.sw_ip"] == ("gs105ev2_192_168_2_9", "", "switch_ip")
+    assert set(roles) == {
+        "sensor.sw_ip", "binary_sensor.sw_p1", "sensor.sw_p1_speed", "binary_sensor.sw_p2", "sensor.sw_p2_speed"
+    }  # fmt: skip
+    states = {
+        "sensor.sw_ip": {"state": "192.168.2.9"},
+        "binary_sensor.sw_p1": {"state": "on"},
+        "sensor.sw_p1_speed": {"state": "1000"},
+        "binary_sensor.sw_p2": {"state": "off"},
+        "sensor.sw_p2_speed": {"state": "0"},
+    }
+    one, two = netgear_ports(roles, states)["192.168.2.9"]
+    assert one["port"] == "1" and one["up"] and one["speed"] == 1_000_000_000 and one["connected"] == []
+    assert two["port"] == "2" and not two["up"] and two["speed"] is None
+    # The switch does not answer: no ports, rather than old ones
+    states["binary_sensor.sw_p1"] = {"state": "unavailable"}
+    assert [p["port"] for p in netgear_ports(roles, states)["192.168.2.9"]] == ["2"]
+    # Without the address it was added by, the ports belong to nothing
+    states.pop("sensor.sw_ip")
+    assert netgear_ports(roles, states) == {}
 
 
 def test_devices_get_their_port_from_the_switch():
@@ -857,6 +906,24 @@ async def test_switch_ports_from_home_assistant(app, mock):
         await asyncio.sleep(0.05)
     data = await (await test.get("/api/hosts")).json()
     assert next(h for h in data["hosts"] if h["mac"] == "dc:a6:32:00:01:61")["sw_port"] == "ether7"
+
+
+async def test_netgear_plus_switch_ports(app, mock):
+    test, inventory, _ = app
+    data = await (await test.get("/api/hosts")).json()
+    # The switch is known by the address it was added by; the ports are on the device with that address
+    ports = data["ports"]["28:80:88:00:00:22"]
+    assert [(p["port"], p["up"]) for p in ports] == [("1", True), ("2", True), ("3", True), ("4", False), ("5", False)]
+    assert ports[2]["speed"] == 100_000_000 and all(p["owner"] == "28:80:88:00:00:22" for p in ports)
+    # A cable goes in: live
+    version = inventory.version
+    await mock.set_port("binary_sensor.gs105ev2_port_4_status", "on")
+    for _ in range(50):
+        if inventory.version > version:
+            break
+        await asyncio.sleep(0.05)
+    data = await (await test.get("/api/hosts")).json()
+    assert data["ports"]["28:80:88:00:00:22"][3]["up"]
 
 
 async def test_mobile_api(app):

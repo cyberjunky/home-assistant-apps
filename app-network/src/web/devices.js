@@ -171,7 +171,8 @@ function uplinkOptions(h) {
 }
 
 // A switch's or access point's ports, from the integration that lists the devices on each port
-// (MikroTik Network): which are in use and by what, which are free
+// (MikroTik Network): which are in use and by what, which are free. NETGEAR Plus only tells which
+// ports have a link
 const shortPort = name => { const m = /^ether(\d+)/.exec(name) || /^sfp\D*(\d+)/.exec(name); return m ? (name.startsWith('sfp') ? `S${m[1]}` : m[1]) : name.slice(0, 3); };
 function switchPortsHtml(h) {
     const ports = (app.ports || {})[h.mac];

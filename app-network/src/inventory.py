@@ -151,6 +151,65 @@ def is_battery_sensor(state: dict) -> bool:
     )
 
 
+# NETGEAR Plus (the ha-netgear-plus integration) has entities per port without port_entity's
+# attributes. Its unique ids tell what each is: "<switch>-port_<n>_status-0" (the link, on or off),
+# "<switch>-port_<n>_connection_speed-0" (Mbit/s) and "<switch>-switch_ip-0" (the address the
+# switch was added by). The switch has no table of the devices on its ports, so neither have we.
+NETGEAR_PLUS = "netgear_plus"
+_NETGEAR_ID = re.compile(r"^(.+)-(?:port_(\d+)_(status|connection_speed)|(switch_ip))-0$")
+
+
+def netgear_roles(entities: list[dict]) -> dict[str, tuple[str, str, str]]:
+    """The NETGEAR Plus entities that tell about ports: entity_id -> (switch, port, what), where
+    what is status, connection_speed or switch_ip (port "" for that one)."""
+    roles = {}
+    for e in entities:
+        m = _NETGEAR_ID.match(str(e.get("unique_id") or "")) if e.get("platform") == NETGEAR_PLUS else None
+        if m and not e.get("disabled_by"):
+            roles[e["entity_id"]] = (m[1], m[2] or "", m[3] or m[4])
+    return roles
+
+
+def netgear_ports(roles: dict[str, tuple[str, str, str]], states: dict[str, dict]) -> dict[str, list[dict]]:
+    """The ports of every NETGEAR Plus switch, by the address the switch was added by. A port is
+    in the shape of port_entity, without an owner (the switch's MAC address is not known here) and
+    without devices."""
+    address: dict[str, str] = {}
+    found: dict[tuple[str, str], dict] = {}
+    for entity_id, (switch, number, what) in roles.items():
+        value = (states.get(entity_id) or {}).get("state")
+        if value in (None, "unavailable", "unknown"):
+            continue
+        if what == "switch_ip":
+            address[switch] = str(value)
+        elif what == "status":
+            found.setdefault((switch, number), {}).update(entity_id=entity_id, up=value == "on")
+        else:
+            with contextlib.suppress(ValueError):
+                found.setdefault((switch, number), {})["speed"] = int(float(value) * 1_000_000) or None
+    out: dict[str, list[dict]] = {}
+    for (switch, number), port in found.items():
+        if "entity_id" not in port or switch not in address:
+            continue
+        out.setdefault(address[switch], []).append(
+            {
+                "entity_id": port["entity_id"],
+                "owner": "",
+                "port": number,
+                "kind": "ethernet",
+                "up": port["up"],
+                "disabled": False,
+                "speed": port.get("speed") if port["up"] else None,
+                "comment": "",
+                "neighbor": "",
+                "ssid": "",
+                "seen": None,
+                "connected": [],
+            }
+        )
+    return out
+
+
 def build_hosts(
     entities: dict[str, dict],
     devices: dict[str, dict],
@@ -331,6 +390,9 @@ class Inventory:
         self.devices: dict[str, dict] = {}
         # Switch ports and access points that list the devices on them (port_entity)
         self.ports: dict[str, dict] = {}
+        # NETGEAR Plus: what its port entities are (netgear_roles) and their states
+        self.netgear: dict[str, tuple[str, str, str]] = {}
+        self.netgear_states: dict[str, dict] = {}
         self.areas: dict[str, dict] = {}
         self.states: dict[str, dict] = {}
         # Battery sensors (device_class battery, in %) by device id: (entity_id, state)
@@ -374,6 +436,8 @@ class Inventory:
         self.states = {s["entity_id"]: s for s in states or [] if s.get("entity_id", "").startswith(DOMAIN)}
         self.zones = {s["entity_id"]: s for s in states or [] if s.get("entity_id", "").startswith("zone.")}
         self.ports = {p["entity_id"]: p for p in (port_entity(s) for s in states or []) if p}
+        self.netgear = netgear_roles(entities or [])
+        self.netgear_states = {s["entity_id"]: s for s in states or [] if s.get("entity_id") in self.netgear}
         device_of = {e["entity_id"]: e.get("device_id") for e in entities or [] if e.get("device_id")}
         tracked = {e.get("device_id") for e in self.entities.values() if e.get("device_id")}
         self.batteries = {}
@@ -414,6 +478,13 @@ class Inventory:
         out: dict[str, list[dict]] = {}
         for p in self.ports.values():
             out.setdefault(p["owner"], []).append(p)
+        # A NETGEAR Plus switch is known by its address: its ports go to the device with that address
+        netgear = netgear_ports(self.netgear, self.netgear_states)
+        if netgear:
+            macs = {h["ip"]: h["mac"] for h in self.hosts() if h["ip"] and h["mac"]}
+            for ip, ports in netgear.items():
+                if ip in macs:
+                    out.setdefault(macs[ip], []).extend({**p, "owner": macs[ip]} for p in ports)
         for ports in out.values():
             ports.sort(key=lambda p: _port_order(p["port"]))
         return out
@@ -459,6 +530,13 @@ class Inventory:
                 self.zones[entity_id] = data["new_state"]
             else:
                 self.zones.pop(entity_id, None)
+            self._bump(entity_id)
+            return
+        if entity_id in self.netgear:
+            if data.get("new_state"):
+                self.netgear_states[entity_id] = data["new_state"]
+            else:
+                self.netgear_states.pop(entity_id, None)
             self._bump(entity_id)
             return
         if entity_id.startswith("sensor."):
