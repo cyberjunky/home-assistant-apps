@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.4
+
+**After updating:** nothing to do.
+
+- **"This band" filters in a mode outside every band:** with DAB+ on (or aircraft on 1090 MHz), the stored channels list shows only the channels stored with that mode, and none when there aren't any. Before, it showed all channels there. The counter names what is shown, like "DAB+ · 3 of 113".
+
 ## 0.5.3
 
 **After updating:** nothing to do.
