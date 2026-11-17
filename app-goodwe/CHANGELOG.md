@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.15
+
+**After updating:** nothing to do, unless you still use the option name `planes` from 0.1.x: it is no longer read.
+
+- **No leftovers of 0.1.x:** the app no longer reads the 0.1.x option name `planes`, releases the charge brake 0.1.x set, or removes 0.1.x's old entity.
+- **No Supervisor API access:** the app no longer asks for access to the Supervisor API; it never needed it.
+- **Start-up in the current s6-overlay layout:** the app's services are defined the way Home Assistant's base images expect now. They start and stop as before.
+- The app, its documentation and its log say "app" instead of "add-on", as Home Assistant does since 2026.2.
+- Code and styles nothing used any more are removed.
+- The README's links work inside Home Assistant.
+
 ## 0.3.14
 
 **After updating:** nothing to do.

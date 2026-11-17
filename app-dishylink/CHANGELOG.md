@@ -1,4 +1,12 @@
 <!-- https://developers.home-assistant.io/docs/apps/presentation#keeping-a-changelog -->
+## 1.0.5
+
+- No longer marked experimental.
+- Dutch translation of the options. The port's description shows on the Configuration tab (its label never did).
+- Services in the current s6-overlay layout; AppArmor allows that folder instead of the old ones.
+- Docs and log messages say "app" instead of "add-on", as Home Assistant does since 2026.2.
+- The README's links work inside Home Assistant.
+
 ## 1.0.4
 
 - Health check moved from the obsolete `watchdog` option to a Docker

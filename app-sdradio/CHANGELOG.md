@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.3
+
+**After updating:** nothing to do.
+
+- **Start-up in the current s6-overlay layout:** the app's services are defined the way Home Assistant's base images expect now. They start and stop as before.
+- The app, its documentation and its log say "app" instead of "add-on", as Home Assistant does since 2026.2.
+- Code and styles nothing used any more are removed.
+
 ## 0.5.2
 
 **After updating:** nothing to do.

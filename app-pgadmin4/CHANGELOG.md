@@ -1,4 +1,12 @@
 <!-- https://developers.home-assistant.io/docs/apps/presentation#keeping-a-changelog -->
+## 4.1.2
+
+- The options have names and help on the Configuration tab, in English and Dutch, instead of raw keys.
+- Services in the current s6-overlay layout; the setup scripts run in their old order.
+- No more guessed TimescaleDB hostnames: the TimescaleDB app is found by asking the Supervisor only.
+- Removed what nothing used: an unapplied patch, disabled nginx modules, the leftover minimum Home Assistant version and the build script for per-architecture images.
+- Docs and log messages say "app" instead of "add-on", as Home Assistant does since 2026.2.
+
 ## 4.1.1
 
 - Fix: the TimescaleDB app was not registered. pgAdmin now asks the Supervisor which

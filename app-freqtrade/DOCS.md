@@ -1,5 +1,7 @@
 # Home Assistant App: Freqtrade
 
+> **Unofficial.** An independent project, not affiliated with, endorsed by or sponsored by the Freqtrade project.
+
 Freqtrade shows your [Freqtrade](https://www.freqtrade.io/) trading bots in a dashboard, served through ingress: all bots together on one overview, and a page per bot. It reads each bot over its API server, hears its trades as they happen over the bot's WebSocket, and publishes every bot to Home Assistant over MQTT. From a bot's page it can also start, stop and pause the bot, and exit a trade.
 
 The app doesn't trade. Your bots keep running where they run; this app only reads them, and changes them only when you press a button on a bot's page.
@@ -180,3 +182,9 @@ The trades stay in each bot's own database. The app keeps two things the bots do
 - Amounts in different stake currencies aren't converted into one.
 - A bot in webserver mode (`freqtrade webserver`, for backtesting) has no trades or balance; the app is for trading bots, dry-run or live.
 - Tested with Freqtrade's API version 2.51. Please report what an older or newer version shows wrong.
+
+## Disclaimer
+
+This app is an independent project. It is not affiliated with, endorsed by or sponsored by the
+Freqtrade project. Trading cryptocurrencies carries risk; the controls in this app act on your
+bots for real. Nothing in this app is financial advice.
