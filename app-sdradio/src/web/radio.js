@@ -528,24 +528,36 @@ function channelUnusable(c) {
 // The short tag on a faded channel
 const unusableTag = why => why.startsWith('Out of range') ? 'out of range' : 'not on this receiver';
 
+// "This band" for a channel. Outside every band (a DAB block, 1090 MHz) a mode's own channels are
+// its band: only those stored with that mode. In plain radio there, the channels without a band
+const activeMode = s => s.decoder && s.decoder.key !== 'radio' ? s.decoder.key : null;
+function inThisBand(c, s) {
+    if (s.band) return c.band === s.band;
+    const mode = activeMode(s);
+    return mode ? channelMode(c) === mode : !c.band;
+}
+function thisBandName(s) {
+    const mode = activeMode(s);
+    return s.band || (mode ? modeName(mode) : 'no band');
+}
+
 function renderChannelList(force) {
     const s = app.state || {};
     const search = document.getElementById('chlist-search').value.trim().toLowerCase();
     const filter = document.getElementById('chlist-filter').value;
     const current = s.channel ? s.channel.id : null;
-    const key = JSON.stringify([search, filter, s.band, current, app.channels.length, s.device && s.device.frequency_range,
+    const key = JSON.stringify([search, filter, s.band, activeMode(s), current, app.channels.length, s.device && s.device.frequency_range,
         (s.modes || []).map(m => m.why_not || '')]);
     if (!force && key === radio.listKey) return;
     radio.listKey = key;
     let rows = app.channels;
-    // This band; outside every band (a DAB block, 1090 MHz) all of them
-    if (filter === 'band' && s.band) rows = rows.filter(c => c.band === s.band);
+    if (filter === 'band') rows = rows.filter(c => inThisBand(c, s));
     else if (filter === 'fav') rows = rows.filter(c => c.favourite);
     if (search) {
         rows = rows.filter(c => (c.name || '').toLowerCase().includes(search) || fmtMHz(c.frequency).includes(search)
             || String(c.number).includes(search) || (c.tags || '').toLowerCase().includes(search));
     }
-    document.getElementById('chlist-count').textContent = `${filter === 'band' && s.band ? s.band + ' · ' : ''}${rows.length} of ${app.channels.length}`;
+    document.getElementById('chlist-count').textContent = `${filter === 'band' ? thisBandName(s) + ' · ' : ''}${rows.length} of ${app.channels.length}`;
     const el = document.getElementById('chlist-items');
     el.innerHTML = rows.length ? rows.map(c => { const out = channelUnusable(c); return `
         <button type="button" class="ch-item${c.id === current ? ' on' : ''}${c.scan ? '' : ' locked'}${out ? ' out' : ''}" data-id="${c.id}"${out ? ` disabled title="${escapeHtml(out)}"` : ''}>
