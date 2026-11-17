@@ -85,6 +85,7 @@ class WebUI:
         r.add_get("/api/mobile", self._mobile)
         r.add_get("/api/live", self._live)
         r.add_get("/api/router", self._router)
+        r.add_get("/api/traffic", self._traffic)
         r.add_get("/api/map-tiles/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.png", self._map_tile)
         r.add_post("/api/rename", self._rename)
         r.add_post("/api/icon", self._icon)
@@ -169,6 +170,8 @@ class WebUI:
                 "zones": self.inventory.zone_list(),
                 # The ports of every switch and access point, by its MAC address
                 "ports": self.inventory.port_list(),
+                # What goes through the ports that have a traffic sensor (see /api/traffic)
+                "traffic": self.inventory.traffic(),
             }
         )
 
@@ -350,6 +353,16 @@ class WebUI:
         return web.json_response(
             {**self.router.state(), "minutes": minutes, "hours": per_hour, "recent": self.router.recent_series()}
         )
+
+    async def _traffic(self, request: web.Request) -> web.Response:
+        """What flows now: through the switch ports that have a traffic sensor in Home Assistant, and
+        over the internet connection as the router tells it. Bytes per second."""
+        state = self.router.state() if self.router else {}
+        now = state.get("now") or {}
+        internet = None
+        if state.get("found") and now.get("ts") and time.time() - now["ts"] < 120:
+            internet = {"address": state.get("address") or "", "down": now.get("down"), "up": now.get("up")}
+        return web.json_response({"ports": self.inventory.traffic(), "internet": internet})
 
     async def _map_tile(self, request: web.Request) -> web.Response:
         """An OpenStreetMap raster tile through Home Assistant's map tile proxy."""

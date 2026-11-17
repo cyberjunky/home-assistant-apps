@@ -153,15 +153,38 @@ def is_battery_sensor(state: dict) -> bool:
 
 # NETGEAR Plus (the ha-netgear-plus integration) has entities per port without port_entity's
 # attributes. Its unique ids tell what each is: "<switch>-port_<n>_status-0" (the link, on or off),
-# "<switch>-port_<n>_connection_speed-0" (Mbit/s) and "<switch>-switch_ip-0" (the address the
+# "<switch>-port_<n>_connection_speed-0" (Mbit/s), "<switch>-port_<n>_speed_rx_mbytes-0" and
+# "..._speed_tx_mbytes-0" (what goes in and out now) and "<switch>-switch_ip-0" (the address the
 # switch was added by). The switch has no table of the devices on its ports, so neither have we.
 NETGEAR_PLUS = "netgear_plus"
-_NETGEAR_ID = re.compile(r"^(.+)-(?:port_(\d+)_(status|connection_speed)|(switch_ip))-0$")
+_NETGEAR_ID = re.compile(
+    r"^(.+)-(?:port_(\d+)_(status|connection_speed|speed_rx_mbytes|speed_tx_mbytes)|(switch_ip))-0$"
+)
+_NETGEAR_RATE = {"speed_rx_mbytes": "rx", "speed_tx_mbytes": "tx"}
+# MikroTik Network has a sensor per port and direction, off by default: "<entry>_rx_<port>"
+MIKROTIK_NETWORK = "mikrotik_network"
+
+# A data rate in bytes per second, from the unit its sensor is shown in
+_RATE_UNITS = {
+    "bit/s": 1 / 8, "kbit/s": 125, "Mbit/s": 125_000, "Gbit/s": 125_000_000,
+    "B/s": 1, "kB/s": 1000, "MB/s": 1_000_000, "GB/s": 1_000_000_000,
+    "KiB/s": 1024, "MiB/s": 1024**2, "GiB/s": 1024**3,
+}  # fmt: skip
+
+
+def rate_of(state: dict | None) -> float | None:
+    """What a data rate sensor says, in bytes per second; None when it says nothing."""
+    unit = _RATE_UNITS.get(((state or {}).get("attributes") or {}).get("unit_of_measurement"))
+    try:
+        return float((state or {}).get("state")) * unit if unit else None
+    except (TypeError, ValueError):
+        return None
 
 
 def netgear_roles(entities: list[dict]) -> dict[str, tuple[str, str, str]]:
     """The NETGEAR Plus entities that tell about ports: entity_id -> (switch, port, what), where
-    what is status, connection_speed or switch_ip (port "" for that one)."""
+    what is status, connection_speed, speed_rx_mbytes, speed_tx_mbytes or switch_ip (port "" for
+    that one)."""
     roles = {}
     for e in entities:
         m = _NETGEAR_ID.match(str(e.get("unique_id") or "")) if e.get("platform") == NETGEAR_PLUS else None
@@ -184,7 +207,7 @@ def netgear_ports(roles: dict[str, tuple[str, str, str]], states: dict[str, dict
             address[switch] = str(value)
         elif what == "status":
             found.setdefault((switch, number), {}).update(entity_id=entity_id, up=value == "on")
-        else:
+        elif what == "connection_speed":
             with contextlib.suppress(ValueError):
                 found.setdefault((switch, number), {})["speed"] = int(float(value) * 1_000_000) or None
     out: dict[str, list[dict]] = {}
@@ -208,6 +231,43 @@ def netgear_ports(roles: dict[str, tuple[str, str, str]], states: dict[str, dict
             }
         )
     return out
+
+
+def netgear_rates(roles: dict[str, tuple[str, str, str]], states: dict[str, dict]) -> dict[str, dict[str, dict]]:
+    """What goes through the ports of every NETGEAR Plus switch now, by the address the switch was
+    added by: port -> {rx, tx} in bytes per second, as the switch sees it (rx comes in from what is
+    plugged in)."""
+    address = {
+        switch: str(states[entity_id].get("state"))
+        for entity_id, (switch, _, what) in roles.items()
+        if what == "switch_ip" and (states.get(entity_id) or {}).get("state") not in (None, "unavailable", "unknown")
+    }
+    out: dict[str, dict[str, dict]] = {}
+    for entity_id, (switch, number, what) in roles.items():
+        rate = rate_of(states.get(entity_id)) if what in _NETGEAR_RATE else None
+        if rate is not None and switch in address:
+            out.setdefault(address[switch], {}).setdefault(number, {})[_NETGEAR_RATE[what]] = rate
+    return out
+
+
+def mikrotik_roles(entities: list[dict], ports: dict[str, dict]) -> dict[str, tuple[str, str, str]]:
+    """The traffic sensors of MikroTik Network: entity_id -> (the switch's MAC address, port, rx or
+    tx). A sensor belongs to the port of its own device whose name its unique id ends with."""
+    device_of = {e["entity_id"]: e.get("device_id") for e in entities if e.get("entity_id") in ports}
+    by_device: dict[str, list[dict]] = {}
+    for entity_id, port in ports.items():
+        if device_of.get(entity_id) and port["kind"] == "ethernet":
+            by_device.setdefault(device_of[entity_id], []).append(port)
+    roles = {}
+    for e in entities:
+        if e.get("platform") != MIKROTIK_NETWORK or e.get("disabled_by") or e.get("device_id") not in by_device:
+            continue
+        unique_id = str(e.get("unique_id") or "")
+        for port in by_device[e["device_id"]]:
+            for direction in ("rx", "tx"):
+                if unique_id.endswith(f"_{direction}_{port['port']}"):
+                    roles[e["entity_id"]] = (port["owner"], port["port"], direction)
+    return roles
 
 
 def build_hosts(
@@ -393,6 +453,9 @@ class Inventory:
         # NETGEAR Plus: what its port entities are (netgear_roles) and their states
         self.netgear: dict[str, tuple[str, str, str]] = {}
         self.netgear_states: dict[str, dict] = {}
+        # MikroTik Network's traffic sensors (mikrotik_roles) and their states
+        self.mikrotik: dict[str, tuple[str, str, str]] = {}
+        self.mikrotik_states: dict[str, dict] = {}
         self.areas: dict[str, dict] = {}
         self.states: dict[str, dict] = {}
         # Battery sensors (device_class battery, in %) by device id: (entity_id, state)
@@ -438,6 +501,8 @@ class Inventory:
         self.ports = {p["entity_id"]: p for p in (port_entity(s) for s in states or []) if p}
         self.netgear = netgear_roles(entities or [])
         self.netgear_states = {s["entity_id"]: s for s in states or [] if s.get("entity_id") in self.netgear}
+        self.mikrotik = mikrotik_roles(entities or [], self.ports)
+        self.mikrotik_states = {s["entity_id"]: s for s in states or [] if s.get("entity_id") in self.mikrotik}
         device_of = {e["entity_id"]: e.get("device_id") for e in entities or [] if e.get("device_id")}
         tracked = {e.get("device_id") for e in self.entities.values() if e.get("device_id")}
         self.batteries = {}
@@ -489,6 +554,27 @@ class Inventory:
             ports.sort(key=lambda p: _port_order(p["port"]))
         return out
 
+    def traffic(self) -> list[dict]:
+        """What goes through every switch port that has a traffic sensor, now: the switch's MAC
+        address, the port, and rx and tx in bytes per second as the switch sees them (rx comes in
+        from what is plugged in). None for a direction without a reading."""
+        found: dict[tuple[str, str], dict] = {}
+        for entity_id, (owner, port, direction) in self.mikrotik.items():
+            rate = rate_of(self.mikrotik_states.get(entity_id))
+            if rate is not None:
+                found.setdefault((owner, port), {})[direction] = rate
+        netgear = netgear_rates(self.netgear, self.netgear_states)
+        if netgear:
+            macs = {h["ip"]: h["mac"] for h in self.hosts() if h["ip"] and h["mac"]}
+            for ip, ports in netgear.items():
+                if ip in macs:
+                    for port, rates in ports.items():
+                        found[(macs[ip], port)] = rates
+        return [
+            {"owner": owner, "port": port, "rx": rates.get("rx"), "tx": rates.get("tx")}
+            for (owner, port), rates in sorted(found.items(), key=lambda x: (x[0][0], _port_order(x[0][1])))
+        ]
+
     def zone_list(self) -> list[dict]:
         out = []
         for entity_id, z in sorted(self.zones.items()):
@@ -532,12 +618,17 @@ class Inventory:
                 self.zones.pop(entity_id, None)
             self._bump(entity_id)
             return
+        if entity_id in self.mikrotik:
+            # Traffic changes with every reading: the Traffic page asks for it, nothing is redrawn
+            self.mikrotik_states[entity_id] = data.get("new_state") or {}
+            return
         if entity_id in self.netgear:
             if data.get("new_state"):
                 self.netgear_states[entity_id] = data["new_state"]
             else:
                 self.netgear_states.pop(entity_id, None)
-            self._bump(entity_id)
+            if self.netgear[entity_id][2] not in _NETGEAR_RATE:
+                self._bump(entity_id)
             return
         if entity_id.startswith("sensor."):
             for device_id, (sensor_id, _) in self.batteries.items():

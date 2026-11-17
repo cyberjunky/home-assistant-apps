@@ -28,6 +28,7 @@ log_level: info
 - **Network map**: the drawing. See below.
 - **Devices**: every device in a table, to filter, search, sort and edit. Click one to edit it; tick several to give them one kind, network or connection.
 - **Networks**: your networks and VLANs. A device is in the network of its IP address unless you pick another for it. The app suggests a network for every private /24 subnet it sees, with a guess of what it is for (IoT, cameras, servers, guests). A subnet's grid shows every address: online, away, free, or used by two devices at once.
+- **Traffic**: what flows now through the internet connection and the switch ports that are measured. See below.
 - **Mobile**: the phones with the Home Assistant app. See below.
 - **Stats**: who drops off the network, how often and when, from a day to a year: drops per day, availability, timelines, the week as a heatmap, the longest time away, the network gear's availability and every coming and going.
 
@@ -80,6 +81,20 @@ Drag a device from the list on the left onto a page, or double-click it. The sha
 - What you set yourself under **Connected to** and **Port or socket** on a device. That always comes first.
 
 The app doesn't log in to your switches or router itself: logins stay with Home Assistant's integrations.
+
+## Traffic
+
+The **Traffic** page shows what flows now, along the cables the app knows of: the devices as a tree from the internet down, a line per link that is wider with more traffic, and the busiest links in a table. It reads again every 5 seconds.
+
+A link is measured when Home Assistant has the numbers for it:
+
+- **The internet connection**: from your router, as on the Dashboard (UPnP or TR-064, a FRITZ!Box and most others).
+- **MikroTik switch ports**: the [MikroTik Network](https://github.com/cyberjunky/home-assistant-mikrotik) integration has a *received* and a *sent* sensor per port. They are off by default: turn on the ones you want under the MikroTik's entities in Home Assistant.
+- **NETGEAR Plus switch ports**: the [NETGEAR Plus](https://github.com/ckarrie/ha-netgear-plus) integration has them for every port.
+
+The traffic of a port belongs to what is plugged into it. One device on a port: that is the device's traffic. Several devices on one port (behind a switch the app does not know of): they are shown together under that port. A port with a link where no device is known (every port of a NETGEAR Plus switch) is shown as the port itself. A device without a measured port is left out; the tile on top counts them. The details of a switch show the traffic of its ports too.
+
+What it cannot show: which device talks to which. No integration here tells that; a line is what goes through one cable, to and from everything behind it. A FRITZ!Box tells its internet traffic, not the traffic per device.
 
 ## A device
 

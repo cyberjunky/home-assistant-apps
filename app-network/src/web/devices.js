@@ -186,14 +186,20 @@ function switchPortsHtml(h) {
     const used = eth.filter(p => p.up || p.connected.length).length;
     const free = eth.filter(p => !p.up && !p.connected.length && !p.disabled).length;
     const names = p => p.connected.map(mac => { const x = hostByMac(mac); return x ? hostName(x) : mac; });
+    // What goes through a port now, when the integration has a traffic sensor for it (in: from what is plugged in)
+    const rates = new Map(app.traffic.filter(t => t.owner === h.mac).map(t => [t.port, t]));
+    const flow = p => { const t = rates.get(p.port); return t ? `in ${fmtRate(t.rx)} · out ${fmtRate(t.tx)}` : ''; };
     const square = p => {
-        const tip = [p.port, p.disabled ? 'off' : p.up ? `link up${p.speed ? ` · ${fmtRate(p.speed / 8)}` : ''}` : 'free', uplink(p) ? `uplink${p.neighbor ? ` to ${p.neighbor}` : ''}` : '', ...names(p), p.comment].filter(Boolean).join('\n');
+        const tip = [p.port, p.disabled ? 'off' : p.up ? `link up${p.speed ? ` · ${fmtRate(p.speed / 8)}` : ''}` : 'free', flow(p), uplink(p) ? `uplink${p.neighbor ? ` to ${p.neighbor}` : ''}` : '', ...names(p), p.comment].filter(Boolean).join('\n');
         return `<span class="sp-port ${state(p)}" title="${attr(tip)}"><b>${escapeHtml(shortPort(p.port))}</b>${p.connected.length > 1 ? `<i>${p.connected.length}</i>` : ''}</span>`;
     };
     const row = p => {
         const who = p.connected.map(mac => { const x = hostByMac(mac); return x ? hostLink(x) : `<span class="mono muted">${escapeHtml(mac)}</span>`; });
         const what = who.length ? who.join(', ') : uplink(p) ? `<span class="muted">uplink${p.neighbor ? ` to ${escapeHtml(p.neighbor)}` : ''}</span>` : '';
-        return what ? `<div class="sp-row"><span class="mono" title="${attr(p.comment)}">${escapeHtml(p.port)}</span><span>${what}</span></div>` : '';
+        // A port with a link and traffic is listed too, also when it is not known what is on it
+        const t = p.up ? rates.get(p.port) : null;
+        const now = t ? `<span class="sp-flow mono" title="In: from what is plugged in. Out: to it.">in ${fmtRate(t.rx)} · out ${fmtRate(t.tx)}</span>` : '';
+        return what || now ? `<div class="sp-row"><span class="mono" title="${attr(p.comment)}">${escapeHtml(p.port)}</span><span>${what}</span>${now}</div>` : '';
     };
     return `<div class="section-title he-sub">Ports</div>
         ${eth.length ? `<div class="sp-sum"><b>${used}</b> of ${eth.length} in use · <b>${free}</b> free</div><div class="sp-grid">${eth.map(square).join('')}</div>` : ''}
