@@ -1,4 +1,14 @@
 <!-- https://developers.home-assistant.io/docs/apps/presentation#keeping-a-changelog -->
+## 5.7.0
+
+**After updating:** nothing to do. On the first start TimescaleDB is updated from 2.31 to 2.32 in every database that has it, as with earlier updates.
+
+- PostgreSQL now comes from the official TimescaleDB images, together with TimescaleDB: a pair Timescale builds and tests together. Before, TimescaleDB's libraries were put on the PostgreSQL of Alpine's packages. That stops working when Alpine gets a newer PostgreSQL minor release than TimescaleDB supports: on PostgreSQL 18.7 and 17.12, TimescaleDB 2.32.0 loads, and every background job (compression, retention, continuous aggregates) fails. 5.6.0 was built just before Alpine made that step and is not affected; any later build would have been.
+- TimescaleDB 2.32.0 on PostgreSQL 18.6 (17.11 for upgrading an existing PostgreSQL 17 database). The other extensions are unchanged.
+- The image is checked while it is built: PostgreSQL 17 and 18 start with the libraries the app preloads, every extension can be created, a TimescaleDB background job has to succeed, and `pg_upgrade` has to accept a PostgreSQL 17 database. A build that fails one of these is not published. The check is in the image as `/usr/share/timescaledb/check_image.sh`.
+- PostgreSQL's programs are in `/usr/local/bin` (17: `/opt/postgresql17/bin`); `/usr/libexec/postgresql17` and `/usr/libexec/postgresql18` still lead to them. Alpine's `postgresql17`, `postgresql18` and `postgresql18-dev` packages are no longer in the image; PostgreSQL 18's headers and `pg_config` still are.
+- Services in the current s6-overlay layout, option names and help on the Configuration tab in English and Dutch, and "app" instead of "add-on" in the documentation and the log.
+
 ## 5.6.0
 
 **After updating:**
