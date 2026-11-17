@@ -109,9 +109,9 @@ function emptyChart(el, text) {
 }
 
 // Shared frame: y axis with gridlines, returns the plot geometry
-function chartFrame(el, height, scale, formatTick) {
+function chartFrame(el, height, scale, formatTick, padLeft) {
     const width = Math.max(240, el.clientWidth || 600);
-    const pad = {left: 42, right: 8, top: 8, bottom: 20};
+    const pad = {left: padLeft || 42, right: 8, top: 8, bottom: 20};
     const svg = svgEl('svg', {viewBox: `0 0 ${width} ${height}`, width, height, role: 'img'});
     const plot = {x: pad.left, y: pad.top, w: width - pad.left - pad.right, h: height - pad.top - pad.bottom};
     const y = v => plot.y + plot.h - (v - scale.lo) / (scale.hi - scale.lo) * plot.h;
@@ -203,7 +203,7 @@ function barChart(el, opts) {
 // Line chart. opts: {x: [n, ...], series: [{name, color, values: [n|null, ...], area?, dash?, width?}],
 //                    height, formatX: n => text, formatY: (n, seriesIndex) => text, xTicks: [{at, label}],
 //                    zero: bool, bands: [{from, to, color}], markers: [{at, label}], hlines: [{at, color, label}],
-//                    min?, max?}
+//                    min?, max?, formatTick?: n => text, padLeft?}
 // One y axis for all series: only plot series together that share a unit.
 // ---------------------------------------------------------------------
 function lineChart(el, opts) {
@@ -218,7 +218,7 @@ function lineChart(el, opts) {
         (opts.hlines || []).forEach(h => { lo = Math.min(lo, h.at); hi = Math.max(hi, h.at); });
         if (hi === lo) hi = lo + 1;
         const scale = axis(lo, hi, 4);
-        const {svg, plot, y} = chartFrame(el, opts.height || 170, scale, opts.formatTick);
+        const {svg, plot, y} = chartFrame(el, opts.height || 170, scale, opts.formatTick, opts.padLeft);
         const x0 = xs[0], x1 = xs[xs.length - 1];
         const x = v => plot.x + (x1 === x0 ? 0 : (v - x0) / (x1 - x0)) * plot.w;
         const clampX = v => Math.max(plot.x, Math.min(plot.x + plot.w, x(v)));
