@@ -2,10 +2,11 @@
 ARG BUILD_FROM=ghcr.io/hassio-addons/base:21.0.11
 ARG BUILD_ARCH=aarch64
 
-# Must match the Alpine release of BUILD_FROM: the prebuilt extensions below are built on
-# this Alpine release against its own PostgreSQL packages (see docker-dependencies/), so
-# the native libraries they link against (gdal, geos, proj, ..) have the same soname as the
-# ones installed in this image. Their image tags carry it as an -alpine<version> suffix.
+# Must match the Alpine release of BUILD_FROM and of the official TimescaleDB images below:
+# PostgreSQL is copied from those images and links against this release's libraries, and the
+# prebuilt extensions are built on this Alpine release (see docker-dependencies/), so the
+# native libraries they link against (gdal, geos, proj, ..) have the same soname as the ones
+# installed in this image. Their image tags carry it as an -alpine<version> suffix.
 ARG ALPINE_VERSION=3.24
 
 # Registry holding the prebuilt dependency images (see docker-dependencies/ and the
@@ -19,8 +20,12 @@ ARG DEPENDENCY_REGISTRY=ghcr.io/${BUILD_REPOSITORY%/*}/app-timescaledb/dependenc
 # This is the single source of truth: project.sh and the build-dependencies workflow parse
 # these ARG lines to build the prebuilt dependency images with matching tags.
 # These images are all prebuilt, otherwise building the image takes way too long.
-# TimescaleDB itself comes from the official TimescaleDB images.
-ARG TIMESCALEDB_VERSION=2.31.0
+# PostgreSQL and TimescaleDB both come from the official TimescaleDB images: a pair Timescale
+# builds and tests together. A newer PostgreSQL minor release can break TimescaleDB until
+# Timescale adapts it (PostgreSQL 18.7 and 17.12 made every background job of TimescaleDB
+# 2.32.0 fail, fixed in timescale/timescaledb e89c98f), so TimescaleDB's libraries must not
+# be put on the PostgreSQL of Alpine's packages.
+ARG TIMESCALEDB_VERSION=2.32.0
 ARG PGAGENT_VERSION=pgagent-4.2.3
 ARG POSTGIS_VERSION=3.6.4
 # Docker tags cannot contain '+': 1.27.0-p2 builds the toolkit's git tag 1.27.0+p2
@@ -33,8 +38,17 @@ ARG VECTORCHORD_VERSION=1.1.1
 # in that order: three projects with their own releases, built into one image
 ARG TIMESCALEDB_TOOLS_VERSION=0.19.1-0.13.2-0.1.1
 
-FROM timescale/timescaledb:${TIMESCALEDB_VERSION}-pg17                                                       AS timescale-pg17
-FROM timescale/timescaledb:${TIMESCALEDB_VERSION}-pg18                                                       AS timescale-pg18
+# PostgreSQL 17 (old, only used to upgrade existing databases): the server and what
+# pg_upgrade needs of it, without client libraries, development files and the image's tools
+FROM timescale/timescaledb:${TIMESCALEDB_VERSION}-pg17 AS timescale-pg17
+RUN rm -rf /usr/local/include /usr/local/lib/pkgconfig /usr/local/lib/postgresql/pgxs \
+        /usr/local/lib/lib* /usr/local/share/man /usr/local/share/doc \
+        /usr/local/bin/docker-* /usr/local/bin/gosu /usr/local/bin/ecpg /usr/local/bin/timescaledb-*
+
+# PostgreSQL 18 (new), without the image's own entry point and tools
+FROM timescale/timescaledb:${TIMESCALEDB_VERSION}-pg18 AS timescale-pg18
+RUN rm -rf /usr/local/bin/docker-* /usr/local/bin/gosu /usr/local/bin/timescaledb-* \
+        /usr/local/share/man /usr/local/share/doc
 
 FROM ${DEPENDENCY_REGISTRY}/timescaledb-tools:${TIMESCALEDB_TOOLS_VERSION}                                   AS timescaledb-tools
 FROM ${DEPENDENCY_REGISTRY}/pgagent-pg17:${PGAGENT_VERSION}-alpine${ALPINE_VERSION}                          AS pgagent-pg17
@@ -75,8 +89,7 @@ RUN --mount=type=cache,id=apk-${TARGETARCH}-${TARGETVARIANT},sharing=locked,targ
         nano
 
 # Upgrade SSL libraries and musl. The base image pins musl to the release it was built with;
-# once Alpine ships a newer musl, musl-dev (needed by the postgresql*-dev packages) no longer
-# installs next to the pinned one. Adding musl here drops the pin and upgrades it.
+# adding musl here drops the pin and upgrades it.
 # hadolint ignore=DL3018
 RUN --mount=type=cache,id=apk-${TARGETARCH}-${TARGETVARIANT},sharing=locked,target=/var/cache/apk \
     set -ex \
@@ -87,35 +100,36 @@ RUN --mount=type=cache,id=apk-${TARGETARCH}-${TARGETVARIANT},sharing=locked,targ
 ###########################################
 
 # -----------------------------------------
-# PostgreSql 17 (old, only used to upgrade existing databases)
+# PostgreSQL 17 (old) and 18 (new), with TimescaleDB
 # -----------------------------------------
-# hadolint ignore=DL3018
+# From the official TimescaleDB images (see TIMESCALEDB_VERSION). PostgreSQL 18 is where
+# that image has it, in /usr/local; PostgreSQL 17 goes to /opt/postgresql17, where it finds
+# its own libraries and extensions (a PostgreSQL installation can be moved as a whole).
+# Both get the same TimescaleDB release, pg_upgrade requires that.
+COPY --from=timescale-pg18 /usr/local/ /usr/local/
+COPY --from=timescale-pg17 /usr/local/ /opt/postgresql17/
+
+# The libraries PostgreSQL links against (found the way the official image does it), and
+# the postgres user with the ids of Alpine's PostgreSQL packages and of the official image,
+# so an existing data directory keeps its owner. /usr/libexec/postgresql<version> is where
+# the upgrade looks for each version's programs.
+# hadolint ignore=DL3018,SC2046
 RUN --mount=type=cache,id=apk-${TARGETARCH}-${TARGETVARIANT},sharing=locked,target=/var/cache/apk \
     set -ex \
-    && apk add \
-        postgresql17-jit \
-        postgresql17 \
-        postgresql17-contrib-jit \
-        postgresql17-contrib
-
-# -----------------------------------------
-# PostgreSql 18 (new)
-# -----------------------------------------
-# hadolint ignore=DL3018
-RUN --mount=type=cache,id=apk-${TARGETARCH}-${TARGETVARIANT},sharing=locked,target=/var/cache/apk \
-    set -ex \
-    && apk add \
-        postgresql18-jit \
-        postgresql18 \
-        postgresql18-dev \
-        postgresql18-contrib-jit \
-        postgresql18-contrib
-
-# Set default postgresql version to 18
-RUN rm /usr/libexec/postgresql \
-    && ln -s /usr/libexec/postgresql18 /usr/libexec/postgresql \
-    && rm /usr/share/postgresql \
-    && ln -s /usr/share/postgresql18 /usr/share/postgresql
+    && apk add --virtual .scan pax-utils \
+    && apk add --virtual .postgresql-rundeps \
+        $(scanelf --needed --nobanner --format '%n#p' --recursive /usr/local /opt/postgresql17 \
+            | tr ',' '\n' | sort -u \
+            | awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }') \
+        tzdata \
+    && apk del .scan \
+    && addgroup -S -g 70 postgres \
+    && adduser -S -D -u 70 -G postgres -h /var/lib/postgresql -s /bin/sh postgres \
+    && mkdir -p /usr/libexec \
+    && ln -s /usr/local/bin /usr/libexec/postgresql18 \
+    && ln -s /opt/postgresql17/bin /usr/libexec/postgresql17 \
+    && postgres --version \
+    && /usr/libexec/postgresql17/postgres --version
 
 # Create it's run directory
 RUN mkdir -p /run/postgresql \
@@ -154,37 +168,30 @@ RUN --mount=type=cache,id=apk-${TARGETARCH}-${TARGETVARIANT},sharing=locked,targ
     && apk add --repository https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main \
         libturbojpeg
 
-# The dependency images are built on Alpine against its PostgreSQL packages, so their files
-# are in the same places as in this image (/usr/lib/postgresqlNN, /usr/share/postgresqlNN).
+# The dependency images are built on Alpine against its PostgreSQL packages, which keep
+# their files in /usr/lib/postgresqlNN and /usr/share/postgresqlNN. Here they go where this
+# image's PostgreSQL has them. An extension built for one minor release of PostgreSQL runs
+# on another one of the same major version (TimescaleDB is the exception, see above).
 
 # Postgis + Postgis-Raster pg-17 (old)
-COPY --from=postgis-pg17 --link /usr/lib/postgresql17/postgis* /usr/lib/postgresql17/
-COPY --from=postgis-pg17 --link /usr/lib/postgresql17/bitcode/postgis-3/* /usr/lib/postgresql17/bitcode/postgis-3/
-COPY --from=postgis-pg17 --link /usr/lib/postgresql17/bitcode/postgis_raster-3/* /usr/lib/postgresql17/bitcode/postgis_raster-3/
-COPY --from=postgis-pg17 --link /usr/share/postgresql17/contrib/postgis* /usr/share/postgresql17/contrib/
-COPY --from=postgis-pg17 --link /usr/share/postgresql17/extension/postgis* /usr/share/postgresql17/extension/
+COPY --from=postgis-pg17 --link /usr/lib/postgresql17/postgis* /opt/postgresql17/lib/postgresql/
+COPY --from=postgis-pg17 --link /usr/lib/postgresql17/bitcode/postgis-3/* /opt/postgresql17/lib/postgresql/bitcode/postgis-3/
+COPY --from=postgis-pg17 --link /usr/lib/postgresql17/bitcode/postgis_raster-3/* /opt/postgresql17/lib/postgresql/bitcode/postgis_raster-3/
+COPY --from=postgis-pg17 --link /usr/share/postgresql17/contrib/postgis* /opt/postgresql17/share/postgresql/contrib/
+COPY --from=postgis-pg17 --link /usr/share/postgresql17/extension/postgis* /opt/postgresql17/share/postgresql/extension/
 
 # Postgis + Postgis-Raster pg-18 (new)
-COPY --from=postgis-pg18 --link /usr/lib/postgresql18/postgis* /usr/lib/postgresql18/
-COPY --from=postgis-pg18 --link /usr/lib/postgresql18/bitcode/postgis-3/* /usr/lib/postgresql18/bitcode/postgis-3/
-COPY --from=postgis-pg18 --link /usr/lib/postgresql18/bitcode/postgis_raster-3/* /usr/lib/postgresql18/bitcode/postgis_raster-3/
-COPY --from=postgis-pg18 --link /usr/share/postgresql18/contrib/postgis* /usr/share/postgresql18/contrib/
-COPY --from=postgis-pg18 --link /usr/share/postgresql18/extension/postgis* /usr/share/postgresql18/extension/
-
-# -----------------------------------------
-# Extension Timescale
-# -----------------------------------------
-# Both PostgreSQL versions get the same TimescaleDB release, pg_upgrade requires that
-COPY --from=timescale-pg17 --link /usr/local/lib/postgresql/timescaledb*.so /usr/lib/postgresql17/
-COPY --from=timescale-pg17 --link /usr/local/share/postgresql/extension/timescaledb* /usr/share/postgresql17/extension/
-COPY --from=timescale-pg18 --link /usr/local/lib/postgresql/timescaledb*.so /usr/lib/postgresql18/
-COPY --from=timescale-pg18 --link /usr/local/share/postgresql/extension/timescaledb* /usr/share/postgresql18/extension/
+COPY --from=postgis-pg18 --link /usr/lib/postgresql18/postgis* /usr/local/lib/postgresql/
+COPY --from=postgis-pg18 --link /usr/lib/postgresql18/bitcode/postgis-3/* /usr/local/lib/postgresql/bitcode/postgis-3/
+COPY --from=postgis-pg18 --link /usr/lib/postgresql18/bitcode/postgis_raster-3/* /usr/local/lib/postgresql/bitcode/postgis_raster-3/
+COPY --from=postgis-pg18 --link /usr/share/postgresql18/contrib/postgis* /usr/local/share/postgresql/contrib/
+COPY --from=postgis-pg18 --link /usr/share/postgresql18/extension/postgis* /usr/local/share/postgresql/extension/
 
 # --------------------------------------------
 # Extension pgAgent
 # --------------------------------------------
-COPY --from=pgagent-pg17 --link /usr/share/postgresql17/extension/pgagent* /usr/share/postgresql17/extension/
-COPY --from=pgagent-pg18 --link /usr/share/postgresql18/extension/pgagent* /usr/share/postgresql18/extension/
+COPY --from=pgagent-pg17 --link /usr/share/postgresql17/extension/pgagent* /opt/postgresql17/share/postgresql/extension/
+COPY --from=pgagent-pg18 --link /usr/share/postgresql18/extension/pgagent* /usr/local/share/postgresql/extension/
 
 # The pgAgent daemon itself runs against the new version
 COPY --from=pgagent-pg18 --link /usr/local/share/pgagent.sql /usr/local/share/
@@ -200,10 +207,10 @@ RUN --mount=type=cache,id=apk-${TARGETARCH}-${TARGETVARIANT},sharing=locked,targ
 # --------------------------------------
 # Extension Timescaledb-Toolkit
 # --------------------------------------
-COPY --from=timescaledb-toolkit-pg17 --link /usr/lib/postgresql17/timescaledb_toolkit* /usr/lib/postgresql17/
-COPY --from=timescaledb-toolkit-pg17 --link /usr/share/postgresql17/extension/timescaledb_toolkit* /usr/share/postgresql17/extension/
-COPY --from=timescaledb-toolkit-pg18 --link /usr/lib/postgresql18/timescaledb_toolkit* /usr/lib/postgresql18/
-COPY --from=timescaledb-toolkit-pg18 --link /usr/share/postgresql18/extension/timescaledb_toolkit* /usr/share/postgresql18/extension/
+COPY --from=timescaledb-toolkit-pg17 --link /usr/lib/postgresql17/timescaledb_toolkit* /opt/postgresql17/lib/postgresql/
+COPY --from=timescaledb-toolkit-pg17 --link /usr/share/postgresql17/extension/timescaledb_toolkit* /opt/postgresql17/share/postgresql/extension/
+COPY --from=timescaledb-toolkit-pg18 --link /usr/lib/postgresql18/timescaledb_toolkit* /usr/local/lib/postgresql/
+COPY --from=timescaledb-toolkit-pg18 --link /usr/share/postgresql18/extension/timescaledb_toolkit* /usr/local/share/postgresql/extension/
 
 # Add compatibility libraries for timescaledb toolkit
 # hadolint ignore=DL3018
@@ -215,34 +222,34 @@ RUN --mount=type=cache,id=apk-${TARGETARCH}-${TARGETVARIANT},sharing=locked,targ
 # --------------------------------------------
 # Extension System-Stat
 # --------------------------------------------
-COPY --from=system-stat-pg17 --link /usr/lib/postgresql17/system_stats*.so /usr/lib/postgresql17/
-COPY --from=system-stat-pg17 --link /usr/share/postgresql17/extension/system_stats* /usr/share/postgresql17/extension/
-COPY --from=system-stat-pg18 --link /usr/lib/postgresql18/system_stats*.so /usr/lib/postgresql18/
-COPY --from=system-stat-pg18 --link /usr/share/postgresql18/extension/system_stats* /usr/share/postgresql18/extension/
+COPY --from=system-stat-pg17 --link /usr/lib/postgresql17/system_stats*.so /opt/postgresql17/lib/postgresql/
+COPY --from=system-stat-pg17 --link /usr/share/postgresql17/extension/system_stats* /opt/postgresql17/share/postgresql/extension/
+COPY --from=system-stat-pg18 --link /usr/lib/postgresql18/system_stats*.so /usr/local/lib/postgresql/
+COPY --from=system-stat-pg18 --link /usr/share/postgresql18/extension/system_stats* /usr/local/share/postgresql/extension/
 
 # --------------------------------------------
 # Extension pgVector
 # --------------------------------------------
-COPY --from=pgvector-pg17 --link /usr/lib/postgresql17/vector*.so /usr/lib/postgresql17/
-COPY --from=pgvector-pg17 --link /usr/share/postgresql17/extension/vector* /usr/share/postgresql17/extension/
-COPY --from=pgvector-pg18 --link /usr/lib/postgresql18/vector*.so /usr/lib/postgresql18/
-COPY --from=pgvector-pg18 --link /usr/share/postgresql18/extension/vector* /usr/share/postgresql18/extension/
+COPY --from=pgvector-pg17 --link /usr/lib/postgresql17/vector*.so /opt/postgresql17/lib/postgresql/
+COPY --from=pgvector-pg17 --link /usr/share/postgresql17/extension/vector* /opt/postgresql17/share/postgresql/extension/
+COPY --from=pgvector-pg18 --link /usr/lib/postgresql18/vector*.so /usr/local/lib/postgresql/
+COPY --from=pgvector-pg18 --link /usr/share/postgresql18/extension/vector* /usr/local/share/postgresql/extension/
 
 # --------------------------------------------
 # Extension pg_cron
 # --------------------------------------------
-COPY --from=pg-cron-pg17 --link /usr/lib/postgresql17/pg_cron*.so /usr/lib/postgresql17/
-COPY --from=pg-cron-pg17 --link /usr/share/postgresql17/extension/pg_cron* /usr/share/postgresql17/extension/
-COPY --from=pg-cron-pg18 --link /usr/lib/postgresql18/pg_cron*.so /usr/lib/postgresql18/
-COPY --from=pg-cron-pg18 --link /usr/share/postgresql18/extension/pg_cron* /usr/share/postgresql18/extension/
+COPY --from=pg-cron-pg17 --link /usr/lib/postgresql17/pg_cron*.so /opt/postgresql17/lib/postgresql/
+COPY --from=pg-cron-pg17 --link /usr/share/postgresql17/extension/pg_cron* /opt/postgresql17/share/postgresql/extension/
+COPY --from=pg-cron-pg18 --link /usr/lib/postgresql18/pg_cron*.so /usr/local/lib/postgresql/
+COPY --from=pg-cron-pg18 --link /usr/share/postgresql18/extension/pg_cron* /usr/local/share/postgresql/extension/
 
 # --------------------------------------------
 # Extension VectorChord (vchord, for Immich; loaded only with the vectorchord option)
 # --------------------------------------------
-COPY --from=vectorchord-pg17 --link /usr/lib/postgresql17/vchord.so /usr/lib/postgresql17/
-COPY --from=vectorchord-pg17 --link /usr/share/postgresql17/extension/vchord* /usr/share/postgresql17/extension/
-COPY --from=vectorchord-pg18 --link /usr/lib/postgresql18/vchord.so /usr/lib/postgresql18/
-COPY --from=vectorchord-pg18 --link /usr/share/postgresql18/extension/vchord* /usr/share/postgresql18/extension/
+COPY --from=vectorchord-pg17 --link /usr/lib/postgresql17/vchord.so /opt/postgresql17/lib/postgresql/
+COPY --from=vectorchord-pg17 --link /usr/share/postgresql17/extension/vchord* /opt/postgresql17/share/postgresql/extension/
+COPY --from=vectorchord-pg18 --link /usr/lib/postgresql18/vchord.so /usr/local/lib/postgresql/
+COPY --from=vectorchord-pg18 --link /usr/share/postgresql18/extension/vchord* /usr/local/share/postgresql/extension/
 
 # --------------------------------------
 # TimescaleDB tools (TIMESCALEDB_TOOLS_VERSION)
@@ -284,7 +291,12 @@ RUN chmod +x \
         /package/admin/s6-overlay/etc/s6-rc/scripts/base-addon-banner \
         /usr/share/timescaledb/backup_pre.sh \
         /usr/share/timescaledb/backup_post.sh \
-        /usr/share/timescaledb/restore_from_backup.sh
+        /usr/share/timescaledb/restore_from_backup.sh \
+        /usr/share/timescaledb/check_image.sh
+
+# The build stops here when PostgreSQL, an extension or a TimescaleDB background job
+# doesn't work in this image, or PostgreSQL 17 can't be upgraded to 18
+RUN /usr/share/timescaledb/check_image.sh
 
 WORKDIR /
 
