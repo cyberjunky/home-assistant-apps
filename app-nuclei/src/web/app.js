@@ -345,7 +345,7 @@ async function openIssue(id, nav) {
       <div><span>First found</span><b>${fmtTime(i.first_seen)}</b></div><div><span>Last seen</span><b>${fmtTime(i.last_seen)}</b></div></div>
     ${i.description ? `<div class="section"><h4>What it is</h4><div>${esc(i.description)}</div></div>` : ''}
     ${i.remediation ? `<div class="section"><h4>What to do</h4><div>${esc(i.remediation)}</div></div>` : ''}
-    ${i.proof ? `<div class="section"><h4>Proof</h4><pre>${esc(i.proof)}</pre></div>` : ''}
+    ${i.proof ? `<div class="section"><h4>Proof</h4><div class="copy-wrap"><pre>${esc(i.proof)}</pre><button class="copy-btn" id="i-copy" title="Copy" aria-label="Copy proof"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg></button></div></div>` : ''}
     <div class="section"><h4>Check</h4><div class="mono small">${esc(i.template_id || '')}${i.matched_at ? ' · ' + esc(i.matched_at) : ''}</div></div>
     ${refs.length ? `<div class="section"><h4>References</h4>${refs.slice(0, 6).map(r => `<div class="small"><a href="${esc(r)}" target="_blank" rel="noopener noreferrer">${esc(r)}</a></div>`).join('')}</div>` : ''}
     <div class="row" style="margin-top:18px">
@@ -357,10 +357,23 @@ async function openIssue(id, nav) {
       <button class="btn" data-close>Close</button></div>`);
   const ack = document.getElementById('i-ack'); if (ack) ack.onclick = () => setIssue(i.id, 'acknowledged', true);
   const reopen = document.getElementById('i-open'); if (reopen) reopen.onclick = () => setIssue(i.id, 'open', true);
+  const copy = document.getElementById('i-copy'); if (copy) copy.onclick = async () => { const ok = await copyText(i.proof); toast(ok ? 'Copied' : 'Could not copy', !ok); };
   const back = document.getElementById('i-back'); if (back) back.onclick = () => issueNav.back();
   const go = step => { const n = issueNav.ids[pos + step]; if (n != null) openIssue(n, issueNav); };
   const prev = document.getElementById('i-prev'); if (prev) prev.onclick = () => go(-1);
   const next = document.getElementById('i-next'); if (next) next.onclick = () => go(1);
+}
+
+// The clipboard API needs https; Home Assistant on plain http falls back to a hidden textarea.
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch (e) { /* fall through */ }
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+  document.body.appendChild(ta); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { /* not allowed */ }
+  ta.remove();
+  return ok;
 }
 
 // ---- devices ----
