@@ -28,6 +28,7 @@ log_level: info
 - **Network map**: the drawing. See below.
 - **Devices**: every device in a table, to filter, search, sort and edit. Click one to edit it; tick several to give them one kind, network or connection.
 - **Networks**: your networks and VLANs. A device is in the network of its IP address unless you pick another for it. The app suggests a network for every private /24 subnet it sees, with a guess of what it is for (IoT, cameras, servers, guests). A subnet's grid shows every address: online, away, free, or used by two devices at once.
+- **Traffic**: what flows now through the internet connection and the switch ports that are measured. See below.
 - **Mobile**: the phones with the Home Assistant app. See below.
 - **Stats**: who drops off the network, how often and when, from a day to a year: drops per day, availability, timelines, the week as a heatmap, the longest time away, the network gear's availability and every coming and going.
 
@@ -73,12 +74,27 @@ Drag a device from the list on the left onto a page, or double-click it. The sha
 - **FRITZ!Box** (the [FRITZ!Box Tools](https://www.home-assistant.io/integrations/fritz/) integration, with *network device tracking* on): the FRITZ! device a client is on (the box, or a FRITZ!Repeater), by cable or Wi-Fi. The FRITZ!Box names the box or repeater by the name it has in its home network (often `fritz.box`, but you can change it). The app finds it on the map by that name (a tracker or device in any integration, arp-scan too), by the address you added it to the FRITZ!Box integration with, by the name's address in DNS (the FRITZ!Box answers for its own names), or, when one name and one FRITZ! device are left, by elimination. Add the repeaters to the FRITZ!Box integration as well: they then have a device with their MAC and address to be found by.
 
   **Already tracking with another integration** (arp-scan, Nmap)? Then every device gets a second tracker from the FRITZ!Box. Hide those instead of disabling them: **Settings → Devices & services → Entities**, filter on the FRITZ!Box integration and *device_tracker*, select them all, **Hide**. A hidden tracker stays out of your dashboards but keeps its state, so this app still reads which FRITZ! device a client is on; a disabled one has no state. Trackers with the same MAC address are one device in this app either way. New devices get a new, visible FRITZ!Box tracker: hide those now and then.
+- **NETGEAR Plus switches** (GS105E, GS108E, GS305E and the like, with the [NETGEAR Plus](https://github.com/ckarrie/ha-netgear-plus) integration from HACS): the details of the switch show its ports, which have a link and at what speed. These switches keep no list of the devices on their ports, so the app cannot tell what is plugged into which port: draw those cables yourself. The switch needs a tracker of its own (from your router, arp-scan or Nmap) with the address you added it to the integration by, and that address has to be an IP address, not a name.
 - **Any integration** that has an entity per switch port listing the devices on it: `connected` (their MAC addresses) with `switch_mac` and `port`, or for an access point `connected` with `ap_mac` and `interface`.
 - **Any integration** that puts these attributes on its device trackers: `sw_mac` (the switch's MAC address) with `sw_port` (the port, as you want it on the cable), or `ap_mac` (the access point's MAC address) for a Wi-Fi client. The switch or access point needs a tracker of its own with that MAC. These are the names UniFi uses; your own integration for MikroTik or another switch only has to fill them in.
 - Home Assistant's *connected through* (`via_device`) of a device.
 - What you set yourself under **Connected to** and **Port or socket** on a device. That always comes first.
 
 The app doesn't log in to your switches or router itself: logins stay with Home Assistant's integrations.
+
+## Traffic
+
+The **Traffic** page shows what flows now, along the cables the app knows of: the devices as a tree from the internet down, a line per link that is wider with more traffic, and the busiest links in a table. It reads again every 5 seconds.
+
+A link is measured when Home Assistant has the numbers for it:
+
+- **The internet connection**: from your router, as on the Dashboard (UPnP or TR-064, a FRITZ!Box and most others).
+- **MikroTik switch ports**: the [MikroTik Network](https://github.com/cyberjunky/home-assistant-mikrotik) integration has a *received* and a *sent* sensor per port. They are off by default: turn on the ones you want under the MikroTik's entities in Home Assistant.
+- **NETGEAR Plus switch ports**: the [NETGEAR Plus](https://github.com/ckarrie/ha-netgear-plus) integration has them for every port.
+
+The traffic of a port belongs to what is plugged into it. One device on a port: that is the device's traffic. Several devices on one port (behind a switch the app does not know of): they are shown together under that port. A port with a link where no device is known (every port of a NETGEAR Plus switch) is shown as the port itself. A device without a measured port is left out; the tile on top counts them. The details of a switch show the traffic of its ports too.
+
+What it cannot show: which device talks to which. No integration here tells that; a line is what goes through one cable, to and from everything behind it. A FRITZ!Box tells its internet traffic, not the traffic per device.
 
 ## A device
 

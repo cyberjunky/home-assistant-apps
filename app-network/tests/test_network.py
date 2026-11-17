@@ -9,7 +9,20 @@ from aiohttp.test_utils import TestClient, TestServer
 from src import ha_client
 from src.config import Config
 from src.history import History, host_events, host_stats, merge, online_series, up_intervals
-from src.inventory import Inventory, behind_bridges, build_hosts, fritz_nodes, is_up, on_fritz_wifi, port_entity
+from src.inventory import (
+    Inventory,
+    behind_bridges,
+    build_hosts,
+    fritz_nodes,
+    is_up,
+    mikrotik_roles,
+    netgear_ports,
+    netgear_rates,
+    netgear_roles,
+    on_fritz_wifi,
+    port_entity,
+    rate_of,
+)
 from src.kinds import KINDS, guess_kind, is_random_mac, mac_vendor, normalize_mac
 from src.mobile import distance, habits, haversine, mismatch, segments, summary, trips
 from src.store import Conflict, Store, clean, empty_doc
@@ -327,6 +340,111 @@ def test_a_port_that_lists_its_devices():
     assert (
         port_entity({"entity_id": "sensor.x", "state": "1", "attributes": {"connected": [], "port": "ether1"}}) is None
     )
+
+
+def test_netgear_plus_ports_from_its_entities():
+    def entry(entity_id, key, platform="netgear_plus", **more):
+        return {"entity_id": entity_id, "platform": platform, "unique_id": f"gs105ev2_192_168_2_9-{key}-0", **more}
+
+    roles = netgear_roles(
+        [
+            entry("sensor.sw_ip", "switch_ip"),
+            entry("binary_sensor.sw_p1", "port_1_status"),
+            entry("sensor.sw_p1_speed", "port_1_connection_speed"),
+            entry("binary_sensor.sw_p2", "port_2_status"),
+            entry("sensor.sw_p2_speed", "port_2_connection_speed"),
+            entry("binary_sensor.sw_p3", "port_3_status", disabled_by="user"),
+            entry("sensor.sw_p1_rx", "port_1_sum_rx_mbytes"),  # traffic: not read
+            entry("binary_sensor.other", "port_1_status", platform="other"),
+        ]
+    )
+    assert roles["binary_sensor.sw_p1"] == ("gs105ev2_192_168_2_9", "1", "status")
+    assert roles["sensor.sw_ip"] == ("gs105ev2_192_168_2_9", "", "switch_ip")
+    assert set(roles) == {
+        "sensor.sw_ip", "binary_sensor.sw_p1", "sensor.sw_p1_speed", "binary_sensor.sw_p2", "sensor.sw_p2_speed"
+    }  # fmt: skip
+    states = {
+        "sensor.sw_ip": {"state": "192.168.2.9"},
+        "binary_sensor.sw_p1": {"state": "on"},
+        "sensor.sw_p1_speed": {"state": "1000"},
+        "binary_sensor.sw_p2": {"state": "off"},
+        "sensor.sw_p2_speed": {"state": "0"},
+    }
+    one, two = netgear_ports(roles, states)["192.168.2.9"]
+    assert one["port"] == "1" and one["up"] and one["speed"] == 1_000_000_000 and one["connected"] == []
+    assert two["port"] == "2" and not two["up"] and two["speed"] is None
+    # The switch does not answer: no ports, rather than old ones
+    states["binary_sensor.sw_p1"] = {"state": "unavailable"}
+    assert [p["port"] for p in netgear_ports(roles, states)["192.168.2.9"]] == ["2"]
+    # Without the address it was added by, the ports belong to nothing
+    states.pop("sensor.sw_ip")
+    assert netgear_ports(roles, states) == {}
+
+
+def test_a_rate_in_bytes_per_second_from_any_unit():
+    def sensor(state, unit):
+        return {"state": state, "attributes": {"unit_of_measurement": unit}}
+
+    assert rate_of(sensor("8", "Mbit/s")) == 1_000_000
+    assert rate_of(sensor("2.5", "MB/s")) == 2_500_000
+    assert rate_of(sensor("1", "KiB/s")) == 1024
+    assert rate_of(sensor("16", "bit/s")) == 2
+    # No reading, or a unit that is not a rate
+    assert rate_of(sensor("unavailable", "Mbit/s")) is None
+    assert rate_of(sensor("5", "MB")) is None and rate_of(None) is None
+
+
+def test_traffic_sensors_of_mikrotik_and_netgear_ports():
+    ports = {
+        "binary_sensor.sw_ether1": {"owner": "48:a9:8a:00:00:20", "port": "ether1", "kind": "ethernet"},
+        "binary_sensor.sw_ether10": {"owner": "48:a9:8a:00:00:20", "port": "ether10", "kind": "ethernet"},
+        "sensor.ap_wifi1": {"owner": "48:a9:8a:00:00:21", "port": "wifi1", "kind": "wifi"},
+    }
+
+    def entry(entity_id, unique_id, device_id="sw", **more):
+        return {
+            "entity_id": entity_id,
+            "platform": "mikrotik_network",
+            "unique_id": unique_id,
+            "device_id": device_id,
+            **more,
+        }
+
+    roles = mikrotik_roles(
+        [
+            entry("binary_sensor.sw_ether1", "abc_port_ether1"),
+            entry("binary_sensor.sw_ether10", "abc_port_ether10"),
+            entry("sensor.ap_wifi1", "def_wifi_wifi1", device_id="ap"),
+            entry("sensor.sw_rx_ether1", "abc_rx_ether1"),
+            entry("sensor.sw_tx_ether1", "abc_tx_ether1"),
+            entry("sensor.sw_rx_ether10", "abc_rx_ether10"),
+            entry("sensor.sw_tx_ether10", "abc_tx_ether10", disabled_by="integration"),  # off, as they come
+            entry("sensor.sw_cpu", "abc_cpu"),
+            entry("sensor.other_rx_ether1", "xyz_rx_ether1", device_id="other"),  # a MikroTik without ports here
+        ],
+        ports,
+    )
+    assert roles == {
+        "sensor.sw_rx_ether1": ("48:a9:8a:00:00:20", "ether1", "rx"),
+        "sensor.sw_tx_ether1": ("48:a9:8a:00:00:20", "ether1", "tx"),
+        "sensor.sw_rx_ether10": ("48:a9:8a:00:00:20", "ether10", "rx"),
+    }
+    # NETGEAR Plus: megabytes per second, per port, by the switch's address
+    netgear = netgear_roles(
+        [
+            {"entity_id": f"sensor.ng_{key}", "platform": "netgear_plus", "unique_id": f"gs105ev2_192_168_2_9-{key}-0"}
+            for key in ("switch_ip", "port_2_speed_rx_mbytes", "port_2_speed_tx_mbytes", "port_3_speed_rx_mbytes")
+        ]
+    )
+    states = {
+        "sensor.ng_switch_ip": {"state": "192.168.2.9"},
+        "sensor.ng_port_2_speed_rx_mbytes": {"state": "0.5", "attributes": {"unit_of_measurement": "MB/s"}},
+        "sensor.ng_port_2_speed_tx_mbytes": {"state": "2", "attributes": {"unit_of_measurement": "MB/s"}},
+        "sensor.ng_port_3_speed_rx_mbytes": {"state": "unknown", "attributes": {"unit_of_measurement": "MB/s"}},
+    }
+    assert netgear_rates(netgear, states) == {"192.168.2.9": {"2": {"rx": 500_000, "tx": 2_000_000}}}
+    # The link and speed of the ports are read apart from the traffic
+    assert netgear_ports(netgear, states) == {}
 
 
 def test_devices_get_their_port_from_the_switch():
@@ -857,6 +975,51 @@ async def test_switch_ports_from_home_assistant(app, mock):
         await asyncio.sleep(0.05)
     data = await (await test.get("/api/hosts")).json()
     assert next(h for h in data["hosts"] if h["mac"] == "dc:a6:32:00:01:61")["sw_port"] == "ether7"
+
+
+async def test_netgear_plus_switch_ports(app, mock):
+    test, inventory, _ = app
+    data = await (await test.get("/api/hosts")).json()
+    # The switch is known by the address it was added by; the ports are on the device with that address
+    ports = data["ports"]["28:80:88:00:00:22"]
+    assert [(p["port"], p["up"]) for p in ports] == [("1", True), ("2", True), ("3", True), ("4", False), ("5", False)]
+    assert ports[2]["speed"] == 100_000_000 and all(p["owner"] == "28:80:88:00:00:22" for p in ports)
+    # A cable goes in: live
+    version = inventory.version
+    await mock.set_port("binary_sensor.gs105ev2_port_4_status", "on")
+    for _ in range(50):
+        if inventory.version > version:
+            break
+        await asyncio.sleep(0.05)
+    data = await (await test.get("/api/hosts")).json()
+    assert data["ports"]["28:80:88:00:00:22"][3]["up"]
+
+
+async def test_traffic_api(app, mock):
+    test, inventory, _ = app
+    data = await (await test.get("/api/traffic")).json()
+    by_port = {(t["owner"], t["port"]): t for t in data["ports"]}
+    # MikroTik Network's sensors, in Mbit/s; what goes through the port, as the switch sees it
+    garage = by_port[("48:a9:8a:00:00:20", "ether4")]
+    assert garage["rx"] == pytest.approx(1.4 * 125_000) and garage["tx"] == pytest.approx(12.5 * 125_000)
+    # NETGEAR Plus's, in MB/s, on the device with the switch's address
+    office = by_port[("28:80:88:00:00:22", "1")]
+    assert office["rx"] == pytest.approx(300_000) and office["tx"] == pytest.approx(2_400_000)
+    # No router is read in this test
+    assert data["internet"] is None
+    # The devices' own list has it too, for the ports in a switch's details
+    hosts = await (await test.get("/api/hosts")).json()
+    assert hosts["traffic"] == data["ports"]
+    # A new reading: the next question has it, and nothing is redrawn for it
+    version = inventory.version
+    await mock.set_port("sensor.sw_garage_rx_ether4", "80")
+    for _ in range(50):
+        if inventory.mikrotik_states["sensor.sw_garage_rx_ether4"]["state"] == "80":
+            break
+        await asyncio.sleep(0.05)
+    data = await (await test.get("/api/traffic")).json()
+    assert next(t for t in data["ports"] if t["port"] == "ether4")["rx"] == pytest.approx(10_000_000)
+    assert inventory.version == version
 
 
 async def test_mobile_api(app):

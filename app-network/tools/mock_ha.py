@@ -5,7 +5,8 @@ REST and websocket APIs: the entity, device and area registries, the states and 
 events, renaming (config/entity_registry/update, config/device_registry/update) and the recorder
 history. About fifty trackers from UniFi, Nmap, Ping and the mobile app: infrastructure that stays
 up, phones that come and go, a printer that sleeps, an ESP with bad Wi-Fi that drops all day, a
-guest phone that's new, and a Kindle that hasn't been seen for over a week. The history of the past
+guest phone that's new, and a Kindle that hasn't been seen for over a week. A MikroTik switch and a
+NETGEAR Plus switch with their ports and the traffic through them. The history of the past
 two weeks is the same for every start on the same day.
 """
 
@@ -521,6 +522,8 @@ DEVICES = [
     # PORTS), and two devices only Nmap sees
     ("sw-garage", "192.168.1.20", "48:a9:8a:00:00:20", ["nmap"], "", "", "garage", "always", {}),
     ("cAP ax Garden", "192.168.1.21", "48:a9:8a:00:00:21", ["nmap"], "", "", "garden", "always", {}),
+    # A NETGEAR Plus switch: its integration has an entity per port (NETGEAR_PORTS), no trackers
+    ("sw-office", "192.168.1.22", "28:80:88:00:00:22", ["nmap"], "", "", "", "always", {}),
     ("solar-logger", "192.168.1.60", "24:0a:c4:00:01:60", ["nmap"], "", "", "garage", "always", {}),
     ("garage-pi", "192.168.1.61", "dc:a6:32:00:01:61", ["nmap"], "", "", "garage", "always", {}),
     (
@@ -613,6 +616,86 @@ def _port(port: str, up: bool, connected: list[str], speed: int | None = 1000, *
     }
 
 
+# sw-office as the NETGEAR Plus integration (ha-netgear-plus) makes it: per port a link and a speed
+# entity, told apart by their unique ids, and the address it was added by. (port, link, Mbit/s)
+NETGEAR_SWITCH = "gs105ev2_192_168_1_22"
+NETGEAR_PORTS = [(1, True, 1000), (2, True, 1000), (3, True, 100), (4, False, 0), (5, False, 0)]
+# What goes in and out of its ports, in MB/s as the integration says it: port -> (rx, tx)
+NETGEAR_RATES = {1: (0.3, 2.4), 2: (2.1, 0.2), 3: (0.01, 0.02)}
+# And of sw-garage's, in Mbit/s, from MikroTik Network's traffic sensors: port -> (rx, tx)
+MIKROTIK_RATES = {
+    "ether1-uplink": (48.2, 6.1),
+    "ether2": (0.02, 0.01),
+    "ether3": (0.9, 3.2),
+    "ether4": (1.4, 12.5),
+    "ether6": (2.1, 25.8),
+}
+
+
+def _entry(n: int, entity_id: str, platform: str, device_id: str, unique_id: str) -> dict:
+    return {
+        "entity_id": entity_id,
+        "id": f"{platform}{n:02d}",
+        "platform": platform,
+        "device_id": device_id,
+        "unique_id": unique_id,
+        "name": None,
+        "original_name": None,
+        "has_entity_name": False,
+        "icon": None,
+        "area_id": None,
+        "disabled_by": None,
+        "hidden_by": None,
+        "entity_category": None,
+    }
+
+
+def mikrotik_entities() -> tuple[list[dict], list[dict]]:
+    """The registry entries of sw-garage's port entities (PORTS), and the traffic sensors of its
+    ports with their states: two per port, as MikroTik Network makes them when you turn them on."""
+    entries, states = [], []
+    for p in PORTS:
+        port = p["attributes"].get("port")
+        if not port:
+            continue
+        entries.append(
+            _entry(len(entries), p["entity_id"], "mikrotik_network", "mikrotik_sw_garage", f"sw-garage_port_{port}")
+        )
+        for direction, rate in zip(("rx", "tx"), MIKROTIK_RATES.get(port, (0, 0)), strict=True):
+            entity_id = f"sensor.sw_garage_{direction}_{port.replace('-', '_')}"
+            entries.append(
+                _entry(
+                    len(entries), entity_id, "mikrotik_network", "mikrotik_sw_garage", f"sw-garage_{direction}_{port}"
+                )
+            )
+            states.append({"entity_id": entity_id, "state": str(rate), "attributes": {"unit_of_measurement": "Mbit/s"}})
+    return entries, states
+
+
+def netgear_entities() -> tuple[list[dict], list[dict]]:
+    """The registry entries and the states of sw-office's entities."""
+    made = [("sensor.gs105ev2_ip_address", "switch_ip", "192.168.1.22")]
+    for port, up, speed in NETGEAR_PORTS:
+        made.append((f"binary_sensor.gs105ev2_port_{port}_status", f"port_{port}_status", "on" if up else "off"))
+        made.append((f"sensor.gs105ev2_port_{port}_link_speed", f"port_{port}_connection_speed", str(speed)))
+        rx, tx = NETGEAR_RATES.get(port, (0, 0))
+        made.append((f"sensor.gs105ev2_port_{port}_receiving", f"port_{port}_speed_rx_mbytes", str(rx)))
+        made.append((f"sensor.gs105ev2_port_{port}_sending", f"port_{port}_speed_tx_mbytes", str(tx)))
+    entries = [
+        _entry(n, entity_id, "netgear_plus", "netgear_sw_office", f"{NETGEAR_SWITCH}-{key}-0")
+        for n, (entity_id, key, _) in enumerate(made)
+    ]
+    states = [
+        {
+            "entity_id": entity_id,
+            "state": state,
+            "attributes": {"unit_of_measurement": "MB/s"} if "_speed_" in key else {},
+        }
+        for entity_id, key, state in made
+    ]
+    return entries, states
+
+
 PORTS = [
     _port("ether1-uplink", True, [], seen=34, comment="to the house"),
     _port("ether2", True, ["24:0A:C4:00:01:60"], speed=100),
@@ -673,6 +756,19 @@ class MockHA:
         self.states: dict[str, dict] = {}
         # The switch ports and access point of MikroTik Network (PORTS), by entity
         self.ports: dict[str, dict] = {p["entity_id"]: json.loads(json.dumps(p)) for p in PORTS}
+        # And the port entities of the NETGEAR Plus switch
+        self.port_entries, netgear_states = netgear_entities()
+        self.ports.update({s["entity_id"]: s for s in netgear_states})
+        # And sw-garage's traffic sensors
+        mikrotik_entries, mikrotik_states = mikrotik_entities()
+        self.port_entries += mikrotik_entries
+        self.ports.update({s["entity_id"]: s for s in mikrotik_states})
+        # The traffic as it was made: _simulate moves around it
+        self.rates = {
+            entity_id: float(s["state"])
+            for entity_id, s in self.ports.items()
+            if (s.get("attributes") or {}).get("unit_of_measurement") in ("Mbit/s", "MB/s")
+        }
         self.profiles: dict[str, str] = {}
         self.history: dict[str, list[tuple[float, str]]] = {}
         # Phones: (ts, state, lat, lon, accuracy, battery), from two weeks ago to tomorrow
@@ -952,6 +1048,10 @@ class MockHA:
         while True:
             await asyncio.sleep(TICK_SECONDS)
             now = datetime.now(UTC).timestamp()
+            # The traffic through the ports moves a little with every reading
+            for entity_id, rate in self.rates.items():
+                if rate:
+                    await self.set_port(entity_id, f"{rate * self.rng.uniform(0.6, 1.5):.2f}")
             for entity_id, profile in self.profiles.items():
                 if profile == "gps":
                     p = self._point_at(entity_id, now)
@@ -1139,7 +1239,7 @@ class MockHA:
             ]
             await result(list(self.states.values()) + zones + list(self.ports.values()))
         elif kind == "config/entity_registry/list":
-            await result(list(self.entities.values()))
+            await result(list(self.entities.values()) + self.port_entries)
         elif kind == "config/device_registry/list":
             await result(list(self.devices.values()))
         elif kind == "config/area_registry/list":

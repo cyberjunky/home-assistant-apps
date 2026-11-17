@@ -5,7 +5,7 @@ const LS = 'network_';
 
 // What the server told us. status: /api/status; hosts and kinds: /api/hosts; doc: the maps, the hosts'
 // settings and the networks (/api/doc); stats: /api/stats per number of days
-const app = {status: null, hosts: [], kinds: {}, doc: null, stats: {}, ports: {}};
+const app = {status: null, hosts: [], kinds: {}, doc: null, stats: {}, ports: {}, traffic: []};
 
 async function api(path) {
     const response = await fetch('api/' + path);
@@ -188,7 +188,7 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', app
 // onTab(name, show(sub, changed), live()): show when the tab opens or its sub changes,
 // live after every new status (every few seconds) and new configuration.
 // =====================================================================
-const TABS = ['overview', 'map', 'devices', 'networks', 'mobile', 'stats', 'info'];
+const TABS = ['overview', 'map', 'devices', 'networks', 'traffic', 'mobile', 'stats', 'info'];
 const tabHooks = {};
 const liveHooks = {};
 let activeTab = null;
@@ -535,6 +535,7 @@ async function loadHosts() {
     app.hosts = data.hosts;
     app.kinds = data.kinds;
     app.ports = data.ports || {};
+    app.traffic = data.traffic || [];
     app.zones = data.zones || [];
     hostIndex = new Map(app.hosts.map(h => [h.key, h]));
 }

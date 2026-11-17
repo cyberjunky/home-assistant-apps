@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.12
+
+- **Traffic page:** a new page draws your devices as a tree from the internet down, with one line per measured link that gets wider with more traffic, and a table of the busiest links. It re-reads every 5 seconds. The internet's traffic comes from your router, a port's traffic from the MikroTik Network and NETGEAR Plus integrations. It shows traffic per cable, not which device talks to which.
+- **NETGEAR Plus switches:** the ports of a switch from the NETGEAR Plus integration show in its details, with link and speed. The switch can't say which device is on a port, so those cables you still draw yourself.
+- **Traffic per port:** a switch's details show what goes in and out of each port, for MikroTik and NETGEAR Plus switches. For a MikroTik, enable the *received* and *sent* sensors of a port in Home Assistant first; they are off by default.
+
 ## 0.1.11
 
 - **Phone battery from its sensor:** the Companion app reports a phone's battery as a sensor of the phone (`sensor.<phone>_battery_level`), not on its device tracker, so the Mobile page said "The app doesn't report the battery". A tracker without a battery level of its own now uses the battery sensor of its device: the level in the list and the tile, live, and the battery chart from the sensor's history.

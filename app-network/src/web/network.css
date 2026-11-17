@@ -312,7 +312,8 @@ button.nitem:hover, button.nitem:focus-visible { background: var(--hover-bg); ou
 .sp-port.uplink { outline: 2px solid var(--primary-color); outline-offset: 1px; }
 .sp-port.off { border-style: dashed; opacity: 0.55; }
 .sp-list { display: flex; flex-direction: column; gap: 3px; margin-bottom: 6px; }
-.sp-row { display: grid; grid-template-columns: minmax(70px, max-content) 1fr; gap: 10px; font-size: 12.5px; align-items: baseline; }
+.sp-row { display: grid; grid-template-columns: minmax(70px, max-content) 1fr auto; gap: 10px; font-size: 12.5px; align-items: baseline; }
+.sp-row .sp-flow { white-space: nowrap; }
 .sp-row .mono { color: var(--secondary-text-color); font-size: 11.5px; }
 
 /* An address the router answers for on behalf of a VPN connection */
@@ -325,3 +326,28 @@ button.nitem:hover, button.nitem:focus-visible { background: var(--hover-bg); ou
 
 /* The unit of a chart's axis, above its numbers */
 .axis-unit { font-weight: 600; }
+
+/* Traffic: the tree of what hangs from what, a line per link, wider with more traffic */
+.tf-scroll { overflow-x: auto; padding-bottom: 4px; }
+.tf-diagram { position: relative; min-width: 100%; }
+.tf-diagram > svg { position: absolute; left: 0; top: 0; overflow: visible; }
+.tf-line { fill: none; stroke: var(--series-1); stroke-opacity: 0.38; stroke-linecap: round; }
+.tf-line.none { stroke: var(--idle); stroke-opacity: 0.7; stroke-width: 1.5; stroke-dasharray: 4 5; }
+.tf-flow { fill: none; stroke: var(--series-1); stroke-linecap: round; stroke-dasharray: 2 22; animation: tf-flow 1.2s linear infinite; pointer-events: none; }
+.tf-flow.back { animation-direction: reverse; }
+@keyframes tf-flow { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .tf-flow { animation: none; } }
+.tf-node { position: absolute; display: flex; align-items: center; gap: 8px; padding: 0 9px; box-sizing: border-box;
+    background: var(--ha-card-background); border: var(--card-border); border-radius: 8px; }
+.tf-node.none { border-style: dashed; }
+.tf-node.away { opacity: 0.55; }
+.tf-text { min-width: 0; flex: 1; line-height: 1.25; }
+.tf-name { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tf-name .muted { font-weight: 400; }
+.tf-sub { font-size: 11px; color: var(--secondary-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tf-down { color: var(--series-1); } .tf-up { color: var(--series-3); }
+.legend i.tf-legend-none { background: none; border-top: 2px dashed var(--idle); height: 0; }
+.tf-notes { font-size: 12.5px; line-height: 1.6; color: var(--secondary-text-color); max-width: 900px; }
+.tf-notes b { color: var(--primary-text-color); }
+.tf-bar { display: block; width: 120px; height: 6px; border-radius: 3px; background: var(--grid-color); overflow: hidden; }
+.tf-bar i { display: block; height: 100%; border-radius: 3px; background: var(--series-1); }
