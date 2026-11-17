@@ -33,6 +33,8 @@ FORWARDS_MAX = 100_000
 RECENT_KEPT = 60
 BACKUPS_KEPT = 20
 TIMEOUT = aiohttp.ClientTimeout(total=45, connect=10)
+# Polls that may fail in a row before the service counts as not answering
+MISSES_ALLOWED = 2
 
 
 class LndError(Exception):
@@ -114,6 +116,7 @@ class LndClient:
         self._names: dict[str, str] = {}
         self._channel_state: dict[str, bool] | None = None
         self._ever_connected = False
+        self._misses = 0
         self._load_backup()
 
     # ------------------------------------------------------------------ REST
@@ -136,7 +139,7 @@ class LndClient:
         except aiohttp.ClientConnectorCertificateError as e:
             raise LndError(f"the certificate of {self.config.lnd_url} is not the one in tls_cert: {e}") from e
         except (aiohttp.ClientError, TimeoutError) as e:
-            raise LndError(f"no answer from {self.config.lnd_url}: {e or type(e).__name__}") from e
+            raise LndError(f"no answer from {self.config.lnd_url}: {str(e) or type(e).__name__}") from e
         if status == 200 and isinstance(answer, dict):
             return answer
         message = (answer or {}).get("message") or (answer or {}).get("error") or f"HTTP {status}"
@@ -188,6 +191,15 @@ class LndClient:
                 await asyncio.sleep(self.config.poll_seconds)
 
     def _set_link(self, connected: bool, error: str) -> None:
+        if connected:
+            self._misses = 0
+        elif self.connected:
+            # A busy node answers late now and then: one missed poll is not an outage.
+            # What was read last stays on the pages until MISSES_ALLOWED polls in a row failed
+            self._misses += 1
+            if self._misses <= MISSES_ALLOWED:
+                logger.debug(f"LND: missed a poll ({self._misses}): {error}")
+                return
         if connected and not self.connected:
             logger.info(f"LND {self.version} answers as {self.info.get('alias', '')!r}")
             if self._ever_connected:

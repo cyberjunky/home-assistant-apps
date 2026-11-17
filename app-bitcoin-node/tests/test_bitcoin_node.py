@@ -389,3 +389,33 @@ async def test_the_start_of_the_sync_is_remembered(tmp_path):
     assert client.sync_started is None and database.state("sync_started") is None
     assert bitcoin.duration_text(3720) == "1 hour 2 minutes" and bitcoin.duration_text(60) == "1 minute"
     database.close()
+
+
+def test_one_missed_poll_is_not_an_outage(tmp_path):
+    """A busy node answers late now and then. Only several failed polls in a row count, and are told once."""
+    events = []
+    database = Database(tmp_path / "app.db")
+    node = Node(Config.from_options(OPTIONS), database, tmp_path)
+    node.listeners.append(lambda event, extra: events.append(event["text"]))
+    for client in (node.bitcoin, node.lightning, node.tor):
+        client._set_link(False, "starting up")
+        assert not client.connected and client.error == "starting up"  # never reached: told at once
+        client._set_link(True, "")
+        client._set_link(False, "TimeoutError")
+        client._set_link(False, "TimeoutError")
+        assert client.connected and client.error == ""
+        client._set_link(True, "")
+        client._set_link(False, "TimeoutError")
+        client._set_link(False, "TimeoutError")
+        assert client.connected  # the count starts again after an answer
+        client._set_link(False, "TimeoutError")
+        assert not client.connected and client.error == "TimeoutError"
+        client._set_link(True, "")
+    assert [text.split(":")[0] for text in events] == [
+        "Bitcoin Core does not answer",
+        "Bitcoin Core answers again",
+        "LND does not answer",
+        "LND answers again",
+        "Tor's control port does not answer",
+    ]
+    database.close()
