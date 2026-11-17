@@ -97,10 +97,11 @@ for version in 17 18; do
 	echo "check_image: PostgreSQL ${version}: background job succeeded, ${compressed} chunks compressed"
 
 	if [[ "${version}" == "18" ]]; then
-		# pg_upgrade wants an empty new database
+		# pg_upgrade wants an empty new database, with data checksums as in the old one
+		# (off, PostgreSQL 17's default; the app's upgrade takes the old database's setting)
 		stopServer 18
 		rm -rf "${data}"
-		asPostgres "${bin}/initdb -U postgres -D ${data}" > "${WORK}/initdb${version}.log" 2>&1 \
+		asPostgres "${bin}/initdb -U postgres --no-data-checksums -D ${data}" > "${WORK}/initdb${version}.log" 2>&1 \
 			|| fail "initdb of PostgreSQL ${version} failed"
 		echo "shared_preload_libraries = '${PRELOAD}'" >> "${data}/postgresql.conf"
 	else
