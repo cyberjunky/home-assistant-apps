@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.2
+
+**After updating:** nothing to do.
+
+- **Connections chart starts at 0:** the *Connections* chart on the Activity page zoomed in on the lowest and highest count, so going from 5 to 4 connections looked like a collapse. Its axis now starts at 0.
+- **Without its own count:** the query that counts the connections no longer counts its own connection.
+
 ## 0.2.1
 
 **After updating:** nothing to do.

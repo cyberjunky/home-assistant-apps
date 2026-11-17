@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3
+
+**After updating:** nothing to do.
+
+- **Says it is unofficial:** the store description and the documentation say this app is an independent project, not affiliated with, endorsed by or sponsored by the Freqtrade project. The documentation gets a disclaimer.
+
 ## 0.1.2
 
 **After updating:** nothing to do.

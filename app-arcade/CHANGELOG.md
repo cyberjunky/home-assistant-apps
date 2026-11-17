@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.4
+
+**After updating:** nothing to do.
+
+- **Changes only through Home Assistant:** a request that changes something is refused unless it comes through Home Assistant's ingress, so other apps on Home Assistant's network can't upload, rename or delete ROMs or saves. Reading is unchanged.
+- **Start-up in the current s6-overlay layout:** the app's services are defined the way Home Assistant's base images expect now. They start and stop as before.
+- The folders the app uses are declared in Home Assistant's current form. The same folders, read-write where they were.
+- The README's links work inside Home Assistant.
+
 ## 0.6.3
 
 **After updating:** nothing to do.
