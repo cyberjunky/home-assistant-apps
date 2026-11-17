@@ -15,6 +15,19 @@ const hintSpan = id => `<span class="hint" id="${id}"></span>`;
 function statLine(id, s, fmt) {
     fill(id, missing(s.last) ? '' : `<span>now <b>${fmt(s.last)}</b></span><span>low <b>${fmt(s.min)}</b></span><span>average <b>${fmt(s.avg)}</b></span><span>high <b>${fmt(s.max)}</b></span>`);
 }
+// Sent and received each on a line of their own, with what went over the line in the chosen period.
+// The total counts every stored point as one step, so a gap in the history adds nothing.
+function trafficStats(id, h, sentKey, recvKey) {
+    const steps = h.ts.slice(1).map((t, i) => t - h.ts[i]).filter(d => d > 0);
+    const step = steps.length ? Math.min(...steps) : 0;
+    const line = (name, values) => {
+        const s = stats(values);
+        if (missing(s.last)) return '';
+        const total = values.reduce((sum, v) => sum + (missing(v) ? 0 : v), 0) * step * 1000;
+        return `<div class="chart-stats"><span>${name}</span><span>now <b>${fmtRate(s.last)}</b></span><span>low <b>${fmtRate(s.min)}</b></span><span>average <b>${fmtRate(s.avg)}</b></span><span>high <b>${fmtRate(s.max)}</b></span><span>total <b>${fmtBytes(total)}</b></span></div>`;
+    };
+    fill(id, line('sent', h[sentKey]) + line('received', h[recvKey]));
+}
 const FEE_SERIES = [
     {key: 'fee_next', name: 'next block', color: color('series-2')},
     {key: 'fee_hour', name: 'within 1 hour', color: color('series-1')},
@@ -67,8 +80,8 @@ onTab('overview', async () => {
             tile('Next block fee', feeHtml(m.fees.next), `1 hour ${escapeHtml(feeRate(m.fees.hour))} · 1 day ${escapeHtml(feeRate(m.fees.day))}`),
         ] : [
             // While the chain syncs the newest block is years old: its age, the mempool and the fees say nothing yet
-            tile('Syncing', escapeHtml(plainPct(n.progress, 2)), n.last_block_time ? `now at blocks of ${escapeHtml(fmtDate(n.last_block_time))}` : 'reading the block headers', 'warn'),
-            tile('Block height', num(n.blocks), `of ${num(n.headers)} known`),
+            tile('Syncing', escapeHtml(plainPct(n.progress, 2)), n.last_block_time ? `at ${escapeHtml(new Date(n.last_block_time * 1000).toLocaleDateString([], {month: 'long', year: 'numeric'}))}` : 'reading the block headers', 'warn'),
+            tile('Block height', num(n.blocks), `of ${num(n.headers)} known${n.sync_started ? ` · sync started ${escapeHtml(fmtAgo(n.sync_started))}` : ''}`),
             tile('Chain on disk', escapeHtml(fmtBytes(n.size_on_disk, 1)), n.pruned ? 'pruned' : 'grows to the full chain'),
         ]),
         tile('Peers', num(s.net.peers), `${num(s.net.in)} in · ${num(s.net.out)} out${Object.keys(s.net.peer_networks).join() === 'onion' ? ' · all onion' : ''}`),
@@ -133,7 +146,7 @@ onTab('overview', async () => {
     const key = historyKey(h);
     drawOnce('ov-fees', key, () => historyChart('ov-fees', h, FEE_SERIES, v => `${feeRate(v)} sat/vB`, {height: 200}));
     drawOnce('ov-mempool', key, () => historyChart('ov-mempool', h, [{key: 'mempool_vsize', name: 'virtual size', color: color('series-4'), area: true}], v => `${num(v, 1)} MB`, {height: 250, hlines: [{at: 1, label: 'one block'}]}));
-    drawOnce('ov-traffic', key, () => historyChart('ov-traffic', h, TRAFFIC_SERIES, fmtRate));
+    drawOnce('ov-traffic', key, () => historyChart('ov-traffic', h, TRAFFIC_SERIES, fmtRate, RATE_AXIS));
 });
 
 // =====================================================================
@@ -203,6 +216,7 @@ onTab('node', async () => {
         infoRow('Best block', `<span title="${escapeHtml(n.best_hash)}">${escapeHtml(shorten(n.best_hash, 24, 12))}</span>`),
         infoRow('Headers', num(n.headers)),
         infoRow('Verification progress', escapeHtml(plainPct(n.progress, 4))),
+        ...(n.sync_started ? [infoRow('Sync started', `${escapeHtml(fmtDateTime(n.sync_started))} · ${escapeHtml(fmtAgo(n.sync_started))}`)] : []),
         infoRow('Pruned', n.pruned ? 'yes' : 'no, the full chain is kept'),
         infoRow('Transaction index', n.txindex ? 'ready' : 'off or still building'),
         infoRow('Version', escapeHtml(n.subversion)),
@@ -378,9 +392,9 @@ onTab('peers', async () => {
     fill('pr-range-text', rangeLabel());
     fill('pr-traffic-legend', legendHtml(TRAFFIC_SERIES.map(d => ({name: d.name, color: d.color, kind: 'line'}))));
     fill('pr-count-legend', legendHtml(countSeries.map(d => ({name: d.name, color: d.color, kind: 'line'}))));
-    statLine('pr-traffic-stats', stats(h.sent_rate), fmtRate);
+    trafficStats('pr-traffic-stats', h, 'sent_rate', 'recv_rate');
     statLine('pr-count-stats', stats(h.peers_in.map((v, i) => v + h.peers_out[i])), v => num(v));
     const key = historyKey(h);
-    drawOnce('pr-traffic', key, () => historyChart('pr-traffic', h, TRAFFIC_SERIES, fmtRate));
+    drawOnce('pr-traffic', key, () => historyChart('pr-traffic', h, TRAFFIC_SERIES, fmtRate, RATE_AXIS));
     drawOnce('pr-count', key, () => historyChart('pr-count', h, countSeries, v => `${num(v)} peers`));
 });

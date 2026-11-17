@@ -55,6 +55,10 @@ CREATE TABLE IF NOT EXISTS events (
     text TEXT
 );
 CREATE INDEX IF NOT EXISTS events_ts ON events (ts);
+CREATE TABLE IF NOT EXISTS state (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
 """
 EVENT_COLUMNS = ("ts", "source", "type", "level", "text")
 
@@ -160,6 +164,22 @@ class Database:
                 (before or time.time() + 1, limit),
             ).fetchall()
         return [dict(zip(EVENT_COLUMNS, row, strict=True)) for row in rows]
+
+    # ------------------------------------------------------------------ state
+    def state(self, key: str):
+        """A single remembered value, or None."""
+        with self._lock:
+            row = self._db.execute("SELECT value FROM state WHERE key = ?", (key,)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def set_state(self, key: str, value) -> None:
+        """Remember a value over restarts. None forgets it."""
+        with self._lock:
+            if value is None:
+                self._db.execute("DELETE FROM state WHERE key = ?", (key,))
+            else:
+                self._db.execute("INSERT OR REPLACE INTO state VALUES (?, ?)", (key, json.dumps(value)))
+            self._db.commit()
 
     # ------------------------------------------------------------------ the whole
     def counts(self) -> dict:

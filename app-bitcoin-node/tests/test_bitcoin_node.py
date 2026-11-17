@@ -367,3 +367,25 @@ async def test_changes_are_refused_while_read_only(tmp_path):
     client = lightning.LndClient(Config.from_options(OPTIONS), tmp_path, lambda *a, **k: None)
     with pytest.raises(lightning.ReadOnly):
         await client.change("POST", "/v1/channels/transactions", {"payment_request": "lnbc1"})
+
+
+async def test_the_start_of_the_sync_is_remembered(tmp_path):
+    events = []
+    database = Database(tmp_path / "app.db")
+    client = bitcoin.BitcoinClient(Config.from_options(OPTIONS), database, lambda *event: events.append(event))
+    # Already syncing when first seen: it began when the node started, an hour ago
+    client.updated, client.uptime = 10_000.0, 3600
+    await client._track_sync({"initialblockdownload": True}, None)
+    assert client.sync_started == 6400.0
+    client.updated = 20_000.0
+    await client._track_sync({"initialblockdownload": True}, True)
+    assert client.sync_started == 6400.0
+    # A restart of the app keeps it
+    again = bitcoin.BitcoinClient(Config.from_options(OPTIONS), database, lambda *event: None)
+    assert again.sync_started == 6400.0 and again.node_status(0) is not None
+    client.updated = 6400.0 + 2 * 86400 + 3 * 3600
+    await client._track_sync({"initialblockdownload": False, "blocks": 900_000}, True)
+    assert events == [("bitcoin", "synced", "ok", "The chain is in sync at block 900,000, after 2 days 3 hours")]
+    assert client.sync_started is None and database.state("sync_started") is None
+    assert bitcoin.duration_text(3720) == "1 hour 2 minutes" and bitcoin.duration_text(60) == "1 minute"
+    database.close()

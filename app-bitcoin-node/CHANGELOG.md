@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.2
+
+**After updating:** nothing to do.
+
+- **Traffic charts say their unit:** the axis of the traffic charts on the Overview, Peers and Tor pages reads `7.5 MB/s` or `250 kB/s` instead of a bare number.
+- **Sent and received both get their numbers:** under the traffic charts on the Peers and Tor pages there is a line for sent and one for received, each with now, low, average, high and the total that went over the line in the chosen period. Before, the numbers were those of sent only.
+- **When the sync started:** the Blockchain page and the block height tile show when the first sync began, and the activity list says how long it took once the chain is in sync. Bitcoin Core doesn't keep this, so the app counts from when it first saw the sync, or from the node's start if that was earlier.
+- **The Syncing tile names the month** the sync has reached, like "at April 2012".
+
 ## 0.1.1
 
 **After updating:** nothing to do.

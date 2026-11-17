@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1
+
+**After updating:** nothing to do.
+
+- **Copy the proof:** an issue's proof has a copy button, which also works when Home Assistant is opened over plain http.
+- **Update templates now** sits in the Templates card on the Scanner page, below the numbers it refreshes.
+- **Dashboard:** the legend of "Issues still there" stays inside its card.
+- **Settings:** the database size counts its write-ahead log, so a new install no longer reads 0.00 MB, and shows kB below 1 MB.
+
 ## 0.2.0
 
 **After updating:** the app starts over. Scan objects and tickets from earlier versions are not carried over (their file, `nuclei.db`, stays in the app's data folder but is no longer read). Nothing to set up: the devices come from Home Assistant, and the first scans start by themselves.
