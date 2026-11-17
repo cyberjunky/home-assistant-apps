@@ -394,6 +394,47 @@ def test_a_rate_in_bytes_per_second_from_any_unit():
     assert rate_of(sensor("5", "MB")) is None and rate_of(None) is None
 
 
+def test_netgear_switch_ports_and_traffic_from_its_entities():
+    # NETGEAR Switch (home-assistant-netgear): known by its serial number, its address on a link
+    def entry(domain, key, **more):
+        return {"entity_id": f"{domain}.sw_{key}", "platform": "netgear_switch", "unique_id": f"3MX0001_{key}", **more}
+
+    roles = netgear_roles(
+        [
+            entry("binary_sensor", "port_1_link"),
+            entry("sensor", "port_1_link_speed"),
+            entry("sensor", "port_1_rx"),
+            entry("sensor", "port_1_tx"),
+            entry("binary_sensor", "port_2_link"),
+            # Not what goes through a port now, and not a port
+            entry("sensor", "port_1_total_rx"),
+            entry("sensor", "port_1_poe_power"),
+            entry("sensor", "rx"),
+            entry("sensor", "port_2_rx", disabled_by="user"),
+        ]
+    )
+    assert sorted(roles) == [
+        "binary_sensor.sw_port_1_link",
+        "binary_sensor.sw_port_2_link",
+        "sensor.sw_port_1_link_speed",
+        "sensor.sw_port_1_rx",
+        "sensor.sw_port_1_tx",
+    ]
+    link = {"switch_host": "192.168.2.9", "port": 1}
+    states = {
+        "binary_sensor.sw_port_1_link": {"state": "on", "attributes": link},
+        "binary_sensor.sw_port_2_link": {"state": "off", "attributes": {**link, "port": 2}},
+        "sensor.sw_port_1_link_speed": {"state": "1000", "attributes": {"unit_of_measurement": "Mbit/s"}},
+        "sensor.sw_port_1_rx": {"state": "4.0", "attributes": {"unit_of_measurement": "Mbit/s"}},
+        "sensor.sw_port_1_tx": {"state": "16", "attributes": {"unit_of_measurement": "Mbit/s"}},
+    }
+    one, two = sorted(netgear_ports(roles, states)["192.168.2.9"], key=lambda p: p["port"])
+    assert one["port"] == "1" and one["up"] and one["speed"] == 1_000_000_000
+    assert one["entity_id"] == "binary_sensor.sw_port_1_link"
+    assert two["port"] == "2" and not two["up"] and two["speed"] is None
+    assert netgear_rates(roles, states) == {"192.168.2.9": {"1": {"rx": 500_000, "tx": 2_000_000}}}
+
+
 def test_traffic_sensors_of_mikrotik_and_netgear_ports():
     ports = {
         "binary_sensor.sw_ether1": {"owner": "48:a9:8a:00:00:20", "port": "ether1", "kind": "ethernet"},

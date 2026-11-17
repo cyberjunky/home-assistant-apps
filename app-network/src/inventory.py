@@ -161,6 +161,17 @@ _NETGEAR_ID = re.compile(
     r"^(.+)-(?:port_(\d+)_(status|connection_speed|speed_rx_mbytes|speed_tx_mbytes)|(switch_ip))-0$"
 )
 _NETGEAR_RATE = {"speed_rx_mbytes": "rx", "speed_tx_mbytes": "tx"}
+# NETGEAR Switch (home-assistant-netgear) has the same per port, read as the same roles:
+# "<serial>_port_<n>_link" (the link, with the switch's address as its switch_host attribute),
+# "..._link_speed" (Mbit/s), "..._rx" and "..._tx" (what goes in and out now)
+NETGEAR_SWITCH = "netgear_switch"
+_NETGEAR_SWITCH_ID = re.compile(r"^(.+)_port_(\d+)_(link|link_speed|rx|tx)$")
+_NETGEAR_SWITCH_ROLE = {
+    "link": "status",
+    "link_speed": "connection_speed",
+    "rx": "speed_rx_mbytes",
+    "tx": "speed_tx_mbytes",
+}
 # MikroTik Network has a sensor per port and direction, off by default: "<entry>_rx_<port>"
 MIKROTIK_NETWORK = "mikrotik_network"
 
@@ -182,30 +193,45 @@ def rate_of(state: dict | None) -> float | None:
 
 
 def netgear_roles(entities: list[dict]) -> dict[str, tuple[str, str, str]]:
-    """The NETGEAR Plus entities that tell about ports: entity_id -> (switch, port, what), where
-    what is status, connection_speed, speed_rx_mbytes, speed_tx_mbytes or switch_ip (port "" for
-    that one)."""
+    """The NETGEAR Plus and NETGEAR Switch entities that tell about ports: entity_id -> (switch,
+    port, what), where what is status, connection_speed, speed_rx_mbytes, speed_tx_mbytes or
+    switch_ip (port "" for that one)."""
     roles = {}
     for e in entities:
-        m = _NETGEAR_ID.match(str(e.get("unique_id") or "")) if e.get("platform") == NETGEAR_PLUS else None
-        if m and not e.get("disabled_by"):
+        if e.get("disabled_by"):
+            continue
+        unique_id = str(e.get("unique_id") or "")
+        if e.get("platform") == NETGEAR_PLUS and (m := _NETGEAR_ID.match(unique_id)):
             roles[e["entity_id"]] = (m[1], m[2] or "", m[3] or m[4])
+        elif e.get("platform") == NETGEAR_SWITCH and (m := _NETGEAR_SWITCH_ID.match(unique_id)):
+            roles[e["entity_id"]] = (m[1], m[2], _NETGEAR_SWITCH_ROLE[m[3]])
     return roles
+
+
+def netgear_addresses(roles: dict[str, tuple[str, str, str]], states: dict[str, dict]) -> dict[str, str]:
+    """The address of every NETGEAR switch: its switch_ip sensor (NETGEAR Plus), or the switch_host
+    attribute of a port's link (NETGEAR Switch)."""
+    address: dict[str, str] = {}
+    for entity_id, (switch, _, what) in roles.items():
+        state = states.get(entity_id) or {}
+        if what == "switch_ip" and state.get("state") not in (None, "unavailable", "unknown"):
+            address[switch] = str(state["state"])
+        elif what == "status" and (host := (state.get("attributes") or {}).get("switch_host")):
+            address[switch] = str(host)
+    return address
 
 
 def netgear_ports(roles: dict[str, tuple[str, str, str]], states: dict[str, dict]) -> dict[str, list[dict]]:
     """The ports of every NETGEAR Plus switch, by the address the switch was added by. A port is
     in the shape of port_entity, without an owner (the switch's MAC address is not known here) and
     without devices."""
-    address: dict[str, str] = {}
+    address = netgear_addresses(roles, states)
     found: dict[tuple[str, str], dict] = {}
     for entity_id, (switch, number, what) in roles.items():
         value = (states.get(entity_id) or {}).get("state")
         if value in (None, "unavailable", "unknown"):
             continue
-        if what == "switch_ip":
-            address[switch] = str(value)
-        elif what == "status":
+        if what == "status":
             found.setdefault((switch, number), {}).update(entity_id=entity_id, up=value == "on")
         elif what == "connection_speed":
             with contextlib.suppress(ValueError):
@@ -237,11 +263,7 @@ def netgear_rates(roles: dict[str, tuple[str, str, str]], states: dict[str, dict
     """What goes through the ports of every NETGEAR Plus switch now, by the address the switch was
     added by: port -> {rx, tx} in bytes per second, as the switch sees it (rx comes in from what is
     plugged in)."""
-    address = {
-        switch: str(states[entity_id].get("state"))
-        for entity_id, (switch, _, what) in roles.items()
-        if what == "switch_ip" and (states.get(entity_id) or {}).get("state") not in (None, "unavailable", "unknown")
-    }
+    address = netgear_addresses(roles, states)
     out: dict[str, dict[str, dict]] = {}
     for entity_id, (switch, number, what) in roles.items():
         rate = rate_of(states.get(entity_id)) if what in _NETGEAR_RATE else None

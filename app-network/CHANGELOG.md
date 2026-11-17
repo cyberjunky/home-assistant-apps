@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.13
+
+- **NETGEAR Switch integration:** the app also reads NETGEAR Plus switches through the new [NETGEAR Switch](https://github.com/cyberjunky/home-assistant-netgear) integration: the ports of the switch in its details, with link and speed, and the traffic per port on the Traffic page. The NETGEAR Plus integration keeps working. As with that one, the switch needs a tracker of its own with the address you added it by, and it can't say which device is on a port.
+
 ## 0.1.12
 
 - **Traffic page:** a new page draws your devices as a tree from the internet down, with one line per measured link that gets wider with more traffic, and a table of the busiest links. It re-reads every 5 seconds. The internet's traffic comes from your router, a port's traffic from the MikroTik Network and NETGEAR Plus integrations. It shows traffic per cable, not which device talks to which.
