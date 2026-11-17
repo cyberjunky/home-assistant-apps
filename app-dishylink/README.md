@@ -21,6 +21,33 @@ Dishylink reads your Starlink dish and router directly over the local network, s
 keeps working during an outage. No account, no cloud, no telemetry: everything it records
 stays in the app's data folder and is included in your Home Assistant backups.
 
+![Dashboard: download, upload, latency, power draw, ping success and sky obstruction tiles, live throughput, latency and power charts, the obstruction map, events and the dish details (light theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-dishylink/screenshots/dashboard-light.webp)
+
+The screenshots show simulated data from a mock dish and router, not a real installation.
+
+<details>
+<summary>More screenshots</summary>
+
+**Data usage** — download and upload per week from the recorded history, and what each device used this month
+![Data usage](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-dishylink/screenshots/data-usage-light.webp)
+
+**Network** — every device on the router, with its band and maker
+![Network](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-dishylink/screenshots/network-light.webp)
+
+**Latency** — dish and router latency live, with the distribution over the selected window
+![Latency](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-dishylink/screenshots/latency-light.webp)
+
+**Power draw** — live power and the energy used per week
+![Power draw](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-dishylink/screenshots/power-light.webp)
+
+**Alignment** — where the dish points against where it should, with rotate and tilt advice
+![Alignment](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-dishylink/screenshots/alignment-light.webp)
+
+**Satellite view** — the obstruction map under the live Starlink satellites, with the one likely serving you
+![Satellite view](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-dishylink/screenshots/satellite-view.webp)
+
+</details>
+
 ## Supported Features
 
 - **Live view**: downlink, uplink, latency, power draw, ping success and sky obstruction
