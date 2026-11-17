@@ -85,6 +85,21 @@ def halving_info(height: int, now: float) -> dict:
     }
 
 
+def duration_text(seconds: float) -> str:
+    """A time span in words: 3 days 4 hours, 5 hours 12 minutes."""
+    minutes = int(seconds // 60)
+    days, hours = minutes // 1440, minutes % 1440 // 60
+
+    def unit(count: int, name: str) -> str:
+        return f"{count} {name}{'' if count == 1 else 's'}"
+
+    if days:
+        return f"{unit(days, 'day')} {unit(hours, 'hour')}"
+    if hours:
+        return f"{unit(hours, 'hour')} {unit(minutes % 60, 'minute')}"
+    return unit(minutes, "minute")
+
+
 def retarget_info(height: int, tip_time: float | None, epoch_time: float | None, now: float) -> dict:
     """Where the difficulty period stands and what the next adjustment will be, going by its blocks so far."""
     done = height % RETARGET_INTERVAL
@@ -195,6 +210,8 @@ class BitcoinClient:
         self._histogram_at = 0.0
         self._backfill: asyncio.Task | None = None
         self._ever_connected = False
+        # Bitcoin Core does not tell when the sync began: the app remembers when it first saw it
+        self.sync_started: float | None = database.state("sync_started")
 
     # ------------------------------------------------------------------ RPC
     async def _post(self, payload) -> tuple[int, object]:
@@ -306,8 +323,7 @@ class BitcoinClient:
             self.fees[key] = round(max(rate * 1e5, floor), 2) if rate else (round(floor, 2) if floor else None)
         self._rates(totals or {})
         self.updated = time.time()
-        if was_syncing and not chain.get("initialblockdownload"):
-            self.emit("bitcoin", "synced", "ok", f"The chain is in sync at block {chain.get('blocks'):,}")
+        await self._track_sync(chain, was_syncing)
 
         new_block = chain.get("bestblockhash") != self._tip_hash
         if new_block and not chain.get("initialblockdownload"):
@@ -320,6 +336,21 @@ class BitcoinClient:
         if now - self._histogram_at > HISTOGRAM_SECONDS:
             self._histogram_at = now
             await self._read_histogram()
+
+    async def _track_sync(self, chain: dict, was_syncing: bool | None) -> None:
+        """Remember when the sync began, and say how long it took once it is done."""
+        if chain.get("initialblockdownload"):
+            if self.sync_started is None:
+                # A node that was already syncing when the app first saw it began at its own start at the latest
+                self.sync_started = self.updated - (self.uptime or 0)
+                await asyncio.to_thread(self.database.set_state, "sync_started", self.sync_started)
+            return
+        if was_syncing:
+            took = f", after {duration_text(self.updated - self.sync_started)}" if self.sync_started else ""
+            self.emit("bitcoin", "synced", "ok", f"The chain is in sync at block {chain.get('blocks'):,}{took}")
+        if self.sync_started is not None:
+            self.sync_started = None
+            await asyncio.to_thread(self.database.set_state, "sync_started", None)
 
     def _rates(self, totals: dict) -> None:
         """Traffic in kB/s, from the growth of the node's counters since the last poll."""
@@ -454,6 +485,7 @@ class BitcoinClient:
             "synced": self.synced,
             "progress": chain.get("verificationprogress"),
             "ibd": bool(chain.get("initialblockdownload")),
+            "sync_started": self.sync_started,
             "difficulty": chain.get("difficulty"),
             "hashrate": self.hashrate,
             "size_on_disk": chain.get("size_on_disk"),

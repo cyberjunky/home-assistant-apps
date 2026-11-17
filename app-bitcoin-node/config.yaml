@@ -1,5 +1,5 @@
 name: Bitcoin Node
-version: "0.1.1"
+version: "0.1.2"
 slug: app-bitcoin-node
 description: "Dashboard for your own Bitcoin node - chain, mempool, fees and peers from Bitcoin Core, your Lightning wallet and channels from LND, and Tor"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-bitcoin-node"

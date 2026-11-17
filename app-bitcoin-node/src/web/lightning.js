@@ -225,8 +225,8 @@ onTab('tor', async () => {
         {key: 'tor_read_rate', name: 'received', color: color('series-3')},
     ];
     fill('tor-traffic-legend', legendHtml(series.map(d => ({name: d.name, color: d.color, kind: 'line'}))));
-    statLine('tor-traffic-stats', stats(h.tor_written_rate), fmtRate);
-    drawOnce('tor-traffic', historyKey(h), () => historyChart('tor-traffic', h, series, fmtRate, {height: 200}));
+    trafficStats('tor-traffic-stats', h, 'tor_written_rate', 'tor_read_rate');
+    drawOnce('tor-traffic', historyKey(h), () => historyChart('tor-traffic', h, series, fmtRate, Object.assign({height: 200}, RATE_AXIS)));
 });
 
 // =====================================================================

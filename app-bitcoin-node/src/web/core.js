@@ -63,6 +63,11 @@ function fmtBytes(bytes, digits) {
 }
 // kB per second, as megabytes once it is large
 const fmtRate = kb => missing(kb) ? '–' : kb >= 1000 ? `${num(kb / 1000, 2)} MB/s` : `${num(kb, 0)} kB/s`;
+// The y axis of a traffic chart: the unit on every label, in a wider margin
+const RATE_AXIS = {
+    formatTick: kb => kb >= 1000 ? `${(kb / 1000).toLocaleString(undefined, {maximumFractionDigits: 1})} MB/s` : `${kb.toLocaleString(undefined, {maximumFractionDigits: 0})} kB/s`,
+    padLeft: 60,
+};
 function fmtHashrate(h) {
     if (missing(h)) return '–';
     const units = ['H/s', 'kH/s', 'MH/s', 'GH/s', 'TH/s', 'PH/s', 'EH/s', 'ZH/s'];
