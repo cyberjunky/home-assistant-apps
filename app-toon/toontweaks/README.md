@@ -16,7 +16,7 @@ basename $(readlink /sys/class/net/wlan0/device/driver/module)   # should print 
 
 ## Why
 
-The Toon's Wi-Fi sometimes drops and doesn't come back: wpa_supplicant (the Wi-Fi client) keeps searching for the access point without reconnecting, for hours. Toons are often rebooted daily for this reason. The watchdog replaces that with a check every 5 minutes, which reboots only when nothing else helps.
+The Toon's Wi-Fi sometimes drops and doesn't come back: wpa_supplicant (the Wi-Fi client) keeps searching for the access point without reconnecting, for hours. Toons are often rebooted daily for this reason. The watchdog replaces that with a check every 5 minutes, which reboots only when nothing else brought the network back in 20 minutes.
 
 Note for scripts on the Toon: cron starts jobs with `PATH=/usr/bin:/bin`. That leaves out `ifup`, `ifdown`, `rmmod` and `modprobe` (in `/sbin`) and `wpa_cli` (in `/usr/sbin`). The watchdog sets its own `PATH`. Earlier versions didn't, and none of their recovery steps ever ran.
 
@@ -28,9 +28,27 @@ The watchdog pings the router. When the router answers, it does nothing, apart f
 2. **Still connecting:** it leaves wpa_supplicant alone, because a restart would only start it over.
 3. **Restart wlan0:** this stops and starts wpa_supplicant and DHCP, at most every 10 minutes.
 4. **Reload the Wi-Fi driver:** at most once an hour.
-5. **wpa_supplicant can't be stopped (if it ever hangs in the driver):** it disconnects the Wi-Fi module from the internal USB bus and connects it again. If wpa_supplicant still hangs, it reboots, but only after 20 minutes without network and at most once every 6 hours.
+5. **wpa_supplicant can't be stopped (if it ever hangs in the driver):** it disconnects the Wi-Fi module from the internal USB bus and connects it again.
 
-Everything goes to `/root/wifi-watchdog.log`, which is kept under 200 kB. That includes every command that fails or prints something, the state of wpa_supplicant, the signal, and how the network came back ("back after restarting wlan0, 12 min without network"). Its settings are at the top of the script: the router address `GW` (default `192.168.2.254`) and the time limits.
+**Whatever the state, it reboots the Toon after 20 minutes without network**, at most once every 6 hours. Before version 4 it only rebooted when wpa_supplicant hung, and a Toon whose wpa_supplicant kept searching stayed offline for as long as that took: 80 minutes once, through ten restarts of wlan0 and a driver reload.
+
+Everything goes to `/root/wifi-watchdog.log`, which is kept under 200 kB. That includes every command that fails or prints something, the state of wpa_supplicant, the signal, the access points with your network's name that the Toon sees during an outage, and how the network came back ("back after restarting wlan0, 12 min without network"). Its settings are at the top of the script: the router address `GW` (default `192.168.2.254`), the access point to stay on (`PIN`, empty by default) and the time limits. The network's name is read from the Toon's own Wi-Fi settings.
+
+### Staying on one access point
+
+When more than one access point carries your network's name (a router and a repeater, or a mesh), the Toon sometimes joins a far one and gets no working connection. Setting `PIN` at the top of the script to the address of the access point nearest the Toon keeps it on that one:
+
+```sh
+PIN=${PIN-aa:bb:cc:dd:ee:ff}    # lower case
+```
+
+To find the address, look at what the Toon sees. The columns are address, frequency, signal and name, and the highest signal is the nearest:
+
+```sh
+wpa_cli -i wlan0 scan >/dev/null; sleep 6; wpa_cli -i wlan0 scan_results
+```
+
+The watchdog sets the pin in the running wpa_supplicant, not in the Toon's Wi-Fi settings file, and sets it again after every restart of wlan0 and after a reboot (within 5 minutes). So that a replaced or broken access point can't keep the Toon offline, it lets the pin go after 10 minutes without network, for 6 hours: in that time the Toon joins any access point with the name.
 
 ## Installing
 
@@ -48,8 +66,9 @@ Then, on the Toon:
 # The watchdog: set GW in it to your router's address first
 cp /tmp/wifi-watchdog.sh /root/ && chmod +x /root/wifi-watchdog.sh
 
-# Try it without changing anything: a dry run against an address that doesn't answer
-DRYRUN=1 GW=192.0.2.1 STATE=/tmp/wwt LOG=/tmp/wwt.log REBOOTED=/tmp/wwt.rb /root/wifi-watchdog.sh; cat /tmp/wwt.log
+# Try it without changing anything: a dry run against an address that doesn't answer, started the
+# way cron starts it. It takes two to three minutes, because every step waits for the router
+env -i PATH=/usr/bin:/bin DRYRUN=1 GW=192.0.2.1 STATE=/tmp/wwt LOG=/tmp/wwt.log REBOOTED=/tmp/wwt.rb /root/wifi-watchdog.sh; cat /tmp/wwt.log
 
 # Run it every 5 minutes; keep a copy of the current crontab
 crontab -l > /root/crontab.before 2>/dev/null; crontab /tmp/crontab && crontab -l
@@ -71,17 +90,20 @@ nohup sh -c 'sleep 3; ifdown wlan0; rmmod rtl8191su; sleep 3; modprobe rtl8191su
 
 ```sh
 tail -n 50 /root/wifi-watchdog.log
-grep -E "not reachable \(|back after|rebooting|USB reset" /root/wifi-watchdog.log
+grep -E "not reachable \(|in sight|back after|rebooting|USB reset|pin" /root/wifi-watchdog.log
 ```
 
 | Line | Meaning |
 |---|---|
 | `ok, up … s` | Hourly sign of life; a lower uptime than the line before means the Toon restarted |
 | `router … not reachable (N min); wpa_supplicant 1234:S; wpa_state=…` | An outage; `:S` is a normal process, `:D` one stuck in the driver |
+| `access points … in sight: aa:bb:… 2412 MHz signal 100; …` | The access points with your network's name the Toon saw in that outage. `none` while wpa_supplicant keeps searching means the Toon's Wi-Fi sees nothing, or the access point is off |
 | `back after …` | Which step brought the network back, and how long it was gone |
+| `pinned to …`, `pinned to …; on … now, moving over` | The pin was set, and whether the Toon had to change access point for it |
+| `letting go of the pin to … for 6 hours` | 10 minutes without network: any access point with the name will do for now |
 | `wpa_supplicant … can't be stopped` | The driver hang: only the USB reset or a reboot helps |
 | `USB reset of the Wi-Fi module`, `after the USB reset …`, `the USB reset ended wpa_supplicant` | Whether the USB reset worked |
-| `rebooting: …` | The last step was taken |
+| `rebooting: the network has been gone for N min` | Nothing helped in 20 minutes |
 
 ## Undoing it
 
