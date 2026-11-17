@@ -198,7 +198,8 @@ function renderTraffic() {
     const missing = trafficMissing();
     const sources = `<div class="tf-notes">The <b>internet connection</b> comes from your router, over UPnP or TR-064 (see the Dashboard). A <b>switch port</b> is measured when its integration has a traffic sensor for it in Home Assistant:
         <a href="https://github.com/cyberjunky/home-assistant-mikrotik" target="_blank" rel="noopener">MikroTik Network</a> has two per port, off by default (turn on <i>received</i> and <i>sent</i> of the ports you want, under the MikroTik's entities), and
-        <a href="https://github.com/ckarrie/ha-netgear-plus" target="_blank" rel="noopener">NETGEAR Plus</a> has them for every port. A FRITZ!Box tells its internet traffic, not the traffic per device.
+        <a href="https://github.com/cyberjunky/home-assistant-netgear" target="_blank" rel="noopener">NETGEAR Switch</a> and
+        <a href="https://github.com/ckarrie/ha-netgear-plus" target="_blank" rel="noopener">NETGEAR Plus</a> have them for every port of a NETGEAR Plus switch. A FRITZ!Box tells its internet traffic, not the traffic per device.
         A line is what goes through one cable, to and from everything behind it; no integration tells which device talks to which.</div>`;
     el.innerHTML = `
         <div class="tiles kpi-tiles">

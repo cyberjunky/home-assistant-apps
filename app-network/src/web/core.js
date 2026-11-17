@@ -393,7 +393,7 @@ function hostLink(h) {
 function openHost(key) { showHostDialog(key); }
 const platformsText = h => h.platforms.map(p => PLATFORM_NAMES[p] || p).join(', ');
 const PLATFORM_NAMES = {unifi: 'UniFi', nmap_tracker: 'Nmap', fritz: 'FRITZ!Box', mobile_app: 'Mobile app', ping: 'Ping', asuswrt: 'ASUSWRT',
-    netgear: 'Netgear', tplink_omada: 'Omada', huawei_lte: 'Huawei LTE', keenetic_ndms2: 'Keenetic', mikrotik: 'MikroTik', mikrotik_network: 'MikroTik Network', luci: 'OpenWrt',
+    netgear: 'Netgear', netgear_switch: 'NETGEAR Switch', netgear_plus: 'NETGEAR Plus', tplink_omada: 'Omada', huawei_lte: 'Huawei LTE', keenetic_ndms2: 'Keenetic', mikrotik: 'MikroTik', mikrotik_network: 'MikroTik Network', luci: 'OpenWrt',
     ubus: 'OpenWrt', bluetooth_le_tracker: 'Bluetooth LE', ruckus_unleashed: 'Ruckus', arpscan_tracker: 'ARP scan', opnsense: 'OPNsense', pfsense: 'pfSense',
     vodafone_station: 'Vodafone Station', freebox: 'Freebox', synology_srm: 'Synology SRM', tado: 'tado', icloud: 'iCloud', owntracks: 'OwnTracks', person: 'Person'};
 
