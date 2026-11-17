@@ -1,6 +1,13 @@
 #!/bin/sh
-# Wi-Fi watchdog, version 3 (2026-11-12): when the router can't be reached, bring the Wi-Fi back.
-# Version 2 (never rebooted): /root/backup_files/wifi-watchdog.sh.v2, version 1: .v1 next to it.
+# Wi-Fi watchdog, version 4 (2026-11-17): when the router can't be reached, bring the Wi-Fi back.
+# Version 3: /root/backup_files/wifi-watchdog.sh.v3, version 2 (never rebooted): .v2, version 1: .v1.
+#
+# New in version 4, after the outages of 2026-11-16 (80 min) and 2026-11-17, where wpa_supplicant kept
+# scanning and wlan0 restarts and a driver reload didn't help:
+#   - the log says which access points with our name the Toon sees during an outage
+#   - a reboot after 20 minutes without network in any state (version 3: only when wpa_supplicant hung)
+#   - the Toon can be kept on one access point (PIN below), for when several carry the network's
+#     name and the Toon sometimes chooses a far one without getting a working connection
 #
 # cron starts jobs with PATH=/usr/bin:/bin, without ifup, ifdown, rmmod, modprobe (/sbin) and
 # wpa_cli (/usr/sbin). Versions 1 and 2 threw the errors away, so none of their steps ever ran;
@@ -13,18 +20,27 @@ export PATH
 #   2. still connecting: leave wpa_supplicant alone for a while
 #   3. restart wlan0 (its pre-up scripts kill and start wpa_supplicant and DHCP), at most every 10 min
 #   4. reload the Wi-Fi driver (rtl8191su), at most once an hour
-#   5. wpa_supplicant can't be stopped: reboot, after 20 minutes without network, at most every 6 hours
+#   5. wpa_supplicant can't be stopped: a USB reset of the Wi-Fi module
+#   Whatever the state: reboot after 20 minutes without network, at most every 6 hours
 GW=${GW:-192.168.2.254}
 LOG=${LOG:-/root/wifi-watchdog.log}
 STATE=${STATE:-/var/run/wifi-watchdog}
 REBOOTED=${REBOOTED:-/root/wifi-watchdog.rebooted}  # on flash: the 6 hour limit must survive the reboot
 DRIVER=rtl8191su
+CONF=${CONF:-/etc/network/wpa_supplicant.wlan0.conf}
+# The network's name: the one the Toon was set up with
+SSID=${SSID:-$(sed -n 's/^[[:space:]]*ssid="\(..*\)"/\1/p' "$CONF" 2>/dev/null | head -n 1)}
+# The access point to stay on, as its address in lower case (aa:bb:cc:dd:ee:ff). Empty: any with the name
+PIN=${PIN-}
 DRYRUN=${DRYRUN:-0}
 
 RESTART_EVERY=600
 RELOAD_EVERY=3600
 REBOOT_AFTER=1200
 REBOOT_EVERY=21600
+# Without network this long the pin is let go for 6 hours: the pinned access point may be gone or replaced
+UNPIN_AFTER=600
+PIN_AGAIN=21600
 
 NOW=$(date +%s)
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG"; }
@@ -63,6 +79,36 @@ state() {
 # The last kernel lines, without the driver's hex dumps and scan noise
 kernel() { dmesg | grep -vE 'wpa_ie|^0x|^ *$|addbareq|set_freq|set_mode|set_scan|pmkid' | tail -n 5 | tr '\n' '|'; }
 
+# The access points with our name in the last scan: address, frequency, signal
+seen() {
+    wpa_cli -i wlan0 scan >/dev/null 2>&1
+    pause 5
+    found=$(wpa_cli -i wlan0 scan_results 2>/dev/null | awk -F'\t' -v s="$SSID" '$5 == s {printf "%s %s MHz signal %s; ", $1, $2, $3}')
+    echo "${found:-none}"
+}
+# Our network in wpa_supplicant: its id, and the access point it is pinned to ("any": not pinned)
+net_field() { wpa_cli -i wlan0 list_networks 2>/dev/null | awk -F'\t' -v s="$SSID" -v f="$1" '$2 == s {print $f; exit}'; }
+set_pin() {
+    id=$(net_field 1)
+    [ -n "$id" ] || return 1
+    if [ "$DRYRUN" = 1 ]; then log "dry run, would run: wpa_cli -i wlan0 set_network $id bssid $1"; return 0; fi
+    [ "$(wpa_cli -i wlan0 set_network "$id" bssid "$1" 2>&1)" = OK ]
+}
+# Pin our network, and move over when the Toon is on another access point. A restart of wlan0 starts
+# wpa_supplicant from its file, without the pin, so this is done again after each one
+pin_apply() {
+    [ -n "$PIN" ] || return 0
+    [ "$(net_field 3)" = "$PIN" ] && return 0
+    set_pin "$PIN" || return 0
+    cur=$(wpa_cli -i wlan0 status 2>/dev/null | sed -n 's/^bssid=//p')
+    if [ -n "$cur" ] && [ "$cur" != "$PIN" ]; then
+        log "pinned to $PIN; on $cur now, moving over"
+        act wpa_cli -i wlan0 reassociate
+    else
+        log "pinned to $PIN"
+    fi
+}
+
 mkdir -p "$STATE"
 mkdir "$STATE/lock" 2>/dev/null || exit 0
 trap 'rmdir "$STATE/lock"' EXIT
@@ -73,6 +119,12 @@ if [ -f "$LOG" ] && [ "$(wc -c < "$LOG")" -gt 200000 ]; then
 fi
 
 if reach; then
+    # Not pinned (after a boot or a restart of wlan0): pin when the access point is in sight, unless
+    # the pin was let go in an outage less than 6 hours ago
+    if [ -n "$PIN" ] && [ "$(net_field 3)" != "$PIN" ] && [ "$(since "$STATE/unpinned")" -ge "$PIN_AGAIN" ] \
+        && wpa_cli -i wlan0 scan_results 2>/dev/null | grep -qi "^$PIN"; then
+        pin_apply
+    fi
     [ -f "$STATE/down" ] && back "the Wi-Fi reconnected by itself"
     # One line an hour shows the Toon was running; a gap in these lines means it wasn't
     [ "$(date +%M)" -lt 5 ] && log "ok, up $(cut -d. -f1 /proc/uptime) s, $(grep MemFree /proc/meminfo | tr -s ' ')"
@@ -82,6 +134,27 @@ fi
 [ -f "$STATE/down" ] || echo "$NOW" > "$STATE/down"
 DOWN=$(since "$STATE/down")
 log "router $GW not reachable ($((DOWN / 60)) min); $(state)"
+log "access points $SSID in sight: $(seen)"
+
+# Whatever the state: a reboot when nothing brought the network back in 20 minutes
+if [ "$DOWN" -ge "$REBOOT_AFTER" ] && [ "$(since "$REBOOTED")" -ge "$REBOOT_EVERY" ]; then
+    log "rebooting: the network has been gone for $((DOWN / 60)) min"
+    mark "$REBOOTED"
+    sync
+    act /sbin/shutdown -r now
+    exit 0
+fi
+
+# The pinned access point may be the one that is gone: let any with our name in
+PINNING=1
+if [ "$DOWN" -ge "$UNPIN_AFTER" ] || [ "$(since "$STATE/unpinned")" -lt "$PIN_AGAIN" ]; then
+    PINNING=0
+    if [ -n "$PIN" ] && [ "$(since "$STATE/unpinned")" -ge "$PIN_AGAIN" ]; then
+        log "letting go of the pin to $PIN for $((PIN_AGAIN / 3600)) hours"
+        mark "$STATE/unpinned"
+    fi
+    [ -n "$PIN" ] && [ "$(net_field 3)" = "$PIN" ] && set_pin any
+fi
 WPA=$(wpa_state)
 
 # 1. Associated with the access point, but no network: the DHCP lease
@@ -148,6 +221,7 @@ if [ -n "$stuck" ] && [ "$DRYRUN" != 1 ]; then
             log "the USB reset ended wpa_supplicant$stuck"
             act ifdown wlan0
             act ifup wlan0
+            [ "$PINNING" = 1 ] && pin_apply
             wait_reach 60 && back "a USB reset of the Wi-Fi module"
             log "still not reachable after the USB reset; $(state)"
             exit 0
@@ -158,6 +232,7 @@ if [ -n "$stuck" ] && [ "$DRYRUN" != 1 ]; then
     fi
 else
     act ifup wlan0
+    [ "$PINNING" = 1 ] && pin_apply
     wait_reach 60 && back "restarting wlan0"
     log "still not reachable after restarting wlan0; $(state)"
 
@@ -170,6 +245,7 @@ else
         act modprobe "$DRIVER"
         pause 5
         act ifup wlan0
+        [ "$PINNING" = 1 ] && pin_apply
         wait_reach 60 && back "reloading the Wi-Fi driver"
         log "still not reachable after reloading the Wi-Fi driver; $(state)"
         log "kernel: $(kernel)"
