@@ -424,7 +424,8 @@ class BitcoinClient:
     def blocks_view(self) -> list[dict]:
         """The blocks newest first, each with the time since the block before it."""
         out = []
-        for block, previous in zip(self.blocks, [*self.blocks[1:], None], strict=True):
+        # No blocks are read while the chain syncs: the list is empty then
+        for block, previous in zip(self.blocks, [*self.blocks[1:], None], strict=False):
             follows = previous is not None and previous["height"] == block["height"] - 1
             out.append({**block, "interval": max(0, block["time"] - previous["time"]) if follows else None})
         return out[:BLOCKS_KEPT]

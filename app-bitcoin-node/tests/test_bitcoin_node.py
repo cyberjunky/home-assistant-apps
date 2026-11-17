@@ -340,6 +340,7 @@ async def test_only_bitcoin_core_set_up(mock, tmp_path):
     await node.tor.run()
     status = node.status()
     assert status["node"] == {"configured": True, "connected": False, "error": ""}
+    assert node.bitcoin.blocks_view() == []  # a node still syncing has no blocks read yet
     assert status["lightning"] == {"configured": False, "connected": False}
     assert status["health"][0]["state"] == "bad"
     assert mqtt.bitcoin_payload(node, time.time()) == {} and mqtt.lightning_payload(node, time.time()) == {}

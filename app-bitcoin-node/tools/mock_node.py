@@ -69,8 +69,10 @@ PURPOSES = (
 
 
 class MockNode:
-    def __init__(self, seed: int, fast: bool):
+    def __init__(self, seed: int, fast: bool, syncing: bool = False):
         self.rng = random.Random(seed)
+        # A node early in its first sync: an old tip, no mempool, the headers far ahead
+        self.syncing = syncing
         self.block_mean = 40 if fast else 600
         now = time.time()
         self.started = now - 23 * 86400 - 5 * 3600
@@ -425,7 +427,17 @@ class MockNode:
                 "initialblockdownload": False,
                 "size_on_disk": int(792.4e9 + (time.time() - self.started) * 2700),
                 "pruned": False,
-            }
+            } | (
+                {
+                    "blocks": 174_238,
+                    "time": 1_333_500_000,
+                    "verificationprogress": 0.0019,
+                    "initialblockdownload": True,
+                    "size_on_disk": 1_260_000_000,
+                }
+                if self.syncing
+                else {}
+            )
         if method == "getnetworkinfo":
             tor = "127.0.0.1:9050"
             return {
@@ -719,7 +731,7 @@ def seed_database(node: MockNode, path: Path) -> None:
 
 
 async def serve(args) -> None:
-    node = MockNode(args.seed, args.fast)
+    node = MockNode(args.seed, args.fast, args.syncing)
     if args.seed_db:
         seed_database(node, Path(args.seed_db))
     for app, port in ((rpc_app(node), args.rpc_port), (lnd_app(node), args.lnd_port)):
@@ -743,6 +755,7 @@ def main() -> None:
     parser.add_argument(
         "--fast", action="store_true", help="a new block every 40 seconds or so instead of every 10 minutes"
     )
+    parser.add_argument("--syncing", action="store_true", help="answer as a node early in its first sync")
     parser.add_argument("--seed-db", help="write 30 days of history into this app database first")
     args = parser.parse_args()
     with contextlib.suppress(KeyboardInterrupt):

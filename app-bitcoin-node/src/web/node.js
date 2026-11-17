@@ -61,11 +61,20 @@ onTab('overview', async () => {
     const s = app.status, n = s.node, m = s.mempool, ln = s.lightning;
     const lnReady = ln.configured && Boolean(ln.pubkey);
     fill('ov-tiles', [
-        tile('Block height', num(n.blocks), `last block ${escapeHtml(fmtAgo(n.last_block_time))}`),
-        tile('Mempool', num(m.tx), `${num(m.vsize, 1)} MB · about ${num(m.blocks_to_clear)} blocks`),
-        tile('Next block fee', feeHtml(m.fees.next), `1 hour ${escapeHtml(feeRate(m.fees.hour))} · 1 day ${escapeHtml(feeRate(m.fees.day))}`),
+        ...(n.synced ? [
+            tile('Block height', num(n.blocks), `last block ${escapeHtml(fmtAgo(n.last_block_time))}`),
+            tile('Mempool', num(m.tx), `${num(m.vsize, 1)} MB · about ${num(m.blocks_to_clear)} blocks`),
+            tile('Next block fee', feeHtml(m.fees.next), `1 hour ${escapeHtml(feeRate(m.fees.hour))} · 1 day ${escapeHtml(feeRate(m.fees.day))}`),
+        ] : [
+            // While the chain syncs the newest block is years old: its age, the mempool and the fees say nothing yet
+            tile('Syncing', escapeHtml(plainPct(n.progress, 2)), n.last_block_time ? `now at blocks of ${escapeHtml(fmtDate(n.last_block_time))}` : 'reading the block headers', 'warn'),
+            tile('Block height', num(n.blocks), `of ${num(n.headers)} known`),
+            tile('Chain on disk', escapeHtml(fmtBytes(n.size_on_disk, 1)), n.pruned ? 'pruned' : 'grows to the full chain'),
+        ]),
         tile('Peers', num(s.net.peers), `${num(s.net.in)} in · ${num(s.net.out)} out${Object.keys(s.net.peer_networks).join() === 'onion' ? ' · all onion' : ''}`),
-        tile('Network hashrate', escapeHtml(fmtHashrate(n.hashrate)), `difficulty ${escapeHtml(signed(n.retarget.change * 100, 1))}% in ${escapeHtml(fmtDuration(n.retarget.at - s.now))}`),
+        ...(n.synced ? [
+            tile('Network hashrate', escapeHtml(fmtHashrate(n.hashrate)), `difficulty ${escapeHtml(signed(n.retarget.change * 100, 1))}% in ${escapeHtml(fmtDuration(n.retarget.at - s.now))}`),
+        ] : []),
         ...(lnReady ? [
             tile('Lightning can send', satHtml(ln.channels.local), `can receive ${escapeHtml(sat(ln.channels.remote))}`),
             tile('Channels', `${num(ln.channels.active)}<small> of ${num(ln.channels.active + ln.channels.inactive)}</small>`, ln.channels.pending ? `${num(ln.channels.pending)} pending` : 'none pending', ln.channels.inactive ? 'warn' : ''),
@@ -105,9 +114,14 @@ onTab('overview', async () => {
         <div class="blk-fill"><i style="width:${Math.min(100, m.vsize * 100).toFixed(0)}%"></i></div>
         <div class="blk-age">in about 10 min</div>
     </div>`;
-    fill('ov-blocks', next + app.blocks.slice(0, 14).map(blockCard).join(''));
-    const hour = app.blocks.filter(b => b.time > s.now - 3600).length;
-    fill('ov-blocks-hint', `${num(hour)} in the last hour · 6 expected`);
+    if (n.synced) {
+        fill('ov-blocks', next + app.blocks.slice(0, 14).map(blockCard).join(''));
+        const hour = app.blocks.filter(b => b.time > s.now - 3600).length;
+        fill('ov-blocks-hint', `${num(hour)} in the last hour · 6 expected`);
+    } else {
+        fill('ov-blocks', '<div class="empty-state" style="flex:1">The latest blocks show here once the chain is in sync.</div>');
+        fill('ov-blocks-hint', '');
+    }
     fill('ov-events', app.events.slice(0, 9).map(eventHtml).join('') || '<div class="empty-state">Nothing happened yet</div>');
 
     fill('ov-fees-legend', legendHtml(FEE_SERIES.map(d => ({name: d.name, color: d.color, kind: 'line'}))));
@@ -153,9 +167,9 @@ onTab('node', async () => {
         ${panel('Node', '', '<div id="nd-details"></div>', 'gap-top')}`);
     const s = app.status, n = s.node;
     fill('nd-tiles', [
-        tile('Block height', num(n.blocks), n.synced ? 'in sync with the network' : `${escapeHtml(plainPct(n.progress, 2))} synced`, n.synced ? '' : 'warn'),
+        tile('Block height', num(n.blocks), n.synced ? 'in sync with the network' : `${escapeHtml(plainPct(n.progress, 2))} synced · of ${num(n.headers)}`, n.synced ? '' : 'warn'),
         tile('Chain on disk', escapeHtml(fmtBytes(n.size_on_disk, 1)), n.growth ? `+${escapeHtml(fmtBytes(n.growth.bytes, 1))} in ${escapeHtml(fmtDuration(n.growth.seconds))}` : (n.pruned ? 'pruned' : 'the full chain')),
-        tile('Network hashrate', escapeHtml(fmtHashrate(n.hashrate)), `difficulty ${escapeHtml(fmtBig(n.difficulty))}`),
+        tile('Network hashrate', n.synced ? escapeHtml(fmtHashrate(n.hashrate)) : '–', n.synced ? `difficulty ${escapeHtml(fmtBig(n.difficulty))}` : 'known once in sync'),
         tile('Transactions ever', escapeHtml(fmtBig(n.tx_total)), missing(n.tx_rate) ? '' : `${num(n.tx_rate, 1)} per second lately`),
         tile('Block reward', `${num(n.halving.subsidy, 3)}<small> BTC</small>`, `${escapeHtml(num(n.halving.next_subsidy, 4))} BTC after the halving`),
         tile('Uptime', escapeHtml(fmtDuration(n.uptime)), `Bitcoin Core ${escapeHtml(n.version)}`),
