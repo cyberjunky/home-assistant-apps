@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3
+
+**After updating:** nothing to do.
+
+- **A busy node is no longer called offline:** one late answer from Bitcoin Core, LND or Tor made the app say it "does not answer", and "answers again" a moment later, with the entities in Home Assistant unavailable in between. A node that is syncing or short of memory does that now and then. It now takes three failed polls in a row; until then the pages keep what was read last.
+- **The reason is named:** a timeout left the text after "does not answer:" empty.
+
 ## 0.1.2
 
 **After updating:** nothing to do.

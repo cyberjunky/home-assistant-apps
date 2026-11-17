@@ -50,6 +50,8 @@ HISTOGRAM_MAX_TX = 250_000
 # Up to this many new blocks are read at once and announced; more is catching up, done in the background
 ANNOUNCE_MAX = 6
 TIMEOUT = aiohttp.ClientTimeout(total=60, connect=10)
+# Polls that may fail in a row before the service counts as not answering
+MISSES_ALLOWED = 2
 
 
 class RpcError(Exception):
@@ -210,6 +212,7 @@ class BitcoinClient:
         self._histogram_at = 0.0
         self._backfill: asyncio.Task | None = None
         self._ever_connected = False
+        self._misses = 0
         # Bitcoin Core does not tell when the sync began: the app remembers when it first saw it
         self.sync_started: float | None = database.state("sync_started")
 
@@ -221,7 +224,7 @@ class BitcoinClient:
             ) as response:
                 status, body = response.status, await response.read()
         except (aiohttp.ClientError, TimeoutError) as e:
-            raise RpcError(f"no answer from {self.config.bitcoin_url}: {e or type(e).__name__}") from e
+            raise RpcError(f"no answer from {self.config.bitcoin_url}: {str(e) or type(e).__name__}") from e
         if status == 401:
             raise RpcError("the RPC username or password is wrong")
         try:
@@ -294,6 +297,15 @@ class BitcoinClient:
                     self._backfill.cancel()
 
     def _set_link(self, connected: bool, error: str) -> None:
+        if connected:
+            self._misses = 0
+        elif self.connected:
+            # A busy node answers late now and then: one missed poll is not an outage.
+            # What was read last stays on the pages until MISSES_ALLOWED polls in a row failed
+            self._misses += 1
+            if self._misses <= MISSES_ALLOWED:
+                logger.debug(f"Bitcoin Core: missed a poll ({self._misses}): {error}")
+                return
         if connected and not self.connected:
             logger.info(f"Bitcoin Core {version_text(self.network.get('version'))} answers, block {self.height}")
             if self._ever_connected:

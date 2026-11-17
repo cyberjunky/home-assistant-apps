@@ -16,6 +16,8 @@ from .config import Config
 logger = logging.getLogger(__name__)
 
 TIMEOUT = 15
+# Polls that may fail in a row before the service counts as not answering
+MISSES_ALLOWED = 2
 INFO_KEYS = ("version", "status/bootstrap-phase", "traffic/read", "traffic/written")
 
 
@@ -98,6 +100,7 @@ class TorClient:
         self.written_rate: float | None = None
         self.circuits: list[dict] = []
         self._previous: tuple[float, int, int] | None = None
+        self._misses = 0
 
     async def run(self) -> None:
         if not self.configured:
@@ -109,13 +112,22 @@ class TorClient:
             except TorError as e:
                 self._set_link(False, str(e))
             except (OSError, TimeoutError, asyncio.IncompleteReadError) as e:
-                self._set_link(False, f"no answer from {self.config.tor_control}: {e or type(e).__name__}")
+                self._set_link(False, f"no answer from {self.config.tor_control}: {str(e) or type(e).__name__}")
             except Exception as e:
                 logger.exception("Tor: reading failed")
                 self._set_link(False, repr(e))
             await asyncio.sleep(self.config.poll_seconds)
 
     def _set_link(self, connected: bool, error: str) -> None:
+        if connected:
+            self._misses = 0
+        elif self.connected:
+            # A busy node answers late now and then: one missed poll is not an outage.
+            # What was read last stays on the pages until MISSES_ALLOWED polls in a row failed
+            self._misses += 1
+            if self._misses <= MISSES_ALLOWED:
+                logger.debug(f"Tor: missed a poll ({self._misses}): {error}")
+                return
         if connected and not self.connected:
             logger.info(f"Tor {self.version} answers on its control port")
         elif not connected and (self.connected or error != self.error):
