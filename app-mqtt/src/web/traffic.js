@@ -34,6 +34,87 @@ function watchTraffic(filter) {
     switchTab('traffic');
 }
 
+// =====================================================================
+// The topics the broker has seen, offered under the filter one level at a time: a branch as
+// "path/#", a topic as itself. Choosing a branch lists what is under it.
+// =====================================================================
+const MAX_SUGGESTIONS = 100;
+
+// "goodwe/#" and "goodwe/" list what is under goodwe; "goodwe/ba" what has "ba" in its name there
+function suggestScope(text) {
+    const levels = text.split('/');
+    let part = levels.pop();
+    if (part === '#' || part === '+') part = '';
+    if (levels.some(l => l === '+' || l === '#')) return null;
+    return {prefix: levels.join('/'), part: part.toLowerCase()};
+}
+
+function suggestionsFor(children, part, current) {
+    const first = [], rest = [];
+    for (const c of children) {
+        const at = c.name.toLowerCase().indexOf(part);
+        if (at < 0) continue;
+        const into = at === 0 ? first : rest;
+        const below = c.topics - (c.leaf ? 1 : 0);
+        if (c.has_children) into.push({value: c.path + '/#', note: `${num(below)} topic${below === 1 ? '' : 's'}`});
+        if (c.leaf) into.push({value: c.path, note: 'topic'});
+    }
+    return [...first, ...rest].filter(s => s.value !== current).slice(0, MAX_SUGGESTIONS);
+}
+
+function suggestTopics(input) {
+    const box = document.getElementById('tr-suggest');
+    let items = [], at = -1, asked = 0;
+    const close = () => { box.hidden = true; at = -1; input.setAttribute('aria-expanded', 'false'); };
+    const draw = () => {
+        box.innerHTML = items.map((s, i) => `<div class="suggest-item${i === at ? ' active' : ''}" role="option" aria-selected="${i === at}" data-at="${i}"><span>${escapeHtml(s.value)}</span><small>${escapeHtml(s.note)}</small></div>`).join('');
+        box.hidden = !items.length;
+        input.setAttribute('aria-expanded', String(items.length > 0));
+        const active = box.querySelector('.active');
+        if (active) active.scrollIntoView({block: 'nearest'});
+    };
+    const load = async () => {
+        const text = input.value.trim();
+        const scope = suggestScope(text === '#' ? '' : text);
+        const mine = ++asked;
+        let children = [];
+        if (scope) {
+            try { children = (await api('tree?prefix=' + encodeURIComponent(scope.prefix))).children; } catch (e) { /* no list then */ }
+        }
+        // An answer that comes after a later one, or after the field was left, is dropped
+        if (mine !== asked || document.activeElement !== input) return;
+        items = scope ? suggestionsFor(children, scope.part, text) : [];
+        at = -1;
+        draw();
+    };
+    const pick = (s) => {
+        input.value = s.value;
+        input.dispatchEvent(new Event('input'));
+    };
+    input.addEventListener('focus', load);
+    input.addEventListener('input', load);
+    input.addEventListener('blur', () => { asked++; close(); });
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !box.hidden) { e.preventDefault(); asked++; close(); return; }
+        if (e.key === 'ArrowDown' && box.hidden) { e.preventDefault(); load(); return; }
+        if (box.hidden) return;
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            at = (at + (e.key === 'ArrowDown' ? 1 : -1) + items.length + (at < 0 && e.key === 'ArrowUp' ? 1 : 0)) % items.length;
+            draw();
+        } else if (e.key === 'Enter' && at >= 0) {
+            e.preventDefault();
+            pick(items[at]);
+        }
+    });
+    // mousedown, so the field keeps the focus and the list stays for the next level
+    box.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        const item = e.target.closest('[data-at]');
+        if (item) pick(items[Number(item.dataset.at)]);
+    });
+}
+
 function messageRow(m) {
     const t = new Date(m.ts * 1000);
     const time = t.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'}) + '.' + String(t.getMilliseconds()).padStart(3, '0');
@@ -52,7 +133,10 @@ function renderTraffic() {
         el.innerHTML = `
             <div class="page-head">
                 <div class="filters">
-                    <input id="tr-filter" class="input mono" placeholder="Topic filter, e.g. zigbee2mqtt/#" autocomplete="off" spellcheck="false">
+                    <div class="suggest-wrap">
+                        <input id="tr-filter" class="input mono" placeholder="Topic filter, e.g. zigbee2mqtt/#" autocomplete="off" spellcheck="false" role="combobox" aria-controls="tr-suggest" aria-expanded="false" aria-autocomplete="list">
+                        <div id="tr-suggest" class="suggest" role="listbox" hidden></div>
+                    </div>
                     <input id="tr-q" class="input search" type="search" placeholder="Text in topic or payload" autocomplete="off" spellcheck="false">
                     <label class="check-row" title="Also show the retained messages a new subscriber gets: when the broker or the dashboard restarts, all of them come at once"><input type="checkbox" id="tr-retained"> retained at start</label>
                 </div>
@@ -90,6 +174,7 @@ function renderTraffic() {
             }, 300);
         };
         filter.addEventListener('input', changed);
+        suggestTopics(filter);
         q.addEventListener('input', changed);
         document.getElementById('tr-retained').addEventListener('change', (e) => { tr.retained = e.target.checked; store('traffic_retained', tr.retained ? '1' : '0'); connectLive(trafficParams()); });
         document.getElementById('tr-pause').addEventListener('click', () => {

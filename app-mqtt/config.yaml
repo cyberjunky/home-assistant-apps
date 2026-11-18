@@ -1,5 +1,5 @@
 name: MQTT
-version: "0.1.0"
+version: "0.1.1"
 slug: app-mqtt
 description: "The Mosquitto MQTT broker with a dashboard: clients, topics, live traffic, Home Assistant discovery and statistics"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-mqtt"

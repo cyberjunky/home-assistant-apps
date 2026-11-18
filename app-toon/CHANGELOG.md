@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.6
+
+**After updating:** nothing to do.
+
+- **The page stays where you scrolled:** after you pressed a thermostat button (a preset, + or −, the program), every refresh of the dashboard, each 5 seconds, scrolled the page back to that button.
+- **MQTT names like the other apps:** the app connects to the broker as `toon-<base topic>` instead of `app-toon-<base topic>`, and Home Assistant shows the entities as coming from "Toon" instead of "Toon app". Entities and their history stay as they are.
+
 ## 0.5.5
 
 **After updating:** nothing to do.

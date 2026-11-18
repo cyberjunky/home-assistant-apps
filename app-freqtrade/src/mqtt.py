@@ -91,7 +91,7 @@ def discovery_messages(bot: BotClient, prefix: str, base: str) -> list[tuple[str
         "sw_version": config.get("version") or "",
         "configuration_url": bot.config.url,
     }
-    origin = {"name": "Freqtrade app", "sw_version": APP_VERSION}
+    origin = {"name": "Freqtrade", "sw_version": APP_VERSION}
     availability = [{"topic": f"{base}/status"}, {"topic": f"{base}/{bot.slug}/link"}]
     messages = []
     for key, name, unit, icon, state_class, diagnostic in SENSORS:
@@ -197,7 +197,7 @@ class MqttPublisher:
             return
 
         self.broker = f"{host}:{port}"
-        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"app-freqtrade-{self.base}")
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"freqtrade-{self.base}")
         if user:
             client.username_pw_set(user, password or None)
         client.will_set(self.status_topic, "offline", qos=1, retain=True)

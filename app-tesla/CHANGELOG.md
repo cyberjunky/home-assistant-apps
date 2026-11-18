@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.3
+
+**After updating:** nothing to do.
+
+- **MQTT name like the other apps:** Home Assistant shows the entities as coming from "Tesla" instead of "Tesla app (unofficial)". Entities and their history stay as they are.
+
 ## 0.8.2
 
 **After updating:** nothing to do.

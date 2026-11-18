@@ -172,7 +172,8 @@ function renderModes() {
     drawModes();
     if (focused) {
         const again = document.querySelector(`#dash-modes [data-control="${focused}"]`);
-        if (again) again.focus();
+        // Without preventScroll every refresh would scroll the page back to the button
+        if (again) again.focus({preventScroll: true});
     }
 }
 

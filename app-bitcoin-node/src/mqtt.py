@@ -221,7 +221,7 @@ def discovery_messages(node: Node, key: str, prefix: str, base: str) -> list[tup
     _, _, sensors, binaries, events_name = DEVICES[key]
     node_id = f"bitcoin_node_{key}"
     device = device_info(node, key)
-    origin = {"name": "Bitcoin Node app", "sw_version": APP_VERSION}
+    origin = {"name": "Bitcoin Node", "sw_version": APP_VERSION}
     availability = [{"topic": f"{base}/status"}, {"topic": f"{base}/{key}/link"}]
     common = {"device": device, "origin": origin, "availability_mode": "all", "availability": availability}
     messages = []
@@ -337,7 +337,7 @@ class MqttPublisher:
             return
 
         self.broker = f"{host}:{port}"
-        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"app-bitcoin-node-{self.base}")
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"bitcoin-node-{self.base}")
         if user:
             client.username_pw_set(user, password or None)
         client.will_set(self.status_topic, "offline", qos=1, retain=True)
