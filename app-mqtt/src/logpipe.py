@@ -19,8 +19,20 @@ _SUBSCRIPTION = re.compile(r"^\S+: (\S+ \d+ \S+|\S+ \S+)$")
 _BROKER_LINE = re.compile(r"^\S+: (Bridge|Persistence|TLS|TLS-PSK|Websockets|Opening|Info:|Warning:|Error:|Config)\b")
 
 
+_PROBE = re.compile(
+    r"^\S+: (New connection from (127\.0\.0\.1|::1):\d+ on port \d+\."
+    r"|Client (127\.0\.0\.1|::1) \[\S+\] disconnected.*"
+    r"|Protocol error from (127\.0\.0\.1|::1):\d+: First packet not CONNECT.*)$"
+)
+
+
 def is_subscription(line: str) -> bool:
     return bool(_SUBSCRIPTION.match(line)) and not _BROKER_LINE.match(line)
+
+
+def is_probe(line: str) -> bool:
+    """The health check every 30 seconds, and bashio's port probes: connections that never log in."""
+    return bool(_PROBE.match(line))
 
 
 def main() -> None:
@@ -29,7 +41,8 @@ def main() -> None:
     out = LOG.open("a", buffering=1, errors="replace")
     stdin = open(sys.stdin.fileno(), errors="replace", buffering=1, closefd=False)  # noqa: SIM115
     for line in stdin:
-        if show_subscriptions or not is_subscription(line.rstrip("\n")):
+        text = line.rstrip("\n")
+        if not is_probe(text) and (show_subscriptions or not is_subscription(text)):
             try:
                 sys.stdout.write(line)
                 sys.stdout.flush()

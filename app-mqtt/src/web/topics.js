@@ -182,7 +182,10 @@ function renderTopicDetail() {
         lineChart(chart, {
             x: pts.map(p => p[0]), height: 160,
             series: [{name: 'Value', color: color('series-1'), values: pts.map(p => p[1])}],
-            xTicks: timeAxisTicks(pts[0][0], pts[pts.length - 1][0], 4),
+            // Values that came within minutes get seconds on the axis
+            xTicks: pts[pts.length - 1][0] - pts[0][0] < 600
+                ? timeTicks([pts[0][0], pts[pts.length - 1][0]], 4, ts => new Date(ts * 1000).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'}))
+                : timeAxisTicks(pts[0][0], pts[pts.length - 1][0], 4),
             formatX: ts => fmtDateTime(ts), formatY: v => num(v, Math.abs(v) < 10 && v % 1 ? 2 : Math.abs(v) < 100 && v % 1 ? 1 : 0), formatTick: v => num(v, Math.abs(v) < 10 && v % 1 ? 1 : 0),
         });
     }

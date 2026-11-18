@@ -24,6 +24,37 @@ devices Home Assistant gets over MQTT discovery, which integration sent them, wh
 available, and the leftovers to remove. And the broker over time: messages, data, clients and
 reconnects, from a day to a year.
 
+![Topics: every topic as a tree, the value of the one you pick and a chart of its last values (light theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-mqtt/screenshots/topics-light.webp)
+
+<details>
+<summary>More screenshots</summary>
+
+**Dashboard** — clients, messages and data in and out, the last 15 minutes, what needs a look, the busiest topics, traffic per group and what happened lately
+![Dashboard](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-mqtt/screenshots/overview-light.webp)
+
+**Clients** — every client since the broker started: login, address, MQTT version, subscriptions and connects
+![Clients](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-mqtt/screenshots/clients-dark.webp)
+
+**A client** — its connection, subscriptions and every connect and disconnect
+![A client](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-mqtt/screenshots/client-light.webp)
+
+**Traffic** — the messages as they pass, filtered by topic or text
+![Traffic](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-mqtt/screenshots/traffic-dark.webp)
+
+**Discovery** — the devices Home Assistant gets over MQTT, which integration sent them, available or not, and the configs it can't use
+![Discovery](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-mqtt/screenshots/discovery-light.webp)
+
+**A discovered device** — its entities with their state, availability and config topic, and removing it from Home Assistant
+![A discovered device](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-mqtt/screenshots/device-dark.webp)
+
+**Stats** — a week of messages, data, clients, connects and topic groups
+![Stats](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-mqtt/screenshots/stats-dark.webp)
+
+**Log** — the broker's log, searchable, refused logins in red
+![Log](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-mqtt/screenshots/log-light.webp)
+
+</details>
+
 ## Supported Features
 
 - 📡 **Mosquitto 2.1** — MQTT 3.1, 3.1.1 and 5, WebSockets, TLS, persistence, bridges through your own config

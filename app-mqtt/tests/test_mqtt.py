@@ -7,7 +7,7 @@ from src.clients import Clients, level_of, split_address
 from src.config import Config
 from src.ha import form_values
 from src.history import History
-from src.logpipe import is_subscription
+from src.logpipe import is_probe, is_subscription
 from src.webui import matcher, tree, valid_filter
 
 # Lines as Mosquitto 2.1.4 writes them (captured from the real broker)
@@ -69,6 +69,20 @@ def test_reconnect_and_broker_restart():
     assert c.clients["ha-core"]["subs"] == {}
 
 
+def test_probes_not_in_the_log():
+    c = feed(LOG)
+    before = len(c.log)
+    c.feed("2026-11-18T11:36:21: New connection from 127.0.0.1:59684 on port 1883.\n")
+    c.feed("2026-11-18T11:36:21: Client 127.0.0.1 [127.0.0.1:59684] disconnected: connection closed by client.\n")
+    assert len(c.log) == before
+    # The dashboard's own connection from 127.0.0.1 still gets its listener
+    c.feed("2026-11-18T11:37:00: New connection from 127.0.0.1:40000 on port 1883.\n")
+    c.feed(
+        "2026-11-18T11:37:00: New client connected from 127.0.0.1:40000 as mqtt-dashboard (p5, c1, k30, u'mqtt-dashboard').\n"
+    )
+    assert c.clients["mqtt-dashboard"]["listener"] == 1883
+
+
 def test_refused_login():
     c = feed(LOG)
     c.feed("2026-11-18T09:09:00: Client tasmota_1 [192.168.1.30:5000] disconnected, not authorised.\n")
@@ -85,6 +99,14 @@ def test_helpers():
     assert is_subscription("2026-11-18T09:07:48: ha-core zigbee2mqtt/+/set")
     assert not is_subscription("2026-11-18T09:07:38: Websockets support available.")
     assert not is_subscription("2026-11-18T09:07:38: Opening ipv4 listen socket on port 1883.")
+    # The health check: hidden; a real client from elsewhere: shown
+    assert is_probe("2026-11-18T11:36:21: New connection from 127.0.0.1:59684 on port 1883.")
+    assert is_probe(
+        "2026-11-18T11:36:21: Client 127.0.0.1 [127.0.0.1:59684] disconnected: connection closed by client."
+    )
+    assert is_probe("2026-11-18T10:34:04: Protocol error from ::1:56108: First packet not CONNECT (0A).")
+    assert not is_probe("2026-11-18T11:36:38: New connection from 172.18.0.1:33264 on port 1883.")
+    assert not is_probe("2026-11-18T11:36:39: Client flapper [127.0.0.1:1] disconnected: connection closed by client.")
 
 
 def test_filters():
@@ -217,6 +239,8 @@ def test_history(tmp_path):
     sys3["$SYS/broker/messages/received"] = "30"
     h.record(t0 + 120, sys3, (1, 0, 0, {"z2m": 1}), {})
     s = h.stats(1, now=t0 + 180)
+    # Three minutes of history: the chart starts at the first sample, not a day back
+    assert s["since"] == t0 // 300 * 300 and len(s["x"]) == 1
     assert s["totals"]["received"] == 60 + 30
     assert s["totals"]["connects"] == 3 and s["totals"]["refused"] == 1
     assert s["groups"][0] == {"group": "zigbee2mqtt", "messages": 15, "bytes": 600}

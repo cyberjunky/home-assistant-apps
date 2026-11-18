@@ -41,6 +41,12 @@ _UNSUBSCRIBE = re.compile(r"^(\S+) (\S+)$")
 _STARTED = re.compile(r"^mosquitto version (\S+) (?:starting|running)$")
 # Lines that are about the broker itself, not a subscription (two or three words, like one)
 _NOT_SUBSCRIPTION = re.compile(r"^(Bridge|Persistence|TLS|TLS-PSK|Websockets|Opening|Info:|Warning:|Error:|Config)\b")
+# The health check and bashio's port probes: a connection from this machine that never logs in
+_PROBE = re.compile(
+    r"^(New connection from (127\.0\.0\.1|::1):\d+ on port \d+\."
+    r"|Client (127\.0\.0\.1|::1) \[\S+\] disconnected.*"
+    r"|Protocol error from (127\.0\.0\.1|::1):\d+: First packet not CONNECT.*)$"
+)
 # An address as Mosquitto writes it: 1.2.3.4:5678 or [::1]:5678 or ::1:5678
 _ADDRESS = re.compile(r"^\[?(.*?)\]?:(\d+)$")
 
@@ -55,6 +61,11 @@ def _ts(text: str) -> float:
 def split_address(address: str) -> tuple[str, int | None]:
     m = _ADDRESS.match(address)
     return (m.group(1), int(m.group(2))) if m else (address, None)
+
+
+def is_probe(message: str) -> bool:
+    """A health check's connection, not a client: left out of the logs people read."""
+    return bool(_PROBE.match(message))
 
 
 def level_of(message: str) -> str:
@@ -99,7 +110,7 @@ class Clients:
             return
         ts, message = _ts(m.group(1)), m.group(2)
         changed = self._parse(ts, message)
-        if changed != "subscription":
+        if changed != "subscription" and not is_probe(message):
             self.log_seq += 1
             self.log.append({"seq": self.log_seq, "ts": ts, "level": level_of(message), "text": message})
         self.version += 1

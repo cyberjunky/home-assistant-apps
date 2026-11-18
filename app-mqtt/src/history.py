@@ -144,6 +144,10 @@ class History:
         until = int(now // bucket * bucket) + bucket
         since = until - days * DAY
         with self.lock:
+            first = self.db.execute("SELECT MIN(ts) FROM minutes").fetchone()[0]
+            # A history younger than the period: the charts start at its first sample, not empty
+            if first is not None and first > since:
+                since = int(first // bucket * bucket)
             rows = self.db.execute(
                 f"SELECT ts / {bucket} * {bucket} AS b, COUNT(*), "
                 "SUM(received), SUM(sent), SUM(bytes_received), SUM(bytes_sent), "
@@ -165,7 +169,6 @@ class History:
                 "SELECT client, SUM(connects) FROM client_hours WHERE hour >= ? GROUP BY client ORDER BY 2 DESC LIMIT 20",
                 (since,),
             ).fetchall()
-            first = self.db.execute("SELECT MIN(ts) FROM minutes").fetchone()[0]
         by_bucket = {r[0]: r for r in rows}
         xs = list(range(since, until, bucket))
 
