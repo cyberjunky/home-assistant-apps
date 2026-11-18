@@ -1,0 +1,10 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# A failing nginx takes the app down (the Supervisor's watchdog starts it again)
+# ==============================================================================
+if [[ "${1:-0}" -ne 0 ]] && [[ "${1:-0}" -ne 256 ]]; then
+    bashio::log.warning "nginx failed: halting the app"
+    echo "${1:-0}" > /run/s6-linux-init-container-results/exitcode
+    exec /run/s6/basedir/bin/halt
+fi

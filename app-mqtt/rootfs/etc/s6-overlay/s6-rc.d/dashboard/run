@@ -1,0 +1,8 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# The dashboard (Python): clients, topics, traffic, discovery and history
+# ==============================================================================
+bashio::net.wait_for 1883
+cd /app || exit 1
+exec python3 -m src

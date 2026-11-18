@@ -1,0 +1,5 @@
+# Python dependencies for the MQTT app's dashboard (installed in the Dockerfile).
+# aiohttp - web server and ingress, and Home Assistant's API
+aiohttp>=3.14.5,<4
+# paho-mqtt - the dashboard's own client on the broker
+paho-mqtt>=2.1.0,<3

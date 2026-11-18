@@ -1,0 +1,9 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# The dashboard stopped. The broker keeps running; a bad configuration (exit 1) is logged.
+# ==============================================================================
+if [[ "${1:-0}" -eq 1 ]]; then
+    bashio::log.error "The dashboard can't start: see the lines above. The broker keeps running."
+    sleep 30
+fi

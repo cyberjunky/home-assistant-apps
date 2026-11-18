@@ -132,6 +132,20 @@ street-level pins, statistics, Home Assistant sensors, events and text-to-speech
 
 [:books: Documentation](app-meldkamer/DOCS.md) · [:memo: Changelog](app-meldkamer/CHANGELOG.md) · [:lock: Security](app-meldkamer/SECURITY.md)
 
+### <img src="app-mqtt/icon.png" alt="" width="36" align="absmiddle"> [MQTT](app-mqtt/)
+
+![Version][mqtt-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+The Mosquitto MQTT broker, set up like Home Assistant's Mosquitto app (Home Assistant users log
+in, Home Assistant and other apps find it by themselves), with a dashboard: the clients and their
+subscriptions, every topic as a tree with its value, the live traffic, the devices Home Assistant
+gets over MQTT discovery, and statistics. Publish, clear retained messages, and switch Home
+Assistant over from another broker in one click.
+
+[:books: Documentation](app-mqtt/DOCS.md) · [:memo: Changelog](app-mqtt/CHANGELOG.md) · [:lock: Security](app-mqtt/SECURITY.md)
+
 ### <img src="app-network/icon.png" alt="" width="36" align="absmiddle"> [Network](app-network/)
 
 ![Version][network-version-shield]
@@ -310,6 +324,7 @@ software each app packages keeps its own license, noted in the app's README.
 [dishylink-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-dishylink%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [goodwe-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-goodwe%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [meldkamer-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-meldkamer%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[mqtt-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-mqtt%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [tesla-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-tesla%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [toon-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-toon%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [arcade-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-arcade%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge

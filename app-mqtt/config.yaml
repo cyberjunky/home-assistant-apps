@@ -1,0 +1,67 @@
+name: MQTT
+version: "0.1.0"
+slug: app-mqtt
+description: "The Mosquitto MQTT broker with a dashboard: clients, topics, live traffic, Home Assistant discovery and statistics"
+url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-mqtt"
+init: false
+arch:
+  - aarch64
+  - amd64
+# Prebuilt by the repository Builder workflow; bump `version` to publish a new image
+image: "ghcr.io/cyberjunky/app-mqtt"
+ingress: true
+panel_icon: mdi:transit-connection-variant
+panel_title: MQTT
+# Logins of Home Assistant users, checked by the Supervisor
+auth_api: true
+# Home Assistant is offered MQTT with this broker (discovery), other apps find it as the mqtt service
+discovery:
+  - mqtt
+services:
+  - mqtt:provide
+# The dashboard reads the MQTT integration's entry and can point it at this broker
+homeassistant_api: true
+# The broker starts before Home Assistant, so MQTT is there when it starts
+startup: system
+map:
+  - ssl
+  - share
+ports:
+  1883/tcp: 1883
+  1884/tcp: 1884
+  8883/tcp: 8883
+  8884/tcp: 8884
+
+options:
+  logins: []
+  log_dest: []
+  log_type: []
+  require_certificate: false
+  certfile: fullchain.pem
+  keyfile: privkey.pem
+  customize:
+    active: false
+    folder: mosquitto
+  keep_days: 30
+  capture_payloads: true
+
+schema:
+  logins:
+    - username: str
+      password: password
+      password_pre_hashed: "bool?"
+  log_dest:
+    - list(none|stdout|stderr|topic)?
+  log_type:
+    - list(none|debug|error|warning|notice|information|subscribe|unsubscribe|websockets|all)?
+  require_certificate: bool
+  certfile: str
+  cafile: str?
+  keyfile: str
+  customize:
+    active: bool
+    folder: str
+  debug: bool?
+  keep_days: int(1,3650)?
+  capture_payloads: bool?
+  log_level: list(debug|info|warning|error)?

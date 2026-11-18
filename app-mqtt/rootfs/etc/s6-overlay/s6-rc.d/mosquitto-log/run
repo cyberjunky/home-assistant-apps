@@ -1,0 +1,10 @@
+#!/command/with-contenv bash
+# shellcheck shell=bash
+# ==============================================================================
+# The broker's log: to the app's log, and to /run/mqtt/broker.log for the dashboard
+# ==============================================================================
+cd /app || exit 1
+if [[ -f /run/mqtt/quiet ]]; then
+    exec python3 -m src.logpipe > /dev/null
+fi
+exec python3 -m src.logpipe
