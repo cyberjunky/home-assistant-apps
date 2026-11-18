@@ -23,7 +23,6 @@ services:
 homeassistant_api: true
 # The broker starts before Home Assistant, so MQTT is there when it starts
 startup: system
-watchdog: "tcp://[HOST]:[PORT:1883]"
 map:
   - ssl
   - share

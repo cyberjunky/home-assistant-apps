@@ -80,7 +80,12 @@ async def flow_start(request: web.Request) -> web.Response:
             "flow_id": "flow1",
             "step_id": "broker",
             "data_schema": [
-                {"name": "broker", "type": "string", "required": True, "description": {"suggested_value": "core-mosquitto"}},
+                {
+                    "name": "broker",
+                    "type": "string",
+                    "required": True,
+                    "description": {"suggested_value": "core-mosquitto"},
+                },
                 {"name": "port", "type": "integer", "required": True, "default": 1883},
                 {"name": "protocol", "type": "select", "default": "3.1.1"},
                 {"name": "username", "type": "string", "description": {"suggested_value": "homeassistant"}},
@@ -104,7 +109,8 @@ async def calls(request: web.Request) -> web.Response:
 
 def main() -> None:
     if len(sys.argv) > 1:
-        OPTIONS.update(json.loads(open(sys.argv[1]).read()))
+        with open(sys.argv[1]) as f:
+            OPTIONS.update(json.load(f))
     app = web.Application()
     app.router.add_get("/addons/self/options/config", options)
     app.router.add_get("/info", info)
