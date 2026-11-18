@@ -1,0 +1,38 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Announces the broker to Home Assistant (discovery: MQTT is offered with the homeassistant
+# user) and to the other apps (the mqtt service, with the addons user), as the Mosquitto app does
+# ==============================================================================
+readonly SYSTEM_USER="/data/system_user.json"
+declare config
+
+bashio::net.wait_for 1883
+
+config=$(bashio::var.json \
+    host "$(hostname)" \
+    port "^1883" \
+    ssl "^false" \
+    protocol "3.1.1" \
+    username "homeassistant" \
+    password "$(jq -r '.homeassistant.password' "${SYSTEM_USER}")")
+if bashio::discovery "mqtt" "${config}" > /dev/null; then
+    bashio::log.info "Sent the broker to Home Assistant (discovery)"
+else
+    bashio::log.error "Could not send the broker to Home Assistant (discovery)"
+fi
+
+config=$(bashio::var.json \
+    host "$(hostname)" \
+    port "^1883" \
+    ssl "^false" \
+    protocol "3.1.1" \
+    username "addons" \
+    password "$(jq -r '.addons.password' "${SYSTEM_USER}")")
+# A registration left by an earlier run would block the new one
+eval "bashio::services.delete mqtt &> /dev/null ${LOG_FD}> /dev/null" || true
+if bashio::services.publish "mqtt" "${config}" > /dev/null 2>&1; then
+    bashio::log.info "Published the broker to the other apps (mqtt service)"
+else
+    bashio::log.error "Could not publish the mqtt service: is another MQTT broker app running?"
+fi

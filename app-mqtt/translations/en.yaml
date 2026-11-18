@@ -1,0 +1,61 @@
+configuration:
+  logins:
+    name: Logins
+    description: >-
+      Local users with a username and password, for devices that can't use a
+      Home Assistant user. Home Assistant users can log in without this. Set
+      password_pre_hashed to true to give a hash made with the pw command (in
+      the app's container) instead of the password.
+  log_dest:
+    name: Log destinations
+    description: >-
+      Where the broker logs to besides the app's log: topic also publishes it
+      under $SYS/broker/log. none keeps the app's log quiet. Empty: the app's log.
+  log_type:
+    name: Log types
+    description: >-
+      What the broker logs. Empty: error, warning, notice and information. The
+      broker always logs connections and subscriptions for the dashboard; the
+      subscriptions show in the app's log only when subscribe or unsubscribe
+      is chosen here.
+  require_certificate:
+    name: Require a client certificate
+    description: >-
+      Clients on the TLS ports must have a certificate signed by the CA file,
+      besides their login.
+  certfile:
+    name: Certificate file
+    description: The certificate with its chain, in Home Assistant's ssl folder. With it and the key, TLS starts on 8883 and 8884.
+  cafile:
+    name: CA file
+    description: The CA that signed the clients' certificates (for Require a client certificate), in the ssl folder.
+  keyfile:
+    name: Private key file
+    description: The certificate's private key, in Home Assistant's ssl folder.
+  customize:
+    name: Customize
+    description: >-
+      Read extra Mosquitto configuration (*.conf) from this folder in /share.
+      See the Documentation tab.
+  debug:
+    name: Debug
+    description: >-
+      Log everything, also from the login plugin. Can log passwords: not for
+      long.
+  keep_days:
+    name: Keep the history (days)
+    description: How long the dashboard keeps its sample of the broker of every minute.
+  capture_payloads:
+    name: Keep message contents
+    description: >-
+      The dashboard keeps the last value of every topic and shows the messages
+      on the Traffic page. Off: only counts, except Home Assistant's discovery
+      and availability.
+  log_level:
+    name: Dashboard log level
+    description: How much the dashboard itself logs.
+network:
+  1883/tcp: MQTT
+  1884/tcp: MQTT over WebSocket
+  8883/tcp: MQTT with TLS
+  8884/tcp: MQTT over WebSocket with TLS

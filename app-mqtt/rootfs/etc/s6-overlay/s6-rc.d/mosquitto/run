@@ -1,0 +1,19 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Mosquitto. Its log (stdout and stderr) goes to the log pipe (mosquitto-log).
+# ==============================================================================
+declare -a options=(-c /etc/mosquitto/mosquitto.conf)
+
+# Logins of Home Assistant users are checked through nginx
+bashio::net.wait_for 80
+
+if bashio::debug; then
+    options+=(-v)
+fi
+
+# Tell Home Assistant and the other apps where the broker is, once it listens
+/usr/local/bin/mqtt-discovery &
+
+bashio::log.info "Starting Mosquitto..."
+exec mosquitto "${options[@]}" 2>&1

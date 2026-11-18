@@ -1,0 +1,12 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# The broker stopped: other apps can't use it now. A failure takes the app down.
+# ==============================================================================
+bashio::services.delete "mqtt" > /dev/null 2>&1 || true
+
+if [[ "${1:-0}" -ne 0 ]] && [[ "${1:-0}" -ne 256 ]]; then
+    bashio::log.warning "Mosquitto failed with exit code ${1}: halting the app"
+    echo "${1:-0}" > /run/s6-linux-init-container-results/exitcode
+    exec /run/s6/basedir/bin/halt
+fi

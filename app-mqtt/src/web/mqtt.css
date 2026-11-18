@@ -1,0 +1,85 @@
+/* MQTT dashboard - the pages' own parts. The shared design is in app.css. */
+
+/* A topic: its levels with quiet slashes, the last level bold */
+.topic { font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhere; }
+.topic i { font-style: normal; color: var(--muted-text-color); padding: 0 1px; }
+.topic b { font-weight: 600; }
+h2 .topic { font-size: 18px; }
+.payload-text { font-size: 12px; overflow-wrap: anywhere; }
+.payload-cell { max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.payload-cell .payload-text { white-space: nowrap; }
+.nowrap { white-space: nowrap; }
+.one-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.one-line .payload-text { white-space: nowrap; }
+.state-cell { max-width: 380px; }
+.small { font-size: 11.5px; }
+.clickable { cursor: pointer; }
+.clickable:hover td { background: var(--hover-bg); }
+.ret { display: inline-block; font-family: var(--mono); font-size: 10px; font-weight: 600; padding: 0 4px; border-radius: 3px; background: var(--tag-bg); color: var(--tag-text); margin-left: 4px; }
+.search { min-width: 260px; }
+.filters:empty { display: none; }
+.note { color: var(--secondary-text-color); font-size: 12px; margin: 8px 2px; }
+.chip-list { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+.steps { margin: 0; padding-left: 20px; line-height: 1.6; }
+.steps li { margin-bottom: 6px; }
+
+/* Info rows that hold a sentence: read as text, not as a value */
+.info-grid.prose .info-row { align-items: baseline; }
+.info-grid.prose .info-label { flex: none; width: 150px; }
+.info-grid.prose .info-value { font-family: inherit; text-align: left; flex: 1; }
+
+/* Value of a topic, a message */
+pre.payload { font-family: var(--mono); font-size: 12.5px; background: var(--row-alt); border: 1px solid var(--divider-color); border-radius: 6px;
+    padding: 10px 12px; margin: 0; max-height: 420px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+pre.payload.binary { color: var(--secondary-text-color); }
+.payload-input { width: 100%; resize: vertical; font-size: 12.5px; }
+.clear-list { max-height: 220px; overflow: auto; font-size: 12px; margin-top: 10px; padding: 8px; border: 1px solid var(--divider-color); border-radius: 6px; }
+
+/* Traffic per group */
+.group-rows { display: flex; flex-direction: column; gap: 8px; }
+.group-row { display: grid; grid-template-columns: minmax(80px, 1.2fr) minmax(60px, 2fr) 72px 80px; gap: 10px; align-items: center; font-size: 12.5px; }
+.group-row .bar { height: 8px; border-radius: 4px; background: var(--grid-color); overflow: hidden; }
+.group-row .bar i { display: block; height: 100%; background: var(--primary-color); border-radius: 4px; }
+.group-row .n { text-align: right; font-family: var(--mono); font-size: 12px; }
+
+/* Topics: the tree on the left, the topic on the right */
+.topics-layout { display: grid; grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.3fr); gap: 14px; align-items: start; }
+.topics-left { position: sticky; top: 0; }
+.topics-left .panel-body { display: flex; flex-direction: column; gap: 8px; }
+.topics-left .search { width: 100%; min-width: 0; }
+.topics-right { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.tree { max-height: calc(100vh - 230px); overflow: auto; margin: 0 -8px; }
+.tree-row { display: flex; align-items: baseline; gap: 6px; padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 12.5px; min-width: 0; }
+.tree-row:hover { background: var(--hover-bg); }
+.tree-row.selected { background: var(--selected-bg); }
+.tree-row .caret { width: 12px; flex: none; color: var(--secondary-text-color); font-size: 11px; text-align: center; }
+.tree-name { font-family: var(--mono); flex: none; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topic-list .tree-name { max-width: 65%; }
+.tree-value { font-family: var(--mono); font-size: 11.5px; color: var(--secondary-text-color); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-meta { margin-left: auto; flex: none; display: flex; gap: 6px; align-items: baseline; font-family: var(--mono); font-size: 11px; }
+.tree-meta .rate { color: var(--primary-color); }
+.tree-loading { padding: 3px 30px; }
+.list-count { font-size: 12px; padding: 0 8px 6px; }
+
+/* Traffic */
+.traffic-table { max-height: calc(100vh - 230px); overflow: auto; }
+.traffic-table thead th { position: sticky; top: 0; background: var(--ha-card-background); z-index: 1; }
+#tr-filter { min-width: 240px; }
+
+/* Log */
+.log-view { max-height: calc(100vh - 220px); overflow: auto; font-family: var(--mono); font-size: 12px; }
+.log-line { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px; padding: 2px 4px; border-bottom: 1px solid var(--grid-color); }
+.log-line .t { color: var(--muted-text-color); white-space: nowrap; }
+.log-line .x { overflow-wrap: anywhere; }
+.log-line.warning .x { color: var(--warning-color); }
+.log-line.error .x { color: var(--danger-color); }
+
+@media (max-width: 900px) {
+    .topics-layout { grid-template-columns: 1fr; }
+    .topics-left { position: static; }
+    .tree { max-height: 50vh; }
+    .search, #tr-filter { min-width: 0; width: 100%; }
+    .log-line { grid-template-columns: 1fr; gap: 0; }
+    .group-row { grid-template-columns: minmax(80px, 1fr) minmax(40px, 1fr) 64px; }
+    .group-row .n.muted { display: none; }
+}

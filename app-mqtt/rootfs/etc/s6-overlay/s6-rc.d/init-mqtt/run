@@ -1,0 +1,109 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# MQTT - makes the broker's users and configuration at every start
+# - the system users homeassistant (for Home Assistant, sent with discovery), addons (for other
+#   apps, published as the mqtt service) and mqtt-dashboard (the dashboard's own client), with
+#   passwords kept in /data/system_user.json
+# - the local logins from the options; Home Assistant's users log in through the Supervisor
+# ==============================================================================
+readonly ACL="/etc/mosquitto/acl"
+readonly PW="/etc/mosquitto/pw"
+readonly SYSTEM_USER="/data/system_user.json"
+declare cafile certfile keyfile ssl log_types show_subscriptions log_topic
+
+mkdir -p /etc/mosquitto /run/mqtt
+: > "${PW}"
+: > "${ACL}"
+rm -f /run/mqtt/ssl /run/mqtt/show_subscriptions /run/mqtt/quiet
+
+# Every service follows Home Assistant's time zone (the log's times, the history's days)
+if timezone=$(bashio::info.timezone 2>/dev/null) && [[ -n "${timezone}" ]] && [[ "${timezone}" != "null" ]]; then
+    printf '%s' "${timezone}" > /run/s6/container_environment/TZ
+fi
+
+# The system users' passwords: made once, kept in /data
+if ! bashio::fs.file_exists "${SYSTEM_USER}"; then
+    bashio::var.json \
+        homeassistant "^$(bashio::var.json password "$(pwgen 64 1)")" \
+        addons "^$(bashio::var.json password "$(pwgen 64 1)")" \
+        > "${SYSTEM_USER}"
+fi
+# The dashboard's user came with this app; add it to a file from the Mosquitto app or an older version
+if [[ "$(jq -r '.dashboard.password // empty' "${SYSTEM_USER}")" == "" ]]; then
+    jq --arg p "$(pwgen 64 1)" '.dashboard = {password: $p}' "${SYSTEM_USER}" > "${SYSTEM_USER}.new"
+    mv "${SYSTEM_USER}.new" "${SYSTEM_USER}"
+fi
+chmod 600 "${SYSTEM_USER}"
+
+for user in homeassistant addons dashboard; do
+    name="${user}"
+    [[ "${user}" == "dashboard" ]] && name="mqtt-dashboard"
+    echo "${name}:$(pw -p "$(jq -r ".${user}.password" "${SYSTEM_USER}")")" >> "${PW}"
+    echo "user ${name}" >> "${ACL}"
+done
+
+# The local logins
+for login in $(bashio::config 'logins|keys'); do
+    bashio::config.require.username "logins[${login}].username"
+    bashio::config.require.password "logins[${login}].password"
+    username=$(bashio::config "logins[${login}].username")
+    password=$(bashio::config "logins[${login}].password")
+    case "${username}" in
+        homeassistant|addons|mqtt-dashboard)
+            bashio::exit.nok "The username ${username} is the app's own: choose another one" ;;
+    esac
+    bashio::log.info "Setting up the login ${username}"
+    if ! bashio::config.true "logins[${login}].password_pre_hashed"; then
+        password=$(pw -p "${password}")
+    fi
+    echo "${username}:${password}" >> "${PW}"
+    echo "user ${username}" >> "${ACL}"
+done
+chmod 600 "${PW}" "${ACL}"
+
+# TLS when the certificate and key are in Home Assistant's ssl folder
+keyfile="/ssl/$(bashio::config 'keyfile')"
+certfile="/ssl/$(bashio::config 'certfile')"
+cafile="/ssl/$(bashio::config 'cafile')"
+if bashio::fs.file_exists "${certfile}" && bashio::fs.file_exists "${keyfile}"; then
+    bashio::log.info "Certificates found: TLS is available on 8883 and 8884"
+    ssl="true"
+    touch /run/mqtt/ssl
+    if ! bashio::config.has_value 'cafile' || ! bashio::fs.file_exists "${cafile}"; then
+        cafile="${certfile}"
+    fi
+else
+    ssl="false"
+fi
+
+# The broker always logs connections and subscriptions: the dashboard's client list is made from
+# them. The log pipe leaves the subscriptions out of the app's log unless the options ask for them.
+log_types=$(bashio::app.config | jq -c '
+    (.log_type // []) as $t
+    | if .debug then ["all"]
+      elif ($t | length) == 0 or ($t == ["none"]) then ["error", "warning", "notice", "information"]
+      else $t end
+    | . + ["notice", "information", "subscribe", "unsubscribe"]
+    | map(select(. != "none")) | unique')
+show_subscriptions=$(bashio::app.config | jq -r '.debug == true or ((.log_type // []) | any(. == "subscribe" or . == "unsubscribe" or . == "all"))')
+[[ "${show_subscriptions}" == "true" ]] && touch /run/mqtt/show_subscriptions
+log_topic=$(bashio::app.config | jq -r '(.log_dest // []) | any(. == "topic")')
+if bashio::app.config | jq -e '(.log_dest // []) == ["none"]' > /dev/null; then
+    touch /run/mqtt/quiet
+fi
+
+bashio::var.json \
+    cafile "${cafile}" \
+    certfile "${certfile}" \
+    keyfile "${keyfile}" \
+    ssl "^${ssl}" \
+    require_certificate "^$(bashio::config 'require_certificate')" \
+    customize "^$(bashio::config 'customize.active')" \
+    customize_folder "$(bashio::config 'customize.folder')" \
+    log_types "^${log_types}" \
+    log_topic "^${log_topic}" \
+    debug "^$(bashio::config 'debug')" \
+    | tempio -template /usr/share/tempio/mosquitto.gtpl -out /etc/mosquitto/mosquitto.conf
+
+echo "{}" | tempio -template /usr/share/tempio/nginx.gtpl -out /etc/nginx/nginx.conf

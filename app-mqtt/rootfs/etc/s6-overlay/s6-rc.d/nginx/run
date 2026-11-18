@@ -1,0 +1,7 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# nginx: the broker's login check for Home Assistant users goes through it to the Supervisor
+# ==============================================================================
+bashio::log.info "Starting nginx for the logins of Home Assistant users..."
+exec nginx
