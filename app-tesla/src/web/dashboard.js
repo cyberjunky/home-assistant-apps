@@ -17,6 +17,11 @@ let lastDashState = null;
 let lastLiveHtml = '';
 let firstFix = true;
 const dayTracks = L.layerGroup().addTo(mapLayers.dashboard);
+const nearbyLayer = L.layerGroup().addTo(mapLayers.dashboard);
+let nearbyMarkers = [];
+let nearbyDrawn = '';
+// Not more than fit the panel; Tesla lists the nearest ones
+const NEARBY_SHOWN = 8;
 
 function toggleFollow() {
     followCar = !followCar;
@@ -160,6 +165,97 @@ function chargeSettingsBlock(car) {
     return `<div class="block"><div class="block-title"><span>Charging settings</span></div><div class="facts">${factsGrid(items)}</div></div>`;
 }
 
+// =====================================================================
+// The car's own schedules (software 2024.26 and later)
+// =====================================================================
+// A bit per day, as Tesla counts them: Sunday 1 ... Saturday 64. Shown from Monday on.
+const DAY_BITS = [[2, 'Mon'], [4, 'Tue'], [8, 'Wed'], [16, 'Thu'], [32, 'Fri'], [64, 'Sat'], [1, 'Sun']];
+
+function scheduleDays(s) {
+    if (s.one_time) return 'Once';
+    if (missing(s.days)) return '';
+    if (s.days === 127) return 'Every day';
+    if (s.days === 62) return 'Weekdays';
+    if (s.days === 65) return 'Weekends';
+    return DAY_BITS.filter(([bit]) => s.days & bit).map(([, name]) => name).join(', ');
+}
+
+function chargeScheduleTimes(s) {
+    if (!missing(s.start) && !missing(s.end)) return `${fmtMinutesOfDay(s.start)} to ${fmtMinutesOfDay(s.end)}`;
+    if (!missing(s.start)) return `from ${fmtMinutesOfDay(s.start)}`;
+    if (!missing(s.end)) return `until ${fmtMinutesOfDay(s.end)}`;
+    return '';
+}
+
+function schedulesBlock(car) {
+    const row = (kind, s, times) => fact(
+        kind + (s.enabled ? '' : ' · off'),
+        escapeHtml([scheduleDays(s), times].filter(Boolean).join(' · ') || '–'),
+        s.enabled ? 'wrap' : 'wrap off',
+    );
+    const items = [
+        ...(car.charge_schedules || []).map(s => row('Charging', s, chargeScheduleTimes(s))),
+        ...(car.precondition_schedules || []).map(s => row('Preconditioning', s, missing(s.time) ? '' : `ready at ${fmtMinutesOfDay(s.time)}`)),
+    ];
+    if (!items.length) return '';
+    return `<div class="block"><div class="block-title"><span>Schedules</span><span>set in the car</span></div><div class="facts">${factsGrid(items)}</div></div>`;
+}
+
+// =====================================================================
+// Tesla's chargers near the car, as the car's own screen lists them
+// =====================================================================
+function nearbySites(car) {
+    return car.nearby && car.nearby.sites ? car.nearby.sites.filter(s => !missing(s.lat) && !missing(s.lon)).slice(0, NEARBY_SHOWN) : [];
+}
+
+function stallsText(site) {
+    if (site.closed) return 'closed';
+    if (site.kind !== 'supercharger') return 'destination';
+    if (missing(site.available) || missing(site.total)) return 'Supercharger';
+    return `${num(site.available)} of ${num(site.total)} free`;
+}
+
+function nearbyBlock(car) {
+    const sites = nearbySites(car);
+    if (!sites.length) return '';
+    return `<div class="block"><div class="block-title"><span>Chargers nearby</span><span>read ${fmtTime(car.nearby.ts)}</span></div>
+        <div class="sites">${sites.map((s, i) => `<button type="button" class="site" onclick="showSite(${i})" title="Show on the map">
+            <span class="site-dot ${s.kind}${s.closed ? ' closed' : ''}"></span>
+            <span class="site-name">${escapeHtml(s.name || 'Charger')}</span>
+            <span class="site-stalls${s.closed || s.available === 0 ? ' none' : ''}">${escapeHtml(stallsText(s))}</span>
+            <span class="site-dist">${missing(s.distance_km) ? '' : fmtDist(s.distance_km, 1)}</span>
+        </button>`).join('')}</div></div>`;
+}
+
+function drawNearby(car) {
+    const sites = nearbySites(car);
+    const key = `${car.id}:${car.nearby ? car.nearby.ts : 0}:${sites.length}`;
+    if (key === nearbyDrawn) return;
+    nearbyDrawn = key;
+    nearbyLayer.clearLayers();
+    nearbyMarkers = sites.map(s => {
+        const icon = L.divIcon({
+            className: `site-marker ${s.kind}${s.closed ? ' closed' : ''}`,
+            html: `<div class="site-pin">${ICON_CHARGE}</div>`,
+            iconSize: [22, 22], iconAnchor: [11, 11],
+        });
+        const distance = missing(s.distance_km) ? '' : ` · ${fmtDist(s.distance_km, 1)}`;
+        return L.marker([s.lat, s.lon], {icon, zIndexOffset: 500})
+            .bindTooltip(`<b>${escapeHtml(s.name || 'Charger')}</b><br>${escapeHtml(stallsText(s))}${escapeHtml(distance)}`, {direction: 'top', offset: [0, -10]})
+            .addTo(nearbyLayer);
+    });
+}
+
+// The car and the charger in view. Following the car would move the map back, so that stops.
+function showSite(index) {
+    const car = currentCar();
+    const marker = nearbyMarkers[index];
+    if (!car || !marker) return;
+    if (followCar) toggleFollow();
+    map.fitBounds(L.latLngBounds([marker.getLatLng(), [car.lat, car.lon]]).pad(0.25), {maxZoom: 15});
+    marker.openTooltip();
+}
+
 // How the car itself is set to show things, as one line
 function carUnitsText(car) {
     const parts = [car.car_unit_distance, car.car_unit_temperature && `°${car.car_unit_temperature}`, car.car_unit_charge_rate, car.car_unit_range].filter(Boolean);
@@ -276,11 +372,14 @@ function renderCarPanel(car) {
                 car.remote_start ? fact('Remote start', 'On', 'warn') : '',
                 car.dashcam ? fact('Dashcam', escapeHtml(prettyWord(car.dashcam))) : '',
                 car.homelink_nearby ? fact('HomeLink', 'Nearby') : '',
+                missing(car.mobile_access) ? '' : fact('Mobile access', car.mobile_access ? 'On' : 'Off', car.mobile_access ? '' : 'warn'),
                 carUnits ? fact('Car shows', escapeHtml(carUnits), 'wrap') : '',
             ])}</div>
         </div>
         ${climateBlock(car)}
-        ${chargeSettingsBlock(car)}`;
+        ${chargeSettingsBlock(car)}
+        ${schedulesBlock(car)}
+        ${nearbyBlock(car)}`;
 }
 
 function renderOverview() {
@@ -412,6 +511,7 @@ function renderDashboard() {
             firstFix = false;
         }
     }
+    drawNearby(car);
     if (car.drive_id) {
         extendLiveTrack(car);
     } else if (liveTrack) {

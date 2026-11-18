@@ -4,6 +4,10 @@
 
 **After updating:** nothing to do.
 
+- **Chargers nearby:** the dashboard lists Tesla's Superchargers and destination chargers near the car, as the car's own screen does: the distance, and for a Supercharger the free stalls at the time shown. Each is a pin on the map; click one in the list to see it and the car together. They are read along with an awake car's data, at most every 15 minutes (5 once the car has moved 3 km), never by themselves, so they don't keep the car awake.
+- **Schedules:** the charging and preconditioning schedules set in the car, with their days and times, and which are switched off. Cars report them since software 2024.26.
+- **Mobile access:** Vehicle shows whether "Allow mobile access" is on in the car, checked every 6 hours while the car is awake.
+- If Tesla refuses one of these for your account or car, it is left out and the rest works as before.
 - **MQTT name like the other apps:** Home Assistant shows the entities as coming from "Tesla" instead of "Tesla app (unofficial)". Entities and their history stay as they are.
 
 ## 0.8.2

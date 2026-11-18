@@ -22,6 +22,8 @@ DATA_ENDPOINTS = (
     "charge_state;climate_state;closures_state;drive_state;gui_settings;"
     "location_data;vehicle_config;vehicle_state;vehicle_data_combo"
 )
+# The charge and preconditioning schedules, which cars know since software 2024.26
+SCHEDULE_ENDPOINTS = ";charge_schedule_data;preconditioning_schedule_data"
 
 
 class TeslaApiError(Exception):
@@ -73,6 +75,8 @@ class TeslaApi:
     def __init__(self, auth: TeslaAuth):
         self.auth = auth
         self._session: httpx.AsyncClient | None = None
+        # Until Tesla refuses a read that asks for them
+        self._schedules = True
 
     @property
     def host(self) -> str:
@@ -157,7 +161,29 @@ class TeslaApi:
 
     async def vehicle_data(self, tesla_id: int) -> dict:
         """All live data of a vehicle. Raises VehicleUnavailable when it is asleep or offline."""
-        return await self._request("GET", f"/api/1/vehicles/{tesla_id}/vehicle_data", {"endpoints": DATA_ENDPOINTS})
+        path = f"/api/1/vehicles/{tesla_id}/vehicle_data"
+        if self._schedules:
+            try:
+                return await self._request("GET", path, {"endpoints": DATA_ENDPOINTS + SCHEDULE_ENDPOINTS})
+            except (VehicleUnavailable, RateLimited, OwnerApiClosed):
+                raise
+            except TeslaApiError as e:
+                if not 400 <= e.status < 500:
+                    raise
+                # The schedules are an extra: a refusal of them must not cost the car's data
+                self._schedules = False
+                logger.info(f"Tesla refuses a read with the schedules ({e}): reading without them from now on")
+        return await self._request("GET", path, {"endpoints": DATA_ENDPOINTS})
+
+    async def mobile_enabled(self, tesla_id: int) -> bool | None:
+        """Whether "Allow mobile access" is on in the car. Raises VehicleUnavailable when it is asleep."""
+        answer = await self._request("GET", f"/api/1/vehicles/{tesla_id}/mobile_enabled")
+        return answer if isinstance(answer, bool) else None
+
+    async def nearby_charging_sites(self, tesla_id: int) -> dict:
+        """Tesla's chargers near the car, as its own screen lists them. Raises VehicleUnavailable when it is asleep."""
+        answer = await self._request("GET", f"/api/1/vehicles/{tesla_id}/nearby_charging_sites")
+        return answer if isinstance(answer, dict) else {}
 
     async def wake_up(self, tesla_id: int) -> dict:
         """Ask a sleeping vehicle to wake up; it takes up to a minute before it is online."""

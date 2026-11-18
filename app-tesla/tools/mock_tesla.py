@@ -274,6 +274,52 @@ class Car:
                 "has_air_suspension": False,
             },
             "gui_settings": {"gui_distance_units": "km/hr", "gui_temperature_units": "C"},
+            "charge_schedule_data": {
+                "charge_schedules": [
+                    {
+                        "id": 1731000000,
+                        "name": "",
+                        "days_of_week": 62,
+                        "start_enabled": True,
+                        "start_time": 60,
+                        "end_enabled": True,
+                        "end_time": 360,
+                        "one_time": False,
+                        "enabled": True,
+                        "latitude": ROUTE[0][0],
+                        "longitude": ROUTE[0][1],
+                    },
+                    {
+                        "id": 1731000001,
+                        "name": "",
+                        "days_of_week": 65,
+                        "start_enabled": False,
+                        "start_time": 0,
+                        "end_enabled": True,
+                        "end_time": 540,
+                        "one_time": False,
+                        "enabled": False,
+                        "latitude": ROUTE[0][0],
+                        "longitude": ROUTE[0][1],
+                    },
+                ],
+                "next_schedule": True,
+            },
+            "preconditioning_schedule_data": {
+                "precondition_schedules": [
+                    {
+                        "id": 1731000002,
+                        "name": "",
+                        "days_of_week": 62,
+                        "precondition_time": 450,
+                        "one_time": False,
+                        "enabled": True,
+                        "latitude": ROUTE[0][0],
+                        "longitude": ROUTE[0][1],
+                    }
+                ],
+                "next_schedule": True,
+            },
         }
 
 
@@ -397,6 +443,79 @@ async def charging_history(request: web.Request) -> web.Response:
     return web.json_response({"data": ordered[(page - 1) * size : page * size], "totalResults": len(data)})
 
 
+def asleep_answer() -> web.Response:
+    return web.json_response(
+        {"response": None, "error": "vehicle unavailable: vehicle is offline or asleep"}, status=408
+    )
+
+
+async def mobile_enabled(request: web.Request) -> web.Response:
+    if not authorized(request):
+        return web.json_response({"error": "invalid bearer token"}, status=401)
+    return asleep_answer() if car.asleep else web.json_response({"response": True})
+
+
+async def nearby_charging_sites(request: web.Request) -> web.Response:
+    if not authorized(request):
+        return web.json_response({"error": "invalid bearer token"}, status=401)
+    if car.asleep:
+        return asleep_answer()
+    lat, lon = car.lat, car.lon
+
+    def site(name: str, north: float, east: float, kind: str, **more) -> dict:
+        at = (lat + north, lon + east)
+        return {
+            "location": {"lat": round(at[0], 6), "long": round(at[1], 6)},
+            "name": name,
+            "type": kind,
+            "distance_miles": round(haversine_km((lat, lon), at) / KM_PER_MILE, 6),
+            **more,
+        }
+
+    minute = int(time.time() // 60)
+    return web.json_response(
+        {
+            "response": {
+                "congestion_sync_time_utc_secs": int(time.time()),
+                "destination_charging": [
+                    site("Hotel De Mock", 0.012, -0.02, "destination"),
+                    site("Restaurant Het Voorbeeld", -0.03, 0.035, "destination"),
+                ],
+                "superchargers": [
+                    site(
+                        "Mockstad Supercharger",
+                        0.02,
+                        0.03,
+                        "supercharger",
+                        available_stalls=3 + minute % 6,
+                        total_stalls=12,
+                        site_closed=False,
+                    ),
+                    site(
+                        "Voorbeeldplein Supercharger",
+                        -0.06,
+                        -0.05,
+                        "supercharger",
+                        available_stalls=0,
+                        total_stalls=8,
+                        site_closed=False,
+                    ),
+                    site(
+                        "Testdorp Supercharger",
+                        0.11,
+                        0.09,
+                        "supercharger",
+                        available_stalls=20,
+                        total_stalls=20,
+                        site_closed=True,
+                    ),
+                ],
+                "timestamp": int(time.time() * 1000),
+            }
+        }
+    )
+
+
 async def wake_up(request: web.Request) -> web.Response:
     car.asleep = False
     car.last_read = time.time()
@@ -459,6 +578,8 @@ def main() -> None:
     app.router.add_get(r"/api/1/vehicles/{id:\d+}", vehicle)
     app.router.add_get(r"/api/1/vehicles/{id:\d+}/vehicle_data", vehicle_data)
     app.router.add_post(r"/api/1/vehicles/{id:\d+}/wake_up", wake_up)
+    app.router.add_get(r"/api/1/vehicles/{id:\d+}/mobile_enabled", mobile_enabled)
+    app.router.add_get(r"/api/1/vehicles/{id:\d+}/nearby_charging_sites", nearby_charging_sites)
     app.router.add_get("/api/1/dx/charging/history", charging_history)
     app.router.add_get("/mobile-app/charging/history", charging_history)
     app.router.add_get("/streaming/", streaming)

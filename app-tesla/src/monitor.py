@@ -16,7 +16,7 @@ from collections.abc import Callable
 from . import vehicle_specs
 from .config import KM_PER_MILE, Config
 from .database import Database
-from .places import Places
+from .places import Places, distance_m
 from .streaming import VehicleStream
 from .tesla_api import RateLimited, TeslaApi, TeslaApiError, VehicleUnavailable
 from .tesla_auth import AuthError, TeslaAuth
@@ -38,6 +38,15 @@ ODOMETER_SLACK_KM = 2.0
 # without a recorded charge in between: it charged while nobody watched
 MISSED_CHARGE_SOC = 5
 MISSED_CHARGE_GAP = 120
+# Mobile access and the chargers nearby are read along with an awake car's data, never by themselves:
+# a request of their own would keep the car awake. How often at most, in seconds:
+MOBILE_ACCESS_INTERVAL = 6 * 3600
+NEARBY_INTERVAL = 15 * 60
+# Sooner when the car moved this far from where they were read, but not more often than this
+NEARBY_MOVED_KM = 3.0
+NEARBY_MOVED_INTERVAL = 5 * 60
+# After Tesla refused or failed one of them
+EXTRA_RETRY = 3600
 # What the stream reports about the car; a poll that is older than the last streamed values doesn't undo them
 STREAM_KEYS = ("lat", "lon", "heading", "speed_kmh", "power_kw", "odometer_km", "soc", "range_km", "est_range_km")
 
@@ -238,7 +247,66 @@ def normalize(data: dict, now: float) -> dict:
         "update_status": update.get("status") or None,
         "update_version": str(update.get("version") or "").strip() or None,
         "update_progress": update.get("install_perc"),
+        # None: this car doesn't report them
+        "charge_schedules": _schedules(
+            data.get("charge_schedule_data"),
+            "charge_schedules",
+            (("start", "start_time", "start_enabled"), ("end", "end_time", "end_enabled")),
+        ),
+        "precondition_schedules": _schedules(
+            data.get("preconditioning_schedule_data"), "precondition_schedules", (("time", "precondition_time", None),)
+        ),
     }
+
+
+def _schedules(section, key: str, times: tuple[str, ...]) -> list[dict] | None:
+    """The car's schedules of one kind, or None when the car didn't report them. Times are minutes after midnight."""
+    if not isinstance(section, dict):
+        return None
+    out = []
+    for item in section.get(key) or []:
+        if not isinstance(item, dict):
+            continue
+        out.append(
+            {
+                "name": str(item.get("name") or "").strip(),
+                # A bit per day: Sunday 1, Monday 2 ... Saturday 64
+                "days": item.get("days_of_week") if isinstance(item.get("days_of_week"), int) else None,
+                "one_time": bool(item.get("one_time")),
+                "enabled": bool(item.get("enabled")),
+                "lat": item.get("latitude"),
+                "lon": item.get("longitude"),
+                **{
+                    name: item.get(source) if enabled is None or item.get(enabled) else None
+                    for name, source, enabled in times
+                },
+            }
+        )
+    return out
+
+
+def nearby_sites(data: dict, now: float) -> dict:
+    """Tesla's answer about the chargers near the car, nearest first."""
+    sites = []
+    for kind, key in (("supercharger", "superchargers"), ("destination", "destination_charging")):
+        for item in data.get(key) or []:
+            if not isinstance(item, dict):
+                continue
+            location = item.get("location") or {}
+            sites.append(
+                {
+                    "kind": kind,
+                    "name": str(item.get("name") or "").strip(),
+                    "lat": location.get("lat"),
+                    "lon": location.get("long"),
+                    "distance_km": _km(item.get("distance_miles")),
+                    "available": item.get("available_stalls"),
+                    "total": item.get("total_stalls"),
+                    "closed": bool(item.get("site_closed")),
+                }
+            )
+    sites.sort(key=lambda s: s["distance_km"] if s["distance_km"] is not None else float("inf"))
+    return {"ts": int(now), "sites": sites}
 
 
 def _flag(value) -> bool | None:
@@ -357,6 +425,12 @@ class CarMonitor:
         self._unplugged_since_charge = False
         self._wake = asyncio.Event()
         self._tasks: set[asyncio.Task] = set()
+        # Read along with the car's data now and then; not kept across restarts
+        self.mobile_access: bool | None = None
+        self.nearby: dict | None = None
+        self._mobile_access_at = 0.0
+        self._nearby_at = 0.0
+        self._nearby_from: tuple[float, float] | None = None
 
         self.stream: VehicleStream | None = None
         if config.streaming and car.get("vehicle_id"):
@@ -382,6 +456,8 @@ class CarMonitor:
             "streaming": bool(self.stream and self.stream.live),
             "efficiency_wh_km": self.efficiency,
             "on_account": self.on_account,
+            "mobile_access": self.mobile_access,
+            "nearby": self.nearby,
             **self._car_details,
             # Readable model/trim/colour/wheels, the paint colour and a picture of the car. A car that
             # never reported itself (imported) goes by what the import knew.
@@ -530,7 +606,44 @@ class CarMonitor:
         self.last_seen = now
         self._mode = "awake"
         self._activity = False
-        return self._process(normalize(data, now), now)
+        wait = self._process(normalize(data, now), now)
+        await self._read_extras(now)
+        return wait
+
+    async def _read_extras(self, now: float) -> None:
+        """Mobile access and the chargers nearby, when it is time. Only called right after the car answered."""
+        changed = False
+        if now - self._mobile_access_at >= MOBILE_ACCESS_INTERVAL:
+            self._mobile_access_at = now
+            try:
+                answer = await self.api.mobile_enabled(self.tesla_id)
+            except TeslaApiError as e:
+                logger.info(f"{self.label}: mobile access can't be read ({e}); trying again in an hour")
+                self._mobile_access_at = now - MOBILE_ACCESS_INTERVAL + EXTRA_RETRY
+            else:
+                changed = changed or answer != self.mobile_access
+                self.mobile_access = answer
+
+        lat, lon = self.snapshot.get("lat"), self.snapshot.get("lon")
+        if lat is None or lon is None:
+            if changed:
+                self._changed()
+            return
+        age = now - self._nearby_at
+        moved = self._nearby_from is not None and distance_m(*self._nearby_from, lat, lon) >= NEARBY_MOVED_KM * 1000
+        if age >= NEARBY_INTERVAL or (moved and age >= NEARBY_MOVED_INTERVAL):
+            self._nearby_at = now
+            try:
+                answer = await self.api.nearby_charging_sites(self.tesla_id)
+            except TeslaApiError as e:
+                logger.info(f"{self.label}: the chargers nearby can't be read ({e}); trying again in an hour")
+                self._nearby_at = now - NEARBY_INTERVAL + EXTRA_RETRY
+            else:
+                self.nearby = nearby_sites(answer, now)
+                self._nearby_from = (lat, lon)
+                changed = True
+        if changed:
+            self._changed()
 
     def _went_away(self, api_state: str, now: float) -> float:
         """The car is asleep or offline."""

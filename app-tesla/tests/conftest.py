@@ -65,6 +65,9 @@ class FakeApi:
         self.answer = answer
         self.calls: list[tuple[str, float]] = []
         self.fail_with: list = []
+        # What the extra reads (mobile access, chargers nearby) answer, or the error they raise
+        self.extras_fail: Exception | None = None
+        self.nearby: dict = {}
 
     async def vehicle(self, tesla_id):
         self.calls.append(("vehicle", time.time()))
@@ -75,6 +78,18 @@ class FakeApi:
         if self.fail_with:
             raise self.fail_with.pop(0)
         return self.answer(time.time())
+
+    async def mobile_enabled(self, tesla_id):
+        self.calls.append(("mobile_enabled", time.time()))
+        if self.extras_fail:
+            raise self.extras_fail
+        return True
+
+    async def nearby_charging_sites(self, tesla_id):
+        self.calls.append(("nearby_charging_sites", time.time()))
+        if self.extras_fail:
+            raise self.extras_fail
+        return self.nearby
 
 
 @pytest.fixture
