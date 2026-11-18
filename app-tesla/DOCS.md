@@ -73,6 +73,11 @@ Tesla account ──▶ owner API ──▶ vehicle monitor ──▶ SQLite ─
   5 minutes, but only actually calls Tesla when a fast-charge is waiting for its bill, on
   the first start, or when you press Fetch. Home Assistant **zones** are refreshed hourly,
   and an **address** is looked up once per place and then cached.
+
+  Two things are read along with an awake car's data, never by themselves, so they don't
+  keep the car awake: Tesla's **chargers nearby** (at most every 15 minutes, or every 5
+  minutes once the car has moved 3 km) and whether **mobile access** is on (every 6 hours).
+  When Tesla refuses or fails one of them, it is tried again an hour later.
 - **More than one car.** Every vehicle on the account is followed separately. When there's
   more than one, a car selector appears in the top bar; the dashboard, trips, charging and
   stats all show the selected car, and each car becomes its own device over MQTT.
@@ -134,6 +139,11 @@ overrides that).
 - **Dashboard** — Map with the car, the drive in progress and the last 24 hours of routes;
   battery, range and charge limit; what the car is doing right now; vehicle details; totals
   for today, 7 days and 30 days; recent activity. 📍 keeps the car in view.
+  **Schedules** lists the charging and preconditioning schedules set in the car (software
+  2024.26 and later). **Chargers nearby** lists Tesla's Superchargers and destination
+  chargers near the car as the car's own screen does, with the free stalls of a
+  Supercharger at the time shown, and a pin each on the map; click one to see it and the
+  car together (the map then stops following the car).
 - **Trips** — Pick a period (or one day or a span of days with **Dates…**), click a trip. The map shows the route coloured by speed; hover
   the chart (speed, power, elevation or battery) to see where on the route you were. **GPX**
   downloads the track.
@@ -214,7 +224,7 @@ fetches, stores and sends, and why.
 | From | What | Why |
 |------|------|-----|
 | Tesla sign-on (`auth.tesla.com`) | Access token and refresh token, when you sign in and at every renewal | To read your car's data on your behalf |
-| Tesla owner API (`owner-api.teslamotors.com`) | The vehicles of your account; for each car its state, position, speed, power, odometer, battery level and range, charging details and settings, temperatures, climate and heaters, lock/doors/windows, tire pressures and warnings, valet and speed limit mode, the car's display settings, software version and navigation destination | The dashboard, and recording trips and charging sessions |
+| Tesla owner API (`owner-api.teslamotors.com`) | The vehicles of your account; for each car its state, position, speed, power, odometer, battery level and range, charging details and settings, temperatures, climate and heaters, lock/doors/windows, tire pressures and warnings, valet and speed limit mode, the car's display settings, software version, navigation destination, its charging and preconditioning schedules, whether mobile access is on, and Tesla's chargers near the car | The dashboard, and recording trips and charging sessions |
 | Tesla streaming (`streaming.vn.teslamotors.com`) | Position, speed, power, elevation, battery level and range, about once a second while driving | Detailed trips, and noticing activity without keeping the car awake (`streaming`) |
 | Tesla charging history (same API) | Your sessions at Tesla's chargers: time, location name and billed amounts | The real cost of Supercharger sessions (`supercharger_costs`) |
 | Tesla's picture service (`static-assets.tesla.com`) | A picture of the car's model and paint, once per paint and wheels. The request holds no VIN or account | The picture on the dashboard |

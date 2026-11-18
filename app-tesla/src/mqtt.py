@@ -254,7 +254,7 @@ class MqttPublisher:
             "state_topic": state_topic,
             "availability_topic": self.status_topic,
             "device": device,
-            "origin": {"name": "Tesla app (unofficial)", "sw_version": ADDON_VERSION},
+            "origin": {"name": "Tesla", "sw_version": ADDON_VERSION},
         }
         prefix = self.config.mqtt_discovery_prefix
 

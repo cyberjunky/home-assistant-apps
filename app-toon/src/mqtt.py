@@ -107,7 +107,7 @@ def discovery_messages(
     common = {
         "state_topic": state_topic,
         "device": device,
-        "origin": {"name": "Toon app", "sw_version": APP_VERSION},
+        "origin": {"name": "Toon", "sw_version": APP_VERSION},
         "availability_mode": "all",
         "availability": [{"topic": f"{base}/status"}, {"topic": f"{base}/{serial}/link"}],
     }
@@ -197,7 +197,7 @@ class MqttPublisher:
 
         self._loop = asyncio.get_running_loop()
         self.broker = f"{host}:{port}"
-        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"app-toon-{self.base}")
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"toon-{self.base}")
         if user:
             client.username_pw_set(user, password or None)
         client.will_set(self.status_topic, "offline", qos=1, retain=True)

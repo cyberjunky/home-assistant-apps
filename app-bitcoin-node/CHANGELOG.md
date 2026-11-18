@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4
+
+**After updating:** nothing to do.
+
+- **MQTT names like the other apps:** the app connects to the broker as `bitcoin-node-<base topic>` instead of `app-bitcoin-node-<base topic>`, and Home Assistant shows the entities as coming from "Bitcoin Node" instead of "Bitcoin Node app". Entities and their history stay as they are.
+
 ## 0.1.3
 
 **After updating:** nothing to do.
