@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5
+
+**After updating:** nothing to do.
+
+- **Tile text readable:** the line under a tile's value was cut off when it didn't fit ("of 976.455 known · sync start…"). It now continues on a second line.
+
 ## 0.1.4
 
 **After updating:** nothing to do.
