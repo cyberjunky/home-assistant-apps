@@ -20,6 +20,7 @@
     <button type="button" class="tab active" data-tab="dashboard">Dashboard</button>
     <button type="button" class="tab" data-tab="integrations">Integrations</button>
     <button type="button" class="tab" data-tab="findings">Findings</button>
+    <button type="button" class="tab" data-tab="packages">Packages</button>
     <button type="button" class="tab" data-tab="network">Network</button>
     <button type="button" class="tab" data-tab="check" id="tab-btn-check">Check</button>
     <button type="button" class="tab" data-tab="about">How it works</button>
@@ -85,6 +86,17 @@
       <label class="muted"><input type="checkbox" id="find-info"> Also show notes (info)</label>
     </div>
     <div class="panel flush"><div id="find-table"></div></div>
+  </div>
+
+  <!-- Packages: what the integrations install from PyPI, worst first -->
+  <div id="tab-packages" class="tab-content">
+    <div class="toolbar">
+      <input type="search" id="pkg-search" placeholder="Search package or integration" aria-label="Search packages">
+      <label for="pkg-grade">Grade</label>
+      <select id="pkg-grade"><option value="">All</option><option>A</option><option>B</option><option>C</option><option>D</option><option>F</option></select>
+      <span class="muted" id="pkg-count"></span>
+    </div>
+    <div class="panel flush"><div id="pkg-table"></div></div>
   </div>
 
   <!-- Network: the hosts written in the code -->

@@ -33,7 +33,9 @@ Nothing is installed.
 
 - A pure Python wheel is read as it is: that is exactly what gets installed. Otherwise the source
   archive is read. Of a compiled package only the Python part is read, and the package says so.
-- A package gets its own score and grade; open it from the integration's **Packages it installs**.
+- A package gets its own score and grade; open it from the integration's **Packages it installs**, or
+  from the **Packages** page, which lists every package that was read, worst first, with the
+  integrations that install it.
 - Only a package's **high and critical** findings count against the integration: a critical one as
   high, high ones as medium. Popular libraries have many small findings that say nothing about the
   integration that uses them.

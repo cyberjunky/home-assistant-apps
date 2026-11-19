@@ -195,6 +195,24 @@ function renderFindings() {
     : '<div class="empty-state">No findings</div>';
 }
 
+// ---- packages: what the shown integrations install from PyPI ----
+function renderPackages() {
+  const users = new Map(), unread = new Set();
+  shown().forEach(i => (i.requirements || []).forEach(r => {
+    if (r.package) { if (!users.has(r.package)) users.set(r.package, []); users.get(r.package).push(i); }
+    else if (r.status !== 'core') unread.add(r.name);
+  }));
+  const all = byScore(Object.values(report.packages || {}).filter(p => users.has(p.key)));
+  const q = $('pkg-search').value.trim().toLowerCase(), g = $('pkg-grade').value;
+  const list = all.filter(p => (!g || p.grade === g) && (!q || p.name.toLowerCase().includes(q) || users.get(p.key).some(i => `${i.name} ${i.domain}`.toLowerCase().includes(q))));
+  $('pkg-count').textContent = `${list.length} of ${plural(all.length, 'package')} read from PyPI${unread.size ? `, ${unread.size} not read` : ''}. Packages Home Assistant ships are left out.`;
+  $('pkg-table').innerHTML = list.length ? `<table class="list"><thead><tr><th>Package</th><th>Score</th><th>Findings</th><th class="num hide-sm">Services</th><th>Installed by</th></tr></thead><tbody>${list.map(p => { const u = users.get(p.key); return `
+    <tr class="click" data-open="${esc(p.key)}"><td><span class="nm">${esc(p.name)}</span><div class="sub">${esc(p.version)}</div></td><td style="white-space:nowrap">${gradeChip(p.grade)} <span class="mono">${p.score}</span></td>
+    <td>${sevCounts(p.counts)}<div class="sub" style="font-family:var(--sans)">${esc((findingsOf(p)[0] || {}).title || '')}</div></td><td class="num hide-sm">${outside(p)}</td>
+    <td>${u.slice(0, 4).map(i => `<button class="link-btn" data-open="${esc(i.key)}">${esc(i.name || i.domain)}</button>`).join(', ')}${u.length > 4 ? ` and ${u.length - 4} more` : ''}</td></tr>`; }).join('')}</tbody></table>`
+    : `<div class="empty-state">${all.length ? 'No package matches' : 'No packages were read. Integrations without requirements, or the option Read the packages is off.'}</div>`;
+}
+
 // ---- network ----
 function renderNetwork() {
   const everything = $('net-all').checked, q = $('net-search').value.trim().toLowerCase();
@@ -275,7 +293,7 @@ function showTab(tab) {
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
 }
 function render() {
-  renderGroups(); renderBanners(); renderDashboard(); renderIntegrations(); renderFindings(); renderNetwork(); renderCheck();
+  renderGroups(); renderBanners(); renderDashboard(); renderIntegrations(); renderFindings(); renderPackages(); renderNetwork(); renderCheck();
   $('about-areas').innerHTML = Object.entries(report.categories).map(([id, name]) => `<li><b>${esc(name)}</b> counts for ${Math.round(report.weights.category[id] * 100)}%</li>`).join('');
   const st = report.status || {};
   $('statusbar').innerHTML = STATIC
@@ -300,6 +318,7 @@ document.addEventListener('click', e => {
 });
 ['int-search', 'int-grade'].forEach(id => $(id).addEventListener('input', renderIntegrations));
 ['net-search', 'net-all'].forEach(id => $(id).addEventListener('input', renderNetwork));
+['pkg-search', 'pkg-grade'].forEach(id => $(id).addEventListener('input', renderPackages));
 $('find-info').addEventListener('input', renderFindings);
 $('scan-btn').addEventListener('click', () => api('scan', {method: 'POST'}).then(() => { toast('Scan started'); setTimeout(load, 1500); }).catch(err => toast(err.message, true)));
 
