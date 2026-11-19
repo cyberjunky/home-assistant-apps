@@ -80,7 +80,7 @@ function renderGroups() {
   report.integrations.forEach(i => { counts[i.group] = (counts[i.group] || 0) + 1; });
   const groups = report.groups.filter(g => counts[g.id]);
   if (group && !counts[group]) group = '';
-  $('groups').hidden = groups.length < 2;
+  $('groups-bar').hidden = groups.length < 2;
   $('groups').innerHTML = [{id: '', label: 'All'}, ...groups].map(g =>
     `<button type="button" data-group="${esc(g.id)}" class="${g.id === group ? 'active' : ''}">${esc(g.label)}<span class="n">${g.id ? counts[g.id] : report.integrations.length}</span></button>`).join('');
 }

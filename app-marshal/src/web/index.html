@@ -25,7 +25,6 @@
     <button type="button" class="tab" data-tab="check" id="tab-btn-check">Check</button>
     <button type="button" class="tab" data-tab="about">How it works</button>
   </nav>
-  <div class="seg" id="groups" role="group" aria-label="Which integrations" hidden></div>
   <span class="spacer"></span>
   <button type="button" class="btn" id="scan-btn" hidden>Scan now</button>
   <a class="btn" id="export-btn" href="api/export" hidden style="display:inline-flex;align-items:center;text-decoration:none;color:inherit">Save report</a>
@@ -37,6 +36,8 @@
 <div class="views">
 <div class="pages">
 <div class="container">
+  <!-- Which integrations every page shows: under the top bar, so the bar keeps to one line -->
+  <div class="toolbar" id="groups-bar" hidden><div class="seg" id="groups" role="group" aria-label="Which integrations"></div></div>
   <div id="banners"></div>
 
   <!-- Dashboard: how things stand, and what to look at first -->

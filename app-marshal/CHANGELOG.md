@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.3
+
+- The top bar fits again: the choice between all, installed and checked integrations moved under it, and on a narrow screen the bar wraps instead of getting a scrollbar.
+
 ## 0.2.2
 
 - Screenshots in the README.

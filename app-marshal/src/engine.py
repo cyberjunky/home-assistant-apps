@@ -22,7 +22,7 @@ RESULTS_FILE = DATA_DIR / "results.json"
 LOOK_EVERY = 300  # how often the installed integrations are compared with the last scan
 HISTORY_DAYS = 90
 MAX_CHECKED = 50
-GROUPS = [{"id": "installed", "label": "Installed"}, {"id": "checked", "label": "Checked before install"}]
+GROUPS = [{"id": "installed", "label": "Installed"}, {"id": "checked", "label": "Checked"}]
 
 
 def scan_files(files: sources.Files, **context) -> dict:
