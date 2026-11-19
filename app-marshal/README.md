@@ -19,6 +19,31 @@ running any of it, and shows what deserves a second look: access to credentials 
 risky code, the internet hosts it names, and patterns that slow Home Assistant down. Each integration
 gets a score and a grade, and they are ranked worst first.
 
+![Dashboard: the average score and grade, findings by severity, integrations per grade, the score per area, the integrations to look at first and the most serious findings (light theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-marshal/screenshots/dashboard-light.webp)
+
+<details>
+<summary>More screenshots</summary>
+
+**Integrations** — every integration ranked worst first, with its grade, the score per area, findings by severity, internet services and installations
+![Integrations](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-marshal/screenshots/integrations-light.webp)
+
+**An integration** — each finding with what it means, the file, the line and the code
+![An integration](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-marshal/screenshots/integration-dark.webp)
+
+**Findings** — every check that found something, across all integrations
+![Findings](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-marshal/screenshots/findings-light.webp)
+
+**Packages** — what the integrations install from PyPI, each read and graded, with the integrations that install it
+![Packages](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-marshal/screenshots/packages-dark.webp)
+
+**Network** — every internet host named in the code, and which integrations name it
+![Network](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-marshal/screenshots/network-light.webp)
+
+</details>
+
+The screenshots show my own integrations next to five made up for the occasion (the ones marked
+*demo*), written to set off the checks.
+
 ## Supported Features
 
 - 🔎 **Everything installed**: each folder under `custom_components`, scanned at start, within five minutes of an install or update, and once a day

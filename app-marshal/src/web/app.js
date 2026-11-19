@@ -40,8 +40,10 @@ function toast(message, error) {
 
 // ---- theme: the same toggle as the other apps (auto follows Home Assistant, then light, then dark) ----
 const THEME_ICONS = {auto: '🌓', light: '☀️', dark: '🌙'};
-let themeChoice = null;
-try { themeChoice = localStorage.getItem('marshal_theme'); } catch (e) { /* only a convenience */ }
+// ?theme=, ?tab= and ?open= in the address open the dashboard in a given state (a link from elsewhere, a screenshot)
+const PARAMS = new URLSearchParams(window.location.search);
+let themeChoice = PARAMS.get('theme');
+try { themeChoice = themeChoice || localStorage.getItem('marshal_theme'); } catch (e) { /* only a convenience */ }
 if (!THEME_ICONS[themeChoice]) themeChoice = 'auto';
 function haDarkMode() {
   try {
@@ -245,7 +247,10 @@ $('check-form').addEventListener('submit', async e => {
   try {
     const result = await api('check', {method: 'POST', body: {repository: $('check-repo').value}});
     $('check-repo').value = '';
-    await load();
+    await load().then(() => {
+  if (document.getElementById('tab-' + PARAMS.get('tab'))) showTab(PARAMS.get('tab'));
+  if (report && PARAMS.get('open')) openDrawer(PARAMS.get('open'));
+});
     openDrawer(result.key);
   } catch (err) { toast(err.message, true); }
   button.disabled = false; button.textContent = 'Check';
@@ -336,4 +341,7 @@ async function load() {
 }
 if (STATIC) $('tab-btn-check').hidden = true;
 else { $('scan-btn').hidden = false; $('export-btn').hidden = false; setInterval(() => { if (!openKey) load(); }, 20000); }
-load();
+load().then(() => {
+  if (document.getElementById('tab-' + PARAMS.get('tab'))) showTab(PARAMS.get('tab'));
+  if (report && PARAMS.get('open')) openDrawer(PARAMS.get('open'));
+});

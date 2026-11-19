@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2
+
+- Screenshots in the README.
+- The dashboard opens on a given page, integration or theme from its address (`?tab=`, `?open=`, `?theme=`).
+
 ## 0.2.1
 
 - **Packages page:** every package that was read from PyPI, worst first, with its findings and the integrations that install it. Search by package or integration, filter by grade, and open a package or one of its integrations from the row.
