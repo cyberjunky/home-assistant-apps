@@ -235,7 +235,6 @@ $('check-form').addEventListener('submit', async e => {
 
 // ---- one integration ----
 function openDrawer(key) {
-<<<<<<< HEAD
   const i = report.integrations.find(x => x.key === key) || Object.values(report.packages || {}).find(x => x.key === key);
   if (!i) return;
   const isPackage = i.group === 'package';
@@ -245,22 +244,12 @@ function openDrawer(key) {
   const places = f => f.where.filter(w => w.file || w.note).map(w => `<div><span class="loc">${esc(w.file)}${w.line && w.line < 1000 && w.file !== 'manifest.json' ? ':' + w.line : ''}</span>${w.note ? ` <span class="note">${esc(w.note)}</span>` : ''}${w.snippet ? `<code>${esc(w.snippet)}</code>` : ''}</div>`).join('');
   // A library has no manifest to judge, and whether its calls block is for the integration that makes them
   const areas = Object.entries(report.categories).filter(([id]) => !isPackage || !['performance', 'upkeep'].includes(id)).map(([id, name]) => {
-=======
-  const i = report.integrations.find(x => x.key === key);
-  if (!i) return;
-  openKey = key;
-  const fact = (l, v) => v == null || v === '' ? '' : `<div class="fact"><div class="l">${l}</div><div class="v">${v}</div></div>`;
-  const rt = i.runtime || {};
-  const places = f => f.where.filter(w => w.file || w.note).map(w => `<div><span class="loc">${esc(w.file)}${w.line && w.line < 1000 ? ':' + w.line : ''}</span>${w.note ? ` <span class="note">${esc(w.note)}</span>` : ''}${w.snippet ? `<code>${esc(w.snippet)}</code>` : ''}</div>`).join('');
-  const areas = Object.entries(report.categories).map(([id, name]) => {
->>>>>>> origin/main
     const fs = i.findings.filter(f => f.category === id);
     return `<div class="panel"><div class="panel-body"><div class="title"><span>${esc(name)}</span><span class="hint"><span class="mini g-${gradeOf(i.scores[id])}"><i style="width:${i.scores[id]}%"></i></span><b class="mono">${i.scores[id]}</b></span></div>${fs.length ? fs.map(f => `<div class="finding"><h3>${sevBadge(f.severity)} ${esc(f.title)}${f.count > 1 ? ` <span class="pill">${f.count} places</span>` : ''}</h3><p>${esc(f.why)}</p><div class="where">${places(f)}${f.count > f.where.length ? `<div class="muted">and ${f.count - f.where.length} more</div>` : ''}</div></div>`).join('') : '<div class="muted">Nothing found</div>'}</div></div>`;
   }).join('');
   const hosts = i.hosts.filter(h => !['reference', 'local'].includes(h.kind));
   const reqs = i.requirements || [];
   $('modal-root').innerHTML = `<div class="modal-back" id="modal-back"><div class="drawer" role="dialog" aria-label="${esc(i.name)}">
-<<<<<<< HEAD
     <div class="drawer-head"><div style="flex:1;min-width:0"><h2>${esc(i.name || i.domain)} ${gradeChip(i.grade)} <span class="mono" style="font-size:14px">${i.score}</span></h2><div class="muted">${VERDICT[i.grade]} · ${isPackage ? `package from PyPI, used by ${esc(report.integrations.filter(x => (x.requirements || []).some(r => r.package === i.key)).map(x => x.name || x.domain).slice(0, 8).join(', '))}` : repoLink(i.repository)}</div></div><button class="close" id="drawer-close" aria-label="Close">×</button></div>
     <div class="facts">${fact('Domain', esc(i.domain))}${fact('Version', esc(i.version))}${fact('Kind', esc(i.iot_class))}${fact('Installations', i.installs ? fmtNum(i.installs) : '')}${fact('Stars', i.stars != null ? fmtNum(i.stars) : '')}${fact('Last change', i.last_updated ? esc(fmtDate(i.last_updated)) : '')}${fact('Python', `${fmtNum(i.stats.lines)} lines`)}${fact('Setup time', rt.setup_seconds != null ? rt.setup_seconds.toFixed(1) + ' s' : '')}${fact('Owners', esc((i.codeowners || []).join(' ')))}</div>
     ${areas}
@@ -277,16 +266,6 @@ function reqRow(r) {
   const state = r.package ? sevCounts(r.counts) : `<span class="muted">${esc(r.url ? 'not read' : REQ_STATUS[r.status] || 'not read')}${r.reason ? ': ' + esc(r.reason) : ''}</span>`;
   return `<div class="row"${r.package ? ` data-open="${esc(r.package)}"` : ' style="cursor:default"'}><span>${r.package ? `${gradeChip(r.grade)} <span class="mono">${r.score}</span>` : '<span class="muted">–</span>'}</span><div style="min-width:0"><div class="nm">${esc(r.name)}${flags}</div><div class="sub">${esc(version)}</div></div>${state}</div>`;
 }
-=======
-    <div class="drawer-head"><div style="flex:1;min-width:0"><h2>${esc(i.name || i.domain)} ${gradeChip(i.grade)} <span class="mono" style="font-size:14px">${i.score}</span></h2><div class="muted">${VERDICT[i.grade]} · ${repoLink(i.repository)}</div></div><button class="close" id="drawer-close" aria-label="Close">×</button></div>
-    <div class="facts">${fact('Domain', esc(i.domain))}${fact('Version', esc(i.version))}${fact('Kind', esc(i.iot_class))}${fact('Installations', i.installs ? fmtNum(i.installs) : '')}${fact('Stars', i.stars != null ? fmtNum(i.stars) : '')}${fact('Last change', i.last_updated ? esc(fmtDate(i.last_updated)) : '')}${fact('Python', `${fmtNum(i.stats.lines)} lines`)}${fact('Setup time', rt.setup_seconds != null ? rt.setup_seconds.toFixed(1) + ' s' : '')}${fact('Owners', esc((i.codeowners || []).join(' ')))}</div>
-    ${areas}
-    ${hosts.length ? `<div class="panel"><div class="panel-body"><div class="title"><span>Internet hosts named in the code</span></div><div class="where">${hosts.map(h => `<div><span class="loc">${esc(h.host)}</span> <span class="pill">${HOST_KIND[h.kind]}</span>${h.insecure ? ' <span class="pill warn">unencrypted</span>' : ''} <span class="muted">${esc(h.file)}:${h.line}</span></div>`).join('')}</div></div></div>` : ''}
-    ${reqs.length ? `<div class="panel"><div class="panel-body"><div class="title"><span>Requirements</span></div><div class="where">${reqs.map(r => `<div><span class="loc">${esc(r.name)}</span> ${esc(r.spec)}${r.url ? ' <span class="pill bad">from a URL</span>' : r.pinned ? '' : ' <span class="pill warn">not pinned</span>'}${(r.vulnerabilities || []).map(v => ` <span class="pill bad">${esc(v.id)}</span>`).join('')}</div>`).join('')}</div></div></div>` : ''}
-  </div></div>`;
-  $('drawer-close').focus();
-}
->>>>>>> origin/main
 function closeDrawer() { openKey = null; $('modal-root').innerHTML = ''; }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
 
@@ -334,11 +313,7 @@ async function load() {
     return;
   }
   render();
-<<<<<<< HEAD
   if (openKey && !report.integrations.some(i => i.key === openKey) && !Object.values(report.packages || {}).some(p => p.key === openKey)) closeDrawer();
-=======
-  if (openKey && !report.integrations.some(i => i.key === openKey)) closeDrawer();
->>>>>>> origin/main
 }
 if (STATIC) $('tab-btn-check').hidden = true;
 else { $('scan-btn').hidden = false; $('export-btn').hidden = false; setInterval(() => { if (!openKey) load(); }, 20000); }

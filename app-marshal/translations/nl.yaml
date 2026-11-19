@@ -15,15 +15,12 @@ configuration:
     description: >-
       Zoek de exacte pakketversies uit de manifesten op in de OSV-kwetsbaarhedendatabase (osv.dev).
       Alleen pakketnamen en versies worden verstuurd.
-<<<<<<< HEAD
   dependency_scans:
     name: Pakketten lezen
     description: >-
       Download elke directe afhankelijkheid van een integratie van PyPI en lees de code op dezelfde
       manier, zonder haar te installeren. Pakketnamen en versies worden naar pypi.org gestuurd.
       Pakketten die Home Assistant zelf meelevert worden overgeslagen.
-=======
->>>>>>> origin/main
   runtime_checks:
     name: Home Assistant raadplegen
     description: >-

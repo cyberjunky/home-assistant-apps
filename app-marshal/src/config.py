@@ -42,11 +42,8 @@ class Config:
     catalog_lookups: bool = True
     # Pinned requirements are looked up in the OSV vulnerability database
     vulnerability_lookups: bool = True
-<<<<<<< HEAD
     # Each direct requirement is downloaded from PyPI and read like the integration itself
     dependency_scans: bool = True
-=======
->>>>>>> origin/main
     # Setup times and log entries, asked of Home Assistant
     runtime_checks: bool = True
     log_level: str = "info"
@@ -70,10 +67,7 @@ class Config:
             rescan_hours=max(1, min(720, int(options.get("rescan_hours") or 24))),
             catalog_lookups=flag("catalog_lookups", True),
             vulnerability_lookups=flag("vulnerability_lookups", True),
-<<<<<<< HEAD
             dependency_scans=flag("dependency_scans", True),
-=======
->>>>>>> origin/main
             runtime_checks=flag("runtime_checks", True),
             log_level=str(options.get("log_level") or "info").lower(),
         )
@@ -83,9 +77,6 @@ class Config:
             "rescan_hours": self.rescan_hours,
             "catalog_lookups": self.catalog_lookups,
             "vulnerability_lookups": self.vulnerability_lookups,
-<<<<<<< HEAD
             "dependency_scans": self.dependency_scans,
-=======
->>>>>>> origin/main
             "runtime_checks": self.runtime_checks,
         }

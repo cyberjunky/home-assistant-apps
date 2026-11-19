@@ -24,7 +24,6 @@ It does not test, audit or vouch for them.
 **Nothing from an integration is imported or run.** A repository you check before installing is read
 straight from its archive in memory; nothing is unpacked.
 
-<<<<<<< HEAD
 ## Packages from PyPI
 
 Most of what a cloud integration does on the network is in the library it installs, not in the
@@ -45,8 +44,6 @@ Nothing is installed.
 Not read: packages that Home Assistant itself ships (every installation has those), packages over
 40 MB, and what a package in turn requires.
 
-=======
->>>>>>> origin/main
 ## The five areas
 
 | Area | Weight | What is looked for |
@@ -83,13 +80,8 @@ Read the line the finding points at, and decide.
 
 ## What Marshal cannot see
 
-<<<<<<< HEAD
 - **Requirements of requirements.** Direct requirements are read; what they install in turn is not.
 - **Compiled code.** In an integration it is a finding; in a package it is noted and not read.
-=======
-- **Requirements.** The packages an integration installs from PyPI are not read, only checked against
-  the vulnerability database.
->>>>>>> origin/main
 - **Front-end JavaScript.** Counted, not analyzed.
 - **Code that hides well.** Text built up at run time, or behaviour that depends on data from the
   internet, does not show in a syntax tree.
@@ -115,19 +107,12 @@ lines of code the findings quote; a line that looks like a secret is left out.
 | `data-v2.hacs.xyz` | Once a day (option *Marketplace catalog*) | Nothing; the catalog is downloaded |
 | `analytics.home-assistant.io` | Once a day (same option) | Nothing; install counts are downloaded |
 | `api.osv.dev` | Each scan (option *Known vulnerabilities*) | The package names and versions pinned in manifests |
-<<<<<<< HEAD
 | `pypi.org`, `files.pythonhosted.org` | Each scan, for packages not read before (option *Read the packages*) | The package names and versions from manifests |
 | `raw.githubusercontent.com` | Once a week (same option) | Nothing; the list of packages Home Assistant ships is downloaded |
 | `github.com` | When you use **Check** | The repository you asked for |
 | Home Assistant Core | Each scan (option *Ask Home Assistant*) | Three read-only questions: setup times, the log, the Marketplace's installs |
 
 Turn all four options off and the app never leaves your machine, except for **Check**.
-=======
-| `github.com` | When you use **Check** | The repository you asked for |
-| Home Assistant Core | Each scan (option *Ask Home Assistant*) | Three read-only questions: setup times, the log, the Marketplace's installs |
-
-Turn all three options off and the app never leaves your machine, except for **Check**.
->>>>>>> origin/main
 
 ## Options
 
@@ -136,21 +121,14 @@ Turn all three options off and the app never leaves your machine, except for **C
 | `rescan_hours` | 24 | Scan everything again after this many hours |
 | `catalog_lookups` | on | Fetch the Marketplace catalog and install counts |
 | `vulnerability_lookups` | on | Look pinned requirements up in OSV |
-<<<<<<< HEAD
 | `dependency_scans` | on | Download each direct requirement from PyPI and read it |
-=======
->>>>>>> origin/main
 | `runtime_checks` | on | Ask Home Assistant for setup times, log entries and Marketplace installs |
 | `log_level` | info | The app's own log |
 
 ## Data
 
-<<<<<<< HEAD
 Results are kept in the app's data folder (`results.json`), with 90 days of the average score. What
 was read of each package version is kept too (`packages/`), so a package is downloaded once. Nothing
-=======
-Results are kept in the app's data folder (`results.json`), with 90 days of the average score. Nothing
->>>>>>> origin/main
 of your configuration is copied except the code lines findings quote.
 
 ## Development

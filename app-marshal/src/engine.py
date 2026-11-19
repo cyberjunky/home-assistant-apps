@@ -14,10 +14,7 @@ from .analyzer import add_context, analyze, finish
 from .catalog import Catalog
 from .config import DATA_DIR, HA_CONFIG_DIR, USER_AGENT, Config
 from .homeassistant import HomeAssistant, HomeAssistantError
-<<<<<<< HEAD
 from .packages import Packages
-=======
->>>>>>> origin/main
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +37,6 @@ class Engine:
         self.config = config
         self.home_assistant = home_assistant
         self.catalog = catalog or Catalog(DATA_DIR / "catalog")
-<<<<<<< HEAD
         self.packages = Packages(DATA_DIR / "packages")
         self.custom_components = HA_CONFIG_DIR / "custom_components"
         self.results: dict = {
@@ -51,10 +47,6 @@ class Engine:
             "last_scan": None,
             "fingerprint": "",
         }
-=======
-        self.custom_components = HA_CONFIG_DIR / "custom_components"
-        self.results: dict = {"installed": {}, "checked": {}, "history": [], "last_scan": None, "fingerprint": ""}
->>>>>>> origin/main
         self.scanning = False
         self.notes: dict[str, str] = {}  # what could not be asked this scan, by source
         self._osv_details: dict[str, dict] = {}
@@ -99,7 +91,6 @@ class Engine:
                 )
         return ";".join(parts)
 
-<<<<<<< HEAD
     async def _requirements(self, reports: list[dict]) -> tuple[dict, dict]:
         """What PyPI and the vulnerability database say of the requirements: (packages, vulnerabilities).
         The packages are read first: that gives a version to requirements that pin none."""
@@ -122,19 +113,6 @@ class Engine:
         except (aiohttp.ClientError, TimeoutError, ValueError) as e:
             self.notes["vulnerabilities"] = f"The vulnerability database did not answer: {type(e).__name__} {e}".strip()
             return found, {}
-=======
-    async def _vulnerabilities(self, reports: list[dict]) -> dict[tuple[str, str], list[dict]]:
-        packages = {
-            (r["name"].lower(), r["version"]) for report in reports for r in report["requirements"] if r["version"]
-        }
-        if not packages or not self.config.vulnerability_lookups:
-            return {}
-        try:
-            return await osv.lookup(self.session(), packages, self._osv_details)
-        except (aiohttp.ClientError, TimeoutError, ValueError) as e:
-            self.notes["vulnerabilities"] = f"The vulnerability database did not answer: {type(e).__name__} {e}".strip()
-            return {}
->>>>>>> origin/main
 
     async def scan_installed(self) -> None:
         async with self._lock:
@@ -162,11 +140,7 @@ class Engine:
         # First pass for the requirements, so every package is looked up in one request
         files = {item["folder"]: await asyncio.to_thread(sources.read_folder, item["path"]) for item in items}
         firsts = [await asyncio.to_thread(analyze, f) for f in files.values()]
-<<<<<<< HEAD
         found, vulnerable = await self._requirements(firsts)
-=======
-        vulnerable = await self._vulnerabilities(firsts)
->>>>>>> origin/main
 
         installed = {}
         for item in items:
@@ -191,11 +165,8 @@ class Engine:
                 marketplace=market,
                 installed=True,
                 vulnerabilities=vulnerable,
-<<<<<<< HEAD
                 packages=found,
                 package_reports=self.packages.reports,
-=======
->>>>>>> origin/main
                 runtime=runtime,
             )
             report.update(
@@ -235,22 +206,15 @@ class Engine:
         entry = self.catalog.entry(repository)
         files, ref = await sources.fetch_repository(self.session(), repository, (entry or {}).get("last_version"))
         first = await asyncio.to_thread(analyze, files)
-<<<<<<< HEAD
         found, vulnerable = await self._requirements([first])
-=======
-        vulnerable = await self._vulnerabilities([first])
->>>>>>> origin/main
         report = await asyncio.to_thread(
             scan_files,
             files,
             catalog=entry,
             removed=self.catalog.removed(repository),
             vulnerabilities=vulnerable,
-<<<<<<< HEAD
             packages=found,
             package_reports=self.packages.reports,
-=======
->>>>>>> origin/main
         )
         key = repository.lower()
         report.update(
@@ -276,17 +240,11 @@ class Engine:
     # -- the dashboard's document -------------------------------------------------------------------
     def payload(self) -> dict:
         integrations = [*self.results["installed"].values(), *self.results["checked"].values()]
-<<<<<<< HEAD
         wanted = {r.get("package") for i in integrations for r in i["requirements"]}
         return payload.build(
             integrations,
             GROUPS,
             packages={k: v for k, v in self.packages.reports.items() if v["key"] in wanted},
-=======
-        return payload.build(
-            integrations,
-            GROUPS,
->>>>>>> origin/main
             history=self.results["history"],
             status={
                 "scanning": self.scanning,

@@ -186,7 +186,6 @@ RULES: dict[str, Rule] = {
         "Depends on a package with a known vulnerability",
         "The exact version in the manifest is listed in the OSV vulnerability database.",
     ),
-<<<<<<< HEAD
     "code.dependency_critical": _r(
         "code",
         "high",
@@ -207,8 +206,6 @@ RULES: dict[str, Rule] = {
         "A package it installs has serious findings",
         "A requirement from PyPI has findings of high severity. Open the package to see what and where.",
     ),
-=======
->>>>>>> origin/main
     "code.subprocess": _r(
         "code",
         "medium",
@@ -263,7 +260,6 @@ RULES: dict[str, Rule] = {
         "A Python file could not be read",
         "The file has a syntax error or is too large, so it was not analyzed.",
     ),
-<<<<<<< HEAD
     "code.dependency_unread": _r(
         "code",
         "info",
@@ -276,8 +272,6 @@ RULES: dict[str, Rule] = {
         "Contains compiled code",
         "Part of this package is compiled. Only its Python was read.",
     ),
-=======
->>>>>>> origin/main
     "code.frontend": _r(
         "code",
         "info",
