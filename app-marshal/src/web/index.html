@@ -123,7 +123,9 @@
       <p>Each area starts at 100. A finding takes off points by severity: critical 60, high 30, medium 12, low 4, notes 0. The same finding in more places weighs more, up to twice. The overall score is the weighted average of the areas, and never more than 15 above the weakest one. With a critical finding the score is 45 at most. <b>A</b> is 90 and up, <b>B</b> 80, <b>C</b> 65, <b>D</b> 50, below that <b>F</b>.</p>
       <h3>What a finding is, and is not</h3>
       <p>A finding is a lead, not a verdict. Marshal sees what code <b>could</b> do, not what it does. A notification integration posts to a chat service on purpose. A camera integration turns certificate checks off because the camera has a self-signed certificate. A low score says "read this one before you trust it", not "this is malicious".</p>
-      <p>And a high score is not a guarantee. Code that hides well, code in a requirement from PyPI, and front-end JavaScript are outside what Marshal reads.</p>
+      <h3>Packages from PyPI</h3>
+      <p>Most of what a cloud integration does on the network is in the library it installs. Each direct requirement is downloaded from PyPI and read the same way, without installing it. A package gets its own grade; only its high and critical findings count against the integration, and its hosts are added to the integration's. Packages that Home Assistant itself ships are skipped, and what a package in turn requires is not followed.</p>
+      <p>And a high score is not a guarantee. Code that hides well, compiled code, the requirements of requirements, and front-end JavaScript are outside what Marshal reads.</p>
     </div></div>
   </div>
 </div>

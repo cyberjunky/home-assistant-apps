@@ -23,6 +23,7 @@ from src import osv, payload, sources
 from src.analyzer import add_context, analyze, finish
 from src.catalog import Catalog
 from src.config import USER_AGENT
+from src.packages import Packages
 
 GROUPS = [{"id": "mine", "label": "Mine"}, {"id": "top", "label": "Most installed"}]
 SAFE = re.compile(r"[^A-Za-z0-9_./ -]")
@@ -64,19 +65,33 @@ async def main() -> int:
         await asyncio.gather(*(fetch(e) for e in catalog.top(args.top)))
 
         firsts = [analyze(p["files"]) for p in pending]
-        packages = {(r["name"].lower(), r["version"]) for f in firsts for r in f["requirements"] if r["version"]}
+        requirements = [r for f in firsts for r in f["requirements"]]
+        packages = Packages(args.out / "packages")
+        found = await packages.scan(session, requirements)
+        versions = {
+            (r["name"].lower(), (found.get((r["name"].lower(), r["spec"])) or {}).get("version") or r["version"])
+            for r in requirements
+        }
+        versions = {(name, version) for name, version in versions if version}
         try:
-            vulnerable = await osv.lookup(session, packages, {}) if packages else {}
+            vulnerable = await osv.lookup(session, versions, {}) if versions else {}
         except (aiohttp.ClientError, TimeoutError) as e:
             print(f"vulnerability lookup failed: {type(e).__name__}", file=sys.stderr)
             vulnerable = {}
+        statuses = [p["status"] for p in found.values()]
+        print("packages:", ", ".join(f"{statuses.count(s)} {s}" for s in ("scanned", "core", "missing", "error")))
 
     reports = []
     for item in pending:
         entry = item["entry"] or {}
         report = analyze(item["files"])
         add_context(
-            report, catalog=item["entry"], removed=catalog.removed(entry.get("full_name")), vulnerabilities=vulnerable
+            report,
+            catalog=item["entry"],
+            removed=catalog.removed(entry.get("full_name")),
+            vulnerabilities=vulnerable,
+            packages=found,
+            package_reports=packages.reports,
         )
         finish(report)
         domain = report["domain"] or item["key"].split(":", 1)[1]
@@ -98,7 +113,9 @@ async def main() -> int:
     for line in failed:
         print("failed", SAFE.sub("?", line)[:120], file=sys.stderr)
 
-    document = payload.build(reports, GROUPS, history=[], status={})
+    wanted = {r.get("package") for report in reports for r in report["requirements"]}
+    used = {k: v for k, v in packages.reports.items() if v["key"] in wanted}
+    document = payload.build(reports, GROUPS, packages=used, history=[], status={})
     (args.out / "report.json").write_text(json.dumps(document))
     (args.out / "report.html").write_text(payload.render_static(document, "Marshal survey"), encoding="utf-8")
     print(f"{len(reports)} integrations, {len(failed)} failed -> {args.out / 'report.html'}")
