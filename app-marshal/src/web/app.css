@@ -85,9 +85,14 @@ a { color: var(--primary-color); }
 .topbar {
     flex-shrink: 0; min-height: var(--ha-header-height, 56px); display: flex; align-items: center; gap: 14px;
     padding: 6px 14px; background: var(--ha-card-background); border-bottom: var(--card-border);
-    white-space: nowrap; overflow-x: auto;
+    white-space: nowrap; flex-wrap: wrap;
 }
+/* Narrow: the tabs take a line of their own and scroll inside it; the page never gets a scrollbar under the bar */
+.topbar .tabs { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.topbar .tabs::-webkit-scrollbar { display: none; }
 .topbar > * { flex-shrink: 0; }
+.topbar > .tabs { flex-shrink: 1; min-width: 0; }
+.topbar .tab { flex-shrink: 0; }
 .brand { display: flex; align-items: center; gap: 8px; }
 .brand svg { width: 20px; height: 20px; color: var(--primary-color); }
 .brand-name { font-weight: 600; letter-spacing: 0.04em; }
