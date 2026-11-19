@@ -186,6 +186,26 @@ RULES: dict[str, Rule] = {
         "Depends on a package with a known vulnerability",
         "The exact version in the manifest is listed in the OSV vulnerability database.",
     ),
+    "code.dependency_critical": _r(
+        "code",
+        "high",
+        "A package it installs has a critical finding",
+        "A requirement from PyPI runs hidden code or has another critical finding. The package runs inside "
+        "Home Assistant like the integration itself. Open the package to see where.",
+    ),
+    "code.dependency_missing": _r(
+        "code",
+        "medium",
+        "A requirement is not on PyPI",
+        "PyPI does not have this package or version. It was removed, or the name is wrong; either way "
+        "anyone can publish under a free name.",
+    ),
+    "code.dependency_findings": _r(
+        "code",
+        "medium",
+        "A package it installs has serious findings",
+        "A requirement from PyPI has findings of high severity. Open the package to see what and where.",
+    ),
     "code.subprocess": _r(
         "code",
         "medium",
@@ -239,6 +259,18 @@ RULES: dict[str, Rule] = {
         "low",
         "A Python file could not be read",
         "The file has a syntax error or is too large, so it was not analyzed.",
+    ),
+    "code.dependency_unread": _r(
+        "code",
+        "info",
+        "A package it installs was not read",
+        "The requirement could not be downloaded or read, so what it does is not known.",
+    ),
+    "code.compiled": _r(
+        "code",
+        "info",
+        "Contains compiled code",
+        "Part of this package is compiled. Only its Python was read.",
     ),
     "code.frontend": _r(
         "code",

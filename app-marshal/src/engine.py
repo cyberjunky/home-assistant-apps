@@ -14,6 +14,7 @@ from .analyzer import add_context, analyze, finish
 from .catalog import Catalog
 from .config import DATA_DIR, HA_CONFIG_DIR, USER_AGENT, Config
 from .homeassistant import HomeAssistant, HomeAssistantError
+from .packages import Packages
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +37,16 @@ class Engine:
         self.config = config
         self.home_assistant = home_assistant
         self.catalog = catalog or Catalog(DATA_DIR / "catalog")
+        self.packages = Packages(DATA_DIR / "packages")
         self.custom_components = HA_CONFIG_DIR / "custom_components"
-        self.results: dict = {"installed": {}, "checked": {}, "history": [], "last_scan": None, "fingerprint": ""}
+        self.results: dict = {
+            "installed": {},
+            "checked": {},
+            "packages": {},
+            "history": [],
+            "last_scan": None,
+            "fingerprint": "",
+        }
         self.scanning = False
         self.notes: dict[str, str] = {}  # what could not be asked this scan, by source
         self._osv_details: dict[str, dict] = {}
@@ -82,17 +91,28 @@ class Engine:
                 )
         return ";".join(parts)
 
-    async def _vulnerabilities(self, reports: list[dict]) -> dict[tuple[str, str], list[dict]]:
-        packages = {
-            (r["name"].lower(), r["version"]) for report in reports for r in report["requirements"] if r["version"]
+    async def _requirements(self, reports: list[dict]) -> tuple[dict, dict]:
+        """What PyPI and the vulnerability database say of the requirements: (packages, vulnerabilities).
+        The packages are read first: that gives a version to requirements that pin none."""
+        requirements = [r for report in reports for r in report["requirements"]]
+        found: dict = {}
+        if requirements and self.config.dependency_scans:
+            found = await self.packages.scan(self.session(), requirements)
+            unread = sum(1 for p in found.values() if p["status"] == "error")
+            if unread:
+                self.notes["packages"] = f"{unread} of {len(found)} packages could not be read from PyPI"
+        versions = {
+            (r["name"].lower(), (found.get((r["name"].lower(), r["spec"])) or {}).get("version") or r["version"])
+            for r in requirements
         }
-        if not packages or not self.config.vulnerability_lookups:
-            return {}
+        versions = {(name, version) for name, version in versions if version}
+        if not versions or not self.config.vulnerability_lookups:
+            return found, {}
         try:
-            return await osv.lookup(self.session(), packages, self._osv_details)
+            return found, await osv.lookup(self.session(), versions, self._osv_details)
         except (aiohttp.ClientError, TimeoutError, ValueError) as e:
             self.notes["vulnerabilities"] = f"The vulnerability database did not answer: {type(e).__name__} {e}".strip()
-            return {}
+            return found, {}
 
     async def scan_installed(self) -> None:
         async with self._lock:
@@ -120,7 +140,7 @@ class Engine:
         # First pass for the requirements, so every package is looked up in one request
         files = {item["folder"]: await asyncio.to_thread(sources.read_folder, item["path"]) for item in items}
         firsts = [await asyncio.to_thread(analyze, f) for f in files.values()]
-        vulnerable = await self._vulnerabilities(firsts)
+        found, vulnerable = await self._requirements(firsts)
 
         installed = {}
         for item in items:
@@ -145,6 +165,8 @@ class Engine:
                 marketplace=market,
                 installed=True,
                 vulnerabilities=vulnerable,
+                packages=found,
+                package_reports=self.packages.reports,
                 runtime=runtime,
             )
             report.update(
@@ -184,13 +206,15 @@ class Engine:
         entry = self.catalog.entry(repository)
         files, ref = await sources.fetch_repository(self.session(), repository, (entry or {}).get("last_version"))
         first = await asyncio.to_thread(analyze, files)
-        vulnerable = await self._vulnerabilities([first])
+        found, vulnerable = await self._requirements([first])
         report = await asyncio.to_thread(
             scan_files,
             files,
             catalog=entry,
             removed=self.catalog.removed(repository),
             vulnerabilities=vulnerable,
+            packages=found,
+            package_reports=self.packages.reports,
         )
         key = repository.lower()
         report.update(
@@ -216,9 +240,11 @@ class Engine:
     # -- the dashboard's document -------------------------------------------------------------------
     def payload(self) -> dict:
         integrations = [*self.results["installed"].values(), *self.results["checked"].values()]
+        wanted = {r.get("package") for i in integrations for r in i["requirements"]}
         return payload.build(
             integrations,
             GROUPS,
+            packages={k: v for k, v in self.packages.reports.items() if v["key"] in wanted},
             history=self.results["history"],
             status={
                 "scanning": self.scanning,

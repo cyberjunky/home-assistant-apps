@@ -24,6 +24,7 @@ gets a score and a grade, and they are ranked worst first.
 - 🔎 **Everything installed**: each folder under `custom_components`, scanned at start, within five minutes of an install or update, and once a day
 - 🔑 **Data and credentials**: Home Assistant's logins and tokens, `secrets.yaml` and private storage, other integrations' configuration, credentials in log lines, secrets written in code, telemetry, reading every entity while talking to the internet
 - 🧨 **Code safety**: `eval` and `exec`, code hidden in encoded data, shell commands, packages installed while running, changes to Home Assistant's own code, compiled programs, requirements from a URL, known vulnerabilities in pinned requirements (OSV)
+- 📦 **The packages it installs**: each direct requirement is downloaded from PyPI and read the same way, with its own grade; its serious findings and the hosts it names count for the integration
 - 🌐 **Network**: every host named in the code, endpoints that need no login, paste sites and tunnels, certificate checks turned off, unencrypted connections, a "local" integration that names internet hosts
 - 🐢 **Performance**: blocking calls inside the event loop, listeners on every state change, fast polling of cloud services, and, asked of Home Assistant, setup time and log errors
 - 🧹 **Upkeep**: removed from the Marketplace catalog (and why), untouched for years, custom repositories, updates waiting, unpinned requirements

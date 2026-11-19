@@ -21,11 +21,13 @@ options:
   rescan_hours: 24
   catalog_lookups: true
   vulnerability_lookups: true
+  dependency_scans: true
   runtime_checks: true
   log_level: info
 schema:
   rescan_hours: int(1,720)
   catalog_lookups: bool
   vulnerability_lookups: bool
+  dependency_scans: bool
   runtime_checks: bool
   log_level: list(debug|info|warning|error)

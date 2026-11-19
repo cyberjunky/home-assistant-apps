@@ -12,10 +12,13 @@ defensive tool: it reads, it never changes what it scans, and it never runs it.
 - **Repositories you check** are downloaded as an archive from `github.com` and read member by member.
   Nothing is unpacked to disk, so an archive has no path to write to. Size and file count are capped.
   The repository name is checked against a strict pattern before it becomes part of a URL.
+- **Packages from PyPI** are downloaded only from `files.pythonhosted.org`, checked against PyPI's
+  SHA-256, and read from the archive in memory like a repository. They are never installed, and no
+  `setup.py` is run. Package names are checked against a strict pattern before they become part of a URL.
 - **Home Assistant** is asked three read-only questions over its WebSocket API. The app calls no
   service and changes no setting.
-- **What leaves the machine** is listed in DOCS.md: package names and versions to OSV, and the name of
-  a repository you check to GitHub. Nothing about your installation, entities or configuration.
+- **What leaves the machine** is listed in DOCS.md: package names and versions to OSV and PyPI, and the name
+  of a repository you check to GitHub. Nothing about your installation, entities or configuration.
 - **Secrets.** A finding quotes the line of code it points at, except for a line that looks like a
   secret: that one is left out of the results and of a saved report.
 - **Code lines are untrusted text.** They are shown escaped, never as HTML.
