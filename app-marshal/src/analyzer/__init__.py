@@ -56,6 +56,7 @@ def parse_requirement(text: str) -> dict:
 class _Hits:
     """Findings as they come in: one per rule, with the places it was seen."""
 
+<<<<<<< HEAD
     def __init__(self, skip: tuple[str, ...] = ()) -> None:
         self.found: dict[str, dict] = {}
         self.skip = skip
@@ -63,6 +64,12 @@ class _Hits:
     def add(self, rule: str, file: str = "", line: int = 0, note: str = "", snippet: str = "") -> None:
         if self.skip and rule.startswith(self.skip):
             return
+=======
+    def __init__(self) -> None:
+        self.found: dict[str, dict] = {}
+
+    def add(self, rule: str, file: str = "", line: int = 0, note: str = "", snippet: str = "") -> None:
+>>>>>>> origin/main
         finding = self.found.setdefault(rule, {"rule": rule, "count": 0, "where": []})
         if any(w["file"] == file and w["line"] == line for w in finding["where"]):
             return
@@ -82,6 +89,7 @@ def _manifest(files: Files) -> dict | None:
     return manifest if isinstance(manifest, dict) else None
 
 
+<<<<<<< HEAD
 def analyze(files: Files, package: bool = False) -> dict:
     """Everything the files of one integration say. Add context and call finish() for the scores.
 
@@ -89,6 +97,11 @@ def analyze(files: Files, package: bool = False) -> dict:
     part is normal, and whether its calls block is for the integration that makes them.
     """
     hits = _Hits(skip=("performance.", "upkeep.") if package else ())
+=======
+def analyze(files: Files) -> dict:
+    """Everything the files of one integration say. Add context and call finish() for the scores."""
+    hits = _Hits()
+>>>>>>> origin/main
     facts = Facts()
     manifest = _manifest(files)
     stats = {"files": len(files), "python_files": 0, "lines": 0, "bytes": sum(size for size, _ in files.values())}
@@ -113,7 +126,11 @@ def analyze(files: Files, package: bool = False) -> dict:
             if not scan(path, source, hit, facts):
                 hits.add("code.unparseable", path, 0, "syntax error")
         elif lower.endswith(BINARY_SUFFIXES) or data[:4] in BINARY_MAGIC:
+<<<<<<< HEAD
             hits.add("code.compiled" if package else "code.binary", path, 0, f"{size // 1024} kB")
+=======
+            hits.add("code.binary", path, 0, f"{size // 1024} kB")
+>>>>>>> origin/main
         elif lower.endswith(".pyc") and "__pycache__" not in lower:
             if lower[:-1] not in {p.lower() for p in files}:
                 hits.add("code.bytecode_only", path, 0, "")
@@ -122,11 +139,19 @@ def analyze(files: Files, package: bool = False) -> dict:
         elif lower.endswith((".js", ".mjs")):
             frontend_bytes += size
     stats["lines"] = facts.lines
+<<<<<<< HEAD
     if frontend_bytes and not package:
         hits.add("code.frontend", "", 0, f"{frontend_bytes // 1024} kB")
     if stats["lines"] > 25000 or stats["bytes"] > 20 * 1024 * 1024:
         hits.add("performance.large", "", 0, f"{stats['lines']} lines, {stats['bytes'] // 1024} kB")
     if facts.diagnostics and not facts.diagnostics_redacted and not package:
+=======
+    if frontend_bytes:
+        hits.add("code.frontend", "", 0, f"{frontend_bytes // 1024} kB")
+    if stats["lines"] > 25000 or stats["bytes"] > 20 * 1024 * 1024:
+        hits.add("performance.large", "", 0, f"{stats['lines']} lines, {stats['bytes'] // 1024} kB")
+    if facts.diagnostics and not facts.diagnostics_redacted:
+>>>>>>> origin/main
         hits.add("data.diagnostics_unredacted", "diagnostics.py", 0, "")
 
     report = {
@@ -144,8 +169,12 @@ def analyze(files: Files, package: bool = False) -> dict:
         "_hits": hits,
         "_facts": facts,
     }
+<<<<<<< HEAD
     if not package:
         _manifest_rules(report, manifest, hits)
+=======
+    _manifest_rules(report, manifest, hits)
+>>>>>>> origin/main
     _network_rules(report, facts, hits)
     _interval_rules(report, facts, hits)
     return report
@@ -233,17 +262,24 @@ def add_context(
     installed: bool = False,
     vulnerabilities: dict[tuple[str, str], list[dict]] | None = None,
     runtime: dict | None = None,
+<<<<<<< HEAD
     packages: dict[tuple[str, str], dict] | None = None,
     package_reports: dict[str, dict] | None = None,
+=======
+>>>>>>> origin/main
     now: float | None = None,
 ) -> None:
     """What the code cannot say: the catalog's record, known vulnerabilities, and how it behaves in Home Assistant.
 
     catalog: the Marketplace catalog's entry; removed: its removal record; marketplace: what Home Assistant's
     Marketplace says of the install ({custom, installed_version, available_version, pending_upgrade});
+<<<<<<< HEAD
     vulnerabilities: {(requirement name, version): [{id, summary, severity}]}; runtime: {setup_seconds, errors, warnings};
     packages: {(requirement name, spec): {status, version, key, reason}} and package_reports: {key: report}, what
     reading the requirements from PyPI gave.
+=======
+    vulnerabilities: {(requirement name, version): [{id, summary, severity}]}; runtime: {setup_seconds, errors, warnings}.
+>>>>>>> origin/main
     """
     hits: _Hits = report["_hits"]
     now = now or time.time()
@@ -273,6 +309,7 @@ def add_context(
             hits.add("upkeep.update_available", "", 0, versions)
     elif installed and not catalog:
         hits.add("upkeep.manual")
+<<<<<<< HEAD
     known_hosts = {h["host"] for h in report["hosts"]}
     for number, requirement in enumerate(report["requirements"]):
         package = (packages or {}).get((requirement["name"].lower(), requirement["spec"])) or {}
@@ -303,6 +340,13 @@ def add_context(
         requirement["vulnerabilities"] = found
         for index, vulnerability in enumerate(found):
             note = f"{requirement['name']} {requirement['resolved']}: {vulnerability['id']}"
+=======
+    for requirement in report["requirements"]:
+        found = (vulnerabilities or {}).get((requirement["name"].lower(), requirement["version"])) or []
+        requirement["vulnerabilities"] = found
+        for index, vulnerability in enumerate(found):
+            note = f"{requirement['name']} {requirement['version']}: {vulnerability['id']}"
+>>>>>>> origin/main
             hits.add(
                 "code.vulnerable_dependency", "manifest.json", 1000 + index, note, vulnerability.get("summary") or ""
             )

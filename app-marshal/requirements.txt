@@ -1,5 +1,8 @@
 # Python dependencies for Marshal (installed in the Dockerfile).
 # aiohttp - web server, ingress, and the lookups (catalog, OSV, GitHub). The analyzer itself is standard library only.
 aiohttp>=3.14.5,<4
+<<<<<<< HEAD
 # packaging - picks the version of a requirement the way pip does
 packaging>=24
+=======
+>>>>>>> origin/main

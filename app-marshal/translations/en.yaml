@@ -15,12 +15,15 @@ configuration:
     description: >-
       Look up the exact package versions that manifests pin in the OSV vulnerability database (osv.dev).
       Package names and versions are sent, nothing else.
+<<<<<<< HEAD
   dependency_scans:
     name: Read the packages
     description: >-
       Download each direct requirement of an integration from PyPI and read its code the same way,
       without installing it. Package names and versions are sent to pypi.org. Packages that Home
       Assistant itself ships are skipped.
+=======
+>>>>>>> origin/main
   runtime_checks:
     name: Ask Home Assistant
     description: >-
