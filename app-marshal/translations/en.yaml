@@ -1,0 +1,25 @@
+configuration:
+  rescan_hours:
+    name: Rescan after (hours)
+    description: >-
+      How often everything is scanned again. A new or updated integration is scanned within five minutes
+      regardless.
+  catalog_lookups:
+    name: Marketplace catalog
+    description: >-
+      Fetch the Marketplace catalog and Home Assistant's install counts once a day: which repositories
+      were removed and why, when each last changed, how many installations use it. Nothing about your
+      installation is sent.
+  vulnerability_lookups:
+    name: Known vulnerabilities
+    description: >-
+      Look up the exact package versions that manifests pin in the OSV vulnerability database (osv.dev).
+      Package names and versions are sent, nothing else.
+  runtime_checks:
+    name: Ask Home Assistant
+    description: >-
+      Ask Home Assistant how long each custom integration took to set up, what each wrote to the log,
+      and what the Marketplace installed. Off: only the code is read.
+  log_level:
+    name: Log level
+    description: How much the app writes to its own log.

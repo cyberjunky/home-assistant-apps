@@ -132,6 +132,19 @@ street-level pins, statistics, Home Assistant sensors, events and text-to-speech
 
 [:books: Documentation](app-meldkamer/DOCS.md) · [:memo: Changelog](app-meldkamer/CHANGELOG.md) · [:lock: Security](app-meldkamer/SECURITY.md)
 
+### <img src="app-marshal/icon.png" alt="" width="36" align="absmiddle"> [Marshal](app-marshal/)
+
+![Version][marshal-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+Keeps watch over your Marketplace integrations, opened from the sidebar. Reads the code of every
+custom integration without running it, and ranks them by what deserves a second look: access to
+credentials and personal data, risky code, internet hosts and patterns that slow Home Assistant
+down. Checks a repository before you install it.
+
+[:books: Documentation](app-marshal/DOCS.md) · [:memo: Changelog](app-marshal/CHANGELOG.md) · [:lock: Security](app-marshal/SECURITY.md)
+
 ### <img src="app-mqtt/icon.png" alt="" width="36" align="absmiddle"> [MQTT](app-mqtt/)
 
 ![Version][mqtt-version-shield]
@@ -324,6 +337,7 @@ software each app packages keeps its own license, noted in the app's README.
 [dishylink-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-dishylink%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [goodwe-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-goodwe%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [meldkamer-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-meldkamer%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[marshal-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-marshal%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [mqtt-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-mqtt%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [tesla-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-tesla%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [toon-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-toon%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge

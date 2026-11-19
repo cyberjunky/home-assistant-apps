@@ -1,0 +1,25 @@
+configuration:
+  rescan_hours:
+    name: Opnieuw scannen na (uren)
+    description: >-
+      Hoe vaak alles opnieuw wordt gescand. Een nieuwe of bijgewerkte integratie wordt hoe dan ook
+      binnen vijf minuten gescand.
+  catalog_lookups:
+    name: Marketplace-catalogus
+    description: >-
+      Haal één keer per dag de Marketplace-catalogus en de installatieaantallen van Home Assistant op:
+      welke repositories zijn verwijderd en waarom, wanneer elke voor het laatst is gewijzigd en hoeveel
+      installaties haar gebruiken. Er wordt niets over jouw installatie verstuurd.
+  vulnerability_lookups:
+    name: Bekende kwetsbaarheden
+    description: >-
+      Zoek de exacte pakketversies uit de manifesten op in de OSV-kwetsbaarhedendatabase (osv.dev).
+      Alleen pakketnamen en versies worden verstuurd.
+  runtime_checks:
+    name: Home Assistant raadplegen
+    description: >-
+      Vraag Home Assistant hoe lang elke aangepaste integratie nodig had om te starten, wat elke in het
+      logboek schreef en wat de Marketplace heeft geïnstalleerd. Uit: alleen de code wordt gelezen.
+  log_level:
+    name: Logniveau
+    description: Hoeveel de app in zijn eigen logboek schrijft.

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- The top bar is as high as Home Assistant's own header (its --header-height, 56px by default) -->
+<script>try{const h=getComputedStyle(window.parent.document.documentElement).getPropertyValue('--header-height').trim();if(h)document.documentElement.style.setProperty('--ha-header-height',h);}catch(e){}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Marshal</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%234c8dff' d='M12.0 2.0L14.8 7.2L20.7 7.0L17.6 12.0L20.7 17.0L14.8 16.8L12.0 22.0L9.2 16.8L3.3 17.0L6.4 12.0L3.3 7.0L9.2 7.2z'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="static/app.css?v=__VERSION__">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M12.0 2.0L14.8 7.2L20.7 7.0L17.6 12.0L20.7 17.0L14.8 16.8L12.0 22.0L9.2 16.8L3.3 17.0L6.4 12.0L3.3 7.0L9.2 7.2z"/><circle cx="12" cy="12" r="2.2"/></svg>
+    <span class="brand-name">MARSHAL</span>
+  </div>
+  <nav class="tabs" aria-label="Views">
+    <button type="button" class="tab active" data-tab="dashboard">Dashboard</button>
+    <button type="button" class="tab" data-tab="integrations">Integrations</button>
+    <button type="button" class="tab" data-tab="findings">Findings</button>
+    <button type="button" class="tab" data-tab="network">Network</button>
+    <button type="button" class="tab" data-tab="check" id="tab-btn-check">Check</button>
+    <button type="button" class="tab" data-tab="about">How it works</button>
+  </nav>
+  <div class="seg" id="groups" role="group" aria-label="Which integrations" hidden></div>
+  <span class="spacer"></span>
+  <button type="button" class="btn" id="scan-btn" hidden>Scan now</button>
+  <a class="btn" id="export-btn" href="api/export" hidden style="display:inline-flex;align-items:center;text-decoration:none;color:inherit">Save report</a>
+  <div class="tabs" role="group" aria-label="Theme" id="theme-group">
+    <button type="button" id="theme-toggle" class="tab icon-tab" title="Theme"><span id="theme-icon" aria-hidden="true">🌓</span></button>
+  </div>
+</header>
+
+<div class="views">
+<div class="pages">
+<div class="container">
+  <div id="banners"></div>
+
+  <!-- Dashboard: how things stand, and what to look at first -->
+  <div id="tab-dashboard" class="tab-content active">
+    <div id="dash-tiles" class="tiles"></div>
+    <div class="grid2">
+      <div class="panel"><div class="panel-body">
+        <div class="title"><span>Grades</span><span class="hint">integrations per grade</span></div>
+        <div id="dash-grades"></div>
+      </div></div>
+      <div class="panel"><div class="panel-body">
+        <div class="title"><span>Average score by area</span><span class="hint">0 to 100, higher is better</span></div>
+        <div id="dash-areas"></div>
+      </div></div>
+    </div>
+    <div class="grid2">
+      <div class="panel"><div class="panel-body">
+        <div class="title"><span>Look at these first</span><button class="link-btn" data-goto="integrations">All integrations →</button></div>
+        <div id="dash-worst"></div>
+      </div></div>
+      <div class="panel"><div class="panel-body">
+        <div class="title"><span>Most serious findings</span><button class="link-btn" data-goto="findings">All findings →</button></div>
+        <div id="dash-rules"></div>
+      </div></div>
+    </div>
+    <div class="panel" id="dash-history-panel" hidden><div class="panel-body">
+      <div class="title"><span>Average score of what is installed</span><span class="hint" id="dash-history-hint"></span></div>
+      <div id="dash-history"></div>
+    </div></div>
+  </div>
+
+  <!-- Integrations: every one, worst first -->
+  <div id="tab-integrations" class="tab-content">
+    <div class="toolbar">
+      <input type="search" id="int-search" placeholder="Search name, domain or repository" aria-label="Search integrations">
+      <label for="int-grade">Grade</label>
+      <select id="int-grade"><option value="">All</option><option>A</option><option>B</option><option>C</option><option>D</option><option>F</option></select>
+      <span class="muted" id="int-count"></span>
+    </div>
+    <div class="panel flush"><div id="int-table"></div></div>
+  </div>
+
+  <!-- Findings: every check that found something, across integrations -->
+  <div id="tab-findings" class="tab-content">
+    <div class="toolbar">
+      <div class="seg" id="find-areas" role="group" aria-label="Area"></div>
+      <label class="muted"><input type="checkbox" id="find-info"> Also show notes (info)</label>
+    </div>
+    <div class="panel flush"><div id="find-table"></div></div>
+  </div>
+
+  <!-- Network: the hosts written in the code -->
+  <div id="tab-network" class="tab-content">
+    <div class="toolbar">
+      <input type="search" id="net-search" placeholder="Search host or integration" aria-label="Search hosts">
+      <label class="muted"><input type="checkbox" id="net-all"> Also show documentation links and local addresses</label>
+      <span class="muted" id="net-count"></span>
+    </div>
+    <div class="panel flush"><div id="net-table"></div></div>
+  </div>
+
+  <!-- Check: scan a repository before installing it -->
+  <div id="tab-check" class="tab-content">
+    <div class="panel"><div class="panel-body">
+      <div class="title"><span>Check before you install</span></div>
+      <p class="muted" style="max-width:68ch;margin-bottom:12px">Give a GitHub repository, as the Marketplace shows it. Marshal downloads its latest release, reads the code without running it, and scores it like an installed integration.</p>
+      <form class="toolbar" id="check-form">
+        <input type="text" id="check-repo" placeholder="owner/name" aria-label="Repository" autocomplete="off" spellcheck="false">
+        <button type="submit" class="btn primary" id="check-btn">Check</button>
+      </form>
+      <div id="check-list"></div>
+    </div></div>
+  </div>
+
+  <!-- How it works -->
+  <div id="tab-about" class="tab-content">
+    <div class="panel"><div class="panel-body prose">
+      <h3 style="margin-top:0">What Marshal does</h3>
+      <p>Custom integrations run inside Home Assistant with all of its rights: they can read every credential, every entity and every file Home Assistant can. The Marketplace lists them; it does not test or audit them. Marshal reads the code of each integration and points at what deserves a second look.</p>
+      <h3>How it reads code</h3>
+      <p>Python files are parsed to a syntax tree and searched for patterns. <b>Nothing from an integration is imported or run.</b> The manifest is read as JSON. Other files are only measured.</p>
+      <h3>The five areas</h3>
+      <ul id="about-areas"></ul>
+      <h3>Scores and grades</h3>
+      <p>Each area starts at 100. A finding takes off points by severity: critical 60, high 30, medium 12, low 4, notes 0. The same finding in more places weighs more, up to twice. The overall score is the weighted average of the areas, and never more than 15 above the weakest one. With a critical finding the score is 45 at most. <b>A</b> is 90 and up, <b>B</b> 80, <b>C</b> 65, <b>D</b> 50, below that <b>F</b>.</p>
+      <h3>What a finding is, and is not</h3>
+      <p>A finding is a lead, not a verdict. Marshal sees what code <b>could</b> do, not what it does. A notification integration posts to a chat service on purpose. A camera integration turns certificate checks off because the camera has a self-signed certificate. A low score says "read this one before you trust it", not "this is malicious".</p>
+      <p>And a high score is not a guarantee. Code that hides well, code in a requirement from PyPI, and front-end JavaScript are outside what Marshal reads.</p>
+    </div></div>
+  </div>
+</div>
+</div>
+</div>
+
+<footer class="statusbar" id="statusbar"></footer>
+<div id="modal-root"></div>
+<script src="static/app.js?v=__VERSION__"></script>
+<script src="static/donate.js?v=__VERSION__" data-app="Marshal" data-api="api/donate"></script>
+</body>
+</html>
