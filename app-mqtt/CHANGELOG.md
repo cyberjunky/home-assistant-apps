@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+**After updating:** nothing to do.
+
+- **No double slash in the log:** the broker logged `Saving in-memory database to /data//mosquitto.db`. It is now `/data/mosquitto.db`; the file is the same one.
+
 ## 0.1.1
 
 **After updating:** nothing to do.
