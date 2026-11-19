@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.4
+
+- The choice between all, installed and checked integrations is no longer shown on the Check and How it works pages, where it did nothing.
+
 ## 0.2.3
 
 - The top bar fits again: the choice between all, installed and checked integrations moved under it, and on a narrow screen the bar wraps instead of getting a scrollbar.
