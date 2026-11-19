@@ -66,6 +66,7 @@ jobs:
           - app-proxmox-bs
           - app-network
           - app-mqtt
+          - app-marshal
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v7.0.1
