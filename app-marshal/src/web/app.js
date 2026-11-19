@@ -80,7 +80,8 @@ function renderGroups() {
   report.integrations.forEach(i => { counts[i.group] = (counts[i.group] || 0) + 1; });
   const groups = report.groups.filter(g => counts[g.id]);
   if (group && !counts[group]) group = '';
-  $('groups-bar').hidden = groups.length < 2;
+  // Only on the pages it filters: Check lists what was checked, and How it works lists nothing
+  $('groups-bar').hidden = groups.length < 2 || ['check', 'about'].includes(activeTab);
   $('groups').innerHTML = [{id: '', label: 'All'}, ...groups].map(g =>
     `<button type="button" data-group="${esc(g.id)}" class="${g.id === group ? 'active' : ''}">${esc(g.label)}<span class="n">${g.id ? counts[g.id] : report.integrations.length}</span></button>`).join('');
 }
@@ -293,7 +294,10 @@ function closeDrawer() { openKey = null; $('modal-root').innerHTML = ''; }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
 
 // ---- wiring ----
+let activeTab = 'dashboard';
 function showTab(tab) {
+  activeTab = tab;
+  if (report) renderGroups();
   document.querySelectorAll('.tab[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
 }
