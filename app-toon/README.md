@@ -25,6 +25,36 @@ it records stays in the app's data folder and is included in your Home Assistant
 **It can change one thing: your thermostat**, from the Dashboard's controls. Those are the setpoint,
 the presets and the week program, and nothing else. Set `read_only` to turn them off.
 
+![Dashboard: room, burner, water pressure, power and gas now, the heating system with its supply and return temperature, and the thermostat's setpoint, presets and week program (light theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-toon/screenshots/dashboard-light.webp)
+
+<details>
+<summary>More screenshots</summary>
+
+**Dashboard, the last 24 hours** — room and boiler temperatures with the burner's periods behind them, power from and to the grid, gas per hour and the water pressure
+![Dashboard charts](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-toon/screenshots/charts-light.webp)
+
+**Electricity** — a year per month: from and to the grid per tariff, power, costs and the night base load
+![Electricity](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-toon/screenshots/electricity-light.webp)
+
+**Gas & heating** — gas per week next to a year earlier, its costs, and when in the week it is used
+![Gas and heating](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-toon/screenshots/gas-light.webp)
+
+**Day detail** — one day on one timeline: gas per hour, boiler temperatures, modulation, room and water pressure
+![Day detail](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-toon/screenshots/day-light.webp)
+
+**Info** — the Toon's own health and every outage, as a restart or a lost connection
+![Info](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-toon/screenshots/info-light.webp)
+
+**Dashboard in the dark theme**
+![Dashboard in the dark theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-toon/screenshots/dashboard-dark.webp)
+
+**Boiler** — burner starts and short runs, the boiler's hour counters and burner time per state (dark theme)
+![Boiler](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-toon/screenshots/boiler-dark.webp)
+
+</details>
+
+The screenshots show a simulated house, not a real one.
+
 ## Supported Features
 
 - 🔌 **One connection** — A single SSH session carries everything, and reconnects by itself after the network or the Toon has been away
