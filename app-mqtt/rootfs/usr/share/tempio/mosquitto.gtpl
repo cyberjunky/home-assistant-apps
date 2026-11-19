@@ -10,7 +10,7 @@ log_timestamp_format %Y-%m-%dT%H:%M:%S
 connection_messages true
 
 persistence true
-persistence_location /data/
+persistence_location /data
 # $SYS every 10 seconds, for the dashboard's numbers and history
 sys_interval 10
 
