@@ -1,9 +1,12 @@
 # Changelog
 
+## 0.2.1
+
+- **Packages page:** every package that was read from PyPI, worst first, with its findings and the integrations that install it. Search by package or integration, filter by grade, and open a package or one of its integrations from the row.
+
 ## 0.2.0
 
 - **Packages from PyPI:** each direct requirement of an integration is downloaded from PyPI and read the same way, without installing it. A package gets its own grade, opened from the integration's **Packages it installs**.
-- **Packages page:** every package that was read, worst first, with its findings and the integrations that install it.
 - A package's high and critical findings count for the integration, and the hosts it names are added to the integration's, marked with the package.
 - A requirement that PyPI does not have is a finding of its own.
 - **Unpinned requirements** are now looked up in the vulnerability database too, at the version that would be installed.
