@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from .discovery_settings import DiscoveryConfig, parse_discovery
+
 # App storage: options.json and the database live here.
 # The FREQTRADE_* environment variables are for development only; the app itself never sets them.
 DATA_DIR = Path(os.environ.get("FREQTRADE_DATA_DIR", "/data"))
@@ -68,10 +70,13 @@ class Config:
     """Application configuration, read from the app options."""
 
     bots: list[BotConfig] = field(default_factory=list)
+    discovery: DiscoveryConfig = field(default_factory=DiscoveryConfig)
     # How often each bot's state is read; a trade event over the WebSocket reads it at once
     poll_seconds: int = 30
     # Leave out everything that can change a bot
     read_only: bool = False
+    # Which bots the overview starts with: live, dry or all
+    overview_mode: str = "all"
 
     # MQTT publishing with Home Assistant discovery
     mqtt_enabled: bool = True
@@ -98,10 +103,15 @@ class Config:
     @classmethod
     def from_options(cls, options: dict) -> "Config":
         mqtt = options.get("mqtt") or {}
+        overview_mode = str(options.get("overview_mode") or "all")
+        if overview_mode not in ("live", "dry", "all"):
+            raise ValueError("overview_mode must be live, dry or all")
         return cls(
-            bots=parse_bots(options.get("bots") or []),
+            bots=parse_bots(options.get("bots") or [], options.get("credentials") or {}),
+            discovery=parse_discovery(options.get("discovery") or {}, options.get("credentials") or {}),
             poll_seconds=min(600, max(10, int(options.get("poll_seconds") or 30))),
             read_only=bool(options.get("read_only", False)),
+            overview_mode=overview_mode,
             mqtt_enabled=bool(mqtt.get("enabled", True)),
             mqtt_host=str(mqtt.get("host") or ""),
             mqtt_port=int(mqtt.get("port") or 1883),
@@ -113,8 +123,9 @@ class Config:
         )
 
 
-def parse_bots(items: list) -> list[BotConfig]:
+def parse_bots(items: list, credentials: dict | None = None) -> list[BotConfig]:
     """The bots in the order given. Raises ValueError for a bot that can't be used."""
+    credentials = credentials or {}
     bots: list[BotConfig] = []
     for number, item in enumerate(items, 1):
         name = str(item.get("name") or "").strip()
@@ -130,16 +141,20 @@ def parse_bots(items: list) -> list[BotConfig]:
         url = re.sub(r"/api/v1$", "", url)
         if not re.match(r"^https?://[^/\s]+", url):
             raise ValueError(f"bots: {name}: url {url!r} must start with http:// or https://")
-        if not item.get("username") or not item.get("password"):
+        # Credentials are inherited as a pair; never mix a bot-specific user
+        # with a shared password belonging to another account.
+        own_login = bool(item.get("username") or item.get("password"))
+        login = item if own_login else credentials
+        if not login.get("username") or not login.get("password"):
             raise ValueError(f"bots: {name}: enter the username and password of its api_server")
         bots.append(
             BotConfig(
                 name=name,
                 slug=slug,
                 url=url,
-                username=str(item["username"]),
-                password=str(item["password"]),
-                ws_token=str(item.get("ws_token") or ""),
+                username=str(login["username"]),
+                password=str(login["password"]),
+                ws_token=str(item.get("ws_token", "" if own_login else credentials.get("ws_token", "")) or ""),
                 verify_ssl=bool(item.get("verify_ssl", True)),
             )
         )

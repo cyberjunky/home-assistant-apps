@@ -35,13 +35,26 @@ read_only: false
 |---|---|---|
 | `bots[].name` | | The name on the pages and in Home Assistant. Keep it once set: the app's history and the MQTT entities are stored under it |
 | `bots[].url` | | Address of the bot's API server, for example `http://192.168.1.20:8080` |
-| `bots[].username`, `bots[].password` | | The `username` and `password` of the bot's `api_server` |
+| `bots[].username`, `bots[].password` | | The `username` and `password` of the bot's `api_server`. Leave both empty to use the shared login |
 | `bots[].ws_token` | | The bot's `api_server.ws_token`. Optional: without it the WebSocket logs in with a token from the username and password |
 | `bots[].verify_ssl` | `true` | Check the certificate of an `https` address. Turn off for a self-signed certificate |
+| `credentials.username`, `credentials.password`, `credentials.ws_token` | | A shared login, for every bot without a username and password of its own. A bot with its own login needs both fields, and doesn't take the shared WebSocket token |
+| `discovery.*` | off | Finds the bots on one machine by themselves, see [Finding bots by themselves](#finding-bots-by-themselves) |
 | `poll_seconds` | `30` | How often each bot's state is read. A trade reads it at once, whatever this is |
 | `read_only` | `false` | Turn off the buttons that change a bot |
+| `overview_mode` | `all` | The bots the overview starts with at every page load: `all`, `live` or `dry`. The page has buttons for the others |
 | `mqtt.*` | | Broker details; empty uses the broker Home Assistant knows |
 | `log_level` | `info` | Amount of logging |
+
+## Finding bots by themselves
+
+With many bots on one machine the app can find them itself. Under **Find bots by themselves** turn on **Look for bots** and give the machine's IP address, the ports to try (for example `8080,9000-9050`) and the login the bots share; without a login there it uses the shared login. Save and restart the app.
+
+- **What it does:** every `interval_seconds` (120) it asks each port for Freqtrade's `/ping`, without a login, and only what answers like Freqtrade gets the login, to read `/show_config`. It tries one address only, never a network, at most 4096 ports, 8 at a time, and follows no redirects. It only reads: it never starts, stops or trades, also without `read_only`.
+- **A found bot** gets its tab, its row and its MQTT entities without a restart. It is named after its `bot_name`, or its strategy when it has none, and its port. Bots you listed under `bots` come first and are not added twice.
+- **A bot that goes away stays**, shown as offline, and connects again when it answers. The found bots are kept in `/data/discovery.json`, without passwords, so they are back after a restart. A port you take out of the list is dropped at the next restart; its history stays in the database.
+- **Another bot on the same port** (another name, strategy, exchange, stake currency or live instead of dry-run) starts with a history of its own; the earlier one's history is kept. The API can't tell a bot that was reset with the same settings from the one before: give it another name or port.
+- **Info** shows when it last looked, how many answered, and what went wrong. At most 128 bots are kept.
 
 ## The bot's side
 
@@ -79,11 +92,13 @@ bot: API server  ──REST──────▶ every poll_seconds: state, bala
 - **Two connections per bot.** Freqtrade's WebSocket only carries events, such as an entry, an exit with its profit, a warning or a protection. Balances, profit and trades are only in the REST API. So the app reads the state over REST, and an event on the WebSocket reads it again at once: a trade shows up within seconds.
 - **Light on the bot.** The state is a handful of small requests per `poll_seconds`. They are made one after the other over one connection, so a poll opens one connection to the bot, not one per request. Statistics, the profit per day, week and month, and the closed trades are read every 5 minutes or after a trade. Closed trades are read once, and after that only the new ones, up to the latest 5000.
 - **Reconnecting.** A bot that can't be reached is tried again at every interval. The WebSocket reconnects after 5 seconds, backing off to once a minute.
+- **A stopped bot is not an offline bot.** A bot that is stopped still answers, except for its count of open trades; the app takes that from the open trades instead and shows the bot as stopped. A stopped bot with open trades gets a warning: nothing manages them.
+- **How old the data is.** A read that fails in part keeps what was read before, with its time, and leaves the bot out of the totals until a full read works again. When only the slow details fail, the state and the balances stay current and the details are tried again at the next read. A bot's page has a line under the sections with the API, the age of the data and the WebSocket; it opens to the exact times, and by itself when something is off. A state that could not be read for 3 reads (at least a minute) shows as what it was, not as what it is.
 - **Older Freqtrade versions** work too. What a version doesn't have, such as the long and short split of the profit or the wallet history, is left out.
 
 ## The dashboard
 
-**Overview** shows all bots together:
+**Overview** shows all bots together. With both live and dry-run bots, **Live**, **Dry-run** and **All** at the top choose which ones: everything on the page follows, so real and simulated money don't have to share a total. `overview_mode` sets what the page opens with.
 
 - **Tiles:** bots running, the total balance, the profit since the start (closed and open trades), today's profit, open trades, open profit, win rate and closed trades.
 - **Bots:** one row per bot with its state, dry-run or live, exchange, balance, profit, today, open trades, win rate and its connections. Click a row for the bot's page.
@@ -92,6 +107,17 @@ bot: API server  ──REST──────▶ every poll_seconds: state, bala
 - **Profit per day:** the last 30 days, a bar per bot.
 - **Activity:** the latest events of all bots.
 - **Open trades:** of all bots.
+
+A click on a column heading of the bots table sorts it: once, again for the other way, a third time for the order of the configuration. Amounts sort within their currency, and bots that can't be read come last.
+
+From 6 bots on there is a bar above the tiles and a row of filters under the headings:
+
+- **Search** finds bots by name, strategy, exchange, host or timeframe.
+- **Filters:** text columns take a part of the text, State and Link a choice, number columns a number or `>0`, `<=100`, `!=0`, `10..50`. A decimal comma works; the win rate is in percent. A filter that can't be read turns red and is left out. Bots that can't be read never match a number filter.
+- **The tiles and charts follow** the bots that are left.
+- **Saved views:** type a name and **Save view** to keep the search, the filters and the sorting; saving under an existing name replaces it. Up to 20, stored in this browser only. A view is a set of rules, so a bot that is added later and matches shows up in it.
+
+With more than 3 bots in the same trouble the overview gives one notice for all of them instead of one each; the table says what is wrong with each.
 
 Amounts only add up within one stake currency. When your bots use different ones, the tiles show a total per currency, and the charts show the currency most bots use.
 

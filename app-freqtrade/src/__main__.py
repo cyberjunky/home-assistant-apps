@@ -9,6 +9,7 @@ import sys
 from .bot import BotClient
 from .config import APP_VERSION, DATA_DIR, WEB_PORT, Config
 from .database import Database
+from .discovery import DiscoveryService
 from .ha_client import HAClient
 from .mqtt import MqttPublisher
 from .webui import WebUI
@@ -27,7 +28,7 @@ async def main() -> int:
         return 1
     if config.log_level in ("debug", "warning", "error"):
         logging.getLogger().setLevel(config.log_level.upper())
-    if not config.bots:
+    if not config.bots and not config.discovery.enabled:
         logger.warning("No bots configured: add them under bots in the app configuration, then restart")
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -46,6 +47,27 @@ async def main() -> int:
         asyncio.create_task(forever(mqtt.run()), name="mqtt"),
         *(asyncio.create_task(bot.run(), name=f"bot-{bot.slug}") for bot in bots),
     ]
+
+    if config.discovery.enabled:
+
+        def register(client):
+            if client.slug in webui.bots:
+                raise ValueError("Discovered identity conflicts with a configured bot")
+            bots.append(client)
+            config.bots.append(client.config)
+            webui.bots[client.slug] = client
+            mqtt.watch(client)
+
+        discovery = DiscoveryService(
+            config.discovery,
+            DATA_DIR / "discovery.json",
+            config.poll_seconds,
+            database,
+            list(config.bots),
+            register,
+        )
+        webui.discovery = discovery
+        services.append(asyncio.create_task(discovery.run(), name="discovery"))
 
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()

@@ -14,7 +14,7 @@ configuration:
         description: Adres van de API-server van de bot, bijvoorbeeld http://192.168.1.20:8080.
       username:
         name: Gebruikersnaam
-        description: De gebruikersnaam van de api_server van de bot.
+        description: De gebruikersnaam van de api_server van de bot. Laat hem en het wachtwoord leeg om de gedeelde login te gebruiken.
       password:
         name: Wachtwoord
         description: Het wachtwoord van de api_server van de bot.
@@ -26,12 +26,60 @@ configuration:
       verify_ssl:
         name: Certificaat controleren
         description: Controleer het certificaat van een https-adres. Zet uit voor een zelfondertekend certificaat.
+  credentials:
+    name: Gedeelde login
+    description: >-
+      Eén login voor elke bot zonder eigen gebruikersnaam en wachtwoord, en voor de bots
+      die vanzelf gevonden worden. Een bot met een eigen login heeft beide velden nodig.
+    fields:
+      username:
+        name: Gebruikersnaam
+      password:
+        name: Wachtwoord
+      ws_token:
+        name: WebSocket-token
+        description: "Optioneel: zonder logt de WebSocket in met de gebruikersnaam en het wachtwoord."
+  discovery:
+    name: Bots vanzelf vinden
+    description: >-
+      Zoekt op één machine naar API-servers van Freqtrade, op de poorten die je opgeeft, en
+      voegt de gevonden bots toe zonder herstart. Bots die onder Bots staan gaan voor. Het
+      leest alleen: het start, stopt of handelt nooit. Staat standaard uit.
+    fields:
+      enabled:
+        name: Naar bots zoeken
+      host:
+        name: IP-adres
+        description: Het adres van de machine waar de bots op draaien. Eén IPv4- of IPv6-adres, geen naam of netwerk.
+      ports:
+        name: Poorten
+        description: "De API-poorten om te proberen: losse poorten en reeksen met komma's ertussen, bijvoorbeeld 8080,9000-9050. Hooguit 4096 poorten."
+      interval_seconds:
+        name: Zoeken elke (seconden)
+      scheme:
+        name: Protocol
+      username:
+        name: Gebruikersnaam
+        description: De login die de bots op deze machine delen. Laat beide velden leeg om de gedeelde login te gebruiken.
+      password:
+        name: Wachtwoord
+      ws_token:
+        name: WebSocket-token
+      verify_ssl:
+        name: Certificaat controleren
+        description: Controleer het certificaat bij https. Zet uit voor een zelfondertekend certificaat.
   poll_seconds:
     name: Lezen elke (seconden)
     description: Hoe vaak de toestand van elke bot gelezen wordt. Een trade leest hem meteen.
   read_only:
     name: Alleen lezen
     description: Zet de knoppen op de pagina van een bot uit, zodat deze app je bots niet kan veranderen.
+  overview_mode:
+    name: Overzicht toont
+    description: >-
+      De bots waar het overzicht mee begint, elke keer dat de pagina opent: alle, of alleen
+      de bots die live of in dry-run handelen, zodat echt en gesimuleerd geld niet in één
+      totaal komen. De pagina heeft knoppen om de andere te bekijken.
   mqtt:
     name: MQTT
     description: >-

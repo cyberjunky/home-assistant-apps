@@ -20,6 +20,10 @@ candle chart with the strategy's indicators and signals, and every trade the mom
 heard over the bot's WebSocket. Each bot also appears in Home Assistant over MQTT, with an event
 for every trade to use in automations.
 
+With many bots it stays workable: one login for all of them, bots on one machine found by
+themselves, live and dry-run kept apart, and an overview you can search, filter, sort and save
+as views. A bot that is stopped, offline or only half read says so, with the age of what you see.
+
 The app doesn't trade and runs entirely on your Home Assistant. It talks to your bots' own API
 servers, and the bots keep running where they run.
 
@@ -30,6 +34,12 @@ the configuration, and exit an open trade. Each asks first. Set `read_only` to t
 
 <details>
 <summary>More screenshots</summary>
+
+**A fleet** — from 6 bots on: search, a filter under every column, sorting, saved views, and Live / Dry-run / All. The tiles and charts follow the bots that are left
+![Overview of eight bots, filtered to those with more than two open trades and sorted by profit](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-freqtrade/screenshots/fleet-light.webp)
+
+**A bot that stopped answering** — what it was doing, when it was last read, and how old the numbers are
+![An offline bot's page with the times it was last read](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-freqtrade/screenshots/health-light.webp)
 
 **A bot's summary** — tiles, cumulative profit, balance, profit per day, the last 100 trades, open trades with an Exit button, and its events
 ![A bot's summary](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-freqtrade/screenshots/summary-dark.webp)

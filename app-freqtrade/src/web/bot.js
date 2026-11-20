@@ -52,6 +52,7 @@ function renderBot() {
     if (!app.bot) return;
     renderBotHead();
     renderBotNotices();
+    renderHealth(app.bot);
     const d = app.bot;
     document.getElementById('bot-updated').textContent = d.updated
         ? `read ${fmtAgo(d.updated)}${d.slow_updated ? ` · details ${fmtAgo(d.slow_updated)}` : ''}` : '';
@@ -84,16 +85,20 @@ function renderBotHead() {
     }
     document.getElementById('bot-head').innerHTML = `
         <div><h1>${escapeHtml(d.name)}</h1><div class="meta">${escapeHtml(meta.join(' · ') || d.host)}</div></div>
-        <div class="badges">${d.connected ? stateBadge(c.state) + ' ' + modeBadge(c) : '<span class="badge bad">OFFLINE</span>'}</div>
+        <div class="badges">${healthState(d)} ${modeBadge(c)}${healthWas(d)}</div>
         ${controls}`;
 }
 
 function renderBotNotices() {
-    const d = app.bot, notes = [];
-    if (!d.connected) notes.push(['bad', `This bot can't be reached${d.error ? ': ' + escapeHtml(d.error) : '…'}${d.updated ? `. What you see was read ${escapeHtml(fmtAgo(d.updated))}.` : ''}`]);
-    else if (d.error) notes.push(['', escapeHtml(d.error)]);
+    const d = app.bot, notes = [], h = healthModel(d);
+    if (!d.connected) {
+        const lead = h.api === 'reachable' ? 'This bot answers, but not everything could be read' : 'This bot can\'t be reached';
+        notes.push(['bad', `${lead}${d.error ? ': ' + escapeHtml(d.error) : '…'}${d.updated ? `. What you see was read ${escapeHtml(fmtAgo(d.updated))}.` : ''}`]);
+    } else if (d.error) notes.push(['', escapeHtml(d.error)]);
+    if (d.connected && d.diagnostics && d.diagnostics.details_error) notes.push(['', `The details (history, performance, pairs) could not be read: ${escapeHtml(d.diagnostics.details_error)}. The app tries again at the next read.`]);
     if (d.connected && !d.ws_connected && d.ws_error) notes.push(['', `No live events: the WebSocket ${escapeHtml(d.ws_error)}. The state is still read every ${app.status.config.poll_seconds} seconds.`]);
-    if (d.connected && d.config.state === 'stopped') notes.push(['', 'The bot is stopped: it opens no trades and its strategy doesn\'t manage the open ones.']);
+    if (h.stoppedOpen) notes.push(['bad', `The bot is stopped with ${d.count.current} open ${d.count.current === 1 ? 'trade' : 'trades'}: nothing manages or closes ${d.count.current === 1 ? 'it' : 'them'} until the bot is started again.`]);
+    else if (d.connected && d.config.state === 'stopped') notes.push(['', 'The bot is stopped: it opens no trades and its strategy doesn\'t manage the open ones.']);
     if (d.connected && d.config.state === 'paused') notes.push(['', 'Entries are paused: the bot opens no new trades, but still manages and closes the open ones.']);
     document.getElementById('bot-notices').innerHTML = notes.map(([kind, html]) => `<div class="setup-hint ${kind}"><span>${html}</span></div>`).join('');
 }
