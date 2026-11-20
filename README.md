@@ -68,6 +68,19 @@ read-only SQL page with described examples and a history of your queries. Only r
 
 [:books: Documentation](app-chronicle/DOCS.md) · [:memo: Changelog](app-chronicle/CHANGELOG.md) · [:lock: Security](app-chronicle/SECURITY.md)
 
+### <img src="app-dashboard/icon.png" alt="" width="36" align="absmiddle"> [Dashboard](app-dashboard/)
+
+![Version][dashboard-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+Your home on a wall tablet in a calm, typographic style. Press the pencil and drag your sensors,
+lights, thermostat, blinds, scenes, charts, calendars and cameras onto pages you make yourself.
+Tap a reading for its history, see the door when the bell goes, and let the tablet turn dark and
+dim at night. Fonts, colours and what shows at which time of day are yours to set.
+
+[:books: Documentation](app-dashboard/DOCS.md) · [:memo: Changelog](app-dashboard/CHANGELOG.md) · [:lock: Security](app-dashboard/SECURITY.md)
+
 ### <img src="app-dishylink/icon.png" alt="" width="36" align="absmiddle"> [Dishylink](app-dishylink/)
 
 ![Version][dishylink-version-shield]
@@ -373,6 +386,7 @@ software each app packages keeps its own license, noted in the app's README.
 [freqtrade-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-freqtrade%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [nuclei-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-nuclei%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [sdradio-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-sdradio%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[dashboard-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-dashboard%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [network-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-network%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [proxmox-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-proxmox%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [proxmox-bs-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-proxmox-bs%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge

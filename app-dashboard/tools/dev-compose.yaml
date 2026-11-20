@@ -1,0 +1,32 @@
+# The app as Home Assistant runs it (same image, s6, port 8099), next to a stand-in Home Assistant.
+#   docker compose -f tools/dev-compose.yaml up --build -d      then open http://localhost:8099
+# The stand-in answers as "supervisor", so the app needs no development settings at all.
+# src/ is mounted: a change to the web files shows on reload, Python after `restart dashboard`.
+name: app-dashboard-dev
+services:
+  supervisor:
+    build: ..
+    entrypoint: ["python3", "-m", "tools.mock_ha"]
+    working_dir: /app
+    environment:
+      DASHBOARD_MOCK_PORT: "80"
+      TZ: Europe/Amsterdam
+    ports:
+      # Only for http://localhost:8124/mock/ring - the stand-in's doorbell
+      - "8124:80"
+    volumes:
+      - ../tools:/app/tools:ro
+  dashboard:
+    build: ..
+    depends_on: [supervisor]
+    environment:
+      SUPERVISOR_TOKEN: mock-token
+      # Changes are accepted from any address, not only Home Assistant's ingress
+      DASHBOARD_DEV: "1"
+    ports:
+      - "8099:8099"
+    volumes:
+      - ../src:/app/src:ro
+      - data:/data
+volumes:
+  data:

@@ -65,6 +65,7 @@ jobs:
           - app-proxmox
           - app-proxmox-bs
           - app-network
+          - app-dashboard
           - app-mqtt
           - app-marshal
           - app-flipper
