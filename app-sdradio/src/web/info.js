@@ -1,5 +1,11 @@
 // SDRadio dashboard - Info: the receiver, the app and the keys.
 
+// How long the app has been running: days from two days on
+function fmtUptime(seconds) {
+    if (missing(seconds) || seconds < 172800) return fmtDuration(seconds);
+    return `${Math.floor(seconds / 86400)} days ${Math.floor(seconds % 86400 / 3600)} h`;
+}
+
 async function showInfo() {
     await loadStatus();
     const s = app.state || {};
@@ -23,6 +29,7 @@ async function showInfo() {
 
     document.getElementById('info-about').innerHTML = [
         infoRow('Version', escapeHtml(app.version)),
+        infoRow('Running for', escapeHtml(fmtUptime(status.uptime))),
         infoRow('Source', '<a href="https://github.com/cyberjunky/home-assistant-apps/tree/main/app-sdradio" target="_blank" rel="noopener">home-assistant-apps</a>'),
         infoRow('Issues', '<a href="https://github.com/cyberjunky/home-assistant-apps/issues" target="_blank" rel="noopener">GitHub issues</a>'),
     ].join('');

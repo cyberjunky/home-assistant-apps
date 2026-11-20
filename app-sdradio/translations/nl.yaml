@@ -16,3 +16,5 @@ configuration:
   log_level:
     name: Logniveau
     description: Hoeveel er wordt gelogd
+network:
+  8098/tcp: MP3-stream van het geluid van de radio (/radio.mp3), als die aanstaat bij Settings

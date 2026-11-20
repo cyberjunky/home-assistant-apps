@@ -53,7 +53,24 @@ def test_sensors_parses_rtl433_json():
     assert reading["key"] == "Nexus-TH/181/2"
     assert reading["values"] == {"battery_ok": 0, "temperature_C": 19.0, "humidity": 71}
     assert reading["rssi"] == -12.1
+    assert reading["kind"] == "thermometer"
     assert sensors.parse("rtl_433 version 25.02") is None
+
+
+@pytest.mark.parametrize(
+    ("reading", "kind"),
+    [
+        ({"model": "Fineoffset-WH24", "temperature_C": 9.1, "wind_avg_m_s": 2.4, "rain_mm": 3.0}, "weather station"),
+        ({"model": "Toyota", "type": "TPMS", "pressure_kPa": 230.0, "temperature_C": 20.0}, "tyre pressure"),
+        ({"model": "Nexus-TH", "temperature_C": 19.0, "humidity": 71}, "thermometer"),
+        ({"model": "Generic-Remote", "cmd": 14}, "remote"),
+        ({"model": "Efergy-e2CT", "current_A": 1.2}, "meter"),
+        ({"model": "Smoke-GS558", "code": "0a1b"}, "smoke alarm"),
+        ({"model": "Acurite-986", "status": 3}, None),
+    ],
+)
+def test_sensors_say_what_sort_of_device(reading, kind):
+    assert sensors.kind(reading) == kind
 
 
 # ---------------------------------------------------------------- settings

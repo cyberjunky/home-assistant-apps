@@ -12,9 +12,9 @@ ENV S6_SERVICES_GRACETIME=8000
 RUN apk add --no-cache python3 py3-pip py3-numpy py3-scipy py3-ephem soapy-sdr py3-soapy-sdr libusb fftw
 
 # The modes' decoder programs from Alpine: rtl_433 (Sensors), dump1090 (Aircraft), and sox
-# (resampling for multimon-ng); and the libraries welle-cli (DAB+) and DSD-FME (Digital voice), built
+# (resampling for multimon-ng); lame for the MP3 stream; and the libraries welle-cli (DAB+) and DSD-FME (Digital voice), built
 # below, run with
-RUN apk add --no-cache rtl_433 dump1090 sox faad2-libs mpg123-libs lame-libs glib libxml2 zlib \
+RUN apk add --no-cache rtl_433 dump1090 sox lame faad2-libs mpg123-libs lame-libs glib libxml2 zlib \
         libsndfile libpulse ncurses-libs
 
 # SoapySDR drivers, built against Alpine's SoapySDR: RTL-SDR, HackRF and rtl_tcp; multimon-ng (Pager); the
