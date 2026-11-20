@@ -1,5 +1,5 @@
 name: Repair
-version: "0.1.0"
+version: "0.1.1"
 slug: app-repair
 description: "Finds what is wrong in Home Assistant - devices that don't answer, faulty configuration, software faults, things left behind - explains it, and repairs or removes it for you"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-repair"
