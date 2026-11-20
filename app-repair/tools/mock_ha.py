@@ -41,7 +41,7 @@ class MockHome:
         self.config_dir: Path | None = None  # set by make_config_dir
         self.entries = [
             self._entry("e-hue", "hue", "Philips Hue"),
-            self._entry("e-zha", "zha", "Zigbee Home Automation", removable=True),
+            self._entry("e-zha", "zha", "Yellow"),
             self._entry(
                 "e-shelly",
                 "shelly",
@@ -288,6 +288,19 @@ class MockHome:
                 "first_occurred": now - 7000,
             },
             {
+                "name": "homeassistant.components.websocket_api.http.connection",
+                "message": [
+                    "[5452] Error handling message: Config entry does not support device removal (home_assistant_error)"
+                    " Supervisor from (HomeAssistantSupervisor/2026.11.0 aiohttp/3.14.5 Python/3.14)"
+                ],
+                "level": "ERROR",
+                "source": ["components/websocket_api/connection.py", 312],
+                "timestamp": now - 60,
+                "exception": "",
+                "count": 1,
+                "first_occurred": now - 60,
+            },
+            {
                 "name": "homeassistant.components.hue.light",
                 "message": ["Updating hue light took longer than the scheduled update interval 0:00:05"],
                 "level": "WARNING",
@@ -362,7 +375,11 @@ class MockHome:
 
     @staticmethod
     def _device(device_id, name, maker, model, entries, via=None) -> dict:
+        # A ZHA device is known by its IEEE address
+        zigbee = entries == ["e-zha"]
+        ieee = f"00:15:8d:00:0{len(device_id)}:{sum(map(ord, device_id)) % 256:02x}:aa:01"
         return {
+            "identifiers": [["zha", ieee]] if zigbee else [["x", device_id]],
             "id": device_id,
             "name": name,
             "name_by_user": None,
@@ -438,6 +455,26 @@ class MockHome:
             raise LookupError("Config entry does not support device removal")
         self.devices = [d for d in self.devices if d["id"] != device_id]
 
+    def remove_device_everywhere(self, device_id: str) -> None:
+        """config/device_registry/remove: every integration that holds it must allow it."""
+        device = next((d for d in self.devices if d["id"] == device_id), None)
+        if device is None:
+            raise LookupError("Device not found")
+        entries = [e for e in self.entries if e["entry_id"] in device["config_entries"]]
+        if not all(e["supports_remove_device"] for e in entries):
+            raise LookupError("Config entry does not support device removal")
+        self.devices = [d for d in self.devices if d["id"] != device_id]
+
+    def zha_remove(self, ieee: str) -> None:
+        """zha.remove: the device leaves the network, and goes from Home Assistant with its entities."""
+        device = next((d for d in self.devices if ["zha", ieee] in d["identifiers"]), None)
+        if device is None:
+            raise LookupError(f"No ZHA device with IEEE {ieee}")
+        for entity in [e for e in self.entities if e["device_id"] == device["id"]]:
+            self.entities.remove(entity)
+            self.states.pop(entity["entity_id"], None)
+        self.devices.remove(device)
+
     def clear_statistics(self, ids: list[str]) -> None:
         self.statistic_ids = [s for s in self.statistic_ids if s["statistic_id"] not in ids]
         for statistic_id in ids:
@@ -486,6 +523,8 @@ class MockHome:
                 return self.remove_entity(msg["entity_id"])
             case "config/entity_registry/update":
                 return self.update_entity(msg["entity_id"], msg.get("disabled_by"))
+            case "config/device_registry/remove":
+                return self.remove_device_everywhere(msg["device_id"])
             case "config/device_registry/remove_config_entry":
                 return self.remove_device(msg["device_id"], msg["config_entry_id"])
             case "recorder/clear_statistics":
@@ -602,6 +641,11 @@ def build_app(home: MockHome) -> web.Application:
     async def service(request: web.Request) -> web.Response:
         data = await request.json()
         home.calls.append((f"{request.match_info['domain']}.{request.match_info['service']}", data))
+        if request.match_info["domain"] == "zha" and request.match_info["service"] == "remove":
+            try:
+                home.zha_remove(data["ieee"])
+            except LookupError as e:
+                return web.json_response({"message": str(e)}, status=400)
         if request.match_info["service"] == "purge_entities" and home.config_dir:
             purge_from_database(home, [*data.get("entity_globs", []), *data.get("entity_id", [])])
         return web.json_response([])

@@ -148,6 +148,33 @@ class Index:
         ]
 
 
+def zigbee_address(device: dict) -> str | None:
+    """A ZHA device's IEEE address: ZHA removes its own devices, whatever its config entry says."""
+    for identifier in device.get("identifiers") or []:
+        if len(identifier) == 2 and identifier[0] == "zha":
+            return str(identifier[1])
+    return None
+
+
+def removal(snap: Snapshot, device: dict) -> tuple[str, str]:
+    """How a device can be removed: (way, why not). way is gone | zha | registry | "" when it can't be."""
+    known = {e["entry_id"]: e for e in snap.entries}
+    entries = [known[e] for e in device.get("config_entries") or [] if e in known]
+    if not entries:
+        return "gone", ""
+    if zigbee_address(device):
+        return "zha", ""
+    refusing = [
+        e.get("title") or integration_name(snap, e["domain"]) for e in entries if not e.get("supports_remove_device")
+    ]
+    if not refusing:
+        return "registry", ""
+    return (
+        "",
+        f"{' and '.join(refusing)} {'doesn' if len(refusing) == 1 else 'don'}'t let Home Assistant remove {'its' if len(refusing) == 1 else 'their'} devices",
+    )
+
+
 def cleanup_entity_fix(entity_id: str) -> dict:
     return {
         "fix": "cleanup_entity",
@@ -337,7 +364,7 @@ def check_entities(ix: Index) -> Iterator[dict]:
                 "since": min(times) if times else None,
                 "evidence": [f"{e}: unavailable, restored from the registry" for e in entity_ids[:12]],
                 "affected": entity_ids,
-                "fixes": [cleanup_device_fix(key)],
+                "fixes": [cleanup_device_fix(key)] if removal(snap, device)[0] else [],
                 "links": [
                     {"label": "Open the device", "path": f"/config/devices/device/{key}"},
                     *integration_links(snap, platform),
@@ -432,7 +459,8 @@ def check_entities(ix: Index) -> Iterator[dict]:
             "since": since,
             "evidence": [f"{len(entity_ids)} of its {len(enabled)} entities are unavailable"],
             "affected": entity_ids,
-            "fixes": ix.reload_fix(entry_id) + ([cleanup_device_fix(key)] if everything else []),
+            "fixes": ix.reload_fix(entry_id)
+            + ([cleanup_device_fix(key)] if everything and removal(snap, device)[0] else []),
             "links": [{"label": "Open the device", "path": f"/config/devices/device/{key}"}],
         }
 
@@ -483,7 +511,7 @@ def check_devices(ix: Index) -> Iterator[dict]:
                     f"Made by {device.get('manufacturer') or 'an unknown maker'}, model {device.get('model') or 'unknown'}"
                 ],
                 "affected": [],
-                "fixes": [cleanup_device_fix(device_id)],
+                "fixes": [cleanup_device_fix(device_id)] if removal(snap, device)[0] else [],
                 "links": link,
             }
 
@@ -977,6 +1005,11 @@ def check_log(ix: Index) -> Iterator[dict]:
         kind, domain = entry["kind"], entry["domain"]
         if entry["level"] == "WARNING" and kind in ("other", "slow"):
             continue
+        if (
+            entry["logger"].startswith("homeassistant.components.websocket_api")
+            and "Error handling message" in entry["message"]
+        ):
+            continue  # a request that was refused: its sender was told, it says nothing about Home Assistant
         category, what, why = LOG_KINDS[kind]
         name = integration_name(snap, domain) if domain else "Home Assistant"
         severity = "low" if entry["level"] == "WARNING" or kind == "deprecated" else "medium"

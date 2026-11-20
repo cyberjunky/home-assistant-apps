@@ -549,3 +549,9 @@ a.ha-link:hover { text-decoration: underline; }
     .rowline { grid-template-columns: minmax(90px, 130px) minmax(0, 1fr) 32px; }
     .filters .input { width: 100%; }
 }
+
+/* Picking gone entities to delete their history */
+.pick-table { max-height: 460px; overflow-y: auto; }
+.pick-table tbody tr { cursor: pointer; }
+.pick-table td.pick { width: 28px; }
+.pick-table input { pointer-events: none; }

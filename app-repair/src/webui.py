@@ -55,6 +55,7 @@ class WebUI:
         post("/api/scan", self._scan)
         post("/api/repair", self._repair)
         post("/api/cleanup", self._cleanup)
+        post("/api/purge", self._purge)
         post("/api/ignore", self._ignore)
         post("/api/data/delete", self._delete_data)
         DonatePrompt(DATA_DIR / "donate_prompt.json").add_routes(self.app)
@@ -179,6 +180,16 @@ class WebUI:
         if body.get("word") != CLEANUP_WORD:
             return web.json_response({"error": f"Type {CLEANUP_WORD} to confirm"}, status=400)
         return await self._answer(self.engine.cleanup(str(body.get("type") or ""), str(body.get("id") or "")))
+
+    async def _purge(self, request: web.Request) -> web.Response:
+        """Delete the history of the gone entities ticked on the Clean up page."""
+        body = await self._change_body(request)
+        if body.get("word") != "DELETE":
+            return web.json_response({"error": "Type DELETE to confirm"}, status=400)
+        picked = body.get("entity_ids")
+        if not isinstance(picked, list) or not all(isinstance(e, str) for e in picked):
+            return web.json_response({"error": "entity_ids must be a list of entity ids"}, status=400)
+        return await self._answer(self.engine.purge_selected(picked))
 
     async def _ignore(self, request: web.Request) -> web.Response:
         body = await self._change_body(request)

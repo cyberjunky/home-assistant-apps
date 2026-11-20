@@ -71,9 +71,8 @@ async def test_the_stand_in_home_is_read_and_judged(home):
     # A device that is off, one that half reports, and one entity without a registry entry
     hall = kinds["device_offline"][0]
     assert hall["subject"] == {"type": "device", "id": "d-hall", "name": "Hallway lamp"} and len(hall["affected"]) == 2
-    assert [f["fix"] for f in hall["fixes"]] == ["reload_entry", "cleanup_device"] and hall[
-        "since"
-    ] < time.time() - 2 * 86400
+    # Hue doesn't let Home Assistant remove its devices: removing the device is not offered for it
+    assert [f["fix"] for f in hall["fixes"]] == ["reload_entry"] and hall["since"] < time.time() - 2 * 86400
     assert kinds["device_partly_unavailable"][0]["title"] == "Front door sensor: 1 of 3 entities are unavailable"
     assert kinds["entity_unavailable"][0]["subject"]["id"] == "sensor.yaml_template"
 
@@ -242,20 +241,31 @@ async def test_repairs_change_home_assistant_and_say_what_they_did(home, tmp_pat
         call[0]
         for call in mock.calls
         if call[0]
-        in ("recorder.purge_entities", "config/entity_registry/remove", "config/device_registry/remove_config_entry")
+        in ("recorder.purge_entities", "config/entity_registry/remove", "zha.remove", "config/device_registry/remove")
     ]
-    assert names == ["recorder.purge_entities", "config/entity_registry/remove"] * 2 + [
-        "config/device_registry/remove_config_entry"
-    ]
+    # A ZHA device is removed by ZHA itself, whatever its config entry says
+    assert names == ["recorder.purge_entities", "config/entity_registry/remove"] * 2 + ["zha.remove"]
     assert ("recorder.purge_entities", {"entity_id": ["binary_sensor.old_motion"], "keep_days": 0}) in mock.calls
     assert not any(d["id"] == "d-motion" for d in mock.devices) and "binary_sensor.old_motion" not in mock.states
     assert not any(f["kind"] == "device_not_provided" for f in engine.findings)  # the scan after the repair
 
-    # A device whose integration does not let Home Assistant remove it: said, not forced
-    result = await engine.repair(hall["id"], 1, "cleanup_device")
-    assert not result["ok"] and [s["ok"] for s in result["steps"]] == [True, True, True, True, False]
-    assert "doesn't let Home Assistant remove its devices" in result["steps"][-1]["detail"]
-    assert any(d["id"] == "d-hall" for d in mock.devices) and "light.hallway" not in mock.states
+    # A device whose integration does not let Home Assistant remove it: said, and nothing is done at all
+    mock.calls.clear()
+    steps = await fixes.apply(client, engine.snapshot, "cleanup_device", {"device_id": "d-hall"})
+    assert (
+        not steps.ok
+        and len(steps.steps) == 1
+        and "Philips Hue doesn't let Home Assistant remove its devices" in steps.steps[0]["detail"]
+    )
+    assert not mock.calls and "light.hallway" in mock.states
+
+    # A device whose integrations allow it goes through the device registry, as Home Assistant's own Delete does
+    next(e for e in mock.entries if e["entry_id"] == "e-hue")["supports_remove_device"] = True
+    await engine.scan()
+    steps = await fixes.apply(client, engine.snapshot, "cleanup_device", {"device_id": "d-hall"})
+    assert steps.ok and steps.steps[-1]["label"] == "Remove the device"
+    assert ("config/device_registry/remove", {"device_id": "d-hall"}) in mock.calls
+    assert not any(d["id"] == "d-hall" for d in mock.devices)
 
     # A device no integration holds any more goes with its last entity
     result = await engine.repair(finding("device_without_integration")["id"], 0, "cleanup_device")
@@ -301,7 +311,7 @@ async def test_repairs_change_home_assistant_and_say_what_they_did(home, tmp_pat
     # Everything it did is kept, newest first, and the trend has a point per scan
     actions = database.actions()
     assert [a["fix"] for a in actions][-1] == "cleanup_device" and actions[0]["subject"] == "sensor.yaml_template"
-    assert sum(1 for a in actions if not a["ok"]) == 1
+    assert all(a["ok"] for a in actions)  # a removal that could not work was never offered
     assert len(database.trend(0)["ts"]) >= 1
     database.close()
 
@@ -345,7 +355,9 @@ async def test_inspect_search_and_the_pages_api(home, tmp_path):
     assert [r["id"] for r in engine.search("hallway")] == ["d-hall", "light.hallway", "sensor.hallway_lamp_power"]
     assert engine.search("") == [] and engine.search("no such thing") == []
     lamp = engine.inspect("device", "d-living")
-    assert lamp["integrations"] == [{"title": "Philips Hue", "domain": "hue", "removable": False}]
+    assert lamp["integrations"] == [{"title": "Philips Hue", "domain": "hue"}] and not lamp["removable"]
+    assert lamp["not_removable"] == "Philips Hue doesn't let Home Assistant remove its devices"
+    assert engine.inspect("device", "d-door")["removable"]  # ZHA removes its own
     assert [e["entity_id"] for e in lamp["entities"]] == ["light.living_room", "sensor.living_room_lamp_power"]
     assert {u["type"] for u in lamp["used_in"]} == {"automation", "script", "scene", "dashboard"}
     energy = engine.inspect("entity", "sensor.solarfox_energy")
@@ -360,7 +372,8 @@ async def test_inspect_search_and_the_pages_api(home, tmp_path):
         assert status["score"] == 34 and status["categories"]["orphan"] == "Left behind" and status["ready"]
         findings = (await (await page.get("/api/findings")).json())["findings"]
         assert len(findings) == 22 and "args" not in json.dumps(findings)
-        assert len((await (await page.get("/api/log")).json())["entries"]) == 6
+        # A refused request stays on the Log page, but is not a finding
+        assert len((await (await page.get("/api/log")).json())["entries"]) == 7
         assert (await (await page.get("/api/search?q=solarfox")).json())["results"]
         assert (await page.get("/api/inspect?type=entity&id=sensor.nope")).status == 404
         assert (await page.get("/api/trend?days=x")).status == 400
@@ -460,6 +473,29 @@ async def test_deep_scan_reads_storage_and_lets_the_recorder_delete(home, tmp_pa
     assert engine.snapshot.storage["database"]["orphans"] == [] and not any(
         f["kind"] == "history_without_entity" for f in engine.findings
     )
+
+    # Picked one by one on the Clean up page: only what the deep scan found as gone is accepted
+    mock_ha.make_config_dir(folder, mock)
+    await engine.scan()
+    with pytest.raises(LookupError):
+        await engine.purge_selected(["light.living_room"])  # it exists: its history is not a leftover
+    mock.calls.clear()
+    result = await engine.purge_selected(["light.christmas_tree", "light.living_room", "light.christmas_tree"])
+    assert result["ok"]
+    assert mock.calls[0] == ("recorder.purge_entities", {"entity_globs": ["light.christmas_tree"], "keep_days": 0})
+    assert [o["entity_id"] for o in engine.snapshot.storage["database"]["orphans"]] == [
+        "sensor.old_power_meter",
+        "sensor.attic_humidity",
+        "binary_sensor.garden_gate",
+    ]
+    async with TestClient(TestServer(WebUI(0, engine.config, engine, database).app)) as page:
+        assert (await page.post("/api/purge", json={"entity_ids": ["sensor.attic_humidity"]})).status == 400
+        bad = {"entity_ids": "sensor.attic_humidity", "word": "DELETE"}
+        assert (await page.post("/api/purge", json=bad)).status == 400
+        assert (await page.post("/api/purge", json={"entity_ids": ["sensor.nope"], "word": "DELETE"})).status == 404
+        one = {"entity_ids": ["sensor.attic_humidity"], "word": "DELETE"}
+        done = await (await page.post("/api/purge", json=one)).json()
+        assert done["ok"] and len(engine.snapshot.storage["database"]["orphans"]) == 2
     database.close()
 
 
