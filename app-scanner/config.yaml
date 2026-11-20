@@ -1,5 +1,5 @@
 name: Scanner
-version: "0.1.1"
+version: "0.1.2"
 slug: app-scanner
 description: "Makes a USB or network scanner a scanner for the whole house: every option of the scanner, batches from the feeder or the glass, searchable PDFs in an archive, and copies to a network share"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-scanner"
@@ -25,7 +25,6 @@ map:
 options:
   network_scanners: []
   driverless_usb: true
-  test_scanner: false
   log_level: info
 
 schema:
@@ -33,5 +32,4 @@ schema:
     - name: str
       address: str
   driverless_usb: bool
-  test_scanner: bool
   log_level: list(debug|info|warning|error)?

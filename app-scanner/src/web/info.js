@@ -18,7 +18,6 @@ function renderInfo() {
                 ${infoRow('USB, driverless', `Printers with a scanner from about 2015 on (AirPrint, Mopria) speak IPP over USB and need no driver. ${c.driverless_usb ? 'On.' : '<b>Off</b> in the app\'s configuration.'} Press <i>Search again</i> after plugging one in.`)}
                 ${infoRow('On the network', `Scanners that speak eSCL (AirScan): add each one with its address under <i>Network scanners</i> in the app's configuration. ${c.network_scanners.length ? `Now: ${c.network_scanners.map(n => `<span class="mono">${escapeHtml(n.name)}</span>`).join(', ')}.` : 'None added.'} The app can't search the network for them.`)}
                 ${infoRow('Not supported', 'Scanners that only work with the maker\'s own Linux driver: many Brother models, older HP all-in-ones over USB (HPLIP), newer Epson models (Epson Scan 2). Over the network these often do work, as eSCL.')}
-                ${infoRow('Without a scanner', `The <i>Test scanner</i> option gives a scanner that isn't there, with a feeder of ten pages, to try the app. ${c.test_scanner ? 'On.' : 'Off.'}`)}
             </div>`)}
             ${panel('Good to know', '', `<div class="info-grid prose">
                 ${infoRow('Every option', 'The Scan page shows every option the scanner\'s driver has, under <i>More options</i>. Options change with each other: the feeder has another paper size than the glass.')}

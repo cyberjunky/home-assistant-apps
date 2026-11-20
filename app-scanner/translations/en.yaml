@@ -11,11 +11,6 @@ configuration:
       Also look for USB scanners that need no driver (IPP over USB): most
       printers with a scanner from about 2015 on. Turn it off when such a
       device also has a SANE driver and you want that one.
-  test_scanner:
-    name: Test scanner
-    description: >-
-      Adds a scanner that isn't there (SANE's test scanner), with a feeder of
-      ten pages: to try the app without a scanner.
   log_level:
     name: Log level
     description: How much the app logs.

@@ -95,7 +95,7 @@ function renderScan() {
         el.innerHTML = `${panel('', '', `<div class="no-scanner">
             <h2>${searching ? 'Looking for scanners…' : 'No scanner found'}</h2>
             ${searching ? '' : `<p>${d.error ? escapeHtml(d.error) + '. ' : ''}Connect the scanner to the machine Home Assistant runs on, switch it on and search again.
-                A scanner on the network is added in the app's configuration. <a href="#info" class="plain-link"><u>Info</u></a> tells what works and how to try the app without a scanner.</p>
+                A scanner on the network is added in the app's configuration. <a href="#info" class="plain-link"><u>Info</u></a> tells which scanners work.</p>
             <div class="detail-actions"><button class="btn btn-primary" id="sc-search">Search again</button></div>`}
         </div>`)}<div id="sc-tray"></div>`;
         const button = document.getElementById('sc-search');
@@ -157,9 +157,11 @@ function control(o, main) {
         const step = o.step || (Number.isInteger(o.min) && Number.isInteger(o.max) && o.max - o.min > 20 ? 1 : 'any');
         const auto = o.auto ? `<label class="check-row auto"><input type="checkbox" data-opt="${attr(o.name)}" data-auto${value === 'auto' ? ' checked' : ''}> auto</label>` : '';
         const number = value === 'auto' ? '' : value;
+        // The typed number has no steps of its own: the scanner rounds to what it can do and says so.
+        // A browser counting steps from the lowest value would call a fine number wrong.
         const slider = !GEOMETRY.includes(o.name) && o.max > o.min
             ? `<input type="range" class="opt-range" data-range="${attr(o.name)}" min="${o.min}" max="${o.max}" step="${step}" value="${attr(number)}" aria-label="${attr(o.title)}">` : '';
-        return `${slider}<input type="number" class="input opt-number" data-opt="${attr(o.name)}" id="${id}" min="${o.min}" max="${o.max}" step="${step}" value="${attr(number)}">${unit}${auto}`;
+        return `${slider}<input type="number" class="input opt-number" data-opt="${attr(o.name)}" id="${id}" min="${o.min}" max="${o.max}" step="any" value="${attr(number)}">${unit}${auto}`;
     }
     return `<input type="text" class="input" data-opt="${attr(o.name)}" id="${id}" value="${attr(value)}" spellcheck="false">${unit}`;
 }
@@ -470,6 +472,7 @@ onJob((job) => {
     if (job.kind !== 'scan' && job.kind !== 'preview') return;
     if (job.state === 'running') return;
     if (job.kind === 'scan') {
+        renderTraySave();
         loadTray().then(renderTray).catch(() => {});
         if (job.state === 'done' && !job.cancelled && job.pages) toast(`${plural(job.pages, 'page')} scanned`, 'success');
         if (job.state === 'failed' && job.pages) toast(`${job.error} — ${plural(job.pages, 'page')} kept`);

@@ -64,7 +64,6 @@ that is on the paper. Download a document, or have every document copied to a sh
 - 🗄️ **Archive** — names, tags, search by a word on the paper, open, download, rename, delete
 - 📁 **Network share** — every document, or the ones you pick, copied to a folder in Home Assistant's share or media folder, which is where Home Assistant mounts an SMB or NFS share; the app holds no password
 - 💾 **Profiles** — a scanner with its settings and batch mode under a name
-- 🧪 **Test scanner** — try the app without a scanner
 
 ## Requirements
 
@@ -83,8 +82,7 @@ Alternatively:
 4. Install **Scanner**
 5. Plug in the scanner, start the app and open **Scanner** from the sidebar
 
-No scanner at hand? Turn on *Test scanner* in the app's configuration. See the
-[documentation](DOCS.md).
+See the [documentation](DOCS.md).
 
 ## 💖 Support This Project
 

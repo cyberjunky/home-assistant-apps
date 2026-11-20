@@ -60,7 +60,7 @@ def write_airscan(scanners: list[tuple[str, str]], sane_dir: Path = SANE_DIR) ->
 
 
 def write_all(config: Config, sane_dir: Path = SANE_DIR) -> None:
-    # SANE's test scanner is a driver like any other, switched on by a file naming it
+    # SANE's test scanner (development only) is a driver like any other, switched on by a file naming it
     test = sane_dir / "dll.d" / "test"
     test.parent.mkdir(parents=True, exist_ok=True)
     if config.test_scanner:

@@ -10,8 +10,6 @@ Scanner makes a scanner on the machine Home Assistant runs on a scanner for ever
 
 The app looks for scanners when it starts. Plugged one in later? Press **Search** on the Scan page.
 
-No scanner at hand? Turn on **Test scanner** in the app's configuration: a scanner that isn't there, with a feeder of ten pages.
-
 ## Which scanners work
 
 | | |
@@ -97,7 +95,6 @@ The address is the scanner's IP address or name; the app asks it at `http://<add
 |---|---|---|
 | `network_scanners` | none | Scanners on the network that speak eSCL, each with a `name` and an `address` |
 | `driverless_usb` | `true` | Also look for USB scanners that need no driver (IPP over USB) |
-| `test_scanner` | `false` | Add SANE's test scanner, to try the app without a scanner |
 | `log_level` | `info` | How much the app logs |
 
 Everything about scanning and documents (name, picture quality, text recognition, the folder) is under **Settings** in the app itself.

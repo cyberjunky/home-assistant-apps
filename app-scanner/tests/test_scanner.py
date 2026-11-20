@@ -484,14 +484,18 @@ def test_settings(tmp_path):
     assert clean({"batch": "x", "profiles": [3, {"name": ""}]})["profiles"] == []
 
 
-def test_options_of_the_app():
+def test_options_of_the_app(monkeypatch):
+    monkeypatch.delenv("SCANNER_TEST", raising=False)
     assert escl_url("192.168.1.50") == "http://192.168.1.50/eSCL"
     assert escl_url("printer.local:8080/") == "http://printer.local:8080/eSCL"
     assert escl_url("https://10.0.0.2/eSCL") == "https://10.0.0.2/eSCL"
     config = Config.from_options(
         {"network_scanners": [{"name": 'Hall "printer"', "address": "10.0.0.2"}], "test_scanner": True}
     )
-    assert config.network_scanners == (("Hall  printer", "http://10.0.0.2/eSCL"),) and config.test_scanner
+    # The test scanner is not an option: an old setting for it does nothing
+    assert config.network_scanners == (("Hall  printer", "http://10.0.0.2/eSCL"),) and not config.test_scanner
+    monkeypatch.setenv("SCANNER_TEST", "1")
+    assert Config.from_options({}).test_scanner
     assert config.driverless_usb and Config.from_options({}).network_scanners == ()
     with pytest.raises(ValueError):
         Config.from_options({"network_scanners": [{"name": "x", "address": "10.0.0.2, wsd"}]})
