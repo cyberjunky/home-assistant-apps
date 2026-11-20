@@ -157,9 +157,11 @@ function control(o, main) {
         const step = o.step || (Number.isInteger(o.min) && Number.isInteger(o.max) && o.max - o.min > 20 ? 1 : 'any');
         const auto = o.auto ? `<label class="check-row auto"><input type="checkbox" data-opt="${attr(o.name)}" data-auto${value === 'auto' ? ' checked' : ''}> auto</label>` : '';
         const number = value === 'auto' ? '' : value;
+        // The typed number has no steps of its own: the scanner rounds to what it can do and says so.
+        // A browser counting steps from the lowest value would call a fine number wrong.
         const slider = !GEOMETRY.includes(o.name) && o.max > o.min
             ? `<input type="range" class="opt-range" data-range="${attr(o.name)}" min="${o.min}" max="${o.max}" step="${step}" value="${attr(number)}" aria-label="${attr(o.title)}">` : '';
-        return `${slider}<input type="number" class="input opt-number" data-opt="${attr(o.name)}" id="${id}" min="${o.min}" max="${o.max}" step="${step}" value="${attr(number)}">${unit}${auto}`;
+        return `${slider}<input type="number" class="input opt-number" data-opt="${attr(o.name)}" id="${id}" min="${o.min}" max="${o.max}" step="any" value="${attr(number)}">${unit}${auto}`;
     }
     return `<input type="text" class="input" data-opt="${attr(o.name)}" id="${id}" value="${attr(value)}" spellcheck="false">${unit}`;
 }
@@ -470,6 +472,7 @@ onJob((job) => {
     if (job.kind !== 'scan' && job.kind !== 'preview') return;
     if (job.state === 'running') return;
     if (job.kind === 'scan') {
+        renderTraySave();
         loadTray().then(renderTray).catch(() => {});
         if (job.state === 'done' && !job.cancelled && job.pages) toast(`${plural(job.pages, 'page')} scanned`, 'success');
         if (job.state === 'failed' && job.pages) toast(`${job.error} — ${plural(job.pages, 'page')} kept`);

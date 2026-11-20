@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2
+
+**After updating:** nothing to do.
+
+- **Save after a batch:** *Save to archive* and *Save and download* stayed greyed out after a batch ended or was stopped, until you left the Scan page and came back. They work right away now.
+- **Any number in a number field:** a number such as 200 dpi could be marked as not valid by the browser, although the scanner takes it. A number field now takes any number in the scanner's range; the scanner rounds to what it can do and the app shows what it became.
+
 ## 0.1.1
 
 **After updating:** nothing to do.

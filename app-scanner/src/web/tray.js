@@ -46,6 +46,8 @@ function renderTray() {
         </div>`).join('');
     const name = document.getElementById('tray-name');
     if (name) name.placeholder = t.suggested_name;
+    // The save buttons are off while the scanner works: a form built during a batch must get them back
+    renderTraySave();
 }
 
 // The save form is built once, so typing a name isn't undone when a page comes in
