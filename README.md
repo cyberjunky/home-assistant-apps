@@ -52,7 +52,7 @@ fee estimates and peers from Bitcoin Core, your Lightning wallet, channels and r
 and Tor. Charts over time, a health list, the node in Home Assistant over MQTT with events for
 blocks and payments, and a copy of LND's channel backup. It only reads.
 
-[:books: Documentation](app-bitcoin-node/DOCS.md) · [:memo: Changelog](app-bitcoin-node/CHANGELOG.md) · [:lock: Security](app-bitcoin-node/SECURITY.md)
+[:books: Documentation](app-bitcoin-node/DOCS.md) · [:zap: Lightning guide](app-bitcoin-node/LIGHTNING.md) · [:memo: Changelog](app-bitcoin-node/CHANGELOG.md) · [:lock: Security](app-bitcoin-node/SECURITY.md)
 
 ### <img src="app-chronicle/icon.png" alt="" width="36" align="absmiddle"> [Chronicle](app-chronicle/)
 

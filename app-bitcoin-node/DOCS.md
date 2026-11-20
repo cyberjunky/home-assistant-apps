@@ -95,6 +95,8 @@ cat ~/.lnd/tls.cert
 
 Use `readonly.macaroon`, never `admin.macaroon`. The read-only macaroon can see balances, channels and payments and can export the channel backup; it cannot spend.
 
+With LND reachable, [Getting started with Lightning](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-bitcoin-node/LIGHTNING.md) takes you to a first channel: what it brings and costs, how much to put in, and the commands.
+
 ### Tor
 
 Optional. Tor's control port tells how far Tor is started, which circuits are open and how much traffic went through. It gives full control over Tor and is not encrypted, so only open it on a network you trust:

@@ -91,6 +91,9 @@ Bitcoin Node needs the address of Bitcoin Core's RPC and a user that may read. S
 [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-bitcoin-node/DOCS.md) for every option, the settings on the node's side, how it works and what
 the dashboard shows.
 
+New to Lightning? [LIGHTNING.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-bitcoin-node/LIGHTNING.md) goes from an empty wallet to a first channel:
+what it brings and costs, how much to put in, and the commands.
+
 ## Disclaimer
 
 This app is an independent project. It is not affiliated with, endorsed by or sponsored by the
