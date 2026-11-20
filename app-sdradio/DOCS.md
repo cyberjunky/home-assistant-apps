@@ -142,20 +142,26 @@ the filter and the scan speed. Mode → Radio brings them back.
   event in Home Assistant.
 - **Sensors**: weather stations, thermometers, doorbells, remotes and meters, decoded by rtl_433
   (some 250 kinds of device). 433.92 MHz for most, 868.3 MHz for many weather stations,
-  868.95 MHz for wireless M-Bus meters. Each device shows its last reading; tick **HA** to get
-  its readings as Home Assistant sensors (`sensor.sdradio_<device>_temperature_c` and so on).
+  868.95 MHz for wireless M-Bus meters. Each device shows what sort of device it is (weather
+  station, thermometer, tyre pressure, meter, remote …) and its last reading; point at a
+  temperature to see it in the other unit (°C or °F). Tick **HA** to get its readings as Home
+  Assistant sensors (`sensor.sdradio_<device>_temperature_c` and so on).
 - **Aircraft**: ADS-B on 1090 MHz, decoded by dump1090. The aircraft in view are on a map with
   the trail each one leaves, coloured by altitude, and in a list with their callsign,
   registration and type (from dump1090's aircraft database), altitude, speed, distance and
   squawk; an emergency squawk (7500, 7600, 7700) is marked. An aircraft goes into the
   **History** when it has been out of reach for a minute. For this mode the receiver is centred
   on 1090 MHz, as ADS-B is 2 MHz wide. The stock RTL-SDR antenna works best high up and outside;
-  a 1090 MHz antenna reaches 200 km and more.
+  a 1090 MHz antenna reaches 200 km and more. With **Aircraft photos** on (Settings → Modes, off
+  by default) the aircraft you pick is shown with a photo from
+  [planespotters.net](https://www.planespotters.net/), with the photographer's name; for that
+  its registration is sent to planespotters.net, once a day at most.
 
 - **ACARS**: the short text messages between aircraft and their airlines (positions, out/off/on/in
-  times, gate and weather requests), on up to three channels at once: 131.525, 131.725 and
-  131.825 MHz in Europe (set under Modes). Decoded by SDRadio itself; each message shows the
-  flight, the registration, its label and the text.
+  times, gate and weather requests), on a few channels at once: 131.525, 131.725 and
+  131.825 MHz in Europe, and 131.550 MHz, the first channel in the rest of the world (set under
+  Modes; within 370 kHz of each other). Decoded by SDRadio itself; each message shows the flight
+  with its airline, the registration, its label (point at it for what it means) and the text.
 - **VDL2**: VHF Data Link mode 2, ACARS's digital successor, over Europe busier than ACARS itself:
   the same kind of messages, and controller-pilot messages (CPDLC) and position reports (ADS-C),
   on 136.725, 136.775, 136.875 and 136.975 MHz, all at once (set under Modes; within 800 kHz).
@@ -280,6 +286,59 @@ sensitive there, draws less power and is cheap enough to leave on one job. An RT
 direct sampling (an RTL-SDR Blog V3 or V4) hears HF too, but SDRadio doesn't use that mode: the
 HackRF is the receiver for shortwave here.
 
+## Antennas
+
+The antenna matters more than the receiver. A simple one of the right length, high up and
+outside, beats an expensive one on the desk.
+
+**How long**: a quarter of the wavelength, which in centimetres is 7500 divided by the frequency
+in MHz. Pull a telescopic antenna out to that length; for a dipole (the two-legged antenna of the
+RTL-SDR Blog kit) each leg gets that length. Nearly everything here is sent vertically
+polarised, so the antenna stands upright; the satellites are the exception (see below).
+
+| For | Frequency | Quarter wave |
+|---|---|---|
+| FM broadcast | 88 to 108 MHz | 75 cm |
+| Air band, ACARS, VDL2 | 118 to 137 MHz | 57 cm |
+| Weather satellites (Meteor) | 137 MHz | 55 cm |
+| 2 m amateurs, APRS, the ISS | 144 to 146 MHz | 52 cm |
+| Ships (AIS), marine | 156 to 162 MHz | 46 cm |
+| P2000 pager | 169.65 MHz | 44 cm |
+| DAB+ | 174 to 240 MHz | 35 cm |
+| Radiosondes | 400 to 406 MHz | 19 cm |
+| Sensors, 70 cm amateurs, DAPNET, PMR446 | 430 to 446 MHz | 17 cm |
+| Sensors on 868 MHz | 868 MHz | 8.6 cm |
+| Aircraft (ADS-B) | 1090 MHz | 6.9 cm |
+
+- **A length off by a little hardly matters**, by a lot it does: the short stock antenna hears
+  433 MHz well and P2000 or the air band poorly.
+- **Height and a free view** matter most from VHF up, where signals travel in a straight line:
+  aircraft, ships, sondes and ADS-B come in from much further with the antenna outside and high.
+  Keep the cable short, or use good cable: thin cable loses a lot at 1090 MHz.
+- **Sensors** send with little power: 30 to 100 m is usual, so the antenna goes near them, not
+  on the roof.
+- **Satellites** pass overhead and their signal turns: a dipole laid flat in a V (120° between
+  the legs, 53 cm each for 137 MHz) hears them better than an upright antenna.
+- **Shortwave** (HackRF) wants a long wire: 10 m or more, outside and away from the house's
+  noise, hears far more than any whip.
+- **One antenna for everything**: a discone (25 to 1300 MHz) is right for none and good enough
+  for most; fine for scanning.
+- **An active antenna or LNA** near the antenna helps with a long cable; an RTL-SDR can power it
+  through the cable (`bias_tee`).
+
+**Gain**: more is not better. Raise the RF gain until the noise in the waterfall starts to rise
+with it, and stop there; 40 dB is a good start for an RTL-SDR. When strong signals appear at
+places where nothing transmits, or the whole waterfall lifts when a nearby transmitter comes on,
+the receiver is overloaded: turn the gain down, or put a filter for your band (FM broadcast is
+the usual culprit) between antenna and receiver. The HackRF has three amplifiers, set in the
+app's options: `hackrf_lna_gain` (0 to 40 dB in steps of 8; the one to raise first),
+`hackrf_vga_gain` (0 to 62 dB in steps of 2) and `hackrf_amp_enable` (some 14 dB more at the
+antenna; switch it off near strong transmitters).
+
+**Nothing heard?** Check that the antenna is screwed on tight and has the right length, try it
+by the window or outside, and look at the waterfall on a frequency that is always there (an FM
+station, a DAB+ block): when that is weak too, it is the antenna, the cable or the gain.
+
 ## Channels
 
 The Channels page lists every stored channel; click one to edit it on the right. The views at
@@ -316,6 +375,22 @@ The modes add the `sdradio_pager` event and the sensors of the devices picked in
 On the Settings page:
 - **Sensors**: `sensor.sdradio_frequency` (MHz, with the mode, band and channel, and on FM the RDS `station`, `radio_text`, `artist`, `title` and `programme_type`), `sensor.sdradio_signal` (dBFS) and `sensor.sdradio_scan` (`off`, `scanning` or `holding`), updated at most every 5 seconds.
 - **Events**: `sdradio_signal` for every transmission on a stored channel, with `frequency`, `frequency_mhz`, `mode`, `channel`, `channel_number`, `favourite`, `duration` and `peak`.
+
+**The radio on a speaker**: with **MP3 stream** on (Settings → Spectrum & audio, off by default)
+what the radio plays is an MP3 stream at `http://<Home Assistant>:<port>/radio.mp3`, for a media
+player, a speaker or VLC. Give port 8098 a number under *Network* on the app's Configuration tab
+first. The stream follows the radio: the squelch closed, or a mode without sound, is silence.
+Anyone on your network can listen to it, and a player on the stream keeps the radio making sound,
+so stop the player when you are done. For example:
+
+```yaml
+action: media_player.play_media
+target:
+  entity_id: media_player.kitchen
+data:
+  media_content_type: music
+  media_content_id: http://homeassistant.local:8098/radio.mp3
+```
 
 ## How it works
 

@@ -391,7 +391,7 @@ function acarsHtml() {
     return modeView.items.map(m => `<div class="msg acars">
         <span class="msg-time mono" title="${fmtMHz(m.frequency)} MHz">${timeOf(m.ts)}</span>
         <span class="badge" title="${escapeHtml(m.label_name || 'label')}">${escapeHtml(m.label || '')}</span>
-        <span class="msg-addr mono">${escapeHtml([m.flight, m.registration].filter(Boolean).join(' · ') || m.key)}</span>
+        <span class="msg-addr mono"${m.airline ? ` title="${escapeHtml(m.airline)}"` : ''}>${escapeHtml([m.flight, m.registration].filter(Boolean).join(' · ') || m.key)}${m.airline ? ` <small class="muted">${escapeHtml(m.airline)}</small>` : ''}</span>
         <span class="msg-text${m.text ? '' : ' muted'}">${m.text ? escapeHtml(m.text) : escapeHtml(m.label_name || 'no text')}${m.crc === false ? ' <span class="warn-text" title="The block check did not match">(check failed)</span>' : ''}</span>
     </div>`).join('');
 }
@@ -438,7 +438,10 @@ function sensorValues(values) {
     for (const [field, value] of Object.entries(values || {})) {
         if (field === 'battery_ok') { if (!value) parts.push('<span class="warn-text">battery low</span>'); continue; }
         const known = SENSOR_FIELDS[field];
-        if (known && typeof value === 'number') parts.push(`${known[0]}${num(value, known[2])}${known[1]}`);
+        // A temperature also in the other unit, when pointed at
+        if (field === 'temperature_C' && typeof value === 'number') parts.push(`<span title="${num(value * 9 / 5 + 32, 1)} °F">${num(value, 1)} °C</span>`);
+        else if (field === 'temperature_F' && typeof value === 'number') parts.push(`<span title="${num((value - 32) * 5 / 9, 1)} °C">${num(value, 1)} °F</span>`);
+        else if (known && typeof value === 'number') parts.push(`${known[0]}${num(value, known[2])}${known[1]}`);
         else if (typeof value !== 'object') parts.push(`${escapeHtml(field.replace(/_/g, ' '))} ${escapeHtml(String(value))}`);
     }
     return parts.join(' · ');
@@ -457,7 +460,7 @@ function sensorsHtml() {
     const ha = app.settingsData && app.settingsData.ha;
     return `<table class="data sensors"><thead><tr><th>Device</th><th>Last reading</th><th>Signal</th><th>Heard</th><th title="Readings as Home Assistant sensors">HA</th></tr></thead><tbody>
         ${devices.map(d => `<tr>
-            <td><b>${escapeHtml(d.model || '')}</b><small class="muted mono">${escapeHtml([d.id, d.channel].filter(x => x !== null && x !== undefined).map(x => `${x}`).join(' · ch '))}</small></td>
+            <td><b>${escapeHtml(d.model || '')}</b>${d.kind ? ` <span class="badge">${escapeHtml(d.kind)}</span>` : ''}<small class="muted mono">${escapeHtml([d.id, d.channel].filter(x => x !== null && x !== undefined).map(x => `${x}`).join(' · ch '))}</small></td>
             <td>${sensorValues(d.values)}</td>
             <td class="mono">${d.snr !== null && d.snr !== undefined ? `${num(d.snr, 0)} dB` : ''}</td>
             <td class="mono" title="${escapeHtml(new Date(d.ts * 1000).toLocaleString())}">${fmtAgo(d.ts)} · ${d.count}×</td>
@@ -626,6 +629,7 @@ function renderTracked(body) {
         body.innerHTML = `<div class="mode-split" data-mode="${modeView.key}">
             <div class="map-slot" id="map-slot"></div>
             <div class="mode-list">
+                <div class="tracked-photo" id="tracked-photo" hidden></div>
                 <div class="tabs inline-tabs list-tabs" id="tracked-tabs" role="group" aria-label="Which"></div>
                 <div class="mode-list-body" id="mode-list"></div>
             </div></div>`;
@@ -646,7 +650,36 @@ function renderTracked(body) {
         html = things.length ? cfg.liveHtml(things) : emptyHtml(modeView.search ? `No ${cfg.noun} match.` : cfg.empty);
     }
     document.getElementById('mode-list').innerHTML = html;
+    renderTrackedPhoto();
     renderModeHead();
+}
+
+// A photo of the aircraft picked, from planespotters.net (when switched on under Settings → Modes)
+const aircraftPhotos = new Map();  // registration → {url, link, photographer}, or null: none, or still asked for
+
+function renderTrackedPhoto() {
+    const slot = document.getElementById('tracked-photo');
+    if (!slot) return;
+    const plane = modeView.key === 'aircraft' && modeView.selected ? modeView.planes.get(modeView.selected) : null;
+    const registration = app.settings.aircraft_photos && plane && plane.registration ? plane.registration : null;
+    if (registration && !aircraftPhotos.has(registration)) loadAircraftPhoto(registration);
+    const photo = registration ? aircraftPhotos.get(registration) : null;
+    // Only when it changes: the list is drawn again with every position
+    const shown = photo ? `${registration}|${photo.url}` : '';
+    if (slot.dataset.shown === shown) return;
+    slot.dataset.shown = shown;
+    slot.hidden = !photo;
+    const credit = photo ? `${escapeHtml(registration)} · photo ${photo.photographer ? `© ${escapeHtml(photo.photographer)} · ` : ''}planespotters.net` : '';
+    slot.innerHTML = photo ? `<a href="${escapeHtml(photo.link || 'https://www.planespotters.net/')}" target="_blank" rel="noopener noreferrer">
+        <img src="${escapeHtml(photo.url)}" alt="${escapeHtml(registration)}" referrerpolicy="no-referrer"><small>${credit}</small></a>` : '';
+}
+
+async function loadAircraftPhoto(registration) {
+    aircraftPhotos.set(registration, null);
+    try {
+        aircraftPhotos.set(registration, (await api(`aircraft/photo/${encodeURIComponent(registration)}`)).photo || null);
+    } catch (e) { /* no photo: nothing to show */ }
+    renderTrackedPhoto();
 }
 
 function matchesSearch(o) {

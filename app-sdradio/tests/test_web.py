@@ -103,6 +103,73 @@ async def test_the_page_escapes_quotes(client):
     assert "&quot;" in body and "&#39;" in body
 
 
+async def test_status_says_how_long_the_app_runs(client):
+    status = await (await client.get("/api/status")).json()
+    assert 0 <= status["uptime"] < 60 and status["stream_port"] == 8098
+
+
+async def test_aircraft_photo_only_when_switched_on(client, monkeypatch):
+    from src.photos import Photos, photo_of
+
+    asked = []
+
+    async def ask(self, registration):
+        asked.append(registration)
+        return {"url": "https://t.plnspttrs.net/1.jpg", "link": "https://www.planespotters.net/photo/1",
+                "photographer": "A. Spotter"}, 3600  # fmt: skip
+
+    monkeypatch.setattr(Photos, "_ask", ask)
+    assert (await client.get("/api/aircraft/photo/PH-BXA")).status == 403 and asked == []
+    await client.put("/api/settings", json={"aircraft_photos": True})
+    for _ in range(2):  # asked once: the second answer is the remembered one
+        photo = (await (await client.get("/api/aircraft/photo/ph-bxa")).json())["photo"]
+        assert photo["photographer"] == "A. Spotter"
+    assert asked == ["PH-BXA"]
+    assert (await client.get("/api/aircraft/photo/PH%20BXA%22")).status == 404
+    # Only web addresses reach the page
+    answer = {"photos": [{"thumbnail_large": {"src": "javascript:alert(1)"}, "link": "https://x.example/1"}]}
+    assert photo_of(answer) is None and photo_of({"photos": []}) is None and photo_of("nonsense") is None
+    answer["photos"][0]["thumbnail_large"]["src"] = "https://t.plnspttrs.net/2.jpg"
+    answer["photos"][0]["link"] = "javascript:alert(1)"
+    assert photo_of(answer) == {"url": "https://t.plnspttrs.net/2.jpg", "link": None, "photographer": ""}
+
+
+async def test_mp3_stream(client, monkeypatch):
+    # cat for lame: what goes in comes out, so the stream is the sound itself (silence when nothing plays)
+    monkeypatch.setattr("src.webui.mp3_encoder", lambda rate: ["cat"])
+    response = await client.get("/api/radio.mp3")
+    assert response.status == 200 and response.headers["Content-Type"] == "audio/mpeg"
+    assert len(await asyncio.wait_for(response.content.readexactly(8000), 5)) == 8000
+    # A player of the stream counts as someone listening: the radio makes sound for it
+    assert client.webui.radio.listeners == 1
+    response.close()
+    for _ in range(40):
+        if client.webui.radio.listeners == 0:
+            break
+        await asyncio.sleep(0.1)
+    assert client.webui.radio.listeners == 0 and not client.webui.streams
+
+
+async def test_mp3_stream_on_its_own_port_only_when_switched_on(client, monkeypatch):
+    monkeypatch.setattr("src.webui.mp3_encoder", lambda rate: ["cat"])
+    async with TestClient(TestServer(client.webui.stream_app)) as port:
+        assert (await port.get("/radio.mp3")).status == 403
+        assert (await port.get("/api/status")).status == 404  # nothing but the stream
+        await client.put("/api/settings", json={"mp3_stream": True})
+        response = await port.get("/radio.mp3")
+        assert response.status == 200
+        assert len(await asyncio.wait_for(response.content.readexactly(4000), 5)) == 4000
+        response.close()
+
+
+def test_mp3_encoder_takes_the_rate_of_the_sound():
+    from src.webui import mp3_encoder
+
+    command = mp3_encoder(8_000)
+    assert command[0] == "lame" and command[command.index("-s") + 1] == "8" and command[-2:] == ["-", "-"]
+    assert mp3_encoder(48_780.5)[mp3_encoder(48_780.5).index("-s") + 1] == "48.7805"
+
+
 def test_mp3_frame_start():
     from src.webui import mp3_frame_start
 

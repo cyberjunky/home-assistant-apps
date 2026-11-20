@@ -99,6 +99,10 @@ SETTINGS: dict[str, dict] = {
     "ha_events": {"default": False},
     "lcd_colour": {"default": "lcd", "options": ["lcd", "amber", "green", "blue", "white"]},
     "decoded_keep_days": {"default": 30, "options": [1, 7, 30, 90, 365, 0]},
+    # The registration of the aircraft picked on the map goes to planespotters.net: only when asked for
+    "aircraft_photos": {"default": False},
+    # The radio's sound on a port of its own, for a player: anyone on the network can listen
+    "mp3_stream": {"default": False},
 }
 # Each mode's own settings (frequency and so on), checked by the mode itself
 for _key, _cls in registry().items():

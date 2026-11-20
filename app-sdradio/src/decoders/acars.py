@@ -1,7 +1,8 @@
 """ACARS: the short text messages between aircraft and their airlines, on the VHF air band.
 
-Decoded here from the receiver's samples, on up to three channels at once (the European ones,
-131.525, 131.725 and 131.825 MHz, lie within 300 kHz). A message is a burst of AM: the carrier
+Decoded here from the receiver's samples, on a few channels at once (the European ones, 131.525,
+131.725 and 131.825 MHz, and 131.550 MHz, the first channel in the rest of the world, lie within
+300 kHz). A message is a burst of AM: the carrier
 keyed, modulated with MSK audio at 2400 baud, where each symbol is a full cycle of 2400 Hz (the
 bit is the same as the one before) or half a cycle of 1200 Hz (the bit changes). The envelope
 of each burst is matched against those two shapes symbol by symbol, following the symbol clock.
@@ -20,7 +21,8 @@ BAUD = 2400
 RATE = 48_000
 SPS = RATE // BAUD
 WIDE_RATE = 480_000
-EUROPE = [131_525_000, 131_725_000, 131_825_000]
+# Europe's three, and 131.550 MHz: the first channel everywhere else, and heard in Europe too
+EUROPE = [131_525_000, 131_550_000, 131_725_000, 131_825_000]
 # The receiver's samples are cut to this much round the middle of the channels
 SPAN = 400_000
 
@@ -29,6 +31,40 @@ LABELS = {
     "QA": "out", "QB": "off", "QC": "on", "QD": "in", "QE": "out, fuel", "QF": "off, destination",
     "15": "position", "16": "position", "20": "position", "22": "position", "30": "position", "80": "airline",
     "B6": "oceanic clearance", "AA": "free text", "C1": "free text", "RA": "free text", "10": "free text",
+    # ARINC 620's other labels: the out/off/on/in reports' variants and what the crew and the ground ask for
+    "QG": "out, return in", "QH": "out", "QK": "landing", "QL": "arrival", "QM": "arrival information",
+    "QN": "diversion", "QP": "out", "QQ": "off", "QR": "on", "QS": "in", "QT": "out, return in", "QX": "intercept",
+    "Q1": "departure and arrival", "Q2": "arrival time", "Q3": "clock update", "Q4": "voice circuit busy",
+    "Q5": "cannot process the uplink", "Q6": "voice to data changeover", "Q7": "delay",
+    "A1": "oceanic clearance", "A3": "departure clearance", "A4": "departure clearance acknowledged",
+    "A5": "position requested", "A7": "free text", "A8": "departure slot", "A9": "ATIS", "A0": "ATIS facilities",
+    "AB": "terminal weather", "AC": "pushback clearance", "AD": "taxi clearance expected",
+    "B1": "oceanic clearance requested", "B2": "oceanic clearance read back", "B3": "departure clearance requested",
+    "B4": "departure clearance read back", "B5": "position", "B7": "free text", "B8": "departure slot requested",
+    "B9": "ATIS requested", "BB": "terminal weather requested", "BC": "pushback clearance requested",
+    "BD": "taxi clearance requested", "C0": "to the cockpit printers", "C2": "free text", "C3": "free text",
+    "H2": "weather report", "H3": "icing report", "HX": "uplink not delivered", "M1": "departure", "M2": "arrival",
+    "M3": "return to the ramp", "M4": "return from the air", "RB": "answer to a command", "SA": "media advisory",
+    "S1": "network statistics", "S2": "VHF performance", "S3": "equipment configuration", "51": "time request",
+    "52": "time request", "54": "voice contact requested", "57": "position", "5D": "ATIS requested",
+    "5P": "suspended for a while", "5R": "position", "5U": "weather requested", "5Y": "new arrival time",
+    "7A": "engine data", "7B": "crew message",
+}  # fmt: skip
+
+# The airlines heard most over Europe, by the two characters a flight starts with (their IATA code)
+AIRLINES = {
+    "A3": "Aegean", "AA": "American", "AC": "Air Canada", "AF": "Air France", "AI": "Air India", "AY": "Finnair",
+    "AZ": "ITA Airways", "BA": "British Airways", "BT": "airBaltic", "CA": "Air China", "CI": "China Airlines",
+    "CV": "Cargolux", "CX": "Cathay Pacific", "CZ": "China Southern", "D8": "Norwegian", "DE": "Condor",
+    "DL": "Delta", "DY": "Norwegian", "EI": "Aer Lingus", "EK": "Emirates", "ET": "Ethiopian", "EW": "Eurowings",
+    "EY": "Etihad", "FI": "Icelandair", "FR": "Ryanair", "FX": "FedEx", "HV": "Transavia", "IB": "Iberia",
+    "JL": "Japan Airlines", "KE": "Korean Air", "KL": "KLM", "LG": "Luxair", "LH": "Lufthansa", "LO": "LOT",
+    "LS": "Jet2", "LX": "Swiss", "LY": "El Al", "MP": "Martinair", "MS": "Egyptair", "MU": "China Eastern",
+    "NH": "ANA", "OR": "TUI fly Netherlands", "OS": "Austrian", "PC": "Pegasus", "QF": "Qantas", "QR": "Qatar Airways",
+    "QY": "DHL (European Air Transport)", "RO": "Tarom", "SK": "SAS", "SN": "Brussels Airlines",
+    "SQ": "Singapore Airlines", "SV": "Saudia", "TK": "Turkish Airlines", "TO": "Transavia France", "TP": "TAP",
+    "U2": "easyJet", "UA": "United", "UX": "Air Europa", "VS": "Virgin Atlantic", "VY": "Vueling", "W6": "Wizz Air",
+    "WK": "Edelweiss", "X3": "TUI fly", "5X": "UPS",
 }  # fmt: skip
 
 _A = np.sin(np.pi * (np.arange(SPS) + 0.5) / SPS).astype(np.float32)  # half a cycle of 1200 Hz
@@ -157,6 +193,7 @@ def _read(bits: np.ndarray, at: int) -> dict | None:
     if block.isdigit() and len(body) >= 10:
         message["number"] = body[:4]
         message["flight"] = body[4:10].strip()
+        message["airline"] = AIRLINES.get(message["flight"][:2])
         message["text"] = body[10:].replace("\r\n", "\n").strip()
         message["direction"] = "down"
     else:

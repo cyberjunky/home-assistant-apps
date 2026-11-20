@@ -53,7 +53,7 @@ satellite passes, and with a HackRF weather fax charts and analog FPV video.
 **APRS** — radio amateur stations, cars and weather stations on 144.800 MHz, with their symbols
 ![APRS mode](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/screenshots/mode-aprs-light.webp)
 
-**ACARS** — the text messages of aircraft, three channels at once
+**ACARS** — the text messages of aircraft, four channels at once, with the airline
 ![ACARS mode](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-sdradio/screenshots/mode-acars-light.webp)
 
 **VDL2** — ACARS's digital successor, four channels at once, decoded by dumpvdl2
@@ -90,6 +90,7 @@ satellite passes, and with a HackRF weather fax charts and analog FPV video.
 - 📻 **Receiver front panel** — Frequency display (scroll a digit to change it), mode, filter and step, indicators, channel name and a signal meter in dBFS with SNR; a band scale like an old radio dial; knobs for volume, squelch, RF gain, filter and scan speed; a tune dial and a keypad
 - 🌊 **Spectrum and waterfall** — Live, with your stored channels labelled; click to tune, drag to move, scroll to step; zoom from the whole band (swept) to 50 kHz
 - 🎧 **Listen in the browser** — AM, NFM, WFM, USB, LSB, CW and DSB, demodulated in the app; AGC and noise blanker
+- 🔊 **On a speaker** — What the radio plays as an MP3 stream for a media player or VLC (off by default)
 - 📟 **Modes** — The radio set up for pagers (POCSAG and FLEX, with multimon-ng), sensors on 433/868 MHz (weather stations, thermometers, meters, with rtl_433), aircraft (ADS-B with dump1090), ships (AIS), APRS stations, radiosondes (weather balloons, with rs1729's decoders) and FT8/FT4 stations (ft8_lib) on a map, ACARS and VDL2 messages (dumpvdl2), DMR, D-STAR, YSF, NXDN and P25 calls heard as speech (DSD-FME), SSTV pictures, DAB+ digital radio (welle-cli), satellite passes followed with Doppler correction (ISS, SO-50, Meteor), and with the HackRF weather fax charts and analog FPV video, each with its own view and Home Assistant events or sensors
 - 🔔 **Tones** — On NFM: the CTCSS tone or DCS code under a transmission, and DTMF digits
 - 📝 **RDS** — On FM broadcast: the station's name, its radio text, and the artist and title when the station sends them

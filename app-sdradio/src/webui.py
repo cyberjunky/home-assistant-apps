@@ -20,6 +20,7 @@ from .config import ADDON_VERSION, DATA_DIR, Config
 from .database import SETTINGS, Database, ValidationError
 from .dsp import DB_CEIL, DB_FLOOR
 from .ha import HomeAssistant
+from .photos import Photos
 from .radio import Radio
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,20 @@ MAP_MAX_ZOOM = 19
 MAP_TILE_MAX_AGE = 7 * 24 * 60 * 60
 SPECTRUM_FRAME = 1
 AUDIO_FRAME = 2
+# The radio's sound as an MP3 stream for a player outside the page, on a port of its own: the page
+# itself is only reached through Home Assistant, which a speaker or VLC can't log in to
+STREAM_PORT = 8098
+MP3_BITRATE = 96
+MP3_STREAMS = 4
+# Without sound for this long (squelch closed, a mode without sound) the stream gets silence, so
+# the player keeps playing
+MP3_GAP = 0.25
+
+
+def mp3_encoder(rate: float) -> list[str]:
+    """lame, making an MP3 stream on its stdout of the 16-bit mono sound on its stdin."""
+    return ["lame", "--quiet", "-r", "--signed", "--little-endian", "--bitwidth", "16", "-m", "m",
+            "-s", f"{rate / 1000:g}", "--resample", "48", "--cbr", "-b", str(MP3_BITRATE), "--flush", "-", "-"]  # fmt: skip
 
 
 def mp3_frame_start(data: bytes) -> int | None:
@@ -65,15 +80,11 @@ def _error(message: str, status: int = 400) -> web.Response:
     return _json({"error": message}, status)
 
 
-class Client:
-    """One open page: what it wants to receive, and a queue so a slow page can't hold up the radio."""
+class Queued:
+    """A queue between the radio and someone receiving from it, so a slow one can't hold up the radio."""
 
-    def __init__(self, ws: web.WebSocketResponse):
-        self.ws = ws
-        self.listen = False
-        self.spectrum = False
-        self.sweep = False
-        self.queue: asyncio.Queue = asyncio.Queue(maxsize=60)
+    def __init__(self, size: int):
+        self.queue: asyncio.Queue = asyncio.Queue(maxsize=size)
 
     def send(self, item) -> None:
         try:
@@ -86,6 +97,24 @@ class Client:
                 self.queue.put_nowait(item)
 
 
+class Client(Queued):
+    """One open page: what it wants to receive."""
+
+    def __init__(self, ws: web.WebSocketResponse):
+        super().__init__(60)
+        self.ws = ws
+        self.listen = False
+        self.spectrum = False
+        self.sweep = False
+
+
+class Stream(Queued):
+    """One player of the MP3 stream: the sound as (rate, 16-bit samples)."""
+
+    def __init__(self):
+        super().__init__(100)
+
+
 class WebUI:
     def __init__(self, port: int, config: Config, database: Database, device_factory, data_dir: Path = DATA_DIR):
         self.port = port
@@ -93,7 +122,10 @@ class WebUI:
         self.db = database
         self.backups = Backups(database, Path(data_dir) / "backups")
         self.ha = HomeAssistant()
+        self.photos = Photos()
+        self.started = time.monotonic()
         self.clients: set[Client] = set()
+        self.streams: set[Stream] = set()
         self.loop: asyncio.AbstractEventLoop | None = None
         self.radio = Radio(config, database, device_factory, self._emit_threadsafe)
         # The modes' pictures and recordings, a folder per mode
@@ -105,6 +137,10 @@ class WebUI:
         self.app.on_startup.append(self._on_startup)
         self.app.on_shutdown.append(self._on_shutdown)
         self._runner: web.AppRunner | None = None
+        # The MP3 stream's own port: only the stream, and only when switched on on the Settings page
+        self.stream_app = web.Application()
+        self.stream_app.router.add_get("/radio.mp3", self._handle_open_mp3)
+        self._stream_runner: web.AppRunner | None = None
         self._tasks: list[asyncio.Task] = []
         self._pending: set[asyncio.Future] = set()
         self._setup_routes()
@@ -133,6 +169,8 @@ class WebUI:
         r.add_get("/api/decoded/keys", self._handle_decoded_keys)
         r.add_get("/api/decoded/live", self._handle_decoded_live)
         r.add_post("/api/decoded/snapshot", self._handle_snapshot)
+        r.add_get("/api/radio.mp3", self._handle_radio_mp3)
+        r.add_get("/api/aircraft/photo/{registration:[A-Za-z0-9-]{2,10}}", self._handle_aircraft_photo)
         r.add_get("/api/dab/audio/{sid:0x[0-9a-fA-F]+}", self._handle_dab_audio)
         r.add_get("/api/dab/slide/{sid:0x[0-9a-fA-F]+}", self._handle_dab_slide)
         r.add_get("/api/files/{mode:[a-z0-9]+}/{name:[A-Za-z0-9._-]+}", self._handle_file)
@@ -181,15 +219,24 @@ class WebUI:
             await client.ws.close()
         await asyncio.to_thread(self.radio.stop)
         await self.ha.close()
+        await self.photos.close()
 
     async def start(self) -> None:
         self._runner = web.AppRunner(self.app, access_log=None, shutdown_timeout=1.0)
         await self._runner.setup()
         await web.TCPSite(self._runner, "0.0.0.0", self.port).start()
         logger.info(f"Web UI listening on port {self.port}")
+        self._stream_runner = web.AppRunner(self.stream_app, access_log=None, shutdown_timeout=1.0)
+        await self._stream_runner.setup()
+        try:
+            await web.TCPSite(self._stream_runner, "0.0.0.0", STREAM_PORT).start()
+        except OSError as e:
+            logger.warning(f"No MP3 stream on port {STREAM_PORT}: {e}")
         await asyncio.Event().wait()
 
     async def stop(self) -> None:
+        if self._stream_runner:
+            await self._stream_runner.cleanup()
         if self._runner:
             await self._runner.cleanup()
 
@@ -237,6 +284,8 @@ class WebUI:
             for client in self.clients:
                 if client.listen:
                     client.send(frame)
+            for stream in self.streams:
+                stream.send((float(payload["rate"]), payload["pcm"]))
         else:
             if kind == "decoded":
                 self._decoded_to_ha(payload)
@@ -261,7 +310,7 @@ class WebUI:
         return self.radio.settings
 
     def _update_listeners(self) -> None:
-        self.radio.listeners = sum(1 for c in self.clients if c.listen)
+        self.radio.listeners = sum(1 for c in self.clients if c.listen) + len(self.streams)
         self.radio.spectrum_listeners = sum(1 for c in self.clients if c.spectrum)
         # The band view sweeps the receiver: only while a page shows it
         self.radio.sweep_wanted = any(c.sweep and c.spectrum for c in self.clients)
@@ -344,6 +393,8 @@ class WebUI:
                 "counts": self.db.counts(),
                 "last_backup": last["ts"] if last else None,
                 "ha": self.ha.available,
+                "uptime": round(time.monotonic() - self.started),
+                "stream_port": STREAM_PORT,
             }
         )
 
@@ -486,6 +537,83 @@ class WebUI:
         if mode.isalnum() and not q.get("key"):
             await asyncio.to_thread(shutil.rmtree, self.files_dir / mode, True)
         return _json({"removed": removed})
+
+    async def _handle_aircraft_photo(self, request: web.Request) -> web.Response:
+        """A photo of an aircraft from planespotters.net, when that is switched on."""
+        if not self.db.settings().get("aircraft_photos"):
+            return _error("Aircraft photos are switched off on the Settings page", 403)
+        return _json({"photo": await self.photos.get(request.match_info["registration"].upper())})
+
+    # ================================================================ the MP3 stream
+
+    async def _handle_open_mp3(self, request: web.Request) -> web.StreamResponse:
+        """The stream on its own port, which anyone on the network can reach: only when switched on."""
+        if not self.db.settings().get("mp3_stream"):
+            return web.Response(status=403, text="Switch the MP3 stream on on SDRadio's Settings page")
+        return await self._handle_radio_mp3(request)
+
+    async def _handle_radio_mp3(self, request: web.Request) -> web.StreamResponse:
+        """What the radio plays as an MP3 stream, for as long as the player stays."""
+        if shutil.which(mp3_encoder(48_000)[0]) is None:
+            return _error("No MP3 encoder (lame) here", 501)
+        if len(self.streams) >= MP3_STREAMS:
+            return _error("Too many players on the MP3 stream", 503)
+        response = web.StreamResponse(headers={"Content-Type": "audio/mpeg", "Cache-Control": "no-store"})
+        await response.prepare(request)
+        stream = Stream()
+        self.streams.add(stream)
+        self._update_listeners()
+        try:
+            await self._encode_mp3(stream, response)
+        finally:
+            self.streams.discard(stream)
+            self._update_listeners()
+        return response
+
+    async def _encode_mp3(self, stream: Stream, response: web.StreamResponse) -> None:
+        encoder: asyncio.subprocess.Process | None = None
+        sender: asyncio.Task | None = None
+        rate = 48_000.0
+
+        async def send(out: asyncio.StreamReader) -> None:
+            with contextlib.suppress(ConnectionError, RuntimeError):
+                while chunk := await out.read(4096):
+                    await response.write(chunk)
+
+        async def end() -> None:
+            if encoder is not None:
+                with contextlib.suppress(ProcessLookupError):
+                    encoder.kill()
+                await encoder.wait()
+            if sender is not None:
+                sender.cancel()
+
+        try:
+            while True:
+                try:
+                    now_rate, pcm = await asyncio.wait_for(stream.queue.get(), MP3_GAP)
+                except TimeoutError:
+                    now_rate, pcm = rate, bytes(2 * round(rate * MP3_GAP))
+                # Another mode, another sample rate: a new encoder; what it sends stays 48 kHz mono
+                if encoder is None or now_rate != rate:
+                    await end()
+                    rate = now_rate
+                    encoder = await asyncio.create_subprocess_exec(
+                        *mp3_encoder(rate),
+                        stdin=asyncio.subprocess.PIPE,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.DEVNULL,
+                    )
+                    sender = asyncio.create_task(send(encoder.stdout))
+                # The player left, or the encoder stopped
+                if sender.done():
+                    return
+                encoder.stdin.write(pcm)
+                await encoder.stdin.drain()
+        except ConnectionError:
+            return
+        finally:
+            await end()
 
     def _dab_url(self, path: str) -> str | None:
         decoder = self.radio.decoder
