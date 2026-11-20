@@ -1,5 +1,5 @@
 name: Scanner
-version: "0.1.0"
+version: "0.1.1"
 slug: app-scanner
 description: "Makes a USB or network scanner a scanner for the whole house: every option of the scanner, batches from the feeder or the glass, searchable PDFs in an archive, and copies to a network share"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-scanner"
