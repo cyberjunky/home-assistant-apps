@@ -26,7 +26,7 @@ your node over your own network; the node keeps running where it runs.
 **It only reads.** This version cannot pay, open or close a channel, or change anything on the
 node. It works with an RPC user that may only read and with LND's read-only macaroon.
 
-![Overview: block height, mempool, fees, peers and Lightning balance, the latest blocks, fees and mempool over a day, health, activity, liquidity and traffic (dark theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-bitcoin-node/screenshots/overview-dark.webp)
+![Overview: block height, mempool, fees, peers and Lightning balance, the latest blocks, fees and mempool over a day, health, activity, liquidity and traffic (light theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-bitcoin-node/screenshots/overview-light.webp)
 
 <details>
 <summary>More screenshots</summary>
@@ -49,8 +49,8 @@ node. It works with an RPC user that may only read and with LND's read-only maca
 **Info** — the connections, MQTT, the app's data and where every number comes from
 ![Info](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-bitcoin-node/screenshots/info-light.webp)
 
-**Overview, light theme** — follows Home Assistant's light/dark mode
-![Overview in the light theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-bitcoin-node/screenshots/overview-light.webp)
+**Overview, dark theme** — follows Home Assistant's light/dark mode
+![Overview in the dark theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-bitcoin-node/screenshots/overview-dark.webp)
 
 </details>
 
