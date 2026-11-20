@@ -63,7 +63,7 @@ def escl_url(text: str) -> str:
 class Config:
     """The app's options in Home Assistant. What you choose while scanning is in settings.py."""
 
-    # SANE's test scanner: a scanner that isn't there, to try the app without one
+    # SANE's test scanner, a scanner that isn't there: for development only (SCANNER_TEST), not an option
     test_scanner: bool = False
     # Driverless USB (IPP over USB): newer printers with a scanner that have no SANE driver
     driverless_usb: bool = True
@@ -96,7 +96,7 @@ class Config:
                 raise ValueError(f"Network scanner {name or '?'}: give its address, such as 192.168.1.50")
             scanners.append((name or address, escl_url(address)))
         return cls(
-            test_scanner=bool(options.get("test_scanner", False)),
+            test_scanner=bool(os.environ.get("SCANNER_TEST")),
             driverless_usb=bool(options.get("driverless_usb", True)),
             network_scanners=tuple(scanners),
             log_level=str(options.get("log_level") or "info"),

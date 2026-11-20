@@ -144,7 +144,6 @@ class WebUI:
             "preview": self.station.preview,
             "share": {**await self.station.share_state(), "auto": self.settings["share_auto"]},
             "config": {
-                "test_scanner": self.config.test_scanner,
                 "driverless_usb": self.config.driverless_usb,
                 "network_scanners": [{"name": n, "url": u} for n, u in self.config.network_scanners],
             },

@@ -95,7 +95,7 @@ function renderScan() {
         el.innerHTML = `${panel('', '', `<div class="no-scanner">
             <h2>${searching ? 'Looking for scanners…' : 'No scanner found'}</h2>
             ${searching ? '' : `<p>${d.error ? escapeHtml(d.error) + '. ' : ''}Connect the scanner to the machine Home Assistant runs on, switch it on and search again.
-                A scanner on the network is added in the app's configuration. <a href="#info" class="plain-link"><u>Info</u></a> tells what works and how to try the app without a scanner.</p>
+                A scanner on the network is added in the app's configuration. <a href="#info" class="plain-link"><u>Info</u></a> tells which scanners work.</p>
             <div class="detail-actions"><button class="btn btn-primary" id="sc-search">Search again</button></div>`}
         </div>`)}<div id="sc-tray"></div>`;
         const button = document.getElementById('sc-search');

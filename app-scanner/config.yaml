@@ -25,7 +25,6 @@ map:
 options:
   network_scanners: []
   driverless_usb: true
-  test_scanner: false
   log_level: info
 
 schema:
@@ -33,5 +32,4 @@ schema:
     - name: str
       address: str
   driverless_usb: bool
-  test_scanner: bool
   log_level: list(debug|info|warning|error)?
