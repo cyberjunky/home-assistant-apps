@@ -16,7 +16,8 @@ Keeps watch over the custom integrations you install from the Home Assistant Mar
 integration runs inside Home Assistant with all of its rights, and the Marketplace lists them without
 testing or auditing them. Marshal reads the code of every integration you have installed, without
 running any of it, and shows what deserves a second look: access to credentials and personal data,
-risky code, the internet hosts it names, and patterns that slow Home Assistant down. Each integration
+risky code, known vulnerabilities in what it installs, the internet hosts it names, patterns that slow
+Home Assistant down, and the quality of the code. Each integration
 gets a score and a grade, and they are ranked worst first.
 
 ![Dashboard: the average score and grade, findings by severity, integrations per grade, the score per area, the integrations to look at first and the most serious findings (light theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-marshal/screenshots/dashboard-light.webp)
@@ -29,6 +30,12 @@ gets a score and a grade, and they are ranked worst first.
 
 **An integration** — each finding with what it means, the file, the line and the code
 ![An integration](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-marshal/screenshots/integration-dark.webp)
+
+**Known vulnerabilities** — each CVE in what an integration installs, how bad it is rated, and the version that fixes it
+![Known vulnerabilities](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-marshal/screenshots/vulnerabilities-light.webp)
+
+**Code quality** — what Ruff found, with the line: code that cannot work, likely mistakes, errors silently dropped
+![Code quality](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-marshal/screenshots/quality-light.webp)
 
 **Findings** — every check that found something, across all integrations
 ![Findings](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-marshal/screenshots/findings-light.webp)
