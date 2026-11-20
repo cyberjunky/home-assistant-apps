@@ -53,7 +53,7 @@ function renderSettings() {
             [{label: 'Name'}, {label: 'Scanner'}, {label: 'Settings'}, {label: 'Batch'}, {label: ''}],
             s.profiles.map(p => `<tr>${td(`<span class="name">${escapeHtml(p.name)}</span>`)}${td(`<span class="mono">${escapeHtml(p.device || 'any')}</span>`)}
                 ${td(Object.entries(p.values).map(([k, v]) => `<span class="tag">${escapeHtml(k)} ${escapeHtml(v)}</span>`).join(' ') || '<span class="muted">the scanner\'s own</span>', 'wrap-cell')}
-                ${td(escapeHtml({single: 'One page', feeder: 'Feeder', timed: `Timed, every ${p.batch.interval} s`}[p.batch.mode] || ''))}
+                ${td(escapeHtml({single: 'One page', feeder: 'Feeder', step: 'Step by step', timed: `Timed, every ${p.batch.interval} s`}[p.batch.mode] || ''))}
                 ${td(`<button class="btn btn-small btn-danger" data-profile="${attr(p.name)}">Delete</button>`, 'tight')}</tr>`))
             : '<div class="empty-state">No profiles yet</div>')}`;
     bindSettings(el);

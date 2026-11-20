@@ -199,15 +199,18 @@ function batchRow() {
     const modes = [
         {key: 'single', label: 'One page', title: 'Scan one page and add it to the pages below'},
         {key: 'feeder', label: 'Feeder', title: 'Scan every page in the document feeder'},
+        {key: 'step', label: 'Step by step', title: 'Scan a page from the glass, then wait until you press Next page'},
         {key: 'timed', label: 'Timed', title: 'Scan again and again from the glass, with time to turn the page'},
     ];
     const count = `<input type="number" class="input opt-number" id="sc-count" min="0" max="500" step="1" value="${b.count || ''}" placeholder="${b.mode === 'feeder' ? 'all' : '∞'}">`;
     let extra = '';
     if (b.mode === 'feeder') extra = `<span class="batch-extra">pages ${count}</span>`;
+    if (b.mode === 'step') extra = `<span class="batch-extra">pages ${count}</span>`;
     if (b.mode === 'timed') extra = `<span class="batch-extra">every <input type="number" class="input opt-number" id="sc-interval" min="2" max="600" step="1" value="${b.interval}"> s · pages ${count}</span>`;
     return `<div class="opt"><span class="opt-label">Batch</span>
         <div class="opt-control"><div class="tabs opt-chips" role="group" id="sc-batch">${modes.map(m =>
             `<button type="button" class="tab chip${m.key === b.mode ? ' active' : ''}" data-batch="${m.key}" title="${attr(m.title)}">${m.label}</button>`).join('')}</div>${extra}</div>
+        ${b.mode === 'step' ? '<div class="opt-hint">Scans a page and waits. Put the next page down and press Next page; press Stop when you are done.</div>' : ''}
         ${b.mode === 'timed' ? '<div class="opt-hint">Scans a page, waits so you can turn the page or put the next one down, and scans again until you press Stop.</div>' : ''}
         ${b.mode === 'feeder' && sc.opts && !sc.opts.feeder ? '<div class="opt-hint warn-text">The source is not a feeder: choose the feeder above, or give the number of pages.</div>' : ''}
     </div>`;
@@ -217,10 +220,11 @@ function jobBox() {
     const job = app.status ? app.status.job : {state: 'idle'};
     const mine = job.kind === 'scan' || job.kind === 'preview';
     if (job.state === 'running' && mine) {
-        const text = job.countdown ? `Next page in ${job.countdown} s — turn the page`
+        const text = job.waiting ? 'Put the next page down and press Next page'
+            : job.countdown ? `Next page in ${job.countdown} s — turn the page`
             : job.kind === 'preview' ? `${job.message || 'Preview'}${job.percent ? ` · ${num(job.percent)}%` : ''}`
             : job.page ? `Page ${num(job.page)}${job.percent ? ` · ${num(job.percent)}%` : ''}` : (job.message || 'Starting');
-        const ratio = job.countdown ? 0 : (job.percent || 0) / 100;
+        const ratio = job.countdown || job.waiting ? 0 : (job.percent || 0) / 100;
         return `<div class="job"><div class="job-line"><span>${escapeHtml(text)}</span><span class="muted">${job.kind === 'scan' ? `${plural(job.pages, 'page')} done` : ''}</span></div>
             <div class="meter big"><div class="meter-bar"><i style="width:${(ratio * 100).toFixed(1)}%"></i></div></div></div>`;
     }
@@ -235,6 +239,10 @@ function renderScanForm() {
     const devices = app.devices.devices;
     const running = jobRunning();
     const profiles = (app.settings && app.settings.profiles) || [];
+    // Between two pages of a batch from the glass: waiting for Next page, or counting down
+    const between = running && app.status.job.kind === 'scan' && Boolean(app.status.job.waiting || app.status.job.countdown);
+    // The options can't be changed while the scanner works or is being asked; Stop always can be pressed
+    const busy = sc.loading || running ? ' form-busy' : '';
     let body = '';
     if (sc.error) {
         body = `<div class="job failed"><span class="sdot bad"></span> ${escapeHtml(sc.error)}</div>
@@ -250,10 +258,11 @@ function renderScanForm() {
         const hidden = rest.reduce((a, g) => a + g.options.length, 0) - count;
         const chosen = Object.keys(sc.values).length;
         body = `
-            <div class="opts">${main.map(o => optionRow(o, true)).join('')}${paperRow()}${batchRow()}</div>
+            <div class="opts${busy}">${main.map(o => optionRow(o, true)).join('')}${paperRow()}${batchRow()}</div>
             ${sc.opts.notes.length ? `<div class="opt-hint">${sc.opts.notes.map(escapeHtml).join('<br>')}</div>` : ''}
             <div class="scan-actions">
-                ${running ? `<button class="btn btn-danger scan-button" id="sc-stop"${app.status.job.kind === 'save' ? ' disabled' : ''}>Stop</button>`
+                ${running ? `${between ? `<button class="btn btn-primary scan-button" id="sc-next">${app.status.job.waiting ? 'Next page' : 'Next page now'}</button>` : ''}
+                    <button class="btn btn-danger${between ? '' : ' scan-button'}" id="sc-stop"${app.status.job.kind === 'save' ? ' disabled' : ''}>Stop</button>`
                     : `<button class="btn btn-primary scan-button" id="sc-scan">${sc.batch.mode === 'single' ? 'Scan' : 'Scan batch'}</button>
                        <button class="btn" id="sc-preview-button" title="A quick scan of the whole glass, to choose the area on">Preview</button>`}
                 <span class="spacer"></span>
@@ -261,7 +270,7 @@ function renderScanForm() {
                 <button class="btn" id="sc-save-profile" title="Keep these settings under a name"${running ? ' disabled' : ''}>Save as profile…</button>
             </div>
             <div id="sc-job">${jobBox()}</div>
-            <details class="advanced more-opts"${sc.more ? ' open' : ''} id="sc-more">
+            <details class="advanced more-opts${busy}"${sc.more ? ' open' : ''} id="sc-more">
                 <summary>More options <span class="muted">(${num(count)})</span></summary>
                 ${shown.map(g => `<div class="opt-group">${escapeHtml(g.title)}</div><div class="opts">${g.options.map(o => optionRow(o, false)).join('')}</div>`).join('')}
                 ${hidden ? `<div class="opt-hint">${plural(hidden, 'option')} of this scanner can't be used with these settings.</div>` : ''}
@@ -274,7 +283,7 @@ function renderScanForm() {
                 <button class="btn" id="sc-search" title="Look for scanners again"${running ? ' disabled' : ''}>Search</button></div>
             ${profiles.length ? `<select class="select" id="sc-profile" aria-label="Profile"${running ? ' disabled' : ''}><option value="">Profile…</option>${profiles.map(p => `<option value="${attr(p.name)}">${escapeHtml(p.name)}</option>`).join('')}</select>` : ''}
         </div>
-        <div class="${sc.loading || running ? 'form-busy' : ''}">${body}</div>`;
+        ${body}`;
     bindScanForm(el);
 }
 
@@ -304,6 +313,7 @@ function bindScanForm(el) {
     on('sc-scan', 'click', startScan);
     on('sc-preview-button', 'click', startPreview);
     on('sc-stop', 'click', stopJob);
+    on('sc-next', 'click', nextPage);
     on('sc-save-profile', 'click', saveProfile);
     on('sc-paper', 'change', (e) => choosePaper(e.target.value));
     on('sc-count', 'change', (e) => { sc.batch.count = Math.max(0, Math.min(500, parseInt(e.target.value, 10) || 0)); });
@@ -363,6 +373,9 @@ async function startPreview() {
         await apiPost('preview', {device: sc.device, values: sc.values});
         statusSoon();
     } catch (e) { toast(e.message); }
+}
+async function nextPage() {
+    try { await apiPost('next', {}); statusSoon(); } catch (e) { toast(e.message); }
 }
 async function stopJob() {
     try { await apiPost('cancel', {}); statusSoon(); } catch (e) { toast(e.message); }
@@ -452,6 +465,7 @@ function bindBed(bedEl) {
 // While the scanner works
 // ---------------------------------------------------------------------
 let scanWasRunning = false;
+let scanPhase = '';
 onJob((job) => {
     if (job.kind !== 'scan' && job.kind !== 'preview') return;
     if (job.state === 'running') return;
@@ -480,8 +494,11 @@ onTab('scan', () => {
     }
     if (running || scanWasRunning) {
         const box = document.getElementById('sc-job');
-        if (running && box && document.getElementById('sc-stop')) box.innerHTML = jobBox();
+        // The buttons are only drawn again when they change: a button replaced under the mouse loses its click
+        const phase = !running ? '' : s.job.waiting ? 'wait' : s.job.countdown ? 'count' : 'scan';
+        if (running && box && document.getElementById('sc-stop') && phase === scanPhase) box.innerHTML = jobBox();
         else renderScanForm();
+        scanPhase = phase;
     }
     scanWasRunning = running;
     // Pages come in one by one during a batch
