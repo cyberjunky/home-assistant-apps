@@ -1,0 +1,9 @@
+configuration:
+  device:
+    name: Flipper's serial port
+    description: >-
+      Leave empty to use the first Flipper Zero that is plugged in. Choose a port only when you have
+      more than one, or when it is not found by itself.
+  log_level:
+    name: Log level
+    description: How much the app writes to its own log.

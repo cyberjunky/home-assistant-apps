@@ -94,6 +94,18 @@ of every incident and response with statistics. Reads everything from Home Assis
 
 [:books: Documentation](app-fireservicerota/DOCS.md) · [:memo: Changelog](app-fireservicerota/CHANGELOG.md) · [:lock: Security](app-fireservicerota/SECURITY.md)
 
+### <img src="app-flipper/icon.png" alt="" width="36" align="absmiddle"> [Flipper](app-flipper/)
+
+![Version][flipper-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+A workbench for a Flipper Zero on USB, opened from the sidebar. Shows the Flipper's screen and
+presses its buttons, manages the files on its SD card, and builds and starts apps on it: C apps
+with Flipper's own build tool, and JavaScript. Includes the Flipper's command line and log.
+
+[:books: Documentation](app-flipper/DOCS.md) · [:memo: Changelog](app-flipper/CHANGELOG.md) · [:lock: Security](app-flipper/SECURITY.md)
+
 ### <img src="app-freqtrade/icon.png" alt="" width="36" align="absmiddle"> [Freqtrade](app-freqtrade/)
 
 ![Version][freqtrade-version-shield]
@@ -344,6 +356,7 @@ software each app packages keeps its own license, noted in the app's README.
 [arcade-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-arcade%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [chronicle-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-chronicle%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [fireservicerota-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-fireservicerota%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[flipper-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-flipper%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [freqtrade-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-freqtrade%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [nuclei-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-nuclei%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [sdradio-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-sdradio%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
