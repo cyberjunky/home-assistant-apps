@@ -1,0 +1,21 @@
+configuration:
+  scan_minutes:
+    name: Scan every (minutes)
+    description: How often Home Assistant is looked over.
+  check_config:
+    name: Check the configuration
+    description: >-
+      Also run Home Assistant's own check of configuration.yaml on every scan.
+  allow_fixes:
+    name: Allow repairs
+    description: >-
+      Turn off to make the app only report: every repair button is gone.
+  deep_scan:
+    name: Deep scan
+    description: >-
+      Also read Home Assistant's database and registry files, to find recorded
+      history of entities that no longer exist. Read only: deleting is still
+      done by Home Assistant itself.
+  log_level:
+    name: Log level
+    description: Amount of logging.

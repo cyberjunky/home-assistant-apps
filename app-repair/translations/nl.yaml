@@ -1,0 +1,21 @@
+configuration:
+  scan_minutes:
+    name: Scannen elke (minuten)
+    description: Hoe vaak Home Assistant wordt nagelopen.
+  check_config:
+    name: Configuratie controleren
+    description: >-
+      Draai bij elke scan ook Home Assistants eigen controle van configuration.yaml.
+  allow_fixes:
+    name: Reparaties toestaan
+    description: >-
+      Zet uit om de app alleen te laten melden: elke reparatieknop verdwijnt.
+  deep_scan:
+    name: Diepe scan
+    description: >-
+      Lees ook de database en de registerbestanden van Home Assistant, om
+      opgeslagen geschiedenis te vinden van entiteiten die niet meer bestaan.
+      Alleen lezen: het verwijderen doet Home Assistant nog steeds zelf.
+  log_level:
+    name: Logniveau
+    description: Hoeveelheid logging.
