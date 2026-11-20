@@ -17,8 +17,23 @@ services:
 
 options:
   bots: []
+  credentials:
+    username: ""
+    password: ""
+    ws_token: ""
+  discovery:
+    enabled: false
+    host: ""
+    ports: "8080"
+    interval_seconds: 120
+    scheme: http
+    username: ""
+    password: ""
+    ws_token: ""
+    verify_ssl: true
   poll_seconds: 30
   read_only: false
+  overview_mode: all
   mqtt:
     enabled: true
     host: ""
@@ -33,12 +48,27 @@ schema:
   bots:
     - name: str
       url: url
-      username: str
-      password: password
+      username: str?
+      password: password?
       ws_token: password?
       verify_ssl: bool?
+  credentials:
+    username: str?
+    password: password?
+    ws_token: password?
+  discovery:
+    enabled: bool?
+    host: str?
+    ports: str?
+    interval_seconds: int(30,3600)?
+    scheme: list(http|https)?
+    username: str?
+    password: password?
+    ws_token: password?
+    verify_ssl: bool?
   poll_seconds: int(10,600)?
   read_only: bool?
+  overview_mode: list(all|live|dry)?
   mqtt:
     enabled: bool?
     host: str?

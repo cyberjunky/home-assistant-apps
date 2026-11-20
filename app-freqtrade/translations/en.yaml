@@ -14,7 +14,7 @@ configuration:
         description: Address of the bot's API server, for example http://192.168.1.20:8080.
       username:
         name: Username
-        description: The username of the bot's api_server.
+        description: The username of the bot's api_server. Leave it and the password empty to use the shared login.
       password:
         name: Password
         description: The password of the bot's api_server.
@@ -26,12 +26,60 @@ configuration:
       verify_ssl:
         name: Check the certificate
         description: Check the certificate of an https address. Turn off for a self-signed certificate.
+  credentials:
+    name: Shared login
+    description: >-
+      One login for every bot that has no username and password of its own, and for the
+      bots that are found by themselves. A bot with its own login needs both fields.
+    fields:
+      username:
+        name: Username
+      password:
+        name: Password
+      ws_token:
+        name: WebSocket token
+        description: "Optional: without it the WebSocket logs in with the username and password."
+  discovery:
+    name: Find bots by themselves
+    description: >-
+      Looks on one machine for Freqtrade API servers, on the ports you give, and adds the
+      bots it finds without a restart. Bots listed under Bots come first. It only reads:
+      it never starts, stops or trades. Off by default.
+    fields:
+      enabled:
+        name: Look for bots
+      host:
+        name: IP address
+        description: The address of the machine the bots run on. One IPv4 or IPv6 address, not a name or a network.
+      ports:
+        name: Ports
+        description: "The API ports to try: single ports and ranges with commas between them, for example 8080,9000-9050. At most 4096 ports."
+      interval_seconds:
+        name: Look every (seconds)
+      scheme:
+        name: Protocol
+      username:
+        name: Username
+        description: The login the bots on this machine share. Leave both fields empty to use the shared login.
+      password:
+        name: Password
+      ws_token:
+        name: WebSocket token
+      verify_ssl:
+        name: Verify certificate
+        description: Check the certificate with https. Turn off for a self-signed certificate.
   poll_seconds:
     name: Read every (seconds)
     description: How often each bot's state is read. A trade reads it at once.
   read_only:
     name: Read-only
     description: Turn off the buttons on a bot's page, so this app can't change your bots.
+  overview_mode:
+    name: Overview shows
+    description: >-
+      The bots the overview starts with, every time the page opens: all, or only the ones
+      trading live or in dry-run, so real and simulated money don't add up in one total.
+      The page has buttons to look at the others.
   mqtt:
     name: MQTT
     description: >-

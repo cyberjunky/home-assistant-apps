@@ -176,11 +176,16 @@ class MqttPublisher:
         self._link: dict[str, str] = {}
         self._discovered: dict[str, str] = {}
         for bot in bots:
+            self.watch(bot)
+
+    def watch(self, bot: BotClient) -> None:
+        """Attach event publishing for a bot discovered after startup."""
+        if self._on_event not in bot.listeners:
             bot.listeners.append(self._on_event)
 
     async def run(self) -> None:
         """Connect and publish until cancelled. Returns right away when MQTT is off or has no broker."""
-        if not self.config.mqtt_enabled or not self.bots:
+        if not self.config.mqtt_enabled:
             return
         host, port = self.config.mqtt_host, self.config.mqtt_port
         user, password = self.config.mqtt_user, self.config.mqtt_password

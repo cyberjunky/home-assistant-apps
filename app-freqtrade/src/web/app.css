@@ -453,3 +453,33 @@ table.data tfoot td { border-top: 1px solid var(--divider-color); border-bottom:
     .topbar > nav.tabs { order: 1; flex: 1 1 100%; }
     nav.tabs .tab { flex: 1 0 auto; padding: 0 8px; }
 }
+
+/* ---------- A bot's connection and the age of its data ---------- */
+details.health { margin: 0 0 14px; font-size: 12.5px; color: var(--secondary-text-color); }
+details.health summary { cursor: pointer; }
+details.health .health-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 12px 18px; margin: 10px 0; color: var(--primary-text-color); }
+details.health .health-grid > div { min-width: 0; overflow-wrap: anywhere; }
+details.health .health-grid b { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--secondary-text-color); margin-bottom: 3px; }
+details.health .sub { display: block; color: var(--secondary-text-color); font-size: 11.5px; }
+details.health .hint { margin: 0; font-size: 11.5px; max-width: 90ch; }
+.badge + .was, .was { font-size: 11.5px; color: var(--secondary-text-color); white-space: nowrap; }
+table.data .was { display: block; }
+
+/* ---------- Fleet: the bar above the overview and the filters in the bots table ---------- */
+.filters.fleet { flex-wrap: wrap; }
+.filters.fleet #fleet-name { width: 150px; }
+#fleet-message { font-size: 12px; color: var(--secondary-text-color); margin: -6px 0 12px; }
+#fleet-message:empty { display: none; }
+.fleet-sort { color: inherit; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; text-transform: inherit; letter-spacing: inherit; white-space: nowrap; }
+.fleet-sort:hover { color: var(--primary-text-color); }
+.fleet-sort:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 3px; }
+.fleet-column-filters td { padding: 4px 5px; }
+.fleet-column-filters .input { width: 100%; min-width: 80px; height: 24px; padding: 0 6px; font-size: 11.5px; }
+.fleet-column-filters [aria-invalid=true] { border-color: var(--danger-color); }
+
+/* A long amount gets smaller letters in a narrow tile instead of running out of it; captions wrap */
+.tile { container-type: inline-size; }
+.tile .v { font-size: clamp(16px, 14.5cqw, 24px); }
+.tile .d { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+.chart-title { flex-wrap: wrap; }
+.chart-title .hint { white-space: normal; }

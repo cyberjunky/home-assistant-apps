@@ -6,10 +6,42 @@ const OV_RANGES = [
 ];
 let ovHours = (() => { try { return localStorage.getItem(LS + 'ov_hours') || '168'; } catch (e) { return '168'; } })();
 let ovMode = (() => { try { return localStorage.getItem(LS + 'ov_mode') || 'total'; } catch (e) { return 'total'; } })();
+// Which bots the overview is about: a trading mode, then (with a fleet) the filters and the sorting.
+// The configured mode is the one every page load starts with; a click on a chip lasts until the reload.
+let ovScope = null;
+const OV_SCOPES = [{key: 'live', label: 'Live'}, {key: 'dry', label: 'Dry-run'}, {key: 'all', label: 'All'}];
+function initOverviewScope() {
+    if (ovScope !== null || !app.status) return;
+    const mode = app.status.config.overview_mode;
+    ovScope = OV_SCOPES.some(o => o.key === mode) ? mode : 'all';
+    buildChips('ov-scope', OV_SCOPES, ovScope, key => {
+        ovScope = key;
+        renderOverview();
+        renderOvHistory();
+    });
+}
+function modeBots() {
+    return bots().filter(b => ovScope === null || ovScope === 'all' || b.config.dry_run === (ovScope === 'dry'));
+}
+function overviewBots() {
+    return fleetSelect(modeBots(), fleetSettings());
+}
+function overviewCurrency() {
+    const counts = new Map();
+    overviewBots().forEach(b => {
+        const c = b.config.stake_currency;
+        if (c) counts.set(c, (counts.get(c) || 0) + 1);
+    });
+    return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+}
+// More bots than this with the same trouble share one notice
+const OV_NOTICES = 3;
 let ovHistory = null;
 let ovHistoryAt = 0;
 
 function renderOverview() {
+    initOverviewScope();
+    fleetToolbar(overviewBots(), modeBots());
     renderOvNotices();
     renderOvTiles();
     renderOvBots();
@@ -21,21 +53,39 @@ function renderOverview() {
 
 function renderOvNotices() {
     const notes = [];
-    if (!bots().length) {
+    if (!bots().length && app.status.discovery && app.status.discovery.enabled) {
+        notes.push(['info', `No bots found yet. The app looks on <span class="mono">${escapeHtml(app.status.discovery.host)}</span> every ${app.status.discovery.interval_seconds} seconds; <b>Info</b> shows the last time and what went wrong.`]);
+    } else if (!bots().length) {
         notes.push(['info', 'No bots yet. Add each bot under <b>bots</b> in the app\'s configuration: a name, the address of its API server (for example <span class="mono">http://192.168.1.10:8080</span>), and the username and password of its <span class="mono">api_server</span>. Then restart the app.']);
     }
-    bots().forEach(b => {
-        if (!b.connected) {
-            notes.push(['bad', `<b>${escapeHtml(b.name)}</b> can't be reached${b.error ? ': ' + escapeHtml(b.error) : '…'}`]);
-        } else if (!b.ws_connected && b.ws_error) {
-            notes.push(['', `<b>${escapeHtml(b.name)}</b>: no live events, its WebSocket ${escapeHtml(b.ws_error)}. Its state is still read every ${app.status.config.poll_seconds} seconds.`]);
-        }
-    });
+    // With a few bots each one says what is wrong; a fleet that is down gets one line, not a wall of them
+    const selected = overviewBots();
+    const offline = selected.filter(b => !b.connected);
+    const noEvents = selected.filter(b => b.connected && !b.ws_connected && b.ws_error);
+    if (offline.length > OV_NOTICES) {
+        notes.push(['bad', `<b>${offline.length} of ${selected.length} bots</b> can't be read. The totals leave them out; the table below says what is wrong with each.`]);
+    } else {
+        offline.forEach(b => {
+            const lead = healthModel(b).api === 'reachable' ? 'answers, but not everything could be read' : 'can\'t be reached';
+            notes.push(['bad', `<b>${escapeHtml(b.name)}</b> ${lead}${b.error ? ': ' + escapeHtml(b.error) : '…'}`]);
+        });
+    }
+    if (noEvents.length > OV_NOTICES) {
+        notes.push(['', `<b>${noEvents.length} bots</b> send no live events. Their state is still read every ${app.status.config.poll_seconds} seconds.`]);
+    } else {
+        noEvents.forEach(b => notes.push(['', `<b>${escapeHtml(b.name)}</b>: no live events, its WebSocket ${escapeHtml(b.ws_error)}. Its state is still read every ${app.status.config.poll_seconds} seconds.`]));
+    }
+    // The mode chips only when there is something to choose
+    const modes = new Set(bots().map(b => b.config.dry_run).filter(v => typeof v === 'boolean'));
+    document.getElementById('ov-scope-row').hidden = modes.size < 2 && ovScope === 'all';
+    const unknown = bots().filter(b => typeof b.config.dry_run !== 'boolean' && b.updated).length;
+    if (ovScope !== 'all' && unknown) notes.push(['info', `${unknown} ${unknown === 1 ? 'bot doesn\'t' : 'bots don\'t'} say whether they trade live or dry-run. <b>All</b> shows them too.`]);
+    document.getElementById('ov-mixed-mode').hidden = !(selected.some(b => b.config.dry_run === true) && selected.some(b => b.config.dry_run === false));
     document.getElementById('ov-notices').innerHTML = notes.map(([kind, html]) => `<div class="setup-hint ${kind}"><span>${html}</span></div>`).join('');
 }
 
 function renderOvTiles() {
-    const all = bots();
+    const all = overviewBots();
     const up = all.filter(b => b.connected);
     const running = up.filter(b => b.config.state === 'running').length;
     const balance = byCurrency(up, b => b.balance.total_bot);
@@ -44,7 +94,7 @@ function renderOvTiles() {
     const today = byCurrency(up, b => b.today ? b.today.abs_profit : null);
     const openProfit = byCurrency(up, b => b.open_profit);
     const inUse = byCurrency(up, b => b.count.total_stake);
-    const main = mainCurrency();
+    const main = overviewCurrency();
     const ratioOf = (amounts) => main && start.get(main) ? amounts.get(main) / start.get(main) : null;
     const wins = up.reduce((a, b) => a + (b.profit.winning_trades || 0), 0);
     const losses = up.reduce((a, b) => a + (b.profit.losing_trades || 0), 0);
@@ -59,7 +109,7 @@ function renderOvTiles() {
     const profitMain = profit.get(main);
     const todayMain = today.get(main);
     document.getElementById('ov-tiles').innerHTML = [
-        tile('Bots', `${running}<small> / ${all.length} running</small>`, all.length - up.length ? `<span class="neg">${all.length - up.length} not reachable</span>` : `${up.filter(b => b.config.dry_run === false).length} live · ${up.filter(b => b.config.dry_run).length} dry-run`),
+        tile('Bots', `${running}<small> / ${all.length} running</small>`, all.length - up.length ? `<span class="neg">${all.length - up.length} can't be read</span>` : `${up.filter(b => b.config.dry_run === false).length} live · ${up.filter(b => b.config.dry_run).length} dry-run`),
         tile('Balance', currencyText(balance, tileMoney), `start ${escapeHtml(currencyText(start, fmtMoney))}`),
         tile('Profit', pnl(currencyText(profit, tileSigned), profitMain), `${pnl(pct(ratioOf(profit)), profitMain)} of the starting capital`),
         tile('Today', pnl(currencyText(today, tileSigned), todayMain), `${tradesToday} ${tradesToday === 1 ? 'trade' : 'trades'} closed`),
@@ -71,23 +121,22 @@ function renderOvTiles() {
 }
 
 function renderOvBots() {
-    const all = bots();
+    const all = overviewBots();
     const rows = all.map(b => {
         const c = b.config, p = b.profit, cur = c.stake_currency || '', dec = c.stake_currency_decimals;
         if (!b.updated) {
             return `<tr onclick="switchTab('bot-${escapeHtml(b.slug)}')">
                 ${td(`<span class="name" style="border-left:3px solid ${botColor(b.slug)};padding-left:7px">${escapeHtml(b.name)}</span><span class="sub" style="padding-left:10px">${escapeHtml(b.host)}</span>`)}
-                ${td('<span class="badge bad">OFFLINE</span>')}
+                ${td(healthState(b))}
                 <td colspan="7" class="muted wrap">${escapeHtml(b.error || 'connecting…')}</td>
-                ${td('<span class="sdot bad" title="REST API not reachable"></span> <span class="sdot bad" title="WebSocket not connected"></span>')}
+                ${td(healthConnection(b))}
             </tr>`;
         }
         const today = b.today ? b.today.abs_profit : null;
         const wl = (p.winning_trades || 0) + (p.losing_trades || 0);
-        const link = `<span class="sdot ${b.connected ? 'ok' : 'bad'}" title="REST API ${b.connected ? 'connected' : 'not reachable'}"></span> <span class="sdot ${b.ws_connected ? 'ok' : 'warn'}" title="WebSocket ${b.ws_connected ? 'connected' : escapeHtml(b.ws_error || 'not connected')}"></span>`;
         return `<tr onclick="switchTab('bot-${escapeHtml(b.slug)}')">
             ${td(`<span class="name" style="border-left:3px solid ${botColor(b.slug)};padding-left:7px">${escapeHtml(b.name)}</span><span class="sub" style="padding-left:10px">${escapeHtml(c.strategy || b.host)}${c.timeframe ? ' · ' + escapeHtml(c.timeframe) : ''}</span>`)}
-            ${td(b.connected ? `${stateBadge(c.state)} ${modeBadge(c)}` : '<span class="badge bad">OFFLINE</span>')}
+            ${td(`${healthState(b)} ${modeBadge(c)}${healthWas(b)}`)}
             ${td(`${escapeHtml(c.exchange || '–')}<span class="sub">${escapeHtml([c.trading_mode, c.margin_mode].filter(Boolean).join(' · '))}</span>`)}
             ${td(`${money(b.balance.total_bot, cur, dec)}<span class="sub">start ${money(b.balance.starting_capital, '', dec)}</span>`, 'n')}
             ${td(`${pnl(signedMoney(p.profit_all_coin, '', dec), p.profit_all_coin)}<span class="sub">${pnl(pct(p.profit_all_ratio), p.profit_all_ratio)}</span>`, 'n')}
@@ -95,11 +144,11 @@ function renderOvBots() {
             ${td(`${b.count.current ?? '–'} / ${b.count.max > 0 ? b.count.max : '∞'}<span class="sub">${pnl(signedMoney(b.open_profit, '', dec), b.open_profit)}</span>`, 'n')}
             ${td(`${plainPct(wl ? p.winning_trades / wl : null)}<span class="sub">${p.winning_trades ?? 0} / ${p.losing_trades ?? 0}</span>`, 'n')}
             ${td(`${num(p.closed_trade_count)}<span class="sub">${escapeHtml(fmtAgo(ms(p.latest_trade_timestamp)))}</span>`, 'n')}
-            ${td(link)}
+            ${td(healthConnection(b))}
         </tr>`;
     });
     let foot = null;
-    const main = mainCurrency();
+    const main = overviewCurrency();
     const same = all.filter(b => b.connected && b.config.stake_currency === main);
     if (same.length > 1) {
         const total = f => same.reduce((a, b) => a + (Number(f(b)) || 0), 0);
@@ -108,16 +157,20 @@ function renderOvBots() {
         foot = [`All ${escapeHtml(main)} bots`, '', '', money(total(b => b.balance.total_bot), main), pnl(signedMoney(prof), prof), pnl(signedMoney(today), today),
             `${total(b => b.count.current)}<span class="sub">${pnl(signedMoney(open), open)}</span>`, '', num(total(b => b.profit.closed_trade_count)), ''];
     }
-    document.getElementById('ov-bots').innerHTML = table([
+    const head = [
         {label: 'Bot'}, {label: 'State'}, {label: 'Exchange'}, {label: 'Balance', n: 1}, {label: 'Profit', n: 1},
         {label: 'Today', n: 1}, {label: 'Open', n: 1}, {label: 'Win rate', n: 1}, {label: 'Trades', n: 1}, {label: 'Link'},
-    ], rows, {cls: 'bots', foot, empty: 'No bots configured'});
+    ];
+    const none = bots().length ? 'No bots match' : 'No bots configured';
+    // With filters the table stays, also when it is empty: the filters are in its head
+    fleetRenderTable(document.getElementById('ov-bots'), table(head,
+        rows.length || !fleetOn() ? rows : [`<tr><td colspan="${head.length}" class="muted">${none}</td></tr>`], {cls: 'bots', foot, empty: none}));
 }
 
 function renderOvAllocation() {
-    const main = mainCurrency();
-    const same = bots().filter(b => b.connected && b.config.stake_currency === main);
-    const others = bots().filter(b => b.connected && b.config.stake_currency !== main).length;
+    const main = overviewCurrency();
+    const same = overviewBots().filter(b => b.connected && b.config.stake_currency === main);
+    const others = overviewBots().filter(b => b.connected && b.config.stake_currency !== main).length;
     document.getElementById('ov-alloc-hint').textContent = `balance per bot${main ? ' · ' + main : ''}${others ? ` · ${others} in another currency left out` : ''}`;
     const total = same.reduce((a, b) => a + (b.balance.total_bot || 0), 0);
     donutChart(document.getElementById('ov-alloc'),
@@ -126,8 +179,8 @@ function renderOvAllocation() {
 }
 
 function renderOvDaily() {
-    const main = mainCurrency();
-    const same = bots().filter(b => b.config.stake_currency === main && b.daily && b.daily.length);
+    const main = overviewCurrency();
+    const same = overviewBots().filter(b => b.config.stake_currency === main && b.daily && b.daily.length);
     const days = [];
     const today = new Date();
     for (let i = 29; i >= 0; i--) {
@@ -148,14 +201,14 @@ function renderOvDaily() {
 }
 
 function renderOvEvents() {
-    const events = bots().flatMap(b => b.events || []).sort((a, b) => b.ts - a.ts).slice(0, 14);
+    const events = overviewBots().flatMap(b => b.events || []).sort((a, b) => b.ts - a.ts).slice(0, 14);
     document.getElementById('ov-events').innerHTML = events.length
         ? events.map(e => eventHtml(e, true)).join('')
         : '<div class="empty-state">No events yet. Entries, exits, warnings and protections show here as they happen.</div>';
 }
 
 function renderOvOpen() {
-    const trades = bots().flatMap(b => b.open_trades.map(t => ({...t, bot: b})))
+    const trades = overviewBots().flatMap(b => b.open_trades.map(t => ({...t, bot: b})))
         .sort((a, b) => (b.open_timestamp || 0) - (a.open_timestamp || 0));
     const rows = trades.map(t => {
         const c = t.bot.config, cur = c.stake_currency || '';
@@ -193,8 +246,8 @@ async function loadOvHistory(force) {
 function renderOvHistory() {
     const el = document.getElementById('ov-equity');
     const legend = document.getElementById('ov-equity-legend');
-    const main = mainCurrency();
-    const known = bots().filter(b => b.config.stake_currency === main || !b.config.stake_currency);
+    const main = overviewCurrency();
+    const known = overviewBots().filter(b => b.config.stake_currency === main || !b.config.stake_currency);
     const hist = ovHistory && ovHistory.bots;
     if (!hist || !known.some(b => hist[b.slug] && hist[b.slug].points.length > 1)) {
         legend.innerHTML = '';

@@ -32,6 +32,7 @@ def public_config(config: Config) -> dict:
     return {
         "poll_seconds": config.poll_seconds,
         "read_only": config.read_only,
+        "overview_mode": config.overview_mode,
         "mqtt_enabled": config.mqtt_enabled,
         "mqtt_base_topic": config.mqtt_base_topic,
         "mqtt_discovery_prefix": config.mqtt_discovery_prefix,
@@ -59,6 +60,7 @@ class WebUI:
         self.database = database
         self.bots = {bot.slug: bot for bot in bots}
         self.mqtt = mqtt
+        self.discovery = None
         # A backup cut short by a crash must not stay behind in the app's storage
         for stale in database.path.parent.glob("backup-*.db"):
             stale.unlink(missing_ok=True)
@@ -116,6 +118,7 @@ class WebUI:
                     "broker": self.mqtt.broker if self.mqtt else "",
                 },
                 "database": self.database.counts(),
+                "discovery": self.discovery.status() if self.discovery else {"enabled": False},
             }
         )
 

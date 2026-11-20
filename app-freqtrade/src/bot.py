@@ -107,6 +107,33 @@ async def in_turn(*calls: Coroutine) -> list:
             call.close()
 
 
+def no_answer(error: BaseException) -> bool:
+    """Whether a failed call never got an answer: no connection, or no answer in time."""
+    return isinstance(error.__cause__, (aiohttp.ClientConnectionError, TimeoutError))
+
+
+async def each_in_turn(*calls: Coroutine) -> list:
+    """Like in_turn, but a call that fails gives its FreqtradeError as its answer and the rest still run.
+
+    After a call that got no answer at all the rest isn't tried: each would wait for its own timeout.
+    They get that same error.
+    """
+    results: list = []
+    try:
+        for call in calls:
+            try:
+                results.append(await call)
+            except FreqtradeError as e:
+                results.append(e)
+                if no_answer(e):
+                    results.extend([e] * (len(calls) - len(results)))
+                    break
+    finally:
+        for call in calls:
+            call.close()
+    return results
+
+
 def trimmed_trade(trade: dict) -> dict:
     return {key: trade.get(key) for key in TRADE_FIELDS}
 
@@ -206,6 +233,11 @@ class BotClient:
         self.connected = False
         self.connected_since: float | None = None
         self.error = ""
+        self.api_status = "unknown"
+        self.last_attempt: float | None = None
+        self.state_updated: float | None = None
+        self.refresh_duration_ms: float | None = None
+        self.details_error = ""
         self.updated: float | None = None
         self.slow_updated: float | None = None
         self.data: dict[str, Any] = {}
@@ -251,12 +283,8 @@ class BotClient:
         while True:
             try:
                 await self.refresh()
-            except FreqtradeError as e:
-                if self.connected or str(e) != self.error:
-                    logger.warning(f"{self.name}: {e}")
-                self.connected = False
-                self.connected_since = None
-                self.error = str(e)
+            except FreqtradeError:
+                pass  # refresh() logged it and marked the bot
             except Exception as e:  # An answer this app doesn't understand must not stop the other bots
                 logger.exception(f"{self.name}: reading the bot failed")
                 self.error = f"unexpected answer: {e!r}"
@@ -266,9 +294,25 @@ class BotClient:
             self._wake.clear()
 
     async def refresh(self) -> None:
+        """Read the bot once. A failure marks the bot and is raised again, as FreqtradeError."""
+        self.last_attempt = time.time()
+        started = time.monotonic()
+        try:
+            await self._refresh()
+        except FreqtradeError as e:
+            if self.connected or str(e) != self.error:
+                logger.warning(f"{self.name}: {e}")
+            self.connected = False
+            self.connected_since = None
+            self.error = str(e)
+            raise
+        finally:
+            self.refresh_duration_ms = round((time.monotonic() - started) * 1000)
+
+    async def _refresh(self) -> None:
         """Read the state; the slower details too when they are due. Raises FreqtradeError."""
         slow = self._slow_due or not self.slow_updated or time.time() - self.slow_updated >= SLOW_SECONDS
-        config, balance, profit_all, count, status, locks, health = await in_turn(
+        results = await each_in_turn(
             self.get("show_config"),
             self.get("balance"),
             self._profit_all(),
@@ -277,6 +321,37 @@ class BotClient:
             self.get("locks"),
             self.optional("health"),
         )
+        config, balance, profit_all, count, status, locks, health = results
+        required = results[:6]
+        if isinstance(config, dict):
+            self.data["config"] = config
+            self.state_updated = time.time()
+        if any(not isinstance(value, BaseException) for value in required):
+            self.api_status = "reachable"
+        elif all(no_answer(value) for value in required):
+            self.api_status = "unreachable"
+        else:
+            self.api_status = "error"
+        for index, result in enumerate(results):
+            if not isinstance(result, BaseException):
+                continue
+            stopped_count = (
+                index == 3
+                and isinstance(result, FreqtradeError)
+                and isinstance(config, dict)
+                and config.get("state") == "stopped"
+                and "trader is not running" in str(result).lower()
+            )
+            if not stopped_count:
+                raise result
+        if isinstance(count, FreqtradeError):
+            # /count requires a running trader, while /status still reports open
+            # positions. A stopped trading loop is not an unavailable API.
+            count = {
+                "current": len(status or []),
+                "max": config.get("max_open_trades"),
+                "total_stake": sum(trade.get("stake_amount") or 0 for trade in status or []),
+            }
         self.data.update(
             config=config,
             balance=balance,
@@ -294,8 +369,17 @@ class BotClient:
         self.updated = time.time()
         if slow:
             self._slow_due = False
-            await self._refresh_slow()
-            self.slow_updated = time.time()
+            try:
+                await self._refresh_slow()
+            except FreqtradeError as e:
+                # The state above was read fine: keep it, and try the details again at the next poll
+                if str(e) != self.details_error:
+                    logger.warning(f"{self.name}: details: {e}")
+                self.details_error = str(e)
+                self._slow_due = True
+            else:
+                self.slow_updated = time.time()
+                self.details_error = ""
         if self.database:
             self.database.snapshot(self)
 
@@ -565,6 +649,16 @@ class BotClient:
             "connected_since": self.connected_since,
             "error": self.error,
             "updated": self.updated,
+            "diagnostics": {
+                "api_status": self.api_status,
+                "last_attempt": self.last_attempt,
+                "state_updated": self.state_updated,
+                "details_updated": self.slow_updated,
+                "details_error": self.details_error,
+                "refresh_duration_ms": self.refresh_duration_ms,
+                "stale_after": max(60, self.poll_seconds * 3),
+                "details_stale_after": max(180, SLOW_SECONDS * 3),
+            },
             "ws_connected": self.ws_connected,
             "ws_since": self.ws_since,
             "ws_error": self.ws_error,

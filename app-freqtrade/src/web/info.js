@@ -33,6 +33,11 @@ function renderInfo() {
         infoRow('Details read every', '5 min, and after a trade'),
         infoRow('Read-only', c.read_only ? 'on <span class="muted">· nothing can be changed</span>' : 'off <span class="muted">· bots can be controlled</span>'),
         infoRow('Log level', escapeHtml(c.log_level)),
+        ...(s.discovery && s.discovery.enabled ? [
+            infoRow('Looks for bots', `on ${escapeHtml(s.discovery.host)} · ${num(s.discovery.ports)} ${s.discovery.ports === 1 ? 'port' : 'ports'} · every ${num(s.discovery.interval_seconds)} s`),
+            infoRow('Last looked', s.discovery.last_scan ? `${escapeHtml(fmtAgo(s.discovery.last_scan))} <span class="muted">· ${num(s.discovery.last_found)} answered · ${num(s.discovery.known_bots)} known</span>` : 'looking…'),
+            ...(s.discovery.error ? [infoRow('Notice', `<span class="neg">${escapeHtml(s.discovery.error)}</span>`)] : []),
+        ] : [infoRow('Looks for bots', 'off')]),
     ].join('');
     document.getElementById('set-mqtt').innerHTML = [
         infoRow('Publishing', yes(c.mqtt_enabled)),

@@ -35,6 +35,8 @@
             <div class="container">
                 <!-- Overview: all bots together -->
                 <div id="tab-overview" class="tab-content">
+                    <div class="chart-title" id="ov-scope-row" hidden><span>Bots <span id="ov-mixed-mode" class="badge warn" hidden title="The totals add real and simulated money together. Choose Live or Dry-run to keep them apart.">live and dry-run together</span></span><span class="tabs" role="group" aria-label="Trading mode" id="ov-scope"></span></div>
+                    <div id="ov-fleet"></div>
                     <div id="ov-notices"></div>
                     <div id="ov-tiles" class="tiles kpi-tiles"></div>
                     <div class="panel"><div class="panel-body">
@@ -77,6 +79,7 @@
                         <span class="range-text" id="bot-updated"></span>
                     </div>
                     <div id="bot-notices"></div>
+                    <div id="bot-health"></div>
 
                     <div class="bot-section" data-section="summary">
                         <div id="bot-tiles" class="tiles kpi-tiles"></div>
@@ -262,6 +265,8 @@
 
     <script src="static/core.js?v=__VERSION__"></script>
     <script src="static/charts.js?v=__VERSION__"></script>
+    <script src="static/health.js?v=__VERSION__"></script>
+    <script src="static/fleet.js?v=__VERSION__"></script>
     <script src="static/overview.js?v=__VERSION__"></script>
     <script src="static/bot.js?v=__VERSION__"></script>
     <script src="static/candles.js?v=__VERSION__"></script>

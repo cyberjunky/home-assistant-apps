@@ -386,3 +386,17 @@ def test_startup_messages_are_plain_text():
         }
     )
     assert text == "Pairs from VolumePairList - top 200 volume pairs.; AgeFilter - min 10 days"
+
+
+@pytest.mark.parametrize("mode", ["live", "dry", "all"])
+def test_overview_default_is_exposed(mode):
+    from src.webui import public_config
+
+    config = Config.from_options({"overview_mode": mode})
+    assert public_config(config)["overview_mode"] == mode
+
+
+def test_overview_default_validation():
+    assert Config.from_options({}).overview_mode == "all"
+    with pytest.raises(ValueError, match="overview_mode"):
+        Config.from_options({"overview_mode": "invalid"})
