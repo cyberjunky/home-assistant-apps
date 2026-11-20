@@ -1,0 +1,15 @@
+#!/command/with-contenv bash
+# shellcheck shell=bash
+# ==============================================================================
+# The app stopped.
+# Arguments: ${1} = exit code (256 when killed by a signal), ${2} = signal
+# ==============================================================================
+
+# A fatal error (such as an option that can't be used): stop the app instead of
+# restarting it in an endless loop
+if [[ "${1:-0}" -ne 0 ]] && [[ "${1:-0}" -ne 256 ]]; then
+    echo "[ERROR] Scanner failed with exit code ${1}, stopping the app"
+    echo "${1:-0}" > /run/s6-linux-init-container-results/exitcode
+    exec /run/s6/basedir/bin/halt
+fi
+echo "[INFO] Scanner stopped"

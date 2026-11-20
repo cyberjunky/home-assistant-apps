@@ -1,0 +1,12 @@
+#!/command/with-contenv bash
+# shellcheck shell=bash
+# ==============================================================================
+# ipp-usb: serves driverless USB scanners (IPP over USB) as eSCL on this machine, for sane-airscan.
+# It finds the scanners that are plugged in when it starts; the app's Search restarts it.
+# ==============================================================================
+if [[ ! -e /run/scanner/driverless-usb ]]; then
+    # Switched off in the options: nothing to run
+    exec sleep infinity
+fi
+# "debug" only means: in the foreground, with the log on the console (see console-log in its configuration)
+exec ipp-usb debug

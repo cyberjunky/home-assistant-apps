@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- The top bar is as high as Home Assistant's own header (its --header-height, 56px by default) -->
+    <script>try{const h=getComputedStyle(window.parent.document.documentElement).getPropertyValue('--header-height').trim();if(h)document.documentElement.style.setProperty('--ha-header-height',h);}catch(e){}</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanner</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='%234c8dff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M3 5l17 6M4 13h16a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1zM7 16h1M11 16h6'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="static/app.css?v=__VERSION__"/>
+    <link rel="stylesheet" href="static/scanner.css?v=__VERSION__"/>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3 5l17 6M4 13h16a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1zM7 16h1M11 16h6"/></svg>
+            <span class="brand-name">Scanner</span>
+            <span class="brand-sub" id="brand-sub"></span>
+        </div>
+        <nav class="tabs" id="nav" aria-label="Views">
+            <button type="button" class="tab" data-tab="scan" onclick="switchTab('scan')">Scan</button>
+            <button type="button" class="tab" data-tab="archive" onclick="switchTab('archive')">Archive</button>
+            <button type="button" class="tab" data-tab="settings" onclick="switchTab('settings')">Settings</button>
+            <span class="tab-sep" aria-hidden="true"></span>
+            <button type="button" class="tab" data-tab="info" onclick="switchTab('info')" title="Info"><span class="tab-label">Info</span><span class="tab-icon" aria-hidden="true">ⓘ</span></button>
+        </nav>
+        <span class="spacer"></span>
+        <div class="tabs" role="group" aria-label="Theme">
+            <button type="button" id="theme-toggle" class="tab icon-tab" onclick="cycleTheme()" title="Theme"><span id="theme-icon" aria-hidden="true">🌓</span></button>
+        </div>
+        <span id="clock" class="clock"></span>
+    </header>
+
+    <div class="views">
+        <div class="pages" id="pages">
+            <div class="container">
+                <!-- Each page fills its own container; see the script of the same name -->
+                <div id="notices"></div>
+                <div id="tab-scan" class="tab-content"></div>
+                <div id="tab-archive" class="tab-content"></div>
+                <div id="tab-settings" class="tab-content"></div>
+                <div id="tab-info" class="tab-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="statusbar" id="statusbar"></footer>
+    <div id="toast-root"></div>
+    <div id="modal-root"></div>
+
+    <script src="static/core.js?v=__VERSION__"></script>
+    <script src="static/scan.js?v=__VERSION__"></script>
+    <script src="static/tray.js?v=__VERSION__"></script>
+    <script src="static/archive.js?v=__VERSION__"></script>
+    <script src="static/settings.js?v=__VERSION__"></script>
+    <script src="static/info.js?v=__VERSION__"></script>
+    <script src="static/main.js?v=__VERSION__"></script>
+    <script src="static/donate.js?v=__VERSION__" data-app="Scanner" data-api="api/donate"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+.git
+.github
+.ruff_cache
+**/__pycache__
+screenshots
+tools
+*.md
