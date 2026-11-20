@@ -65,7 +65,7 @@ The sorting goes by wording, so a line can land in the wrong group. Read the mes
 | **Reload** an integration | Home Assistant stops and starts it again. Offered when it failed to start, keeps retrying, or its device doesn't answer |
 | **Disable** an entity | The entity stays registered but is switched off |
 | **Remove** an entity and everything stored about it | Its recorded history is purged, its long-term statistics are deleted, and it is taken out of the registry |
-| **Remove** a device | The same for each of its entities, then the device is removed from its integration |
+| **Remove** a device | The same for each of its entities, then the device itself: a Zigbee device through ZHA (`zha.remove`), any other through the device registry, as Home Assistant's own Delete button does. Only offered where that can work |
 | **Delete statistics** | The long-term statistics of the entities named |
 | **Apply a suggestion** | What the Supervisor proposes for a problem it found |
 | **Delete history** of entities that are gone | With the deep scan on: the recorder is asked to purge what is still stored of them |
@@ -79,7 +79,7 @@ Every repair asks first. One that removes something asks you to type a word. Aft
 - **An expired login.** Signing in again is done on the integration's page; the finding links there.
 - **Automations, scripts, scenes and dashboards.** The app names what they refer to that is gone and links to the editor. It does not edit them.
 - **Home Assistant's own repairs.** Their fix is Home Assistant's own: the finding links to Settings → Repairs.
-- **Devices of integrations that don't allow it.** Some integrations don't let Home Assistant remove their devices. The step then fails and says so: remove the device in that integration, or on the device itself.
+- **Devices of integrations that don't allow it.** Some integrations don't let Home Assistant remove their devices. Removing the device is then not offered, and nothing is removed at all: taking only its entities would leave the device, and the integration would make them again. Remove it on the integration's own page, or reset the device.
 
 ## Clean up
 
@@ -101,6 +101,8 @@ Home Assistant's API only knows the entities it has now. What was removed long a
 
 - **The database** (`home-assistant_v2.db`): which recorded entities Home Assistant no longer has, and how many states each still holds. They become one finding, **Recorded history of entities that no longer exist**, with a repair that deletes them.
 - **The registry files** (`.storage/core.entity_registry` and `core.device_registry`): how many removed entities and devices they still remember. This is only shown, on the **Clean up** page.
+
+On the **Clean up** page every gone entity is listed with how many states it still has, with a tick box. Filter the list, tick what should go (or **Tick all shown**), and delete the history of just those. Only entities the deep scan found as gone can be picked; the app checks that again before it asks the recorder.
 
 How it stays safe:
 

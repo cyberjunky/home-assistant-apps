@@ -159,6 +159,22 @@ class Engine:
         finding, offered = self.offered(finding_id, index, fix)
         return await self._apply(fix, offered["args"], finding["subject"]["name"])
 
+    async def purge_selected(self, entity_ids: list[str]) -> dict:
+        """Delete the recorded history of the gone entities picked on the Clean up page.
+
+        Only entities the deep scan found as gone are accepted: the browser picks from that list, it
+        can't name anything else.
+        """
+        orphans = ((self.snapshot.storage or {}).get("database") or {}).get("orphans") if self.snapshot else None
+        if not orphans:
+            raise LookupError("The deep scan found no history of entities that no longer exist")
+        gone = {o["entity_id"] for o in orphans}
+        picked = list(dict.fromkeys(e for e in entity_ids if e in gone))
+        if not picked:
+            raise LookupError("None of these is history the deep scan found")
+        subject = picked[0] if len(picked) == 1 else f"{len(picked)} entities that no longer exist"
+        return await self._apply("purge_history", {"entity_ids": picked}, subject)
+
     async def cleanup(self, kind: str, item_id: str) -> dict:
         """Remove an entity or a device the latest scan knows, with everything stored about it."""
         snap = self.snapshot
@@ -302,10 +318,11 @@ class Engine:
                 {
                     "title": e.get("title") or e["domain"],
                     "domain": e["domain"],
-                    "removable": bool(e.get("supports_remove_device")),
                 }
                 for e in entries
             ],
+            "removable": bool(checks.removal(snap, device)[0]),
+            "not_removable": checks.removal(snap, device)[1],
             "entities": [entity_view(e) for e in entity_ids],
             "used_in": self._used_in(set(entity_ids), item_id),
             "findings": [

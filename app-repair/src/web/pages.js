@@ -248,7 +248,7 @@ function renderCleanup() {
     fill('cu-item', `
         <div class="panel"><div class="panel-body">
             <div class="chart-title"><span>${escapeHtml(it.type)} · ${escapeHtml(it.name)}</span><span class="hint mono">${escapeHtml(it.id)}</span></div>
-            ${it.type === 'device' ? infoRow('Made by', escapeHtml([it.maker, it.model].filter(Boolean).join(' · ') || '–')) + infoRow('Held by', it.integrations.map(i => `${escapeHtml(i.title)}${i.removable ? '' : ' <span class="muted">(does not let Home Assistant remove its devices)</span>'}`).join('<br>') || '<span class="neg">no integration: left behind</span>') : ''}
+            ${it.type === 'device' ? infoRow('Made by', escapeHtml([it.maker, it.model].filter(Boolean).join(' · ') || '–')) + infoRow('Held by', it.integrations.map(i => escapeHtml(i.title)).join('<br>') || '<span class="neg">no integration: left behind</span>') : ''}
             ${it.device ? infoRow('Part of', `<a class="ha-link" href="#" onclick="inspectItem('device', '${escapeHtml(it.device.id)}'); return false">${escapeHtml(it.device.name)}</a>`) : ''}
             <div class="section-title" style="margin-top:14px">Entities</div>
             <div class="table-wrap">${table(
@@ -264,7 +264,7 @@ function renderCleanup() {
             <div class="danger-zone">
                 <div class="section-title">Remove completely</div>
                 <p class="panel-sub">Removes ${escapeHtml(stored.join(', '))}. It can't be undone here: a backup of Home Assistant is the way back. If its integration still offers it, it comes back by itself.</p>
-                ${fixesAllowed() ? `<button type="button" class="btn btn-danger" onclick="removeItem()">Remove ${escapeHtml(it.name)} and everything stored about it</button>` : '<p class="muted">Repairs are turned off in the app\'s configuration.</p>'}
+                ${it.type === 'device' && !it.removable ? `<p class="muted">${escapeHtml(it.not_removable)}: remove it on the integration's own page, or reset the device. Its entities alone are not removed from here, because the integration would make them again.</p>` : fixesAllowed() ? `<button type="button" class="btn btn-danger" onclick="removeItem()">Remove ${escapeHtml(it.name)} and everything stored about it</button>` : '<p class="muted">Repairs are turned off in the app\'s configuration.</p>'}
                 <div id="cu-result"></div>
             </div>
         </div></div>`);
@@ -318,10 +318,22 @@ onTab('cleanup', () => {
             searchTimer = setTimeout(() => runSearch(text), 200);
         });
     }
-    fill('cu-storage', storageHtml());
+    // The storage panel is only drawn again when the scan changed, so a half-made pick isn't lost
+    const storageKey = String(app.status.scanned_at) + app.status.config.deep_scan;
+    const box = document.getElementById('cu-storage');
+    if (box._key !== storageKey) {
+        box._key = storageKey;
+        box.innerHTML = storageHtml();
+        const input = document.getElementById('pg-filter');
+        if (input) input.addEventListener('input', (e) => { purgeFilter = e.target.value; renderPurgeTable(); });
+        renderPurgeTable();
+    }
 });
 
 // What the deep scan found in Home Assistant's own storage: leftovers its API doesn't show
+const purgePick = new Set();
+let purgeFilter = '';
+
 function storageHtml() {
     const s = app.status, st = s.storage;
     if (!s.config.deep_scan) {
@@ -330,7 +342,6 @@ function storageHtml() {
     if (!st) return '';
     if (!st.available) return `<div class="note warn">Deep scan: ${escapeHtml(st.note || 'the configuration folder can\'t be read')}</div>`;
     const db = st.database, reg = st.registry;
-    const finding = app.findings.find(f => f.kind === 'history_without_entity');
     const orphans = db.orphans || [];
     const rows = orphans.reduce((a, o) => a + (o.rows || 0), 0);
     const dbRows = !db.found ? infoRow('Database', `<span class="muted">${escapeHtml(db.note)}</span>`)
@@ -342,15 +353,89 @@ function storageHtml() {
     return `<div class="panel"><div class="panel-body">
         <div class="chart-title"><span>Leftovers in Home Assistant's storage</span><span class="hint">from the deep scan · read only</span></div>
         ${dbRows}
-        ${orphans.length ? `<div class="table-wrap" style="margin-top:8px">${table([{label: 'Entity that is gone'}, {label: 'Stored states', n: 1}],
-            orphans.slice(0, 15).map(o => `<tr>${td(`<span class="mono">${escapeHtml(o.entity_id)}</span>`)}${td(missing(o.rows) ? '–' : num(o.rows), 'n')}</tr>`))}</div>
-            ${orphans.length > 15 ? `<p class="muted" style="margin-top:6px">and ${num(orphans.length - 15)} more</p>` : ''}
-            ${finding ? `<div class="detail-actions" style="margin-top:10px"><button type="button" class="btn btn-primary" onclick="openFinding('${finding.id}')">Open the finding to delete them</button></div>` : ''}` : ''}
+        ${orphans.length ? `
+            <div class="filters" style="margin:12px 0 6px">
+                <input class="input" id="pg-filter" placeholder="Filter, for example device_tracker or toon" aria-label="Filter" autocomplete="off" value="${escapeHtml(purgeFilter)}">
+                <button type="button" class="btn btn-small" onclick="pickShown(true)">Tick all shown</button>
+                <button type="button" class="btn btn-small" onclick="pickShown(false)">Untick all shown</button>
+                <span class="range-text" id="pg-picked"></span>
+            </div>
+            <div class="table-wrap pick-table" id="pg-table"></div>
+            <div class="detail-actions" style="margin-top:10px">
+                ${fixesAllowed() ? '<button type="button" class="btn btn-danger" id="pg-go" onclick="purgePicked()" disabled>Delete the history of the ticked entities</button>' : '<span class="muted">Repairs are turned off in the app\'s configuration.</span>'}
+            </div>
+            <div id="pg-result"></div>` : ''}
         <div class="section-title" style="margin-top:16px">What the registries still remember</div>
         ${infoRow('Removed entities', missing(reg.deleted_entities) ? '<span class="muted">not readable</span>' : num(reg.deleted_entities))}
         ${infoRow('Removed devices', missing(reg.deleted_devices) ? '<span class="muted">not readable</span>' : num(reg.deleted_devices))}
         <div class="note" style="margin-top:8px">Home Assistant keeps a note of what was removed, so that a device that comes back gets its names and settings again. They take next to no room and Home Assistant clears them out itself. The app doesn't remove them: that would mean editing a file Home Assistant has open.</div>
     </div></div>`;
+}
+
+function shownOrphans() {
+    const orphans = (((app.status.storage || {}).database || {}).orphans) || [];
+    const words = purgeFilter.toLowerCase().split(/\s+/).filter(Boolean);
+    return orphans.filter(o => words.every(w => o.entity_id.includes(w)));
+}
+
+function renderPurgeTable() {
+    const el = document.getElementById('pg-table');
+    if (!el) return;
+    const orphans = (((app.status.storage || {}).database || {}).orphans) || [];
+    // What is ticked but no longer gone (deleted meanwhile) drops out of the pick
+    const gone = new Set(orphans.map(o => o.entity_id));
+    [...purgePick].forEach(e => { if (!gone.has(e)) purgePick.delete(e); });
+    const shown = shownOrphans();
+    el.innerHTML = table(
+        [{label: ''}, {label: 'Entity that is gone'}, {label: 'Stored states', n: 1}],
+        shown.map(o => `<tr onclick="togglePick('${escapeHtml(o.entity_id)}')">
+            ${td(`<input type="checkbox" ${purgePick.has(o.entity_id) ? 'checked' : ''} aria-label="Pick ${escapeHtml(o.entity_id)}" tabindex="-1">`, 'pick')}
+            ${td(`<span class="mono">${escapeHtml(o.entity_id)}</span>`)}${td(missing(o.rows) ? '–' : num(o.rows), 'n')}</tr>`),
+        {cls: 'hover', empty: 'Nothing matches this filter.'});
+    const picked = orphans.filter(o => purgePick.has(o.entity_id));
+    const states = picked.reduce((a, o) => a + (o.rows || 0), 0);
+    fill('pg-picked', picked.length ? `${num(picked.length)} ticked · ${num(states)} states` : `${num(shown.length)} of ${num(orphans.length)} shown`);
+    const go = document.getElementById('pg-go');
+    if (go) {
+        go.disabled = !picked.length;
+        go.textContent = picked.length ? `Delete the history of ${num(picked.length)} ticked entit${picked.length === 1 ? 'y' : 'ies'}` : 'Delete the history of the ticked entities';
+    }
+}
+
+function togglePick(entityId) {
+    if (purgePick.has(entityId)) purgePick.delete(entityId); else purgePick.add(entityId);
+    renderPurgeTable();
+}
+
+function pickShown(on) {
+    shownOrphans().forEach(o => { if (on) purgePick.add(o.entity_id); else purgePick.delete(o.entity_id); });
+    renderPurgeTable();
+}
+
+async function purgePicked() {
+    const picked = [...purgePick];
+    if (!picked.length) return;
+    const ok = await confirmDialog({
+        title: `Delete the history of ${num(picked.length)} entit${picked.length === 1 ? 'y' : 'ies'}?`,
+        message: `The recorder is asked to delete everything it stored of ${picked.length === 1 ? `<b>${escapeHtml(picked[0])}</b>` : 'the ticked entities'}. They no longer exist in Home Assistant. This can't be undone here.`,
+        typeToConfirm: 'DELETE', confirmLabel: 'Delete', danger: true,
+    });
+    if (!ok) return;
+    const target = document.getElementById('pg-result');
+    target.innerHTML = '<p class="muted" style="margin-top:10px">Working…</p>';
+    try {
+        const result = await apiPost('purge', {entity_ids: picked, word: 'DELETE'});
+        purgePick.clear();
+        toast(result.ok ? 'Asked the recorder to delete it' : 'Not everything worked', result.ok ? 'success' : 'error');
+        await loadStatus();
+        document.getElementById('cu-storage')._key = null;
+        renderActive();
+        const after = document.getElementById('pg-result');
+        if (after) after.innerHTML = stepsHtml(result) + '<p class="muted" style="margin-top:6px">The recorder deletes in the background: a big purge shows in the next scans. The database file only gets smaller after Home Assistant\'s nightly purge with repack.</p>';
+    } catch (e) {
+        target.innerHTML = '';
+        toast(e.message);
+    }
 }
 
 // =====================================================================

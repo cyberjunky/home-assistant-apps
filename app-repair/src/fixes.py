@@ -7,6 +7,7 @@ through the API is said so in the step, not forced another way.
 
 import logging
 
+from . import checks
 from .ha import HA, HAError
 from .snapshot import Snapshot
 
@@ -104,33 +105,62 @@ async def cleanup_entity(ha: HA, snap: Snapshot, steps: Steps, entity_id: str) -
 
 
 async def cleanup_device(ha: HA, snap: Snapshot, steps: Steps, device_id: str) -> None:
-    """Remove a device: first each of its entities with what is stored about them, then the device itself."""
+    """Remove a device: each of its entities with what is stored about them, then the device itself.
+
+    Whether the device can go is checked first. Removing only its entities would leave the device,
+    and its integration would make them again: then nothing is done at all.
+    """
     device = next((d for d in snap.devices if d["id"] == device_id), None)
     if device is None:
         steps.add("Find the device", False, "Home Assistant no longer has this device")
         return
+    way, why_not = checks.removal(snap, device)
+    if not way:
+        steps.add(
+            "Check that the device can be removed",
+            False,
+            f"{why_not}, so nothing was done: removing only its entities would leave the device, and its integration "
+            "would make them again. Remove it on the integration's own page, or reset the device.",
+        )
+        return
     for entity in [e for e in snap.entities if e.get("device_id") == device_id]:
         await cleanup_entity(ha, snap, steps, entity["entity_id"])
-    known = {e["entry_id"]: e for e in snap.entries}
-    entries = [e for e in device.get("config_entries") or [] if e in known]
-    if not entries:
+    if way == "gone":
         # Home Assistant drops a device by itself once nothing refers to it: its entities are gone now
         steps.add(
             "Remove the device",
             True,
             "No integration holds it any more: Home Assistant drops it now that its entities are gone",
         )
-        return
-    for entry_id in entries:
-        title = known[entry_id].get("title") or known[entry_id]["domain"]
-        ok = await steps.run(
-            f"Remove the device from {title}",
-            ws(ha, "config/device_registry/remove_config_entry", device_id=device_id, config_entry_id=entry_id),
+    elif way == "zha":
+        await steps.run(
+            "Remove the device from the Zigbee network",
+            ha.service("zha", "remove", {"ieee": checks.zigbee_address(device)}),
+            "ZHA removes it from its network and from Home Assistant",
         )
-        if not ok:
-            steps.steps[-1]["detail"] += (
-                f". {title} doesn't let Home Assistant remove its devices: remove it in {title} itself, or on the device, and it goes here too"
-            )
+    else:
+        await remove_from_registry(ha, snap, steps, device)
+
+
+async def remove_from_registry(ha: HA, snap: Snapshot, steps: Steps, device: dict) -> None:
+    """Remove a device through the device registry, the way Home Assistant's own Delete button does."""
+    try:
+        await ws(ha, "config/device_registry/remove", device_id=device["id"])
+    except HAError as e:
+        if "unknown command" not in str(e).lower():
+            steps.add("Remove the device", False, str(e))
+            return
+    else:
+        steps.add("Remove the device", True)
+        return
+    # A Home Assistant from before 2026.11 knows only the older command, one config entry at a time
+    known = {e["entry_id"]: e for e in snap.entries}
+    for entry_id in [e for e in device.get("config_entries") or [] if e in known]:
+        title = known[entry_id].get("title") or known[entry_id]["domain"]
+        await steps.run(
+            f"Remove the device from {title}",
+            ws(ha, "config/device_registry/remove_config_entry", device_id=device["id"], config_entry_id=entry_id),
+        )
 
 
 async def purge_history(ha: HA, snap: Snapshot, steps: Steps, entity_ids: list[str]) -> None:
