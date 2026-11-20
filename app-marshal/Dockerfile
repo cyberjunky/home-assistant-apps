@@ -7,7 +7,8 @@ FROM ${BUILD_FROM}
 ENV LANG=C.UTF-8
 ENV S6_SERVICES_GRACETIME=8000
 
-# ca-certificates for the catalog, the vulnerability database and GitHub
+# ca-certificates for the catalog, the vulnerability database and GitHub. Ruff comes with the Python
+# requirements below, as a ready-made program.
 RUN apk add --no-cache tzdata ca-certificates
 
 COPY requirements.txt /tmp/requirements.txt

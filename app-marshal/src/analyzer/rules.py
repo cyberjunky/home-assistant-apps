@@ -12,6 +12,7 @@ CATEGORIES = {
     "code": "Code safety",
     "network": "Network",
     "performance": "Performance",
+    "quality": "Code quality",
     "upkeep": "Upkeep",
 }
 SEVERITIES = ("critical", "high", "medium", "low", "info")
@@ -278,6 +279,72 @@ RULES: dict[str, Rule] = {
         "Ships front-end JavaScript",
         "JavaScript that runs in your browser inside Home Assistant. Marshal counts it but does not analyze it.",
     ),
+    "code.advisory": _r(
+        "code",
+        "high",
+        "A security advisory is published for this version",
+        "The integration's own repository on GitHub has a published security advisory that covers the version read here.",
+    ),
+    "code.vulnerable_dependency_medium": _r(
+        "code",
+        "medium",
+        "Depends on a package with a known vulnerability of moderate severity",
+        "The version that gets installed is listed in the OSV vulnerability database, rated moderate.",
+    ),
+    "code.vulnerable_dependency_low": _r(
+        "code",
+        "low",
+        "Depends on a package with a known vulnerability of low severity",
+        "The version that gets installed is listed in the OSV vulnerability database, rated low.",
+    ),
+    "code.dependency_yanked": _r(
+        "code",
+        "medium",
+        "A requirement's version was withdrawn from PyPI",
+        "The author took this version back (yanked it), usually because it is broken or unsafe. The manifest still asks for it.",
+    ),
+    "code.sql_strings": _r(
+        "code",
+        "low",
+        "Builds database queries by pasting text together",
+        "A query is put together from text and values. A value that holds query text changes what the query does. Harmless when only table or column names are put in.",
+    ),
+    "code.unsafe_extract": _r(
+        "code",
+        "medium",
+        "Unpacks an archive without checking its paths",
+        "An archive is unpacked as it is. An archive can name files outside the folder it is unpacked in.",
+    ),
+    "code.weak_crypto": _r(
+        "code",
+        "low",
+        "Uses broken hashes or ciphers",
+        "MD5, SHA-1 or an old cipher. Fine for a checksum or for a device that asks for it; not for protecting anything.",
+    ),
+    "code.xml_unsafe": _r(
+        "code",
+        "low",
+        "Reads XML with a parser that trusts its input",
+        "The standard XML parsers can be made to use much memory by a hostile document.",
+    ),
+    "code.temp_path": _r(
+        "code",
+        "low",
+        "Uses a fixed path in a shared temporary folder",
+        "A fixed file name under /tmp can be put there first by something else on the system.",
+    ),
+    "code.loose_permissions": _r(
+        "code",
+        "low",
+        "Makes files readable or writable for everyone",
+        "File permissions are set wide open.",
+    ),
+    "code.dependency_new": _r(
+        "code",
+        "info",
+        "Installs a package version published in the last week",
+        "The version that would be installed is less than seven days old. A package that was taken over is usually found within days.",
+    ),
     # -- network ------------------------------------------------------------------------------------
     "network.unauth_view": _r(
         "network",
@@ -352,6 +419,24 @@ RULES: dict[str, Rule] = {
         "info",
         "Talks to hosts on the internet",
         "The internet addresses written in the code. See the Network page for the list.",
+    ),
+    "network.weak_tls": _r(
+        "network",
+        "medium",
+        "Allows old, broken versions of TLS or SSL",
+        "A connection is set up with a protocol version that can be read along with.",
+    ),
+    "network.no_host_key_check": _r(
+        "network",
+        "medium",
+        "Accepts any SSH host key",
+        "An SSH connection is made without checking who answers.",
+    ),
+    "network.cleartext_protocol": _r(
+        "network",
+        "low",
+        "Uses Telnet, FTP or SNMP without encryption",
+        "Logins and data go over the network readable. Common for older devices on your own network.",
     ),
     # -- performance --------------------------------------------------------------------------------
     "performance.busy_loop": _r(
@@ -438,6 +523,55 @@ RULES: dict[str, Rule] = {
         "info",
         "A large package",
         "More than 25,000 lines of Python or 20 MB on disk.",
+    ),
+    "performance.no_timeout": _r(
+        "performance",
+        "low",
+        "Web requests without a timeout",
+        "A request that gets no answer waits forever, and what waits for it too.",
+    ),
+    # -- code quality (Ruff, and what the syntax tree says) -----------------------------------------
+    "quality.broken": _r(
+        "quality",
+        "medium",
+        "Code that cannot work as written",
+        "A name that is not defined anywhere, a statement in a place where it cannot be, or a text format that does not fit its values. This fails when that line runs.",
+    ),
+    "quality.very_complex": _r(
+        "quality",
+        "medium",
+        "Functions far too tangled to follow",
+        "A function with more than 50 separate paths through it. Hard to read, hard to test, and where mistakes hide.",
+    ),
+    "quality.bug_prone": _r(
+        "quality",
+        "low",
+        "Patterns that often hide a mistake",
+        "Such as a list as a default argument, a loop variable used after the loop by a function made inside it, or a comparison that is always true.",
+    ),
+    "quality.swallows_errors": _r(
+        "quality",
+        "low",
+        "Errors are silently dropped",
+        "Catches every error and does nothing with it, so a failure shows nowhere: not in the log, not in Home Assistant.",
+    ),
+    "quality.complex": _r(
+        "quality",
+        "low",
+        "Tangled functions",
+        "A function with more than 25 separate paths through it, the limit Home Assistant holds its own code to.",
+    ),
+    "quality.unused": _r(
+        "quality",
+        "low",
+        "Much unused code",
+        "Many imports and variables that nothing uses: a sign that the code is not checked with the usual tools.",
+    ),
+    "quality.untyped": _r(
+        "quality",
+        "low",
+        "Mostly without type hints",
+        "Fewer than half of the functions say what they take and give back. Type hints are how mistakes are found before the code runs.",
     ),
     # -- upkeep -------------------------------------------------------------------------------------
     "upkeep.removed": _r(
@@ -527,4 +661,6 @@ RULES: dict[str, Rule] = {
 }
 
 WEIGHT = {"critical": 60, "high": 30, "medium": 12, "low": 4, "info": 0}
-CATEGORY_WEIGHT = {"data": 0.30, "code": 0.25, "network": 0.20, "performance": 0.15, "upkeep": 0.10}
+CATEGORY_WEIGHT = {"data": 0.27, "code": 0.23, "network": 0.18, "performance": 0.13, "quality": 0.10, "upkeep": 0.09}
+# Sloppy code is a reason to look, not a danger by itself: this area does not hold the overall score down
+NOT_THE_WEAKEST = ("quality",)

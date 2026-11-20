@@ -24,8 +24,9 @@ def test_choose_prefers_what_can_be_read():
     assert choose([built, source]) == (source, True)  # the source is read; the install is compiled
     assert choose([file("p-1.0-cp314-win_amd64.whl"), built]) == (built, True)
     assert choose([file("p-1.0.zip"), source])[0] == source
-    with pytest.raises(PackageError):
-        choose([{**pure, "yanked": True}])
+    # A withdrawn file is passed over; a version withdrawn as a whole is still what gets installed
+    assert choose([{**pure, "yanked": True}, source]) == (source, False)
+    assert choose([{**pure, "yanked": True}]) == ({**pure, "yanked": True}, False)
     with pytest.raises(PackageError):
         choose([{"filename": "p-1.0-py3-none-any.whl", "url": "https://elsewhere.example/p.whl"}])
 

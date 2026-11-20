@@ -130,15 +130,19 @@
       <p>Custom integrations run inside Home Assistant with all of its rights: they can read every credential, every entity and every file Home Assistant can. The Marketplace lists them; it does not test or audit them. Marshal reads the code of each integration and points at what deserves a second look.</p>
       <h3>How it reads code</h3>
       <p>Python files are parsed to a syntax tree and searched for patterns. <b>Nothing from an integration is imported or run.</b> The manifest is read as JSON. Other files are only measured.</p>
-      <h3>The five areas</h3>
+      <h3>The areas</h3>
       <ul id="about-areas"></ul>
       <h3>Scores and grades</h3>
-      <p>Each area starts at 100. A finding takes off points by severity: critical 60, high 30, medium 12, low 4, notes 0. The same finding in more places weighs more, up to twice. The overall score is the weighted average of the areas, and never more than 15 above the weakest one. With a critical finding the score is 45 at most. <b>A</b> is 90 and up, <b>B</b> 80, <b>C</b> 65, <b>D</b> 50, below that <b>F</b>.</p>
+      <p>Each area starts at 100. A finding takes off points by severity: critical 60, high 30, medium 12, low 4, notes 0. The same finding in more places weighs more, up to twice. The overall score is the weighted average of the areas, and never more than 15 above the weakest one (code quality aside: sloppy code is a reason to look, not a danger by itself). With a critical finding the score is 45 at most. <b>A</b> is 90 and up, <b>B</b> 80, <b>C</b> 65, <b>D</b> 50, below that <b>F</b>.</p>
+      <h3>Code quality</h3>
+      <p>Each integration is also read by <a href="https://docs.astral.sh/ruff/" target="_blank" rel="noopener noreferrer">Ruff</a>, the linter Home Assistant itself uses, with a fixed list of checks that say something about how code behaves: names that are not defined, patterns that often hide a mistake, errors that are silently dropped, and functions too tangled to follow. Marshal adds how many functions have type hints. Style is not judged. Ruff's security checks (queries pasted together from text, archives unpacked without checking, old TLS versions, broken hashes) land in the areas they belong to. Ruff reads the code as text: nothing is run, and nothing is written to disk.</p>
+      <h3>Known vulnerabilities</h3>
+      <p>Every requirement, and everything it installs in turn, is looked up in the <a href="https://osv.dev" target="_blank" rel="noopener noreferrer">OSV</a> vulnerability database at the version that would be installed today. A finding names the CVE, how bad the database rates it, through which requirement it comes in, and the version that fixes it. The integration's own repository is asked for the security advisories it published; one that covers the installed version is a finding.</p>
       <h3>What a finding is, and is not</h3>
       <p>A finding is a lead, not a verdict. Marshal sees what code <b>could</b> do, not what it does. A notification integration posts to a chat service on purpose. A camera integration turns certificate checks off because the camera has a self-signed certificate. A low score says "read this one before you trust it", not "this is malicious".</p>
       <h3>Packages from PyPI</h3>
-      <p>Most of what a cloud integration does on the network is in the library it installs. Each direct requirement is downloaded from PyPI and read the same way, without installing it. A package gets its own grade; only its high and critical findings count against the integration, and its hosts are added to the integration's. Packages that Home Assistant itself ships are skipped, and what a package in turn requires is not followed.</p>
-      <p>And a high score is not a guarantee. Code that hides well, compiled code, the requirements of requirements, and front-end JavaScript are outside what Marshal reads.</p>
+      <p>Most of what a cloud integration does on the network is in the library it installs. Each direct requirement is downloaded from PyPI and read the same way, without installing it. A package gets its own grade; only its high and critical findings count against the integration, and its hosts are added to the integration's. Packages that Home Assistant itself ships are skipped. What a package in turn requires is looked up for known vulnerabilities, but its code is not read.</p>
+      <p>And a high score is not a guarantee. Code that hides well, compiled code, the code of requirements of requirements, and front-end JavaScript are outside what Marshal reads.</p>
     </div></div>
   </div>
 </div>

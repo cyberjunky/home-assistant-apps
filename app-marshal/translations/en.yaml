@@ -13,8 +13,9 @@ configuration:
   vulnerability_lookups:
     name: Known vulnerabilities
     description: >-
-      Look up the exact package versions that manifests pin in the OSV vulnerability database (osv.dev).
-      Package names and versions are sent, nothing else.
+      Look up the packages an integration installs, and what those install in turn, in the OSV
+      vulnerability database (osv.dev), and ask the integration's repository on GitHub for its security
+      advisories. Package names, versions and repository names are sent, nothing else.
   dependency_scans:
     name: Read the packages
     description: >-
@@ -26,6 +27,11 @@ configuration:
     description: >-
       Ask Home Assistant how long each custom integration took to set up, what each wrote to the log,
       and what the Marketplace installed. Off: only the code is read.
+  code_quality:
+    name: Code quality
+    description: >-
+      Let Ruff, the linter Home Assistant itself uses, read each integration: likely bugs, errors that
+      are silently dropped, tangled functions and security checks. Nothing is run and nothing is sent.
   log_level:
     name: Log level
     description: How much the app writes to its own log.

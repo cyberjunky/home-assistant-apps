@@ -9,10 +9,11 @@ import time
 
 import aiohttp
 
-from . import osv, payload, sources
-from .analyzer import add_context, analyze, finish
+from . import osv, payload, quality, sources
+from .advisories import Advisories
+from .analyzer import add_context, add_quality, analyze, finish
 from .catalog import Catalog
-from .config import DATA_DIR, HA_CONFIG_DIR, USER_AGENT, Config
+from .config import APP_VERSION, DATA_DIR, HA_CONFIG_DIR, USER_AGENT, Config
 from .homeassistant import HomeAssistant, HomeAssistantError
 from .packages import Packages
 
@@ -25,9 +26,10 @@ MAX_CHECKED = 50
 GROUPS = [{"id": "installed", "label": "Installed"}, {"id": "checked", "label": "Checked"}]
 
 
-def scan_files(files: sources.Files, **context) -> dict:
+def scan_files(files: sources.Files, lint: bool = True, **context) -> dict:
     """One integration from its files to a finished report. Runs in a worker thread: parsing is CPU work."""
     report = analyze(files)
+    add_quality(report, files, quality.lint(files) if lint else None)
     add_context(report, **context)
     return finish(report)
 
@@ -38,6 +40,7 @@ class Engine:
         self.home_assistant = home_assistant
         self.catalog = catalog or Catalog(DATA_DIR / "catalog")
         self.packages = Packages(DATA_DIR / "packages")
+        self.advisories = Advisories(DATA_DIR / "advisories")
         self.custom_components = HA_CONFIG_DIR / "custom_components"
         self.results: dict = {
             "installed": {},
@@ -83,7 +86,7 @@ class Engine:
     # -- installed ----------------------------------------------------------------------------------
     def _fingerprint(self) -> str:
         """Changes when an integration is added, removed or updated."""
-        parts = []
+        parts = [APP_VERSION]  # a new version of the app reads everything again: it knows more checks
         for item in sources.installed(self.custom_components):
             with contextlib.suppress(OSError):
                 parts.append(
@@ -101,10 +104,11 @@ class Engine:
             unread = sum(1 for p in found.values() if p["status"] == "error")
             if unread:
                 self.notes["packages"] = f"{unread} of {len(found)} packages could not be read from PyPI"
-        versions = {
-            (r["name"].lower(), (found.get((r["name"].lower(), r["spec"])) or {}).get("version") or r["version"])
-            for r in requirements
-        }
+        versions = set()
+        for r in requirements:
+            package = found.get((r["name"].lower(), r["spec"])) or {}
+            versions.add((r["name"].lower(), package.get("version") or r["version"]))
+            versions.update((p["name"].lower(), p["version"]) for p in package.get("indirect") or [])
         versions = {(name, version) for name, version in versions if version}
         if not versions or not self.config.vulnerability_lookups:
             return found, {}
@@ -142,13 +146,21 @@ class Engine:
         firsts = [await asyncio.to_thread(analyze, f) for f in files.values()]
         found, vulnerable = await self._requirements(firsts)
 
+        known = {}
+        for item in items:
+            market = (state["marketplace"] or {}).get(item["domain"])
+            repository = (market or {}).get("full_name")
+            entry = self.catalog.entry(repository, item["domain"]) if self.config.catalog_lookups else None
+            known[item["folder"]] = (market, entry, repository or (entry or {}).get("full_name"))
+        if self.config.vulnerability_lookups:
+            problem = await self.advisories.refresh(self.session(), [r for _, _, r in known.values() if r])
+            if problem:
+                self.notes["advisories"] = problem
+
         installed = {}
         for item in items:
             domain = item["domain"]
-            market = (state["marketplace"] or {}).get(domain)
-            repository = (market or {}).get("full_name")
-            entry = self.catalog.entry(repository, domain) if self.config.catalog_lookups else None
-            repository = repository or (entry or {}).get("full_name")
+            market, entry, repository = known[item["folder"]]
             runtime = None
             if self.config.runtime_checks and "home_assistant" not in self.notes:
                 log = state["log"].get(domain) or {}
@@ -160,6 +172,8 @@ class Engine:
             report = await asyncio.to_thread(
                 scan_files,
                 files[item["folder"]],
+                lint=self.config.code_quality,
+                advisories=self.advisories.covering(repository, item["version"]),
                 catalog=entry,
                 removed=self.catalog.removed(repository) if self.config.catalog_lookups else None,
                 marketplace=market,
@@ -207,9 +221,14 @@ class Engine:
         files, ref = await sources.fetch_repository(self.session(), repository, (entry or {}).get("last_version"))
         first = await asyncio.to_thread(analyze, files)
         found, vulnerable = await self._requirements([first])
+        if self.config.vulnerability_lookups:
+            await self.advisories.refresh(self.session(), [repository])
         report = await asyncio.to_thread(
             scan_files,
             files,
+            lint=self.config.code_quality,
+            # A release is known by its tag; the manifest in a repository often says 0.0.0
+            advisories=self.advisories.covering(repository, first["version"] if ref == "HEAD" else ref),
             catalog=entry,
             removed=self.catalog.removed(repository),
             vulnerabilities=vulnerable,

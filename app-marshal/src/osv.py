@@ -1,23 +1,56 @@
-"""Known vulnerabilities in the exact versions a manifest pins, from the OSV database (osv.dev).
+"""Known vulnerabilities in the package versions that get installed, from the OSV database (osv.dev).
 
 What is sent: package names and versions from manifests. Nothing about your installation.
 """
 
 import logging
+import re
 
 import aiohttp
+from packaging.version import InvalidVersion, Version
 
 logger = logging.getLogger(__name__)
 
 BATCH_URL = "https://api.osv.dev/v1/querybatch"
 DETAIL_URL = "https://api.osv.dev/v1/vulns/"
-MAX_DETAILS = 150
+MAX_DETAILS = 300
+
+
+def _fixes(data: dict) -> dict[str, list[str]]:
+    """{package name: the versions a vulnerability is fixed in}, from an OSV record."""
+    fixes: dict[str, list[str]] = {}
+    for affected in data.get("affected") or []:
+        package = affected.get("package") or {}
+        if package.get("ecosystem") != "PyPI":
+            continue
+        name = re.sub(r"[-_.]+", "-", str(package.get("name") or "")).lower()
+        for span in affected.get("ranges") or []:
+            for event in span.get("events") or []:
+                if event.get("fixed"):
+                    fixes.setdefault(name, []).append(str(event["fixed"])[:40])
+    return fixes
+
+
+def fixed_after(fixes: list[str], version: str) -> str:
+    """The first version after this one that has the fix, or ""."""
+    try:
+        have = Version(version)
+    except InvalidVersion:
+        return ""
+    later = []
+    for text in fixes:
+        try:
+            if Version(text) > have:
+                later.append((Version(text), text))
+        except InvalidVersion:
+            continue
+    return min(later)[1] if later else ""
 
 
 async def lookup(
     session: aiohttp.ClientSession, packages: set[tuple[str, str]], details: dict[str, dict]
 ) -> dict[tuple[str, str], list[dict]]:
-    """{(name, version): [{id, summary, severity}]} for the packages that have any. `details` is a cache of
+    """{(name, version): [{id, summary, severity, fixed}]} for the packages that have any. `details` is a cache of
     what is known per vulnerability, filled as needed. Raises aiohttp.ClientError or TimeoutError."""
     ordered = sorted(packages)
     found: dict[tuple[str, str], list[str]] = {}
@@ -47,8 +80,19 @@ async def lookup(
             "id": next((a for a in aliases if a.startswith("CVE-")), vulnerability),
             "summary": str(data.get("summary") or "")[:200],
             "severity": str((data.get("database_specific") or {}).get("severity") or "").lower(),
+            "fixes": _fixes(data),
         }
-    return {
-        package: [details.get(i) or {"id": i, "summary": "", "severity": ""} for i in ids]
-        for package, ids in found.items()
-    }
+    out = {}
+    for (name, version), ids in found.items():
+        normal = re.sub(r"[-_.]+", "-", name).lower()
+        out[(name, version)] = [
+            {
+                "id": known.get("id") or i,
+                "summary": known.get("summary") or "",
+                "severity": known.get("severity") or "",
+                "fixed": fixed_after((known.get("fixes") or {}).get(normal) or [], version),
+            }
+            for i in ids
+            for known in [details.get(i) or {}]
+        ]
+    return out

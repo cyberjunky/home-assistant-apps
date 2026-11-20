@@ -146,7 +146,7 @@ function renderDashboard() {
 // ---- integrations ----
 const COLUMNS = [
   ['rank', '#', 'num'], ['name', 'Integration', ''], ['score', 'Score', ''],
-  ['data', 'Data', 'hide-sm'], ['code', 'Code', 'hide-sm'], ['network', 'Network', 'hide-sm'], ['performance', 'Speed', 'hide-sm'], ['upkeep', 'Upkeep', 'hide-sm'],
+  ['data', 'Data', 'hide-sm'], ['code', 'Code', 'hide-sm'], ['network', 'Network', 'hide-sm'], ['performance', 'Speed', 'hide-sm'], ['quality', 'Quality', 'hide-sm'], ['upkeep', 'Upkeep', 'hide-sm'],
   ['findings', 'Findings', ''], ['hosts', 'Services', 'num hide-sm'], ['installs', 'Installs', 'num hide-sm'],
 ];
 const outside = i => new Set(i.hosts.filter(h => !['reference', 'local'].includes(h.kind)).map(h => h.site)).size;
@@ -267,28 +267,39 @@ function openDrawer(key) {
   const rt = i.runtime || {};
   const places = f => f.where.filter(w => w.file || w.note).map(w => `<div><span class="loc">${esc(w.file)}${w.line && w.line < 1000 && w.file !== 'manifest.json' ? ':' + w.line : ''}</span>${w.note ? ` <span class="note">${esc(w.note)}</span>` : ''}${w.snippet ? `<code>${esc(w.snippet)}</code>` : ''}</div>`).join('');
   // A library has no manifest to judge, and whether its calls block is for the integration that makes them
-  const areas = Object.entries(report.categories).filter(([id]) => !isPackage || !['performance', 'upkeep'].includes(id)).map(([id, name]) => {
+  const areas = Object.entries(report.categories).filter(([id]) => !isPackage || !['performance', 'quality', 'upkeep'].includes(id)).map(([id, name]) => {
     const fs = i.findings.filter(f => f.category === id);
-    return `<div class="panel"><div class="panel-body"><div class="title"><span>${esc(name)}</span><span class="hint"><span class="mini g-${gradeOf(i.scores[id])}"><i style="width:${i.scores[id]}%"></i></span><b class="mono">${i.scores[id]}</b></span></div>${fs.length ? fs.map(f => `<div class="finding"><h3>${sevBadge(f.severity)} ${esc(f.title)}${f.count > 1 ? ` <span class="pill">${f.count} places</span>` : ''}</h3><p>${esc(f.why)}</p><div class="where">${places(f)}${f.count > f.where.length ? `<div class="muted">and ${f.count - f.where.length} more</div>` : ''}</div></div>`).join('') : '<div class="muted">Nothing found</div>'}</div></div>`;
+    return `<div class="panel"><div class="panel-body"><div class="title"><span>${esc(name)}${id === 'quality' ? ` <span class="muted" style="font-weight:400">${esc(qualityLine(i))}</span>` : ''}</span><span class="hint"><span class="mini g-${gradeOf(i.scores[id])}"><i style="width:${i.scores[id]}%"></i></span><b class="mono">${i.scores[id]}</b></span></div>${fs.length ? fs.map(f => `<div class="finding"><h3>${sevBadge(f.severity)} ${esc(f.title)}${f.count > 1 ? ` <span class="pill">${f.count} places</span>` : ''}</h3><p>${esc(f.why)}</p><div class="where">${places(f)}${f.count > f.where.length ? `<div class="muted">and ${f.count - f.where.length} more</div>` : ''}</div></div>`).join('') : '<div class="muted">Nothing found</div>'}</div></div>`;
   }).join('');
   const hosts = i.hosts.filter(h => !['reference', 'local'].includes(h.kind));
   const reqs = i.requirements || [];
   $('modal-root').innerHTML = `<div class="modal-back" id="modal-back"><div class="drawer" role="dialog" aria-label="${esc(i.name)}">
     <div class="drawer-head"><div style="flex:1;min-width:0"><h2>${esc(i.name || i.domain)} ${gradeChip(i.grade)} <span class="mono" style="font-size:14px">${i.score}</span></h2><div class="muted">${VERDICT[i.grade]} · ${isPackage ? `package from PyPI, used by ${esc(report.integrations.filter(x => (x.requirements || []).some(r => r.package === i.key)).map(x => x.name || x.domain).slice(0, 8).join(', '))}` : repoLink(i.repository)}</div></div><button class="close" id="drawer-close" aria-label="Close">×</button></div>
-    <div class="facts">${fact('Domain', esc(i.domain))}${fact('Version', esc(i.version))}${fact('Kind', esc(i.iot_class))}${fact('Installations', i.installs ? fmtNum(i.installs) : '')}${fact('Stars', i.stars != null ? fmtNum(i.stars) : '')}${fact('Last change', i.last_updated ? esc(fmtDate(i.last_updated)) : '')}${fact('Python', `${fmtNum(i.stats.lines)} lines`)}${fact('Setup time', rt.setup_seconds != null ? rt.setup_seconds.toFixed(1) + ' s' : '')}${fact('Owners', esc((i.codeowners || []).join(' ')))}</div>
+    <div class="facts">${fact('Domain', esc(i.domain))}${fact('Version', esc(i.version))}${fact('Kind', esc(i.iot_class))}${fact('Installations', i.installs ? fmtNum(i.installs) : '')}${fact('Stars', i.stars != null ? fmtNum(i.stars) : '')}${fact('Last change', i.last_updated ? esc(fmtDate(i.last_updated)) : '')}${fact('Python', `${fmtNum(i.stats.lines)} lines`)}${fact('Type hints', i.quality && i.quality.typed != null ? i.quality.typed + '% of functions' : '')}${fact('Setup time', rt.setup_seconds != null ? rt.setup_seconds.toFixed(1) + ' s' : '')}${fact('Owners', esc((i.codeowners || []).join(' ')))}</div>
     ${areas}
     ${hosts.length ? `<div class="panel"><div class="panel-body"><div class="title"><span>Internet hosts named in the code</span></div><div class="where">${hosts.map(h => `<div><span class="loc">${esc(h.host)}</span> <span class="pill">${HOST_KIND[h.kind]}</span>${h.insecure ? ' <span class="pill warn">unencrypted</span>' : ''} <span class="muted">${h.via ? 'in the package ' + esc(h.via) : esc(h.file) + ':' + h.line}</span></div>`).join('')}</div></div></div>` : ''}
     ${reqs.length ? `<div class="panel"><div class="panel-body"><div class="title"><span>Packages it installs</span><span class="hint">read from PyPI, not run</span></div>${reqs.map(reqRow).join('')}</div></div>` : ''}
   </div></div>`;
   $('drawer-close').focus();
 }
+// How bad the vulnerability database rates it; not rated shows as high
+const vulnPill = v => `<span class="pill ${['low', 'moderate', 'medium'].includes(v.severity) ? 'warn' : 'bad'}" title="${esc([v.severity, v.summary, v.fixed ? 'fixed in ' + v.fixed : ''].filter(Boolean).join(' · '))}">${esc(v.id)}</span>`;
 const REQ_STATUS = {core: 'ships with Home Assistant, not read', missing: 'not on PyPI', error: 'could not be read'};
 function reqRow(r) {
   const version = r.resolved ? (r.pinned ? r.resolved : `${r.resolved} (asks ${r.spec || 'any version'})`) : r.spec;
   const flags = (r.url ? ' <span class="pill bad">from a URL</span>' : r.pinned ? '' : ' <span class="pill warn">not pinned</span>') +
-    (r.vulnerabilities || []).map(v => ` <span class="pill bad">${esc(v.id)}</span>`).join('');
+    (r.yanked ? ' <span class="pill bad">withdrawn from PyPI</span>' : '') + (r.vulnerabilities || []).map(v => ' ' + vulnPill(v)).join('');
+  const indirect = r.indirect || [], holes = indirect.filter(p => (p.vulnerabilities || []).length);
+  const below = indirect.length ? `<div class="sub" style="font-family:var(--sans)">installs ${plural(indirect.length, 'more package')}${holes.length ? ', with known vulnerabilities:' : ', none with a known vulnerability'}</div>` +
+    holes.map(p => `<div class="sub">${esc(p.name)} ${esc(p.version)} ${p.vulnerabilities.map(vulnPill).join(' ')}${p.vulnerabilities.some(v => v.fixed) ? ` <span style="font-family:var(--sans)">fixed in ${esc([...new Set(p.vulnerabilities.map(v => v.fixed).filter(Boolean))].join(', '))}</span>` : ''}</div>`).join('') : '';
   const state = r.package ? sevCounts(r.counts) : `<span class="muted">${esc(r.url ? 'not read' : REQ_STATUS[r.status] || 'not read')}${r.reason ? ': ' + esc(r.reason) : ''}</span>`;
-  return `<div class="row"${r.package ? ` data-open="${esc(r.package)}"` : ' style="cursor:default"'}><span>${r.package ? `${gradeChip(r.grade)} <span class="mono">${r.score}</span>` : '<span class="muted">–</span>'}</span><div style="min-width:0"><div class="nm">${esc(r.name)}${flags}</div><div class="sub">${esc(version)}</div></div>${state}</div>`;
+  return `<div class="row"${r.package ? ` data-open="${esc(r.package)}"` : ' style="cursor:default"'}><span>${r.package ? `${gradeChip(r.grade)} <span class="mono">${r.score}</span>` : '<span class="muted">–</span>'}</span><div style="min-width:0"><div class="nm">${esc(r.name)}${flags}</div><div class="sub">${esc(version)}</div>${below}</div>${state}</div>`;
+}
+// What the quality area was measured with, and how much it found for the size of the code
+function qualityLine(i) {
+  const q = i.quality;
+  if (!q || !q.tool) return 'not measured' + (q ? ' (Ruff is off or missing)' : ' yet: scan or check again');
+  return `${q.tool}: ${plural(q.issues, 'issue')}, ${q.per_1000} per 1000 lines` + (q.most_complex ? `, most tangled function has ${q.most_complex.paths} paths` : '');
 }
 function closeDrawer() { openKey = null; $('modal-root').innerHTML = ''; }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
@@ -340,6 +351,8 @@ async function load() {
     if (!report) $('banners').innerHTML = `<div class="banner bad"><span>${esc(err.message)}</span></div>`;
     return;
   }
+  // A report from before an area existed has no score for it
+  report.integrations.forEach(i => Object.keys(report.categories).forEach(c => { if (i.scores[c] == null) i.scores[c] = 100; }));
   render();
   if (openKey && !report.integrations.some(i => i.key === openKey) && !Object.values(report.packages || {}).some(p => p.key === openKey)) closeDrawer();
 }

@@ -48,10 +48,12 @@ The screenshots show my own integrations next to five made up for the occasion (
 
 - 🔎 **Everything installed**: each folder under `custom_components`, scanned at start, within five minutes of an install or update, and once a day
 - 🔑 **Data and credentials**: Home Assistant's logins and tokens, `secrets.yaml` and private storage, other integrations' configuration, credentials in log lines, secrets written in code, telemetry, reading every entity while talking to the internet
-- 🧨 **Code safety**: `eval` and `exec`, code hidden in encoded data, shell commands, packages installed while running, changes to Home Assistant's own code, compiled programs, requirements from a URL, known vulnerabilities in pinned requirements (OSV)
+- 🧨 **Code safety**: `eval` and `exec`, code hidden in encoded data, shell commands, packages installed while running, changes to Home Assistant's own code, compiled programs, requirements from a URL, queries pasted together from text, archives unpacked without checking
 - 📦 **The packages it installs**: each direct requirement is downloaded from PyPI and read the same way, with its own grade; its serious findings and the hosts it names count for the integration
+- 🛡️ **Known vulnerabilities**: every requirement and everything it installs in turn, looked up in OSV at the version that would be installed, with the CVE, its severity and the version that fixes it; plus the security advisories the integration's own repository published
 - 🌐 **Network**: every host named in the code, endpoints that need no login, paste sites and tunnels, certificate checks turned off, unencrypted connections, a "local" integration that names internet hosts
 - 🐢 **Performance**: blocking calls inside the event loop, listeners on every state change, fast polling of cloud services, and, asked of Home Assistant, setup time and log errors
+- 🧪 **Code quality**: read by Ruff, the linter Home Assistant itself uses: names that are not defined, patterns that often hide a mistake, errors silently dropped, tangled functions, and how much of the code has type hints
 - 🧹 **Upkeep**: removed from the Marketplace catalog (and why), untouched for years, custom repositories, updates waiting, unpinned requirements
 - 🛒 **Check before you install**: give a repository, get its score before it ever runs
 - 📊 **Dashboard**: grades, scores per area, a ranking, every finding with the file, line and code, and a list of all hosts; saved as a single HTML file when you want to keep or share it
