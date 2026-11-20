@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0
+
+**After updating:** nothing to do. Everything is scanned again at start, and all scores shift a little: the areas were reweighed to make room for code quality. The app now also connects to `api.github.com`, for security advisories (option **Known vulnerabilities**).
+
+- **Code quality, a sixth area:** each integration is read by Ruff, the linter Home Assistant itself uses: names that are not defined, patterns that often hide a mistake, errors silently dropped, and functions too tangled to follow. Marshal adds how many functions have type hints. Style is not judged, nothing is run, and poor quality alone does not fail an integration. New option **Code quality** (on by default).
+- **Security checks from Ruff** for what Marshal did not look at yet: queries pasted together from text, archives unpacked without checking, broken hashes and ciphers, old TLS versions, SSH without host key check, Telnet, FTP and SNMP, and web requests without a timeout.
+- **Vulnerabilities all the way down:** what a requirement installs in turn is followed on PyPI and looked up in the vulnerability database too. A finding names the CVE, the requirement it comes in through, and the version that fixes it.
+- **Severity** of a vulnerability is the database's: no longer everything high. The same vulnerability under two ids counts once.
+- **Security advisories of the integration itself:** the repository's published advisories are fetched from GitHub; one that covers the installed version is a finding.
+- A requirement whose version was **withdrawn from PyPI** is a finding, and a version **published in the last week** is a note.
+
 ## 0.2.4
 
 - The choice between all, installed and checked integrations is no longer shown on the Check and How it works pages, where it did nothing.

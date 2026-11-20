@@ -1,6 +1,6 @@
 # https://developers.home-assistant.io/docs/apps/configuration
 name: Marshal
-version: "0.2.4"
+version: "0.3.0"
 slug: app-marshal
 description: "Keeps watch over your Marketplace integrations - reads their code for credential and data access, risky code, known vulnerabilities, internet hosts, slow patterns and code quality, and ranks them"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-marshal"
