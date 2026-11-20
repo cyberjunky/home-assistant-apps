@@ -71,6 +71,7 @@ jobs:
           - app-marshal
           - app-flipper
           - app-scanner
+          - app-knxray
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v7.0.1

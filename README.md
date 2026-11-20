@@ -145,6 +145,20 @@ published to Home Assistant over MQTT.
 
 [:books: Documentation](app-goodwe/DOCS.md) · [:memo: Changelog](app-goodwe/CHANGELOG.md) · [:lock: Security](app-goodwe/SECURITY.md)
 
+### <img src="app-knxray/icon.png" alt="" width="36" align="absmiddle"> [KNX-Ray](app-knxray/)
+
+![Version][knxray-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+An unofficial KNX application, not associated with the KNX Association: a read-only X-ray of a
+KNX installation, opened from the sidebar. A live bus monitor, a
+long-term recording with charts and statistics, and checks that hold the bus, the ETS project and
+Home Assistant's KNX entities against each other and say what does not add up. Finds KNX IP
+interfaces on the network and asks devices whether they are there.
+
+[:books: Documentation](app-knxray/DOCS.md) · [:memo: Changelog](app-knxray/CHANGELOG.md) · [:lock: Security](app-knxray/SECURITY.md)
+
 ### <img src="app-meldkamer/icon.png" alt="" width="36" align="absmiddle"> [Meldkamer](app-meldkamer/)
 
 ![Version][meldkamer-version-shield]
@@ -397,6 +411,7 @@ software each app packages keeps its own license, noted in the app's README.
 [chronicle-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-chronicle%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [fireservicerota-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-fireservicerota%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [flipper-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-flipper%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[knxray-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-knxray%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [freqtrade-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-freqtrade%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [nuclei-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-nuclei%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [sdradio-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-sdradio%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge

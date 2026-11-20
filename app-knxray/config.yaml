@@ -1,0 +1,40 @@
+# https://developers.home-assistant.io/docs/apps/configuration
+name: KNX-Ray
+version: "0.1.0"
+slug: app-knxray
+description: "Unofficial KNX application, not associated with the KNX Association: an X-ray of your KNX installation - bus monitor, long-term recording with charts and statistics, and checks of the bus, the ETS project and Home Assistant's KNX entities against each other. Read-only"
+url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-knxray"
+# The KNX integration's list of which entity uses which group address (2026.10)
+homeassistant: "2026.10.0"
+init: false
+arch:
+  - aarch64
+  - amd64
+# Prebuilt by the repository Builder workflow; bump `version` to publish a new image
+image: "ghcr.io/cyberjunky/app-knxray"
+# Finding KNX IP interfaces and routing both use multicast, which only works on the machine's own
+# network. The pages still answer Home Assistant's ingress only (src/webui.py). A port of its own, as
+# 8099 is taken by other apps on the host network
+host_network: true
+ingress: true
+ingress_port: 8023
+panel_icon: mdi:pulse
+panel_title: KNX-Ray
+# The KNX integration: its ETS project, its telegrams and its entities; removing stray entities unless
+# that is switched off below
+homeassistant_api: true
+
+options:
+  retain_days: 90
+  retain_rows: 2000000
+  chatty_per_minute: 30
+  allow_remove: true
+  log_level: info
+
+schema:
+  retain_days: int(0,3650)?
+  retain_rows: int(0,50000000)?
+  chatty_per_minute: int(5,3000)?
+  monitor_size: int(1000,200000)?
+  allow_remove: bool?
+  log_level: list(debug|info|warning|error)?

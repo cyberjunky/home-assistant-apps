@@ -1,0 +1,6 @@
+# Python dependencies for KNX-Ray (installed in the Dockerfile).
+# aiohttp - web server and ingress, and Home Assistant's REST and websocket API
+aiohttp>=3.14.5,<4
+# xknx - the KNX side: finding interfaces, the connection to the bus, decoding datapoint types and
+# asking devices. The same version Home Assistant's KNX integration uses
+xknx==4.1.1

@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- The top bar is as high as Home Assistant's own header (its --header-height, 56px by default) -->
+<script>try{const h=getComputedStyle(window.parent.document.documentElement).getPropertyValue('--header-height').trim();if(h)document.documentElement.style.setProperty('--ha-header-height',h);}catch(e){}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>KNX-Ray</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234c8dff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9.5'/%3E%3Cpath d='M5 12h3l2-5 3.5 10 2-5H19'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="static/vendor/uplot/uPlot.min.css?v=__VERSION__">
+<link rel="stylesheet" href="static/app.css?v=__VERSION__">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M5 12h3l2-5 3.5 10 2-5H19"/></svg>
+    <span class="brand-name">KNX-RAY</span>
+  </div>
+  <nav class="tabs" aria-label="Views">
+    <button type="button" class="tab active" data-tab="overview">Overview</button>
+    <button type="button" class="tab" data-tab="findings">Findings<span class="count" id="tab-count-findings" hidden></span></button>
+    <button type="button" class="tab" data-tab="monitor">Monitor</button>
+    <button type="button" class="tab" data-tab="charts">Charts</button>
+    <button type="button" class="tab" data-tab="stats">Statistics</button>
+    <button type="button" class="tab" data-tab="addresses">Group addresses</button>
+    <button type="button" class="tab" data-tab="devices">Devices</button>
+    <button type="button" class="tab" data-tab="ha">Home Assistant</button>
+    <button type="button" class="tab" data-tab="interface">Interface</button>
+    <button type="button" class="tab" data-tab="about">Info</button>
+  </nav>
+  <span class="spacer"></span>
+  <span class="link-state" id="link-state"><i></i><span id="link-text">…</span></span>
+  <div class="tabs" role="group" aria-label="Theme" id="theme-group">
+    <button type="button" id="theme-toggle" class="tab icon-tab" title="Theme"><span id="theme-icon" aria-hidden="true">🌓</span></button>
+  </div>
+  <span class="clock mono" id="clock"></span>
+</header>
+
+<div class="views">
+<div class="pages" id="pages">
+<div class="container">
+  <div id="banners"></div>
+
+  <!-- Overview: is everything all right, and if not, where to look -->
+  <div id="tab-overview" class="tab-content active">
+    <div id="overview-tiles" class="tiles"></div>
+    <div class="grid-2">
+      <div class="panel"><div class="panel-body">
+        <div class="title"><span>What needs attention</span><button class="link-btn" data-go="findings">All findings</button></div>
+        <div id="overview-findings"></div>
+      </div></div>
+      <div>
+        <div class="panel"><div class="panel-body">
+          <div class="title"><span>Telegrams per minute</span><span class="hint">the last hour</span></div>
+          <div id="overview-load" class="bars"></div>
+        </div></div>
+        <div class="panel flush"><div id="overview-links"></div></div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="panel flush"><div class="panel-head"><span>Busiest group addresses</span><span class="hint">since the app started</span></div><div id="overview-top-ga"></div></div>
+      <div class="panel flush"><div class="panel-head"><span>Busiest devices</span><span class="hint">since the app started</span></div><div id="overview-top-src"></div></div>
+    </div>
+  </div>
+
+  <!-- Findings: everything the checks found, by kind -->
+  <div id="tab-findings" class="tab-content">
+    <div class="toolbar">
+      <div class="seg" id="findings-severity" role="group" aria-label="Severity">
+        <button type="button" data-v="" class="active">All</button>
+        <button type="button" data-v="error">Errors</button>
+        <button type="button" data-v="warning">Warnings</button>
+        <button type="button" data-v="info">Notes</button>
+        <button type="button" data-v="hidden">Hidden</button>
+      </div>
+      <div class="seg" id="findings-category" role="group" aria-label="Where">
+        <button type="button" data-v="" class="active">Everywhere</button>
+        <button type="button" data-v="Bus">Bus</button>
+        <button type="button" data-v="Project">Project</button>
+        <button type="button" data-v="Devices">Devices</button>
+        <button type="button" data-v="Home Assistant">Home Assistant</button>
+      </div>
+      <input type="search" id="findings-search" placeholder="Filter" aria-label="Filter findings">
+      <span class="spacer"></span>
+      <span class="muted" id="findings-count"></span>
+      <a class="btn" href="api/report.md" title="Everything found, with what to do about it, as a text file to keep or hand on">Report</a>
+    </div>
+    <div id="findings-list"></div>
+  </div>
+
+  <!-- Monitor: the telegrams, live and from the recording -->
+  <div id="tab-monitor" class="tab-content">
+    <div class="toolbar">
+      <div class="seg" id="monitor-mode" role="group" aria-label="Which telegrams">
+        <button type="button" data-v="live" class="active">Live</button>
+        <button type="button" data-v="timeline">Timeline</button>
+        <button type="button" data-v="wire" title="Bus monitor mode: every frame on the line with its acknowledgement">Wire</button>
+        <button type="button" data-v="archive">Archive</button>
+      </div>
+      <input type="search" id="monitor-search" placeholder="Address, name or value" aria-label="Filter telegrams">
+      <div class="seg" id="monitor-type" role="group" aria-label="Kind of telegram">
+        <button type="button" data-v="" class="active">All</button>
+        <button type="button" data-v="write">Write</button>
+        <button type="button" data-v="read">Read</button>
+        <button type="button" data-v="response">Response</button>
+      </div>
+      <select id="archive-range" aria-label="Range" hidden>
+        <option value="3600">Last hour</option><option value="86400" selected>Last 24 hours</option>
+        <option value="604800">Last 7 days</option><option value="2592000">Last 30 days</option><option value="0">Everything</option>
+      </select>
+      <span class="spacer"></span>
+      <span class="muted" id="monitor-count"></span>
+      <button type="button" class="btn" id="monitor-pause">Pause</button>
+      <a class="btn" id="archive-csv" hidden>Export CSV</a>
+    </div>
+    <div class="panel flush" id="monitor-list"><div id="monitor-table"></div></div>
+    <div id="monitor-wire" hidden>
+      <div class="panel"><div class="panel-body">
+        <div class="title"><span>Bus monitor mode</span><span class="hint" id="wire-state"></span></div>
+        <form class="form-row" id="wire-form">
+          <select id="wire-interface" aria-label="Interface"></select>
+          <input type="text" id="wire-host" placeholder="Address of the interface" aria-label="Address" autocomplete="off" spellcheck="false" hidden>
+          <select id="wire-minutes" aria-label="For how long"><option value="2">2 minutes</option><option value="10" selected>10 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option></select>
+          <button type="submit" class="btn primary" id="wire-start">Start</button>
+          <button type="button" class="btn" id="wire-stop" hidden>Stop</button>
+        </form>
+        <p class="muted" style="margin-top:10px;max-width:100ch">The interface hands over every frame on its line as it went over the wire: repeats, the acknowledgement after each telegram or the lack of one, and frames that arrived damaged. It takes a tunnel of the interface and only listens. Not every interface has this mode, and <b>some close their other tunnels while it is on</b>, Home Assistant's included: try it when that does not matter, and it stops by itself.</p>
+      </div></div>
+      <div id="wire-tiles" class="tiles"></div>
+      <div class="panel flush"><div id="wire-table"></div></div>
+    </div>
+    <div class="panel" id="monitor-timeline" hidden><div class="panel-body">
+      <div class="title"><span>Who sent what when</span>
+        <div class="seg" id="timeline-span" role="group" aria-label="Stretch of time">
+          <button type="button" data-v="120">2 min</button>
+          <button type="button" data-v="600" class="active">10 min</button>
+          <button type="button" data-v="3600">1 h</button>
+        </div>
+      </div>
+      <canvas id="timeline-canvas" class="timeline"></canvas>
+      <div class="muted mono" id="timeline-tip" hidden></div>
+      <div class="muted" id="timeline-note" style="margin-top:8px"></div>
+    </div></div>
+    <div class="more" id="archive-more" hidden><button type="button" class="btn" id="archive-more-btn">Load more</button></div>
+  </div>
+
+  <!-- Charts: the recorded values of group addresses over time -->
+  <div id="tab-charts" class="tab-content">
+    <div class="toolbar">
+      <input type="search" id="chart-add" list="chart-options" placeholder="Add a group address" aria-label="Add a group address">
+      <datalist id="chart-options"></datalist>
+      <div id="chart-chips" class="chips"></div>
+      <span class="spacer"></span>
+      <div class="seg" id="chart-range" role="group" aria-label="Range">
+        <button type="button" data-v="3600">1 h</button>
+        <button type="button" data-v="21600">6 h</button>
+        <button type="button" data-v="86400" class="active">24 h</button>
+        <button type="button" data-v="604800">7 d</button>
+        <button type="button" data-v="2592000">30 d</button>
+      </div>
+    </div>
+    <div class="panel"><div class="panel-body">
+      <div id="chart-plot" class="plot"></div>
+      <div class="empty-state" id="chart-empty">Pick a group address above, or press <b>Chart</b> on a group address. The values come from the recording, so a chart goes back as far as the app has been listening.</div>
+      <div id="chart-notes" class="muted"></div>
+    </div></div>
+  </div>
+
+  <!-- Statistics: how busy the bus is, who talks most, and when the app was listening -->
+  <div id="tab-stats" class="tab-content">
+    <div class="toolbar">
+      <div class="seg" id="stats-range" role="group" aria-label="Range">
+        <button type="button" data-v="3600">1 h</button>
+        <button type="button" data-v="86400" class="active">24 h</button>
+        <button type="button" data-v="604800">7 d</button>
+        <button type="button" data-v="2592000">30 d</button>
+        <button type="button" data-v="31536000">1 y</button>
+      </div>
+      <span class="muted" id="stats-span"></span>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="stats-refresh">Refresh</button>
+    </div>
+    <div id="stats-tiles" class="tiles"></div>
+    <div class="grid-2">
+      <div class="panel"><div class="panel-body">
+        <div class="title"><span>Telegrams over time</span><span class="hint" id="stats-hist-hint"></span></div>
+        <div id="stats-hist" class="bars tall"></div>
+      </div></div>
+      <div class="panel"><div class="panel-body">
+        <div class="title"><span>When the bus is busy</span><span class="hint">day of the week by hour</span></div>
+        <div id="stats-heat"></div>
+      </div></div>
+    </div>
+    <div class="grid-2">
+      <div class="panel flush"><div class="panel-head"><span>Busiest group addresses</span></div><div id="stats-top-ga"></div></div>
+      <div class="panel flush"><div class="panel-head"><span>Busiest devices</span></div><div id="stats-top-src"></div></div>
+    </div>
+    <div class="panel"><div class="panel-body">
+      <div class="title"><span>Was the app listening?</span><span class="hint">a gap in the history is a quiet bus, a lost link, or the app not running</span></div>
+      <div id="stats-availability"></div>
+    </div></div>
+    <div class="panel"><div class="panel-body">
+      <div class="title"><span>The recording</span></div>
+      <div id="stats-recorder"></div>
+    </div></div>
+  </div>
+
+  <!-- Group addresses -->
+  <div id="tab-addresses" class="tab-content">
+    <div class="toolbar">
+      <input type="search" id="addresses-search" placeholder="Address, name or type" aria-label="Filter group addresses">
+      <div class="seg" id="addresses-filter" role="group" aria-label="Which">
+        <button type="button" data-v="" class="active">All</button>
+        <button type="button" data-v="issues">With findings</button>
+        <button type="button" data-v="seen">Seen on the bus</button>
+        <button type="button" data-v="silent">Never seen</button>
+        <button type="button" data-v="ha">In Home Assistant</button>
+        <button type="button" data-v="unknown">Not in the project</button>
+      </div>
+      <span class="spacer"></span>
+      <span class="muted" id="addresses-count"></span>
+      <a class="btn" href="api/export/addresses.csv">Export CSV</a>
+    </div>
+    <div class="panel flush"><div id="addresses-table"></div></div>
+  </div>
+
+  <!-- Devices -->
+  <div id="tab-devices" class="tab-content">
+    <div class="toolbar">
+      <div class="seg" id="devices-view" role="group" aria-label="View">
+        <button type="button" data-v="list" class="active">List</button>
+        <button type="button" data-v="lines">Lines</button>
+        <button type="button" data-v="graph">Graph</button>
+      </div>
+      <input type="search" id="devices-search" placeholder="Address, name or maker" aria-label="Filter devices">
+      <div class="seg" id="devices-filter" role="group" aria-label="Which">
+        <button type="button" data-v="" class="active">All</button>
+        <button type="button" data-v="issues">With findings</button>
+        <button type="button" data-v="silent">Not heard</button>
+        <button type="button" data-v="unknown">Not in the project</button>
+      </div>
+      <span class="spacer"></span>
+      <a class="btn" href="api/export/devices.csv">Export CSV</a>
+      <button type="button" class="btn" id="devices-check" title="Ask every device of the project whether it is there">Check all devices</button>
+      <button type="button" class="btn" id="devices-scan" title="Ask every address of a line, to find devices the project does not have">Scan a line</button>
+      <button type="button" class="btn" id="devices-serial" title="Find the device with a serial number, wherever it is on the bus">Find by serial</button>
+      <button type="button" class="btn" id="devices-progmode" title="Find devices whose programming LED is on">Programming mode</button>
+    </div>
+    <div id="job-box"></div>
+    <div class="panel flush" id="devices-list"><div id="devices-table"></div></div>
+    <div id="devices-lines" hidden></div>
+    <div class="panel" id="devices-graph" hidden><div class="panel-body">
+      <canvas id="graph-canvas" class="graph"></canvas>
+      <div class="muted" id="graph-note"></div>
+    </div></div>
+  </div>
+
+  <!-- Home Assistant: its KNX entities held against the project -->
+  <div id="tab-ha" class="tab-content">
+    <div id="ha-tiles" class="tiles"></div>
+    <div id="ha-stray"></div>
+    <div class="toolbar">
+      <input type="search" id="ha-search" placeholder="Entity, name or address" aria-label="Filter entities">
+      <div class="seg" id="ha-filter" role="group" aria-label="Which">
+        <button type="button" data-v="" class="active">All</button>
+        <button type="button" data-v="issues">With findings</button>
+        <button type="button" data-v="ui">Made in the UI</button>
+        <button type="button" data-v="yaml">From YAML</button>
+      </div>
+      <span class="spacer"></span>
+      <span class="muted" id="ha-count"></span>
+      <a class="btn" href="api/export/entities.csv">Export CSV</a>
+    </div>
+    <div class="panel flush"><div id="ha-table"></div></div>
+  </div>
+
+  <!-- Interface: how the app reaches the bus -->
+  <div id="tab-interface" class="tab-content">
+    <div class="grid-2">
+      <div>
+        <div class="panel"><div class="panel-body">
+          <div class="title"><span>Connection</span></div>
+          <div id="interface-current"></div>
+        </div></div>
+        <div class="panel"><div class="panel-body">
+          <div class="title"><span>By hand</span><span class="hint">an interface the search does not find</span></div>
+          <form id="interface-form" class="form-row">
+            <input type="text" id="interface-host" placeholder="Address, e.g. 192.168.1.20" aria-label="Address" autocomplete="off" spellcheck="false">
+            <input type="text" id="interface-port" placeholder="3671" aria-label="Port" inputmode="numeric" style="width:80px">
+            <select id="interface-type" aria-label="Connection type">
+              <option value="tunneling_tcp">Tunnelling (TCP)</option>
+              <option value="tunneling">Tunnelling (UDP)</option>
+            </select>
+            <button type="submit" class="btn">Connect</button>
+          </form>
+        </div></div>
+        <div class="panel"><div class="panel-body prose">
+          <p>Without an interface of its own the app listens along with <b>Home Assistant</b>: the monitor, the recording, the charts and every check of the project and the entities work that way, and nothing has to be chosen here.</p>
+          <p>An interface of its own adds what cannot be done through Home Assistant: asking a device directly whether it is there and what it is, scanning a line, and finding devices in programming mode. <b>Routing</b> takes no tunnel; <b>tunnelling</b> takes one of the interface's tunnels (most have four or five), so one stays free for ETS.</p>
+          <p>The connection only reads: it sends reads and the handshake of a connection to a device, never a write, a restart or a download. KNX Secure interfaces are not supported; use Home Assistant's connection for those.</p>
+        </div></div>
+      </div>
+      <div class="panel"><div class="panel-body">
+        <div class="title"><span>Interfaces on the network</span><button type="button" class="link-btn" id="interface-scan">Search</button></div>
+        <div id="interface-list"></div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- Info -->
+  <div id="tab-about" class="tab-content">
+    <div class="panel"><div class="panel-body prose">
+      <h3 style="margin-top:0">What this is</h3>
+      <p>An X-ray of a KNX installation: it listens to the bus, holds what it hears against the ETS project and against what Home Assistant has configured for KNX, and says what does not add up. It only reads. KNX-Ray is an unofficial KNX application: it is not made by, or associated with, the KNX Association.</p>
+      <h3>Where the data comes from</h3>
+      <ul>
+        <li><b>The ETS project</b> (names, datapoint types, devices, their objects and flags) is the one uploaded in Home Assistant's KNX settings. Upload a fresh export after changes in ETS: the app follows.</li>
+        <li><b>Telegrams</b> come from the app's own KNX interface when one is chosen on the Interface page, and otherwise from Home Assistant's KNX integration.</li>
+        <li><b>Home Assistant's entities</b>, made in the KNX panel or written in YAML, come from the KNX integration.</li>
+      </ul>
+      <h3>Reading the findings</h3>
+      <p>Errors are things that do not work. Warnings are things that will bite: a read nobody answers, an address the project does not know. Notes are leftovers and things to know. Every kind says what to do about it. A finding you have judged and want out of sight can be hidden; it stays under <b>Hidden</b>.</p>
+      <p>What is said about the bus is about what was seen since the app started. Checks of the project and of Home Assistant are always complete.</p>
+      <h3>The recording</h3>
+      <p>Every telegram is kept in the app's data, for as long as the options say (90 days and two million telegrams unless changed). The Archive, the Charts and the Statistics read from it. It is part of Home Assistant's backups.</p>
+      <h3>Good to know</h3>
+      <ul>
+        <li>A group address without a datapoint type cannot be decoded. Its payload is shown as it is, and a chart reads it by its length.</li>
+        <li>Values of KNX Data Secure addresses are only readable through Home Assistant's connection, which has the keys.</li>
+        <li><b>Wire</b> on the Monitor page is bus monitor mode: every frame on the line with its acknowledgement. Some interfaces close their other tunnels while it is on.</li>
+        <li>Stray entities can be removed from the Home Assistant page. Switch “Allow removing” off in the app's options to make the app only report.</li>
+        <li>Version <span class="mono">__VERSION__</span></li>
+      </ul>
+    </div></div>
+  </div>
+</div>
+</div>
+<aside class="drawer" id="drawer" hidden aria-label="Details"></aside>
+</div>
+
+<footer class="statusbar" id="statusbar"></footer>
+<div id="modal-root"></div>
+<script src="static/vendor/uplot/uPlot.iife.min.js?v=__VERSION__"></script>
+<script src="static/core.js?v=__VERSION__"></script>
+<script src="static/views.js?v=__VERSION__"></script>
+<script src="static/telegrams.js?v=__VERSION__"></script>
+<script src="static/charts.js?v=__VERSION__"></script>
+<script src="static/graph.js?v=__VERSION__"></script>
+<script src="static/main.js?v=__VERSION__"></script>
+<script src="static/donate.js?v=__VERSION__" data-app="KNX-Ray" data-api="api/donate"></script>
+</body>
+</html>

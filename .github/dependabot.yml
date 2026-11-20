@@ -21,6 +21,7 @@ updates:
       - /app-dishylink
       - /app-fireservicerota
       - /app-goodwe
+      - /app-knxray
       - /app-meldkamer
       - /app-network
       - /app-pgadmin4
@@ -35,7 +36,7 @@ updates:
         update-types:
           - version-update:semver-major
 
-  # The Python packages of Arcade, Chronicle, Dashboard, Tesla, GoodWe, FireServiceRota, Meldkamer, Network and Proxmox, pinned in their requirements.txt.
+  # The Python packages of Arcade, Chronicle, Dashboard, Tesla, GoodWe, FireServiceRota, KNX-Ray, Meldkamer, Network and Proxmox, pinned in their requirements.txt.
   - package-ecosystem: pip
     directories:
       - /app-arcade
@@ -43,6 +44,7 @@ updates:
       - /app-dashboard
       - /app-fireservicerota
       - /app-goodwe
+      - /app-knxray
       - /app-meldkamer
       - /app-network
       - /app-proxmox

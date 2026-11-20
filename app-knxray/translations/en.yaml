@@ -1,0 +1,25 @@
+configuration:
+  retain_days:
+    name: Keep telegrams (days)
+    description: Recorded telegrams older than this are deleted. 0 keeps them for ever.
+  retain_rows:
+    name: Keep at most (telegrams)
+    description: >-
+      The oldest recorded telegrams go when there are more than this. A million telegrams take
+      about 120 MB. 0 for no limit.
+  chatty_per_minute:
+    name: Busy above (telegrams a minute)
+    description: >-
+      A group address that carries more than this in one minute is reported as very busy; a
+      device at three times as many.
+  monitor_size:
+    name: Live monitor (telegrams)
+    description: How many of the last telegrams the live monitor keeps in memory.
+  allow_remove:
+    name: Allow removing
+    description: >-
+      Turn off to make the app only report: every Remove button on the Home Assistant page is
+      gone. On, stray entities and devices and KNX entities made in the UI can be removed there.
+  log_level:
+    name: Log level
+    description: How much the app writes to its own log.
