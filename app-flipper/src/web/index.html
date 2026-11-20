@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- The top bar is as high as Home Assistant's own header (its --header-height, 56px by default) -->
+<script>try{const h=getComputedStyle(window.parent.document.documentElement).getPropertyValue('--header-height').trim();if(h)document.documentElement.style.setProperty('--ha-header-height',h);}catch(e){}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flipper</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234c8dff' stroke-width='1.8' stroke-linejoin='round'%3E%3Crect x='2' y='6' width='20' height='12' rx='3.5'/%3E%3Crect x='5' y='9' width='8' height='5' rx='1'/%3E%3Ccircle cx='17.5' cy='11.5' r='2'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="static/vendor/cm-codemirror.min.css?v=__VERSION__">
+<link rel="stylesheet" href="static/vendor/cm-dialog.min.css?v=__VERSION__">
+<link rel="stylesheet" href="static/app.css?v=__VERSION__">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="3.5"/><rect x="5" y="9" width="8" height="5" rx="1"/><circle cx="17.5" cy="11.5" r="2"/></svg>
+    <span class="brand-name">FLIPPER</span>
+  </div>
+  <nav class="tabs" aria-label="Views">
+    <button type="button" class="tab active" data-tab="device">Device</button>
+    <button type="button" class="tab" data-tab="code">Code</button>
+    <button type="button" class="tab" data-tab="files">Files</button>
+    <button type="button" class="tab" data-tab="console">Console</button>
+    <button type="button" class="tab" data-tab="about">Info</button>
+  </nav>
+  <span class="spacer"></span>
+  <span class="link-state" id="link-state"><i></i><span id="link-text">…</span></span>
+  <div class="tabs" role="group" aria-label="Theme" id="theme-group">
+    <button type="button" id="theme-toggle" class="tab icon-tab" title="Theme"><span id="theme-icon" aria-hidden="true">🌓</span></button>
+  </div>
+</header>
+
+<div class="views">
+<div class="pages">
+<div class="container">
+  <div id="banners"></div>
+
+  <!-- Device: the screen, the buttons, and what the Flipper says about itself -->
+  <div id="tab-device" class="tab-content active">
+    <div class="device-grid">
+      <div class="panel"><div class="panel-body">
+        <div class="title"><span>Screen</span><span class="hint">arrow keys, Enter = OK, Backspace = Back; hold for a long press</span></div>
+        <div class="flipper"><i class="led" id="led" aria-hidden="true"></i>
+          <div class="lcd" id="lcd-main"><canvas width="128" height="64" aria-label="The Flipper's screen"></canvas><div class="lcd-off">no picture</div></div>
+          <div class="pad real" id="pad-main"></div>
+        </div>
+        <div class="toolbar" style="margin:14px 0 0">
+          <button type="button" class="btn" id="shot-btn">Save screenshot</button>
+          <button type="button" class="btn" id="rotate-btn" title="Turn the picture a quarter">Rotate</button>
+          <button type="button" class="btn" id="close-app-btn" title="Close the app that is running on the Flipper">Close app</button>
+        </div>
+      </div></div>
+      <div>
+        <div id="device-tiles" class="tiles"></div>
+        <div class="panel"><div class="panel-body">
+          <div class="title"><span>Flipper</span></div>
+          <div class="toolbar" style="margin-bottom:0">
+            <button type="button" class="btn" data-device="clock" title="Set the Flipper's clock to this machine's time">Set clock</button>
+            <button type="button" class="btn" data-device="alert" title="The Flipper beeps, blinks and vibrates">Find it</button>
+            <button type="button" class="btn" data-device="reboot" data-confirm="Restart the Flipper?">Restart</button>
+            <button type="button" class="btn" id="release-btn" title="End the session, so the Flipper can use its USB port for something else"></button>
+          </div>
+        </div></div>
+        <div class="panel flush"><div id="device-info"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Code: projects, the editor, building and running -->
+  <div id="tab-code" class="tab-content">
+    <div class="code-grid">
+      <aside class="code-side">
+        <div class="panel"><div class="panel-body">
+          <div class="title"><span>Project</span><span><button class="link-btn" id="project-new">New</button> · <button class="link-btn" id="project-import">Import</button></span></div>
+          <select id="project-select" aria-label="Project" style="width:100%"></select>
+          <div id="file-list" class="file-list"></div>
+          <div class="side-actions" id="project-actions" hidden>
+            <button class="link-btn" id="file-new">New file</button>
+            <a class="link-btn" id="project-export">Export zip</a>
+            <button class="link-btn danger" id="project-delete">Delete project</button>
+          </div>
+        </div></div>
+        <div class="panel"><div class="panel-body">
+          <div class="title"><span>SDK</span><span class="hint" id="sdk-hint"></span></div>
+          <div id="sdk-box"></div>
+        </div></div>
+        <div class="panel"><div class="panel-body">
+          <div class="title"><span>Screen</span></div>
+          <div class="lcd small" id="lcd-side"><canvas width="128" height="64" aria-label="The Flipper's screen"></canvas><div class="lcd-off">no picture</div></div>
+          <div class="pad small" id="pad-side"></div>
+        </div></div>
+      </aside>
+      <section class="code-main">
+        <div class="panel editor-panel">
+          <div class="editor-bar">
+            <span class="mono" id="file-name">no file open</span><span id="file-dirty" class="pill warn" hidden>not saved</span>
+            <span class="spacer"></span>
+            <button type="button" class="btn" id="save-btn" disabled title="Ctrl+S">Save</button>
+            <button type="button" class="btn" id="build-btn" hidden>Build</button>
+            <button type="button" class="btn primary" id="launch-btn" hidden title="Build, put it on the Flipper and start it">Build &amp; run</button>
+            <button type="button" class="btn primary" id="run-btn" hidden title="Put the scripts on the Flipper and run this one">Run</button>
+            <a class="btn" id="fap-btn" hidden title="The built app, to keep or share">.fap</a>
+            <button type="button" class="btn" id="cancel-btn" hidden>Stop</button>
+          </div>
+          <div id="editor"></div>
+          <div class="empty-state" id="editor-empty">Make a project, or choose a file on the left.</div>
+        </div>
+        <div class="panel"><div class="panel-body">
+          <div class="title"><span>Output</span><span class="hint" id="job-hint"></span></div>
+          <pre class="output" id="build-output"></pre>
+        </div></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Files: what is on the Flipper -->
+  <div id="tab-files" class="tab-content">
+    <div class="toolbar">
+      <div class="seg" id="storage-seg" role="group" aria-label="Storage">
+        <button type="button" data-root="/ext" class="active">SD card</button>
+        <button type="button" data-root="/int">Internal</button>
+      </div>
+      <div class="crumbs mono" id="crumbs"></div>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="files-refresh">Refresh</button>
+      <button type="button" class="btn" id="files-mkdir">New folder</button>
+      <button type="button" class="btn primary" id="files-upload">Upload</button>
+      <input type="file" id="files-input" multiple hidden>
+    </div>
+    <div class="panel flush"><div id="files-table"></div></div>
+  </div>
+
+  <!-- Console: the Flipper's own command line and log -->
+  <div id="tab-console" class="tab-content">
+    <div class="toolbar">
+      <button type="button" class="btn primary" id="console-toggle">Open console</button>
+      <label for="log-level">Log</label>
+      <select id="log-level"><option>default</option><option>error</option><option>warn</option><option selected>info</option><option>debug</option><option>trace</option></select>
+      <button type="button" class="btn" id="log-btn">Show log</button>
+      <button type="button" class="btn" id="ctrlc-btn" title="Stop what is running (Ctrl+C)">Stop</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="console-clear">Clear</button>
+    </div>
+    <div class="panel"><div class="panel-body">
+      <pre class="output console" id="console-output"></pre>
+      <form class="console-line" id="console-form"><span class="mono">&gt;:</span><input type="text" id="console-input" autocomplete="off" spellcheck="false" autocapitalize="off" aria-label="Command" placeholder="help"></form>
+    </div></div>
+    <p class="muted" style="max-width:76ch">The Flipper has one serial port, and it either talks to this app (screen, buttons, files) or is a command line. While the console is open the screen and files wait; closing it brings them back.</p>
+  </div>
+
+  <!-- Info -->
+  <div id="tab-about" class="tab-content">
+    <div class="panel"><div class="panel-body prose">
+      <h3 style="margin-top:0">What this is</h3>
+      <p>A workbench for a Flipper Zero plugged into the machine Home Assistant runs on. It shows the Flipper's screen, presses its buttons, reads and writes its files, and builds and starts apps on it. Not made by or affiliated with Flipper Devices.</p>
+      <h3>C apps</h3>
+      <p>A project with an <code>application.fam</code> is a C app. <b>Build</b> runs <a href="https://github.com/flipperdevices/flipperzero-ufbt" target="_blank" rel="noopener noreferrer">ufbt</a>, Flipper's own build tool, which makes a <code>.fap</code>. <b>Build &amp; run</b> then puts it in <code>/ext/apps/&lt;fap_category&gt;/</code> on the SD card and starts it. An app that is running is closed first.</p>
+      <p>ufbt needs the Flipper SDK and compiler: about 400 MB to download, 1.5 GB on disk, kept in the app's data and left out of Home Assistant's backups. Install it on the Code page. An app only loads on firmware with the same API as the SDK it was built with, so take the SDK that matches your Flipper's firmware (<b>release</b> for a Flipper on release firmware).</p>
+      <h3>JavaScript</h3>
+      <p>A project without an <code>application.fam</code> is a set of scripts. <b>Run</b> puts them in <code>/ext/apps/Scripts/&lt;project&gt;/</code> and starts the open one with the Flipper's JS Runner. No SDK is needed. What a script prints shows on the Flipper's screen.</p>
+      <h3>The log</h3>
+      <p><code>FURI_LOG_I()</code> lines go to the Flipper's log, which the Console shows (<b>Show log</b>). The log and the screen cannot be shown at the same time: see the note on the Console page.</p>
+      <h3>When the Flipper needs its USB port</h3>
+      <p>While this app holds a session, the Flipper cannot switch its USB port to another role (Bad USB, U2F, the USB-UART bridge). <b>Release</b> on the Device page ends the session until you connect again.</p>
+      <h3>Good to know</h3>
+      <ul>
+        <li>Files travel in small pieces over the serial port: a megabyte takes a while.</li>
+        <li>Projects live in the app's data and are part of Home Assistant's backups. <b>Export zip</b> gives you a copy.</li>
+        <li>Version <span class="mono">__VERSION__</span></li>
+      </ul>
+    </div></div>
+  </div>
+</div>
+</div>
+</div>
+
+<footer class="statusbar" id="statusbar"></footer>
+<div id="modal-root"></div>
+<script src="static/vendor/cm-codemirror.min.js?v=__VERSION__"></script>
+<script src="static/vendor/cm-clike.min.js?v=__VERSION__"></script>
+<script src="static/vendor/cm-javascript.min.js?v=__VERSION__"></script>
+<script src="static/vendor/cm-python.min.js?v=__VERSION__"></script>
+<script src="static/vendor/cm-matchbrackets.min.js?v=__VERSION__"></script>
+<script src="static/vendor/cm-closebrackets.min.js?v=__VERSION__"></script>
+<script src="static/vendor/cm-searchcursor.min.js?v=__VERSION__"></script>
+<script src="static/vendor/cm-dialog.min.js?v=__VERSION__"></script>
+<script src="static/vendor/cm-search.min.js?v=__VERSION__"></script>
+<script src="static/vendor/cm-comment.min.js?v=__VERSION__"></script>
+<script src="static/vendor/cm-active-line.min.js?v=__VERSION__"></script>
+<script src="static/app.js?v=__VERSION__"></script>
+<script src="static/donate.js?v=__VERSION__" data-app="Flipper" data-api="api/donate"></script>
+</body>
+</html>

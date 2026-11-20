@@ -1,0 +1,9 @@
+configuration:
+  device:
+    name: Seriële poort van de Flipper
+    description: >-
+      Laat leeg om de eerste aangesloten Flipper Zero te gebruiken. Kies alleen een poort als je er
+      meer dan één hebt, of als hij niet vanzelf wordt gevonden.
+  log_level:
+    name: Logniveau
+    description: Hoeveel de app naar zijn eigen log schrijft.
