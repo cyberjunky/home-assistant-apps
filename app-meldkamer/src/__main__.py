@@ -178,7 +178,7 @@ async def main() -> int:
             await asyncio.gather(*tasks, return_exceptions=True)
 
     # Setup graceful shutdown
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     def on_signal():
         run_in_background(do_shutdown())
