@@ -12,7 +12,6 @@ image: "ghcr.io/cyberjunky/app-repair"
 ingress: true
 panel_icon: mdi:stethoscope
 panel_title: Repair
-panel_admin: true
 # Entities, devices, integrations, the log, statistics and repairs are read from Core, and changed through it
 homeassistant_api: true
 # The Supervisor's resolution centre: what it finds wrong with the system, and its suggestions
