@@ -1,0 +1,5 @@
+# Python dependencies for Flipper (installed in the Dockerfile).
+# aiohttp - web server, ingress and the WebSocket. The link to the Flipper itself is standard library only.
+aiohttp>=3.14.5,<4
+# ufbt - Flipper's build tool for apps; it downloads the SDK and compiler into the app's data on first use
+ufbt==0.2.6
