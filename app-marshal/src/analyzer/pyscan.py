@@ -117,6 +117,8 @@ class Facts:
         self.diagnostics = False
         self.diagnostics_redacted = False
         self.lines = 0
+        self.functions = 0
+        self.typed = 0  # functions that say what they take or give back
 
 
 class FileScan(ast.NodeVisitor):
@@ -191,6 +193,10 @@ class FileScan(ast.NodeVisitor):
 
     def _function(self, node: ast.FunctionDef | ast.AsyncFunctionDef, in_loop: bool) -> None:
         self.defined.add(node.name)
+        self.facts.functions += 1
+        arguments = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
+        if node.returns is not None or any(a.annotation is not None for a in arguments):
+            self.facts.typed += 1
         if node.name == "async_get_config_entry_diagnostics" or node.name == "async_get_device_diagnostics":
             self.facts.diagnostics = True
         self.in_loop.append(in_loop)

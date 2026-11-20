@@ -1,6 +1,7 @@
 """Marshal's analyzer: reads the files of one integration and says what deserves a look.
 
     report = analyze(files)          # what the code itself says
+    add_quality(report, files, ...)  # what Ruff says of it, and how much of it has type hints
     add_context(report, ...)         # what the catalog, the vulnerability database and Home Assistant add
     finish(report)                   # scores and grade
 
@@ -14,10 +15,21 @@ import time
 from datetime import datetime
 
 from . import hosts as host_rules
+from .lint_rules import RULE_FOR as RULE_FOR_LINT
 from .pyscan import Facts, scan
-from .rules import CATEGORIES, CATEGORY_WEIGHT, RULES, SEVERITIES, WEIGHT
+from .rules import CATEGORIES, CATEGORY_WEIGHT, NOT_THE_WEAKEST, RULES, SEVERITIES, WEIGHT
 
-__all__ = ["CATEGORIES", "RULES", "SEVERITIES", "add_context", "analyze", "finish", "grade", "parse_requirement"]
+__all__ = [
+    "CATEGORIES",
+    "RULES",
+    "SEVERITIES",
+    "add_context",
+    "add_quality",
+    "analyze",
+    "finish",
+    "grade",
+    "parse_requirement",
+]
 
 # files: {path inside the integration: (size in bytes, the content, or its first bytes for what is not read)}
 Files = dict[str, tuple[int, bytes]]
@@ -26,6 +38,14 @@ MAX_PYTHON_BYTES = 2 * 1024 * 1024
 MAX_OCCURRENCES = 20
 BINARY_SUFFIXES = (".so", ".dll", ".dylib", ".pyd", ".exe", ".elf", ".o", ".a")
 BINARY_MAGIC = (b"\x7fELF", b"MZ\x90\x00", b"\xcf\xfa\xed\xfe", b"\xfe\xed\xfa\xcf", b"\xca\xfe\xba\xbe")
+COMPLEXITY = re.compile(r"\((\d+) > \d+\)")
+# How bad a vulnerability is, as the database rates it. Not rated counts as high.
+VULNERABLE = {
+    "moderate": "code.vulnerable_dependency_medium",
+    "medium": "code.vulnerable_dependency_medium",
+    "low": "code.vulnerable_dependency_low",
+}
+NEW_RELEASE = 7 * 86400
 REQUIREMENT = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(\[[^\]]*\])?\s*(.*)$")
 
 
@@ -88,7 +108,7 @@ def analyze(files: Files, package: bool = False) -> dict:
     package: the files are a library from PyPI, not an integration. It has no manifest to judge, a compiled
     part is normal, and whether its calls block is for the integration that makes them.
     """
-    hits = _Hits(skip=("performance.", "upkeep.") if package else ())
+    hits = _Hits(skip=("performance.", "upkeep.", "quality.") if package else ())
     facts = Facts()
     manifest = _manifest(files)
     stats = {"files": len(files), "python_files": 0, "lines": 0, "bytes": sum(size for size, _ in files.values())}
@@ -224,6 +244,72 @@ def _interval_rules(report: dict, facts: Facts, hits: _Hits) -> None:
             hits.add("performance.tight_interval", file, line, f"every {seconds:g} s")
 
 
+def add_quality(report: dict, files: Files, lint: dict | None) -> None:
+    """The code quality area: what Ruff found (src/quality.py; None when Ruff is not there), and how many of
+    the functions have type hints. Ruff's security checks land in the areas they belong to."""
+    hits: _Hits = report["_hits"]
+    facts: Facts = report["_facts"]
+    lines = max(report["stats"]["lines"], 1)
+    sources: dict[str, list[str]] = {}
+    unused = []
+    counted = 0
+    worst = None
+    for issue in (lint or {}).get("issues") or []:
+        rule = RULE_FOR_LINT.get(issue["code"])
+        if rule is None:
+            continue
+        counted += rule.startswith("quality.")
+        if rule == "quality.unused":
+            unused.append(issue)
+            continue
+        note = f"{issue['code']} {issue['message']}"
+        if rule == "quality.complex":
+            paths = COMPLEXITY.search(issue["message"])
+            value = int(paths.group(1)) if paths else 0
+            if worst is None or value > worst["paths"]:
+                worst = {"paths": value, "file": issue["file"], "line": issue["line"]}
+            if value > 50:
+                rule = "quality.very_complex"
+            note = issue["message"]
+        if issue["file"] not in sources:
+            entry = files.get(issue["file"])
+            sources[issue["file"]] = entry[1].decode("utf-8", errors="replace").splitlines() if entry else []
+        source = sources[issue["file"]]
+        snippet = source[issue["line"] - 1].strip() if 0 < issue["line"] <= len(source) else ""
+        hits.add(rule, issue["file"], issue["line"], note, snippet)
+    # A few leftovers are in every project; many say nobody runs the usual tools
+    if len(unused) >= 10 and len(unused) * 1000 / lines >= 5:
+        for issue in unused:
+            hits.add("quality.unused", issue["file"], issue["line"], issue["message"])
+    typed = round(100 * facts.typed / facts.functions) if facts.functions else None
+    if facts.functions >= 10 and facts.typed * 2 < facts.functions:
+        hits.add("quality.untyped", "", 0, f"{facts.typed} of {facts.functions} functions")
+    report["quality"] = {
+        "tool": (lint or {}).get("tool"),
+        "issues": counted if lint else None,
+        "per_1000": round(counted * 1000 / lines, 1) if lint else None,
+        "functions": facts.functions,
+        "typed": typed,
+        "most_complex": worst,
+    }
+
+
+def _vulnerable(hits: _Hits, name: str, version: str, found: list[dict], through: str = "") -> list[dict]:
+    """The findings for one package version's vulnerabilities; the same one under two ids counts once."""
+    kept: dict[str, dict] = {}
+    for vulnerability in found:
+        kept.setdefault(vulnerability["id"], vulnerability)
+    for vulnerability in kept.values():
+        note = f"{name} {version}{f' (through {through})' if through else ''}: {vulnerability['id']}"
+        if vulnerability.get("fixed"):
+            note += f", fixed in {vulnerability['fixed']}"
+        rule = VULNERABLE.get(vulnerability.get("severity") or "", "code.vulnerable_dependency")
+        # No line in the manifest belongs to it; a number of its own keeps each one apart
+        number = 1000 + sum(f["count"] for r, f in hits.found.items() if r.startswith("code.vulnerable_dependency"))
+        hits.add(rule, "manifest.json", number, note, vulnerability.get("summary") or "")
+    return list(kept.values())
+
+
 def add_context(
     report: dict,
     *,
@@ -235,6 +321,7 @@ def add_context(
     runtime: dict | None = None,
     packages: dict[tuple[str, str], dict] | None = None,
     package_reports: dict[str, dict] | None = None,
+    advisories: list[dict] | None = None,
     now: float | None = None,
 ) -> None:
     """What the code cannot say: the catalog's record, known vulnerabilities, and how it behaves in Home Assistant.
@@ -243,7 +330,9 @@ def add_context(
     Marketplace says of the install ({custom, installed_version, available_version, pending_upgrade});
     vulnerabilities: {(requirement name, version): [{id, summary, severity}]}; runtime: {setup_seconds, errors, warnings};
     packages: {(requirement name, spec): {status, version, key, reason}} and package_reports: {key: report}, what
-    reading the requirements from PyPI gave.
+    reading the requirements from PyPI gave (with `indirect`, what a requirement installs in turn: [{name, version}],
+    `yanked` and `published`); advisories: the repository's own security advisories that cover this version
+    ([{id, summary, severity, fixed}]).
     """
     hits: _Hits = report["_hits"]
     now = now or time.time()
@@ -273,10 +362,17 @@ def add_context(
             hits.add("upkeep.update_available", "", 0, versions)
     elif installed and not catalog:
         hits.add("upkeep.manual")
+    report["advisories"] = advisories or []
+    for advisory in advisories or []:
+        note = str(advisory.get("summary") or "")[:120]
+        if advisory.get("fixed"):
+            note += f" (fixed in {advisory['fixed']})"
+        hits.add("code.advisory", str(advisory["id"]), 0, note)
     known_hosts = {h["host"] for h in report["hosts"]}
     for number, requirement in enumerate(report["requirements"]):
         package = (packages or {}).get((requirement["name"].lower(), requirement["spec"])) or {}
         requirement["status"] = package.get("status")
+        requirement["yanked"] = bool(package.get("yanked"))
         requirement["resolved"] = package.get("version") or requirement["version"]
         read = (package_reports or {}).get(package.get("key") or "")
         if package.get("status") == "missing":
@@ -299,13 +395,25 @@ def add_context(
                 if host["host"] not in known_hosts and host["kind"] not in ("reference", "local"):
                     known_hosts.add(host["host"])
                     report["hosts"].append({**host, "via": requirement["name"]})
-        found = (vulnerabilities or {}).get((requirement["name"].lower(), requirement["resolved"])) or []
-        requirement["vulnerabilities"] = found
-        for index, vulnerability in enumerate(found):
-            note = f"{requirement['name']} {requirement['resolved']}: {vulnerability['id']}"
+        if package.get("yanked"):
             hits.add(
-                "code.vulnerable_dependency", "manifest.json", 1000 + index, note, vulnerability.get("summary") or ""
+                "code.dependency_yanked",
+                "manifest.json",
+                number + 1,
+                f"{requirement['name']} {requirement['resolved']}",
             )
+        age = now - package["published"] if package.get("published") else None
+        if age is not None and 0 <= age < NEW_RELEASE:
+            note = f"{requirement['name']} {requirement['resolved']}, {int(age // 86400)} days old"
+            hits.add("code.dependency_new", "manifest.json", number + 1, note)
+        found = (vulnerabilities or {}).get((requirement["name"].lower(), requirement["resolved"])) or []
+        requirement["vulnerabilities"] = _vulnerable(hits, requirement["name"], requirement["resolved"], found)
+        # What the requirement installs in turn: looked up, not read
+        requirement["indirect"] = []
+        for indirect in package.get("indirect") or []:
+            found = (vulnerabilities or {}).get((indirect["name"].lower(), indirect["version"])) or []
+            found = _vulnerable(hits, indirect["name"], indirect["version"], found, requirement["name"])
+            requirement["indirect"].append({**indirect, "vulnerabilities": found})
     if runtime:
         report["runtime"] = runtime
         seconds = runtime.get("setup_seconds")
@@ -341,7 +449,7 @@ def finish(report: dict) -> dict:
     scores = {category: max(0, round(100 - penalty)) for category, penalty in penalties.items()}
     weighted = sum(scores[c] * w for c, w in CATEGORY_WEIGHT.items())
     # One bad category is not averaged away by four good ones
-    score = round(min(weighted, min(scores.values()) + 15))
+    score = round(min(weighted, min(v for c, v in scores.items() if c not in NOT_THE_WEAKEST) + 15))
     # Nothing with a critical finding passes
     if any(f["severity"] == "critical" for f in findings):
         score = min(score, 45)

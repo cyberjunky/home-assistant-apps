@@ -2,7 +2,7 @@
 name: Marshal
 version: "0.2.4"
 slug: app-marshal
-description: "Keeps watch over your Marketplace integrations - reads their code for credential and data access, risky code, internet hosts and slow patterns, and ranks them"
+description: "Keeps watch over your Marketplace integrations - reads their code for credential and data access, risky code, known vulnerabilities, internet hosts, slow patterns and code quality, and ranks them"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-marshal"
 init: false
 arch:
@@ -23,6 +23,7 @@ options:
   vulnerability_lookups: true
   dependency_scans: true
   runtime_checks: true
+  code_quality: true
   log_level: info
 schema:
   rescan_hours: int(1,720)
@@ -30,4 +31,5 @@ schema:
   vulnerability_lookups: bool
   dependency_scans: bool
   runtime_checks: bool
+  code_quality: bool
   log_level: list(debug|info|warning|error)

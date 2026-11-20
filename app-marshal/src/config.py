@@ -40,12 +40,15 @@ class Config:
     rescan_hours: int = 24
     # The Marketplace catalog: removed repositories, last change, installs
     catalog_lookups: bool = True
-    # Pinned requirements are looked up in the OSV vulnerability database
+    # Requirements, and what they install in turn, are looked up in the OSV vulnerability database; the
+    # integration's repository is asked for its security advisories
     vulnerability_lookups: bool = True
     # Each direct requirement is downloaded from PyPI and read like the integration itself
     dependency_scans: bool = True
     # Setup times and log entries, asked of Home Assistant
     runtime_checks: bool = True
+    # Ruff reads each integration for code quality and security lint
+    code_quality: bool = True
     log_level: str = "info"
 
     @classmethod
@@ -69,6 +72,7 @@ class Config:
             vulnerability_lookups=flag("vulnerability_lookups", True),
             dependency_scans=flag("dependency_scans", True),
             runtime_checks=flag("runtime_checks", True),
+            code_quality=flag("code_quality", True),
             log_level=str(options.get("log_level") or "info").lower(),
         )
 
@@ -79,4 +83,5 @@ class Config:
             "vulnerability_lookups": self.vulnerability_lookups,
             "dependency_scans": self.dependency_scans,
             "runtime_checks": self.runtime_checks,
+            "code_quality": self.code_quality,
         }

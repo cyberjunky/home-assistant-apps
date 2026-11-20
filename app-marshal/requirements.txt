@@ -3,3 +3,6 @@
 aiohttp>=3.14.5,<4
 # packaging - picks the version of a requirement the way pip does
 packaging>=24
+# ruff - the linter that measures code quality; run as a program on text, it imports nothing. Held to one
+# minor version: a newer one can rename or remove a check, and then it refuses the list
+ruff>=0.17.4,<0.18

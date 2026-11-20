@@ -3,10 +3,12 @@ in its library, not in the integration. Each direct requirement is resolved on P
 with the same analyzer. Nothing is installed and nothing is run.
 
 Packages that Home Assistant itself ships are skipped: every installation has them, whatever is installed
-from the Marketplace. What a requirement itself requires is not followed.
+from the Marketplace. What a requirement itself requires is followed on PyPI to a name and the version that
+would be installed today, so it can be looked up in the vulnerability database; its code is not read.
 """
 
 import asyncio
+import contextlib
 import hashlib
 import json
 import logging
@@ -16,9 +18,11 @@ import tarfile
 import tempfile
 import time
 import zipfile
+from datetime import datetime
 from pathlib import Path
 
 import aiohttp
+from packaging.requirements import InvalidRequirement, Requirement
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.version import InvalidVersion, Version
 
@@ -39,6 +43,7 @@ MAX_TOTAL_READ = 60 * 1024 * 1024
 HEAD_BYTES = 16
 SKIP_DIRS = {"tests", "test", "testing", "docs", "doc", "examples", "example", "benchmarks", "__pycache__"}
 CONCURRENT = 4
+MAX_INDIRECT = 150  # packages followed under one direct requirement
 
 
 class PackageError(Exception):
@@ -55,11 +60,9 @@ def choose(files: list[dict]) -> tuple[dict, bool]:
     A pure Python wheel is exactly what gets installed. Then the source; then a compiled wheel, of which only
     the Python part is read.
     """
-    files = [
-        f
-        for f in files
-        if isinstance(f, dict) and not f.get("yanked") and str(f.get("url", "")).startswith(DOWNLOAD_HOST)
-    ]
+    files = [f for f in files if isinstance(f, dict) and str(f.get("url", "")).startswith(DOWNLOAD_HOST)]
+    # A withdrawn file is passed over, unless the whole version was withdrawn: then that is what gets installed
+    files = [f for f in files if not f.get("yanked")] or files
     wheels = [f for f in files if str(f.get("filename", "")).endswith(".whl")]
     pure = [f for f in wheels if str(f["filename"]).endswith("-none-any.whl")]
     sources = [f for f in files if str(f.get("filename", "")).endswith((".tar.gz", ".zip"))]
@@ -152,8 +155,10 @@ class Packages:
     def __init__(self, cache_dir: Path):
         self.cache_dir = cache_dir
         self.reports: dict[str, dict] = {}  # "name==version": report; a version never changes, so neither does this
+        self.requires: dict[str, list[str]] = {}  # "name==version": what it requires, as PyPI lists it
         self.core: set[str] = set()
         self._core_at = 0.0
+        self._releases: dict[str, dict] = {}  # this scan's answers of PyPI, by package
         self._load()
 
     # -- storage ------------------------------------------------------------------------------------
@@ -162,6 +167,7 @@ class Packages:
             stored = json.loads((self.cache_dir / "reports.json").read_text())
             if stored.get("analyzer") == APP_VERSION:
                 self.reports = stored["reports"]
+                self.requires = stored.get("requires") or {}
         except (OSError, ValueError, KeyError, AttributeError):
             pass
         try:
@@ -174,7 +180,7 @@ class Packages:
     def _save(self) -> None:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         tmp = self.cache_dir / "reports.json.tmp"
-        tmp.write_text(json.dumps({"analyzer": APP_VERSION, "reports": self.reports}))
+        tmp.write_text(json.dumps({"analyzer": APP_VERSION, "reports": self.reports, "requires": self.requires}))
         os.replace(tmp, self.cache_dir / "reports.json")
 
     def _index_core(self, text: str) -> None:
@@ -210,8 +216,55 @@ class Packages:
                 raise PackageError(f"PyPI answered {response.status}")
             return await response.json()
 
+    async def _versions(self, session: aiohttp.ClientSession, name: str) -> dict:
+        """PyPI's releases of a package, asked once a scan."""
+        if name not in self._releases:
+            data = await self._json(session, f"{PYPI}/{name}/json")
+            self._releases[name] = data.get("releases") or {}
+            info = data.get("info") or {}
+            if info.get("version"):
+                self.requires.setdefault(f"{name}=={info['version']}", list(info.get("requires_dist") or []))
+        return self._releases[name]
+
+    async def _required(self, session: aiohttp.ClientSession, name: str, version: str) -> list[str]:
+        key = f"{name}=={version}"
+        if key not in self.requires:
+            info = (await self._json(session, f"{PYPI}/{name}/{version}/json")).get("info") or {}
+            self.requires[key] = list(info.get("requires_dist") or [])
+        return self.requires[key]
+
+    async def _indirect(self, session: aiohttp.ClientSession, name: str, version: str) -> list[dict]:
+        """What a requirement installs in turn, all the way down: [{name, version}], each at the newest version
+        that fits, as pip would pick it today. Packages Home Assistant ships are left out, with what they need."""
+        found: dict[str, dict] = {}
+        queue: list[tuple[str, str, set[str]]] = [(normal(name), version, set())]
+        while queue and len(found) < MAX_INDIRECT:
+            parent, parent_version, extras = queue.pop(0)
+            try:
+                lines = await self._required(session, parent, parent_version)
+            except (PackageError, aiohttp.ClientError, TimeoutError, ValueError):
+                continue
+            for line in lines:
+                try:
+                    wanted = Requirement(line)
+                except InvalidRequirement:
+                    continue
+                child = normal(wanted.name)
+                # Only what is installed here: not for another system, and not for an extra nobody asked for
+                if wanted.marker and not any(wanted.marker.evaluate({"extra": e}) for e in (extras or {""})):
+                    continue
+                if wanted.url or child in found or child in self.core or child == normal(name):
+                    continue
+                try:
+                    chosen = latest(await self._versions(session, child), str(wanted.specifier))
+                except (PackageError, aiohttp.ClientError, TimeoutError, ValueError):
+                    continue
+                found[child] = {"name": wanted.name, "version": chosen}
+                queue.append((child, chosen, set(wanted.extras)))
+        return sorted(found.values(), key=lambda p: p["name"].lower())
+
     async def _one(self, session: aiohttp.ClientSession, requirement: dict) -> dict:
-        """{status: scanned|core|missing|error, version, key, reason}"""
+        """{status: scanned|core|missing|error, version, key, reason, yanked, published, indirect}"""
         name = requirement["name"]
         if not NAME.match(name):
             return {"status": "error", "reason": "not a package name"}
@@ -220,15 +273,33 @@ class Packages:
         try:
             if requirement["version"]:
                 version = requirement["version"]
-                files = (await self._json(session, f"{PYPI}/{normal(name)}/{version}/json")).get("urls") or []
+                data = await self._json(session, f"{PYPI}/{normal(name)}/{version}/json")
+                files = data.get("urls") or []
+                self.requires.setdefault(
+                    f"{normal(name)}=={version}", list((data.get("info") or {}).get("requires_dist") or [])
+                )
             else:
-                releases = (await self._json(session, f"{PYPI}/{normal(name)}/json")).get("releases") or {}
+                releases = await self._versions(session, normal(name))
                 version = latest(releases, requirement["spec"])
                 files = releases[version]
             key = f"{normal(name)}=={version}"
+            more = {
+                "yanked": bool(files) and all(isinstance(f, dict) and f.get("yanked") for f in files),
+                "indirect": await self._indirect(session, name, version),
+            }
             if key in self.reports:
-                return {"status": "scanned", "version": version, "key": key}
+                return {
+                    "status": "scanned",
+                    "version": version,
+                    "key": key,
+                    **more,
+                    "published": self.reports[key].get("published"),
+                }
             chosen, compiled = choose(files)
+            published = None
+            with contextlib.suppress(ValueError):
+                uploaded = str(chosen.get("upload_time_iso_8601")).replace("Z", "+00:00")
+                published = int(datetime.fromisoformat(uploaded).timestamp())
             if int(chosen.get("size") or 0) > MAX_DOWNLOAD:
                 raise PackageError("larger than 40 MB")
             digest = hashlib.sha256()
@@ -251,7 +322,8 @@ class Packages:
                 reader = read_sdist if str(chosen["filename"]).endswith(".tar.gz") else read_wheel
                 files_read = await asyncio.to_thread(reader, archive)
             self.reports[key] = await asyncio.to_thread(scan_package, files_read, name, version, compiled)
-            return {"status": "scanned", "version": version, "key": key}
+            self.reports[key]["published"] = published
+            return {"status": "scanned", "version": version, "key": key, **more, "published": published}
         except PackageError as e:
             if str(e) == "missing":
                 return {"status": "missing", "reason": "PyPI does not have it"}
@@ -269,8 +341,9 @@ class Packages:
             async with gate:
                 return await self._one(session, requirement)
 
-        before = len(self.reports)
+        before = len(self.reports), len(self.requires)
+        self._releases = {}
         results = await asyncio.gather(*(one(r) for r in wanted.values()))
-        if len(self.reports) != before:
+        if (len(self.reports), len(self.requires)) != before:
             await asyncio.to_thread(self._save)
         return dict(zip(wanted, results, strict=True))

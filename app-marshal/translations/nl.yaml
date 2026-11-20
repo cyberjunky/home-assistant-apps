@@ -13,8 +13,9 @@ configuration:
   vulnerability_lookups:
     name: Bekende kwetsbaarheden
     description: >-
-      Zoek de exacte pakketversies uit de manifesten op in de OSV-kwetsbaarhedendatabase (osv.dev).
-      Alleen pakketnamen en versies worden verstuurd.
+      Zoek de pakketten die een integratie installeert, en wat die op hun beurt installeren, op in de
+      OSV-kwetsbaarhedendatabase (osv.dev), en vraag de repository van de integratie op GitHub naar haar
+      beveiligingsadviezen. Alleen pakketnamen, versies en repositorynamen worden verstuurd.
   dependency_scans:
     name: Pakketten lezen
     description: >-
@@ -26,6 +27,12 @@ configuration:
     description: >-
       Vraag Home Assistant hoe lang elke aangepaste integratie nodig had om te starten, wat elke in het
       logboek schreef en wat de Marketplace heeft geïnstalleerd. Uit: alleen de code wordt gelezen.
+  code_quality:
+    name: Codekwaliteit
+    description: >-
+      Laat Ruff, de linter die Home Assistant zelf gebruikt, elke integratie lezen: waarschijnlijke
+      fouten, fouten die stil worden weggegooid, onoverzichtelijke functies en beveiligingscontroles.
+      Er wordt niets uitgevoerd en niets verstuurd.
   log_level:
     name: Logniveau
     description: Hoeveel de app in zijn eigen logboek schrijft.
