@@ -235,6 +235,19 @@ Assistant's own disk.
 
 [:books: Documentation](app-proxmox-bs/DOCS.md) · [:memo: Changelog](app-proxmox-bs/CHANGELOG.md) · [:lock: Security](app-proxmox-bs/SECURITY.md)
 
+### <img src="app-scanner/icon.png" alt="" width="36" align="absmiddle"> [Scanner](app-scanner/)
+
+![Version][scanner-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+Makes a USB or network scanner a scanner for the whole house, opened from the sidebar. Every
+option the scanner has, a preview to choose the area on, batches from the feeder or on a timer
+from the glass, and pages to turn and reorder before they become a document. Documents are
+searchable PDFs in an archive, to download or to copy to a network share.
+
+[:books: Documentation](app-scanner/DOCS.md) · [:memo: Changelog](app-scanner/CHANGELOG.md) · [:lock: Security](app-scanner/SECURITY.md)
+
 ### <img src="app-sdradio/icon.png" alt="" width="36" align="absmiddle"> [SDRadio](app-sdradio/)
 
 ![Version][sdradio-version-shield]
@@ -363,3 +376,4 @@ software each app packages keeps its own license, noted in the app's README.
 [network-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-network%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [proxmox-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-proxmox%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [proxmox-bs-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-proxmox-bs%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[scanner-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-scanner%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge

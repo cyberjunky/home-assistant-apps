@@ -1,0 +1,21 @@
+configuration:
+  network_scanners:
+    name: Network scanners
+    description: >-
+      Scanners on your network that speak eSCL (AirScan, AirPrint scanning),
+      each with a name and its address, such as 192.168.1.50. The app can't
+      search the network for them. USB scanners need nothing here.
+  driverless_usb:
+    name: Driverless USB scanners
+    description: >-
+      Also look for USB scanners that need no driver (IPP over USB): most
+      printers with a scanner from about 2015 on. Turn it off when such a
+      device also has a SANE driver and you want that one.
+  test_scanner:
+    name: Test scanner
+    description: >-
+      Adds a scanner that isn't there (SANE's test scanner), with a feeder of
+      ten pages: to try the app without a scanner.
+  log_level:
+    name: Log level
+    description: How much the app logs.

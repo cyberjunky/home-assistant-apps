@@ -1,0 +1,37 @@
+name: Scanner
+version: "0.1.0"
+slug: app-scanner
+description: "Makes a USB or network scanner a scanner for the whole house: every option of the scanner, batches from the feeder or the glass, searchable PDFs in an archive, and copies to a network share"
+url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-scanner"
+init: false
+arch:
+  - aarch64
+  - amd64
+# Prebuilt by the repository Builder workflow; bump `version` to publish a new image
+image: "ghcr.io/cyberjunky/app-scanner"
+ingress: true
+panel_icon: mdi:scanner
+panel_title: Scanner
+# The scanner on a USB port of the machine Home Assistant runs on
+usb: true
+udev: true
+# Where documents can be copied to, with the network storage Home Assistant mounts there
+map:
+  - type: share
+    read_only: false
+  - type: media
+    read_only: false
+
+options:
+  network_scanners: []
+  driverless_usb: true
+  test_scanner: false
+  log_level: info
+
+schema:
+  network_scanners:
+    - name: str
+      address: str
+  driverless_usb: bool
+  test_scanner: bool
+  log_level: list(debug|info|warning|error)?

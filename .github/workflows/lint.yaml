@@ -68,6 +68,7 @@ jobs:
           - app-mqtt
           - app-marshal
           - app-flipper
+          - app-scanner
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v7.0.1

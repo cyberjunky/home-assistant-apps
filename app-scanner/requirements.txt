@@ -1,0 +1,9 @@
+# Python dependencies for the Scanner app (installed in the Dockerfile).
+# aiohttp - web server and ingress
+aiohttp>=3.14.5,<4
+# Pillow - reading the scanner's pictures, turning pages, thumbnails
+Pillow>=13.0.0,<14
+# img2pdf - a page into a PDF as it is, without compressing it again
+img2pdf>=0.6.3,<1
+# pypdf - the pages into one PDF
+pypdf>=7.1.1,<8
