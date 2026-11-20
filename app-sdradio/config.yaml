@@ -1,5 +1,5 @@
 name: SDRadio
-version: "0.5.4"
+version: "0.6.0"
 slug: app-sdradio
 description: "A software defined radio receiver in Home Assistant - tune, listen, scan and keep your channels, with an RTL-SDR, HackRF or rtl_tcp"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-sdradio"
@@ -17,6 +17,10 @@ ingress: true
 panel_icon: mdi:radio
 panel_title: SDRadio
 homeassistant_api: true
+# The radio's sound as an MP3 stream for a player or speaker (switched on on the Settings page):
+# no port until one is filled in under Network
+ports:
+  8098/tcp: null
 
 # The receiver and where it starts; everything else is on the app's Settings page
 options:

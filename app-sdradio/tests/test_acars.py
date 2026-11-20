@@ -1,4 +1,4 @@
-"""The ACARS mode: MSK bursts on AM, on three channels at once, read into messages."""
+"""The ACARS mode: MSK bursts on AM, on a few channels at once, read into messages."""
 
 import numpy as np
 import pytest
@@ -53,3 +53,24 @@ def test_channels_setting():
     assert clean["channels"] == [131_525_000, 131_725_000, 131_825_000] and clean["frequency"] == 131_725_000
     with pytest.raises(ValidationError):
         Acars.validate({"channels": [129_125_000, 131_725_000]})
+
+
+def test_the_airline_and_the_labels():
+    from src.decoders.acars import LABELS
+
+    def decode(*fields):
+        env = np.concatenate([np.ones(2000), 1 + 0.6 * acars_signal.audio(acars_signal.frame(*fields)), np.ones(2000)])
+        [message] = frames(symbols(env))
+        return message
+
+    down = decode("2", ".PH-BXA", "QH", "3", "M01AKL1234")
+    assert down["flight"] == "KL1234" and down["airline"] == "KLM" and down["label_name"] == "out"
+    # An airline that isn't in the list is left out, and a message from the ground has no flight at all
+    assert decode("2", ".PH-BXA", "H1", "3", "M01AZZ1234Hello")["airline"] is None
+    assert "airline" not in decode("2", ".D-AIKB", "_d", "A", "")
+    assert len(LABELS) >= 44 and all(len(label) == 2 for label in LABELS)
+
+
+def test_the_first_channel_of_the_rest_of_the_world_is_listened_to():
+    assert Acars.validate({})["channels"] == [131_525_000, 131_550_000, 131_725_000, 131_825_000]
+    assert Acars.validate({})["frequency"] == 131_725_000

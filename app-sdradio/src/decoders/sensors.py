@@ -30,6 +30,34 @@ def device_key(reading: dict) -> str:
     return "/".join(parts)
 
 
+def kind(reading: dict) -> str | None:
+    """What sort of device it is, from what it measures and what rtl_433 calls it."""
+    model = str(reading.get("model", "")).lower()
+
+    def has(*names: str) -> bool:
+        return any(field.startswith(names) for field in reading)
+
+    if reading.get("type") == "TPMS" or any(w in model for w in ("tpms", "tire", "tyre")):
+        return "tyre pressure"
+    if has("wind_", "rain_"):
+        return "weather station"
+    if has("power_", "energy_", "current_", "consumption") or "meter" in model:
+        return "meter"
+    if "smoke" in model:
+        return "smoke alarm"
+    if "bell" in model:
+        return "doorbell"
+    if has("opened", "closed", "reed_") or any(w in model for w in ("door", "window", "contact")):
+        return "door or window"
+    if has("motion") or "motion" in model or "pir" in model.replace("-", " ").split():
+        return "motion"
+    if has("temperature_"):
+        return "thermometer"
+    if has("button", "cmd", "command") or any(w in model for w in ("remote", "switch")):
+        return "remote"
+    return None
+
+
 def parse(line: str) -> dict | None:
     """An rtl_433 JSON line as a reading, or None for anything else."""
     if not line.startswith("{"):
@@ -45,6 +73,7 @@ def parse(line: str) -> dict | None:
         "model": reading.get("model"),
         "id": reading.get("id"),
         "channel": reading.get("channel"),
+        "kind": kind(reading),
         "values": {k: v for k, v in reading.items() if k not in META},
         "rssi": reading.get("rssi"),
         "snr": reading.get("snr"),

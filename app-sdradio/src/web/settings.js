@@ -93,6 +93,7 @@ function renderSettings() {
             ${setRow('Waterfall speed', '', selectHtml('spectrum_rate', spec.spectrum_rate.options, v => `${v} lines a second`))}
             ${setRow('Waterfall colours', '', selectHtml('waterfall_palette', spec.waterfall_palette.options, v => v[0].toUpperCase() + v.slice(1)))}
             ${setRow('Audio buffer', 'more: fewer dropouts, more delay', selectHtml('audio_buffer_ms', spec.audio_buffer_ms.options, v => `${v} ms`))}
+            ${setRow('MP3 stream', `the radio's sound for a player or speaker outside this page, at http://&lt;Home Assistant&gt;:&lt;port&gt;/radio.mp3; give port ${(app.status && app.status.stream_port) || 8098} a number under Network on the app's Configuration tab. Anyone on your network can listen`, checkHtml('mp3_stream'))}
             ${setRow('Display colour', 'the colour of the radio\'s display', selectHtml('lcd_colour', spec.lcd_colour.options, v => v === 'lcd' ? 'LCD (grey-green)' : v[0].toUpperCase() + v.slice(1)))}
         </div></div>
 
@@ -100,6 +101,7 @@ function renderSettings() {
             <div class="chart-title"><span>Modes</span></div>
             <p class="panel-sub" style="margin-bottom:8px">Pick a mode with the buttons under the tune dial: the radio tunes to the mode's frequency and decodes what it hears there. You can still tune elsewhere.</p>
             ${modeSettingsHtml(ha)}
+            ${setRow('Aircraft photos', 'a photo of the aircraft you pick on the map; its registration is looked up at planespotters.net', checkHtml('aircraft_photos'))}
             ${setRow('Keep decoded for', 'pager messages and sensor readings; older ones are removed nightly', selectHtml('decoded_keep_days', spec.decoded_keep_days.options, days))}
         </div></div>
 
@@ -272,7 +274,7 @@ function modeSettingsHtml(ha) {
         ${setRow('APRS frequency', 'MHz; 144.8 in Europe, 144.39 in North America, 145.825 for the ISS',
             `<input class="input mono" id="mode-aprs-frequency" list="aprs-frequencies" value="${mhz(aprs.frequency)}" inputmode="decimal">
              <datalist id="aprs-frequencies"><option value="144.8"><option value="144.39"><option value="145.825"></datalist>`, 'mode-aprs-frequency')}
-        ${setRow('ACARS channels', 'MHz, comma separated: 131.525, 131.725 and 131.825 in Europe; they must lie within 370 kHz of each other (one receiver)',
+        ${setRow('ACARS channels', 'MHz, comma separated: 131.525, 131.725 and 131.825 in Europe, 131.55 elsewhere; they must lie within 370 kHz of each other (one receiver)',
             `<input class="input mono" id="mode-acars-channels" value="${(acars.channels || []).map(mhz).join(', ')}">`, 'mode-acars-channels')}
         ${setRow('Digital voice', 'MHz: the output of the repeater or hotspot; and the protocol, or Auto to find DMR, D-STAR, YSF and P25 by themselves',
             `<input class="input mono" id="mode-digital-frequency" value="${mhz(digital.frequency)}" inputmode="decimal">

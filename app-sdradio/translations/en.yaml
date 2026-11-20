@@ -16,3 +16,5 @@ configuration:
   log_level:
     name: Log level
     description: Logging verbosity
+network:
+  8098/tcp: MP3 stream of the radio's sound (/radio.mp3), when switched on in Settings

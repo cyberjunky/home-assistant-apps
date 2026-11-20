@@ -540,6 +540,10 @@ table.sensors td:last-child, table.sensors th:last-child { text-align: center; }
 table.aircraft td small { display: block; font-size: 11px; }
 table.aircraft th, table.aircraft td { padding: 5px 10px; }
 table.data tbody tr.on td { background: var(--hover-bg); }
+.tracked-photo { padding: 8px 10px 0; }
+.tracked-photo a { display: flex; align-items: flex-end; gap: 10px; color: var(--secondary-text-color); text-decoration: none; }
+.tracked-photo img { max-height: 120px; max-width: 60%; border-radius: 4px; border: 1px solid var(--divider-color); }
+.tracked-photo small { font-size: 11px; }
 .plane-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
 .leaflet-container { font-family: inherit; }
 /* The tiles darkened only when the dark theme is chosen (as Meldkamer does) */

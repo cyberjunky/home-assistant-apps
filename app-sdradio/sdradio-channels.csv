@@ -11,7 +11,7 @@ Amsterdam Information,124.3,am,8.333,,air,Flight information for small aircraft 
 Gliding,123.5,am,8.333,,air,A common gliding frequency in Europe: busy on sunny weekend afternoons.,0,1
 Mil air guard,243,am,9,,"air,military,emergency","The military distress frequency: exactly twice 121.5 MHz, so a transmitter on one gives a harmonic on the other.",0,1
 ADS-B 1090,1090,am,15,,"air,digital,mode:aircraft","Aircraft transponders, about 2 million pulses a second over the country. Use the Aircraft mode: positions, callsigns and altitudes on a map. Fact: an airliner at 11 km is heard 300+ km away.",0,1
-ACARS 131.725,131.725,am,8.333,,"air,digital,mode:acars","Aircraft text messages (gate requests, weather, out/off/on/in times). Use the ACARS mode: it decodes 131.525, 131.725 and 131.825 at once.",0,1
+ACARS 131.725,131.725,am,8.333,,"air,digital,mode:acars","Aircraft text messages (gate requests, weather, out/off/on/in times). Use the ACARS mode: it decodes 131.525, 131.550, 131.725 and 131.825 at once.",0,1
 VDL2 136.975,136.975,am,25,,"air,digital,mode:vdl2","VHF Data Link: ACARS's digital successor, over Europe busier than ACARS itself. Use the VDL2 mode: it decodes 136.725, 136.775, 136.875 and 136.975 at once, with controller-pilot messages (CPDLC). Sounds like a short hiss.",0,1
 Shannon VOLMET,5.505,usb,2.7,,"air,hf,continuous,hackrf","Irish aviation weather for European airports, read out all day and night. Fact: a computer voice since 2005; before that, people read it live. HackRF only.",1,0
 Shannon VOLMET 8957,8.957,usb,2.7,,"air,hf,continuous,hackrf","Aviation weather, all day. HackRF only.",0,0

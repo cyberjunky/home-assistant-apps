@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0
+
+**After updating:** nothing to do. ACARS listens to 131.550 MHz as well, unless you set its channels yourself: add it under Settings → Modes then.
+
+- **MP3 stream:** what the radio plays as an MP3 stream for a media player, a speaker or VLC, at `http://<Home Assistant>:<port>/radio.mp3`. Off by default: switch it on on the Settings page and give port 8098 a number under Network on the app's Configuration tab. Anyone on your network can listen to it.
+- **Aircraft photos:** the aircraft you pick on the map is shown with a photo from planespotters.net. Off by default (Settings → Modes): its registration goes to planespotters.net.
+- **ACARS:** the airline is shown with the flight, 67 more labels are explained (the out/off/on/in variants, clearances, ATIS and weather requests), and 131.550 MHz, the first channel outside Europe, is listened to with Europe's three.
+- **Sensors:** each device says what sort it is (weather station, thermometer, tyre pressure, meter, remote …), and a temperature shows in the other unit (°C or °F) when you point at it.
+- **Info** shows how long the app has been running.
+- **Antennas** in the documentation: how long for which mode, where to put it, and how to set the gain.
+
 ## 0.5.4
 
 **After updating:** nothing to do.
