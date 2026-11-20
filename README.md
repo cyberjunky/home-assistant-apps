@@ -248,6 +248,19 @@ Assistant's own disk.
 
 [:books: Documentation](app-proxmox-bs/DOCS.md) · [:memo: Changelog](app-proxmox-bs/CHANGELOG.md) · [:lock: Security](app-proxmox-bs/SECURITY.md)
 
+### <img src="app-repair/icon.png" alt="" width="36" align="absmiddle"> [Repair](app-repair/)
+
+![Version][repair-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+Finds what is wrong in Home Assistant, explains it and repairs it, opened from the sidebar.
+Devices that don't answer, failed integrations, faulty automations, things left behind, broken
+references and the log sorted by what each line is about. Repairs where Home Assistant's API
+allows one, and a Clean up page that removes an entity or device with its history and statistics.
+
+[:books: Documentation](app-repair/DOCS.md) · [:memo: Changelog](app-repair/CHANGELOG.md) · [:lock: Security](app-repair/SECURITY.md)
+
 ### <img src="app-scanner/icon.png" alt="" width="36" align="absmiddle"> [Scanner](app-scanner/)
 
 ![Version][scanner-version-shield]
@@ -370,6 +383,7 @@ software each app packages keeps its own license, noted in the app's README.
 [aarch64-shield]: https://img.shields.io/badge/aarch64-yes-green.svg?style=for-the-badge
 [amd64-shield]: https://img.shields.io/badge/amd64-yes-green.svg?style=for-the-badge
 [bitcoin-node-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-bitcoin-node%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[repair-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-repair%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [pgadmin4-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-pgadmin4%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [timescaledb-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-timescaledb%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [dishylink-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-dishylink%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge

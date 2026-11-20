@@ -53,6 +53,7 @@ jobs:
         app:
           - app-arcade
           - app-bitcoin-node
+          - app-repair
           - app-chronicle
           - app-fireservicerota
           - app-freqtrade
