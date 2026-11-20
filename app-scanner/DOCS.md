@@ -42,7 +42,8 @@ For most paper: grey or colour at 300 dpi. 150 dpi is enough to read and half th
 |---|---|
 | **One page** | A page at a time. Scan as many as you like; they collect below. |
 | **Feeder** | Every page in the document feeder, until it is empty, or the number of pages you give. Choosing the feeder as the source switches to this. |
-| **Timed** | For a book or loose pages on the glass: scans, waits the seconds you give so you can turn the page, and scans again, until you press **Stop** or the number of pages is reached. |
+| **Step by step** | For loose pages or a book on the glass: scans a page and waits. Put the next page down and press **Next page**; press **Stop** when you are done (or give the number of pages). |
+| **Timed** | The same without pressing: scans, waits the seconds you give so you can turn the page, and scans again, until you press **Stop** or the number of pages is reached. **Next page now** skips the wait. |
 
 **Stop** ends a batch; the pages scanned so far stay.
 

@@ -53,6 +53,7 @@ class WebUI:
         r.add_get("/api/preview.jpg", self._preview_image)
         r.add_post("/api/scan", self._scan)
         r.add_post("/api/cancel", self._cancel)
+        r.add_post("/api/next", self._next)
         r.add_get("/api/tray", self._tray)
         r.add_get("/api/tray/{id}/{what:thumb|image}", self._tray_file)
         r.add_post("/api/tray/rotate", self._tray_rotate)
@@ -74,6 +75,14 @@ class WebUI:
         r.add_post("/api/folders", self._folder_make)
         DonatePrompt(DATA_DIR / "donate_prompt.json").add_routes(self.app)
         r.add_static("/static", WEB_DIR)
+        if os.environ.get("SCANNER_DEV"):
+            # Development: the scripts change without the version changing, so the browser must ask every time
+            self.app.on_response_prepare.append(self._no_cache)
+
+    @staticmethod
+    async def _no_cache(request: web.Request, response: web.StreamResponse) -> None:
+        if request.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-cache, must-revalidate"
 
     async def start(self) -> None:
         runner = web.AppRunner(self.app, access_log=None)
@@ -203,6 +212,13 @@ class WebUI:
             return web.json_response({"job": self.station.start_scan(device, values, dict(batch))})
         except Busy as e:
             return error(str(e), 409)
+
+    async def _next(self, request: web.Request) -> web.Response:
+        """The next page of a batch from the glass, now."""
+        await self._body(request)
+        if not self.station.next_page():
+            return error("No batch is waiting for a page", 409)
+        return web.json_response({"job": self.station.job})
 
     async def _cancel(self, request: web.Request) -> web.Response:
         await self._body(request)

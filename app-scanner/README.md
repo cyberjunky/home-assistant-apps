@@ -17,7 +17,7 @@ house: open **Scanner** in the sidebar on any phone, tablet or PC and scan. No d
 them.
 
 The app shows every option the scanner has, scans one page or a whole batch (the feeder until it
-is empty, or the glass with time to turn the page), and collects the pages so you can look at
+is empty, or the glass page after page), and collects the pages so you can look at
 them, turn, reorder and remove them before they become a document. Documents are saved as PDF in
 an archive in the app, with the text on the pages recognised, so you find them back by a word
 that is on the paper. Download a document, or have every document copied to a share on your NAS.
@@ -57,7 +57,7 @@ that is on the paper. Download a document, or have every document copied to a sh
 - 🖨️ **Any scanner SANE knows** — USB scanners with a SANE driver, driverless USB scanners (IPP over USB), and network scanners that speak eSCL (AirScan)
 - 🎛️ **Every option** — source, colour, resolution and paper up front; everything else the driver has (brightness, duplex, thresholds…) under *More options*, changing with each other as the scanner says
 - 🔍 **Preview** — a quick scan of the whole glass; drag on it to choose the area
-- 📚 **Batches** — the feeder until it is empty or for a number of pages, or the glass on a timer with time to turn the page; stop any time and keep what was scanned
+- 📚 **Batches** — the feeder until it is empty or for a number of pages, or the glass page after page: step by step (press *Next page*) or on a timer; stop any time and keep what was scanned
 - 🔁 **Two-sided on a one-sided feeder** — scan all fronts, turn the pile over, scan all backs, press *Fronts + backs*
 - 📄 **Pages before they are a document** — look at them at full size, turn, drag into order, remove; they stay when the app restarts
 - 🔤 **Searchable PDFs** — text recognition (Tesseract) in English, Dutch, German, French, Spanish and Italian; the picture in the PDF is the scan itself, not compressed again

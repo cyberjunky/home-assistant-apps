@@ -67,6 +67,7 @@ class Station:
         self._task: asyncio.Task | None = None
         self._scan: sane.Scan | None = None
         self._stop = asyncio.Event()
+        self._next = asyncio.Event()
         self._lock = asyncio.Lock()
         self._share_state: tuple[float, dict] = (0.0, {})
 
@@ -151,6 +152,8 @@ class Station:
             "started": time.time(),
             "finished": None,
             "cancelling": False,
+            "countdown": 0,
+            "waiting": False,
         }
         self._task = asyncio.create_task(self._run(coroutine), name=kind)
         return self.job
@@ -292,18 +295,44 @@ class Station:
                     break
                 # Time to turn the page; Stop here ends the batch with what there is
                 self._scan = None
-                for left in range(interval, 0, -1):
-                    self.job["message"] = f"Next page in {left} s"
-                    self.job["countdown"] = left
-                    try:
-                        await asyncio.wait_for(self._stop.wait(), 1)
-                        return
-                    except TimeoutError:
-                        pass
-                self.job["countdown"] = 0
+                if not await self._turn_page(None if mode == "step" else interval):
+                    return
         finally:
             self.job["countdown"] = 0
+            self.job["waiting"] = False
             shutil.rmtree(folder, ignore_errors=True)
+
+    async def _turn_page(self, seconds: int | None) -> bool:
+        """Between two pages of a batch from the glass: wait the given seconds, or without them until
+        Next page is pressed. Next page also ends the seconds early. Returns False when Stop was pressed."""
+        self._next.clear()
+        stop = asyncio.ensure_future(self._stop.wait())
+        go = asyncio.ensure_future(self._next.wait())
+        try:
+            if seconds is None:
+                self.job["waiting"] = True
+                self.job["message"] = "Waiting for the next page"
+                await asyncio.wait([stop, go], return_when=asyncio.FIRST_COMPLETED)
+            else:
+                for left in range(seconds, 0, -1):
+                    self.job["message"] = f"Next page in {left} s"
+                    self.job["countdown"] = left
+                    done, _ = await asyncio.wait([stop, go], timeout=1, return_when=asyncio.FIRST_COMPLETED)
+                    if done:
+                        break
+            return not self._stop.is_set()
+        finally:
+            self.job["waiting"] = False
+            self.job["countdown"] = 0
+            stop.cancel()
+            go.cancel()
+
+    def next_page(self) -> bool:
+        """Scan the next page of a batch now. False when no batch is waiting for it."""
+        if not self.busy or not (self.job.get("waiting") or self.job.get("countdown")):
+            return False
+        self._next.set()
+        return True
 
     def suggested_name(self) -> str:
         return share.fill(self.settings["name_pattern"], share.tokens(time.time(), pages=len(self.tray.pages)))

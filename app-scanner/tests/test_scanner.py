@@ -637,3 +637,39 @@ async def test_api_profiles_folders_and_ingress(client, monkeypatch):
     assert (await client.post("/api/tray/delete", json={"all": True})).status == 403
     assert (await client.get("/api/status")).status == 200
     assert json.loads(await (await client.get("/api/settings")).text())["roots"] == [str(client.root)]
+
+
+async def test_step_by_step_waits_for_next_page(station):
+    station.start_scan("fake:0", {}, {"mode": "step", "count": 0})
+    for expected in (1, 2, 3):
+        while not station.job.get("waiting"):
+            await asyncio.sleep(0.02)
+        # It stays waiting, however long, with the pages so far
+        await asyncio.sleep(0.3)
+        assert station.busy and station.job["pages"] == expected and len(station.tray.pages) == expected
+        if expected < 3:
+            assert station.next_page()
+            while station.job.get("waiting"):
+                await asyncio.sleep(0.02)
+    await station.cancel()
+    await station.wait()
+    assert station.job["state"] == "done" and not station.job["error"] and len(station.tray.pages) == 3
+    assert not station.next_page()
+    # With a number of pages it ends by itself after the last one
+    station.start_scan("fake:0", {}, {"mode": "step", "count": 2})
+    while not station.job.get("waiting"):
+        await asyncio.sleep(0.02)
+    station.next_page()
+    await station.wait()
+    assert station.job["state"] == "done" and len(station.tray.pages) == 5
+
+
+async def test_next_page_skips_the_timer(station, client):
+    station.start_scan("fake:0", {}, {"mode": "timed", "count": 2, "interval": 60})
+    assert (await client.post("/api/next", json={})).status == 409  # the first page is still being scanned
+    while not station.job.get("countdown"):
+        await asyncio.sleep(0.02)
+    assert (await post(client, "/api/next", {}))["job"]["kind"] == "scan"
+    await asyncio.wait_for(station.wait(), 10)
+    assert station.job["state"] == "done" and len(station.tray.pages) == 2
+    assert station.settings["batch"]["mode"] == "timed"

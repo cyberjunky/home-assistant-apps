@@ -12,7 +12,7 @@ from .config import OCR_LANGUAGES
 
 logger = logging.getLogger(__name__)
 
-BATCH_MODES = ("single", "feeder", "timed")
+BATCH_MODES = ("single", "feeder", "timed", "step")
 DEFAULTS: dict = {
     # The scanner last used and, per scanner, the option values chosen for it
     "device": "",

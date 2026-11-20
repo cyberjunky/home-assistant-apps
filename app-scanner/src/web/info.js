@@ -22,7 +22,7 @@ function renderInfo() {
             </div>`)}
             ${panel('Good to know', '', `<div class="info-grid prose">
                 ${infoRow('Every option', 'The Scan page shows every option the scanner\'s driver has, under <i>More options</i>. Options change with each other: the feeder has another paper size than the glass.')}
-                ${infoRow('Batches', '<i>Feeder</i> scans until the feeder is empty. <i>Timed</i> scans from the glass again and again, with time to turn the page. <i>One page</i> adds a page at a time. Everything lands in the pages below, to save as one document.')}
+                ${infoRow('Batches', '<i>Feeder</i> scans until the feeder is empty. <i>Step by step</i> scans from the glass and waits for <i>Next page</i> after every page, until you press Stop. <i>Timed</i> does the same on a timer. <i>One page</i> adds a page at a time. Everything lands in the pages below, to save as one document.')}
                 ${infoRow('Two-sided', 'A feeder that scans both sides has it as a source (Duplex). With a one-sided feeder: scan all fronts, turn the pile over, scan all backs, and press <i>Fronts + backs</i>.')}
                 ${infoRow('The scanner\'s buttons', 'Not used: start a scan from here.')}
             </div>`)}

@@ -460,7 +460,7 @@ function renderStatusbar() {
     const job = s.job;
     if (job.state === 'running') {
         const detail = job.kind === 'save' ? (job.pages ? `page ${num(job.page)} of ${num(job.pages)}` : '')
-            : job.countdown ? `next page in ${job.countdown} s` : job.page ? `page ${num(job.page)} · ${num(job.percent)}%` : '';
+            : job.waiting ? 'waiting for the next page' : job.countdown ? `next page in ${job.countdown} s` : job.page ? `page ${num(job.page)} · ${num(job.percent)}%` : '';
         parts.push(`<span><span class="sb-warn">●</span> <b>${JOB_NAMES[job.kind] || 'Working'}</b>${detail ? ' ' + detail : ''}</span>`);
     } else if (s.searching) {
         parts.push('<span><span class="sb-warn">●</span> looking for scanners</span>');
