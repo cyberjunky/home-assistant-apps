@@ -29,7 +29,7 @@ recorded history and long-term statistics.
 own API: it never writes to the database or the files under `.storage`. An optional deep scan
 reads them, to find history of entities that are long gone. Make a backup before a big clean-up.
 
-![Overview: a health score, findings by how serious they are, what is wrong by kind, health over time, what needs attention first and where it comes from (dark theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-repair/screenshots/overview-dark.webp)
+![Overview: a health score, findings by how serious they are, what is wrong by kind, health over time, what needs attention first and where it comes from (light theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-repair/screenshots/overview-light.webp)
 
 <details>
 <summary>More screenshots</summary>
@@ -46,8 +46,8 @@ reads them, to find history of entities that are long gone. Make a backup before
 **Log** — the errors and warnings, sorted by what each is about
 ![Log](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-repair/screenshots/log-light.webp)
 
-**Overview, light theme** — follows Home Assistant's light/dark mode
-![Overview in the light theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-repair/screenshots/overview-light.webp)
+**Overview, dark theme** — follows Home Assistant's light/dark mode
+![Overview in the dark theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-repair/screenshots/overview-dark.webp)
 
 </details>
 
