@@ -71,7 +71,7 @@ class MQTTClient:
             return
 
         client_id = self.config.mqtt_client_id or "p2000_rtlsdr"
-        self._client = mqtt.Client(client_id=client_id, protocol=mqtt.MQTTv311)
+        self._client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=client_id, protocol=mqtt.MQTTv311)
         if user:
             self._client.username_pw_set(user, password or None)
 
@@ -96,6 +96,7 @@ class MQTTClient:
         self._client.will_set(self.availability_topic, payload="offline", qos=1, retain=True)
         self._client.on_connect = self._on_connect
         self._client.on_disconnect = self._on_disconnect
+        self._client.reconnect_delay_set(min_delay=5, max_delay=300)
 
         try:
             self._client.connect_async(host, int(port or 1883), keepalive=60)
@@ -132,8 +133,9 @@ class MQTTClient:
             logger.warning(f"Could not fetch MQTT service info from Supervisor: {e}")
             return None
 
-    def _on_connect(self, client, userdata, flags, rc):
-        if rc == 0:
+    # paho calls these from its network thread; they only touch simple attributes
+    def _on_connect(self, client, userdata, flags, reason_code, properties) -> None:
+        if not reason_code.is_failure:
             # A (re)connect may follow a broker restart that lost retained discovery configs:
             # forget what was sent so it's re-published with the next message per sensor.
             # Rebinding to a fresh set is atomic w.r.t. the publishing thread.
@@ -142,12 +144,12 @@ class MQTTClient:
             logger.info("MQTT connected")
             client.publish(self.availability_topic, payload="online", qos=0, retain=True)
         else:
-            logger.error(f"MQTT connect failed with code {rc}")
+            logger.error(f"MQTT connect failed: {reason_code}")
 
-    def _on_disconnect(self, client, userdata, rc):
+    def _on_disconnect(self, client, userdata, flags, reason_code, properties) -> None:
+        if self._connected:
+            logger.warning(f"MQTT disconnected: {reason_code}")
         self._connected = False
-        if rc != 0:
-            logger.warning(f"MQTT disconnected unexpectedly (rc={rc})")
 
     def publish_for_sensor(
         self,
@@ -270,6 +272,8 @@ class MQTTClient:
         try:
             self._client.publish(self.availability_topic, payload="offline", qos=1, retain=True)
             await asyncio.sleep(0.2)  # give the network loop a moment to flush
+            # A disconnect we ask for is not one to warn about
+            self._connected = False
             self._client.loop_stop()
             self._client.disconnect()
         except Exception as e:
