@@ -116,7 +116,7 @@ TAB_RENDER.addresses = () => {
   table('addresses-table', [
     {key: 'address', label: 'Address', cls: 'addr', sort: a => addressKey(a.address), html: a => issueDot(a.address) + esc(a.address)},
     {key: 'name', label: 'Name', sort: a => (a.name || '').toLowerCase(), html: a => `<span class="nm">${esc(a.name || '')}</span>${a.known ? '' : '<span class="pill warning">not in the project</span>'}<small>${esc(a.range || '')}</small>`},
-    {key: 'dpt', label: 'Type', cls: 'addr', sort: a => addressKey(a.dpt || '999'), html: a => a.dpt ? esc(a.dpt) : a.known ? '<span class="muted">–</span>' : ''},
+    {key: 'dpt', label: 'Type', cls: 'addr', sort: a => addressKey(a.dpt || a.dpt_objects || '999'), html: a => a.dpt ? esc(a.dpt) : a.dpt_objects ? `<span class="muted" title="Not set on the address: the type its objects agree on">(${esc(a.dpt_objects)})</span>` : a.known ? '<span class="muted">–</span>' : ''},
     {key: 'value', label: 'Last value', html: a => valueHtml((a.stats || {}).last_value)},
     {key: 'last', label: 'Last seen', cls: 'sub', sort: a => (a.stats || {}).last || 0, html: a => (a.stats || {}).last ? esc(fmtAgo(a.stats.last)) : ''},
     {key: 'count', label: 'Telegrams', cls: 'num', sort: a => (a.stats || {}).count || 0, html: a => (a.stats || {}).count || ''},
@@ -155,6 +155,7 @@ TAB_RENDER.devices = () => {
     {key: 'last', label: 'Last heard', cls: 'sub', sort: d => (d.stats || {}).last || 0, html: d => (d.stats || {}).last ? esc(fmtAgo(d.stats.last)) : ''},
     {key: 'count', label: 'Telegrams', cls: 'num', sort: d => (d.stats || {}).count || 0, html: d => (d.stats || {}).count || ''},
     {key: 'reach', label: 'Asked directly', sort: d => d.reach ? (d.reach.reachable ? 1 : 0) : 2, html: reachHtml},
+    {key: 'pending', label: 'ETS', cls: 'hide-md', sort: d => (d.pending || []).length, html: d => (d.pending || []).length ? `<span class="pill warning" title="Not downloaded by ETS since the project changed">${esc(d.pending.join(' '))}</span>` : ''},
     {key: 'mask', label: 'Mask', cls: 'sub hide-md', html: d => esc((d.reach || {}).mask || '')},
     {key: 'documents', label: 'Docs', cls: 'num hide-md', sort: d => d.documents || 0, html: d => d.documents || ''},
   ], rows, {sort: 'address', onRow: d => openDrawer(d.address), empty: model.devices.length ? 'Nothing matches.' : 'No devices yet: there is no project and no telegram was seen.'});

@@ -97,6 +97,11 @@ def test_project_links_objects_to_addresses():
     assert project.name_of("1.1.10") == "MDT Glass push button living room"
     assert project.name_of("1/0/1") == "Living room ceiling switch"
     assert project.dpt_of("9/9/9") is None
+    # What ETS still has to download, by its own letters
+    assert project.devices["1.1.11"]["pending"] == ["Grp"] and project.devices["1.2.10"]["pending"] == ["Par"]
+    assert project.devices["1.1.1"]["pending"] == []
+    # No type on the address: the one its object has (a single object, so they agree)
+    assert project.group_addresses["3/0/9"]["dpt"] is None and project.dpt_of("3/0/9") == "1.001"
 
 
 def test_no_project_is_an_empty_project():

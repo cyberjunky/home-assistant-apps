@@ -332,7 +332,7 @@ class Hub:
         )
         if self.project.loaded:
             # Telegrams recorded before the project was known get their values now
-            dpts = {a: ga["dpt"] for a, ga in self.project.group_addresses.items() if ga["dpt"]}
+            dpts = {a: dpt for a in self.project.group_addresses if (dpt := self.project.dpt_of(a))}
 
             def decoder(dst: str, raw: str) -> tuple | None:
                 dpt = dpts.get(dst)

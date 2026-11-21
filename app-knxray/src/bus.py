@@ -121,6 +121,10 @@ ROUTING = {0: "not set", 1: "passes all", 2: "blocks all", 3: "filters"}
 # Flags of a group object as a System B device keeps them
 OBJECT_FLAGS = {"communication": 0x04, "read": 0x08, "write": 0x10, "transmit": 0x40, "update": 0x80}
 # Where the older systems keep their address table, by the first three digits of the mask
+# A BCU 1 keeps its maker (one byte), application (two) and version (one) here
+BCU1_APPLICATION = 0x0104
+# The longest frame a TP line coupler usually passes; a device behind one is read within it
+COUPLER_APDU = 55
 FIXED_ADDRESS_TABLE = {"001": 0x0116, "002": 0x0116, "070": 0x4000}
 MAX_TABLE_ENTRIES = 1000
 PING_TIMEOUT = 2.0
@@ -495,6 +499,19 @@ class Bus:
                         except (XKNXException, TimeoutError):
                             return None
 
+                    if (result.get("mask") or "").startswith("001"):
+                        # A BCU 1 has no properties; asking for them costs seconds each. Its maker and
+                        # application are at a fixed place in memory
+                        try:
+                            data = await dmp_mem_read_r_co(connection, BCU1_APPLICATION, 4)
+                        except (XKNXException, TimeoutError, ValueError):
+                            data = b""
+                        if len(data) == 4:
+                            result["maker_id"] = data[0]
+                            result["program"] = (
+                                f"{data[0]:02X} {int.from_bytes(data[1:3], 'big'):04X} v{data[3] >> 4}.{data[3] & 0x0F}"
+                            )
+                        return result
                     if (serial := await prop(0, PID_SERIAL)) and len(serial) == 6:
                         result["serial"] = f"{serial[:2].hex()}:{serial[2:].hex()}".upper()
                     if (maker := await prop(0, PID_MAKER)) and len(maker) == 2:
@@ -550,17 +567,20 @@ class Bus:
                         except (XKNXException, TimeoutError, ValueError):
                             return None
 
-                    if (limit := await prop(0, PID_MAX_APDU)) and len(limit) == 2:
-                        apdu = max(15, min(int.from_bytes(limit, "big"), 220))
+                    bcu1 = (result.get("mask") or "").startswith("001")
+                    # Long frames reach a device on another line only as far as its couplers pass them
+                    route = 220 if address.rsplit(".", 1)[0] == self.address.rsplit(".", 1)[0] else COUPLER_APDU
+                    if not bcu1 and (limit := await prop(0, PID_MAX_APDU)) and len(limit) == 2:
+                        apdu = max(15, min(int.from_bytes(limit, "big"), route))
                         result["max_apdu"] = int.from_bytes(limit, "big")
-                    if control := await prop(0, PID_DEVICE_CONTROL):
+                    if not bcu1 and (control := await prop(0, PID_DEVICE_CONTROL)):
                         result["stopped"] = bool(control[0] & 0x01)
                         # The device saw a telegram from somebody else with its own address as the sender
                         result["address_clash"] = bool(control[0] & 0x02)
-                    if (downloads := await prop(0, PID_DOWNLOADS)) and len(downloads) == 2:
+                    if not bcu1 and (downloads := await prop(0, PID_DOWNLOADS)) and len(downloads) == 2:
                         result["downloads"] = int.from_bytes(downloads, "big")
                     try:
-                        scanned = await dmp_interface_object_scan_r(connection)
+                        scanned = [] if bcu1 else await dmp_interface_object_scan_r(connection)
                     except XKNXException:
                         scanned = []
                     objects, table_index = [], None
@@ -597,7 +617,11 @@ class Bus:
                         where = await prop(table_index, PID_TABLE_REFERENCE) if raw is None else None
                         if where and len(where) in (2, 4) and not old:
                             # Or in memory: two bytes with the number of entries, then the addresses
-                            raw = await self._table_from_memory(connection, int.from_bytes(where, "big"), 2, apdu)
+                            start = int.from_bytes(where, "big")
+                            raw = await self._table_from_memory(connection, start, 2, apdu)
+                            if raw is None and apdu > 15:
+                                # A coupler on the way passes less than the device can take: short frames
+                                raw = await self._table_from_memory(connection, start, 2, 15)
                     if raw is None and old:
                         raw = await self._table_from_memory(connection, fixed, 1, apdu)
                     if raw is not None:
@@ -608,6 +632,8 @@ class Bus:
                     if raw and not old and 2 in kinds and 9 in kinds:
                         # Which object is linked to which address, and with which flags: the two other tables
                         held = await self._objects_from_memory(connection, prop, kinds[2], kinds[9], raw, apdu)
+                        if held is None and apdu > 15:
+                            held = await self._objects_from_memory(connection, prop, kinds[2], kinds[9], raw, 15)
                         if held is not None:
                             result["held_objects"] = held
                     if 6 in kinds:

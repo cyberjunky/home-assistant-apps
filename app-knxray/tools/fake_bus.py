@@ -243,10 +243,12 @@ class FakeBus:
             response = apci.MemoryResponse(address=request.address, count=request.count, data=data)
         elif isinstance(request, apci.MemoryRead) and device == "1.1.30":
             # The old power supply keeps its (empty) address table in memory: one entry, its own address
-            memory = {0x0116: bytes([1]), 0x0117: (1 << 12 | 1 << 8 | 30).to_bytes(2, "big")}
-            data = b"".join(memory.get(request.address + i, b"\0")[:1] for i in range(request.count))
-            if request.address == 0x0117:
-                data = memory[0x0117][: request.count]
+            # The old power supply: its maker, application and version at 0104, and its address table at
+            # 0116 with one entry, its own address
+            memory = {}
+            for where, data in ((0x0104, bytes([0x83, 0x00, 0x12, 0x11])), (0x0116, bytes([1, 0x11, 0x1E]))):
+                memory.update({where + i: byte for i, byte in enumerate(data)})
+            data = bytes(memory.get(request.address + i, 0) for i in range(request.count))
             response = apci.MemoryResponse(address=request.address, count=request.count, data=data)
         if response is None:
             return

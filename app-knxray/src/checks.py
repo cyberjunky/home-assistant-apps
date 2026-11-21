@@ -8,7 +8,7 @@ page can link to it. Pure functions over plain data: nothing here talks to a bus
 
 from typing import Any
 
-from .model import HAConfig, Project, main_differs
+from .model import PENDING_NAMES, HAConfig, Project, main_differs
 from .monitor import TP_TELEGRAMS_PER_SECOND, Monitor
 from .telegrams import transcoder_for
 
@@ -164,8 +164,17 @@ CATALOG: dict[str, tuple[str, str, str, str]] = {
         INFO,
         PROJECT,
         "Group address without a datapoint type",
-        "Without a type the value cannot be decoded, charted or checked. Set the datapoint type on the group "
-        "address in ETS and upload the project again.",
+        "Without a type the value cannot be decoded, charted or checked; when its objects agree on one, the "
+        "app reads the value as that. Set the datapoint type on the group address in ETS and upload the "
+        "project again.",
+    ),
+    "download_pending": (
+        WARNING,
+        PROJECT,
+        "ETS has not downloaded every part of the device",
+        "The project was changed after the device was last programmed, or a part was never downloaded: the "
+        "device may not do what the project says. Download the missing parts from ETS (partial download), "
+        "then export the project again and upload it in Home Assistant.",
     ),
     "ga_unused": (
         INFO,
@@ -700,7 +709,10 @@ def run_checks(
         if not ga["dpt"]:
             sizes = (monitor.addresses.get(address) or {}).get("sizes") or {}
             seen = _sizes(sizes)
-            out.append(_finding("ga_no_dpt", "ga", address, f"Payloads seen: {seen}." if seen else ga["name"]))
+            parts = [f"Payloads seen: {seen}." if seen else ga["name"]]
+            if ga.get("dpt_objects"):
+                parts.append(f"Its objects are DPT {ga['dpt_objects']}: values are read as that.")
+            out.append(_finding("ga_no_dpt", "ga", address, " ".join(parts)))
         if not ga["objects"] and not used:
             out.append(_finding("ga_unused", "ga", address, ga["name"]))
         elif ga["objects"]:
@@ -746,6 +758,16 @@ def run_checks(
             out.append(_finding("line_no_coupler", "line", line, f"Line {line}, {len(devices)} devices."))
 
     for address, device in project.devices.items():
+        if device.get("pending"):
+            missing = ", ".join(PENDING_NAMES[p] for p in device["pending"])
+            out.append(
+                _finding(
+                    "download_pending",
+                    "device",
+                    address,
+                    f"{device['maker']} {device['name']}. Not downloaded: {missing}.".strip(),
+                )
+            )
         linked = any(project.objects[o]["group_addresses"] for o in device["objects"])
         if device["objects"] and not linked:
             out.append(_finding("device_no_links", "device", address, f"{device['maker']} {device['name']}".strip()))

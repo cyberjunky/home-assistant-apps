@@ -26,6 +26,26 @@ def line_of(address: str) -> str:
 # ----------------------------------------------------------------------
 # The ETS project
 # ----------------------------------------------------------------------
+# The parts of a device ETS downloads, and the letters it shows them by
+PENDING_PARTS = (
+    ("individual_address_loaded", "Adr"),
+    ("application_program_loaded", "Prg"),
+    ("parameters_loaded", "Par"),
+    ("communication_part_loaded", "Grp"),
+    ("medium_config_loaded", "Cfg"),
+)
+PENDING_NAMES = {
+    "Adr": "the individual address",
+    "Prg": "the application",
+    "Par": "the parameters",
+    "Grp": "the group addresses",
+    "Cfg": "the configuration",
+}
+
+
+# ----------------------------------------------------------------------
+# The ETS project (its own part)
+# ----------------------------------------------------------------------
 @dataclass
 class Project:
     loaded: bool = False
@@ -111,6 +131,8 @@ class Project:
                 "medium": (project.lines.get(line) or {}).get("medium", ""),
                 "room": rooms.get(address, ""),
                 "objects": [o for o in device.get("communication_object_ids") or [] if o in project.objects],
+                # What ETS has not downloaded since the project changed, by ETS's own letters
+                "pending": [letter for key, letter in PENDING_PARTS if device.get(key) is False],
             }
 
         for address, ga in data["group_addresses"].items():
@@ -144,8 +166,10 @@ class Project:
                 ga["objects"].append(co["id"])
                 if co["device"] and co["device"] not in ga["devices"]:
                     ga["devices"].append(co["device"])
-                # An object sends on its first address only; it listens on all of them
-                if co["flags"]["transmit"] and index == 0:
+                # An object sends on its first address only; it listens on all of them. An input that takes
+                # values (W and U, a push button's status LED) can carry T without being a sender
+                flags = co["flags"]
+                if flags["transmit"] and index == 0 and not (flags["write"] and flags["update"]):
                     ga["senders"] += 1
                 if co["flags"]["write"] or co["flags"]["update"]:
                     ga["listeners"] += 1
@@ -154,11 +178,19 @@ class Project:
                 for dpt in co["dpts"]:
                     if dpt not in ga["object_dpts"]:
                         ga["object_dpts"].append(dpt)
+        # An address without a type of its own has the type its objects agree on, as in ETS
+        for ga in project.group_addresses.values():
+            if not ga["dpt"] and ga["object_dpts"]:
+                if len(set(ga["object_dpts"])) == 1:
+                    ga["dpt_objects"] = ga["object_dpts"][0]
+                elif len({d.split(".")[0] for d in ga["object_dpts"]}) == 1:
+                    ga["dpt_objects"] = ga["object_dpts"][0].split(".")[0]
         return project
 
     def dpt_of(self, address: str) -> str | None:
+        """The type a value on this address is read as: its own, or the one its objects agree on."""
         ga = self.group_addresses.get(address)
-        return ga["dpt"] if ga else None
+        return (ga["dpt"] or ga.get("dpt_objects")) if ga else None
 
     def name_of(self, address: str) -> str:
         """The name of a group address or of a device."""

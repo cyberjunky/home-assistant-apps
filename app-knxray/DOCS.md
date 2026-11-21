@@ -59,6 +59,7 @@ long view). Checks of the project and of Home Assistant are always complete.
 | Telegrams arrive with their hop count used up | Too many couplers on the way, or a loop |
 | Device does not answer / is in programming mode / has no application | From asking the device directly |
 | Device holds other group addresses than the project says | Read from the device: it was programmed from another version |
+| ETS has not downloaded every part of the device | From the project: ETS's Adr, Prg, Par, Grp, Cfg, shown on the Devices page |
 | Two devices use the same individual address | The device saw another sender with its own address |
 | Device's objects are linked or flagged differently | Read from the device's own tables, object by object |
 | Coupler blocks, or passes every, group telegram | Read from the coupler: a setting left from commissioning |
@@ -108,7 +109,8 @@ to the bus, or it was not running. The longest pauses on the bus while it was li
 
 ## Group addresses
 
-Every address of the project and every address seen on the bus: datapoint type, last value, when it
+Every address of the project and every address seen on the bus: datapoint type (in brackets when
+the address has none and its objects agree on one, which is what its values are then read as), last value, when it
 was last seen, how many telegrams, how many objects are linked, and which Home Assistant entities
 use it. The details show who sends to it, the linked objects with their flags (C R W T U), the
 entities, and the last telegrams. **Read now** asks the address for its value and shows who answers.

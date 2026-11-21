@@ -57,6 +57,9 @@ def test_every_finding_is_in_the_catalog_and_worst_comes_first():
 def test_the_project_alone():
     by_code, _found = scene()
     assert subjects(by_code, "ga_no_dpt") == ["3/0/9"]
+    assert "read as that" in by_code["ga_no_dpt"][0]["detail"] and "1.001" in by_code["ga_no_dpt"][0]["detail"]
+    assert subjects(by_code, "download_pending") == ["1.1.11", "1.2.10"]
+    assert "the group addresses" in by_code["download_pending"][0]["detail"]
     assert subjects(by_code, "ga_unused") == ["6/0/10", "6/0/9"]
     assert subjects(by_code, "dpt_conflict") == ["3/0/6"]
     assert subjects(by_code, "device_no_links") == ["1.1.30"]
@@ -298,3 +301,14 @@ def test_what_bus_monitor_mode_counted():
     by_code = scene(wire=noisy)[0]
     assert {"wire_errors", "wire_repeats", "wire_refused", "wire_unanswered"} <= set(by_code)
     assert "7/3/1 (9)" in by_code["wire_unanswered"][0]["detail"] and by_code["wire_errors"][0]["severity"] == "error"
+
+
+def test_an_input_with_a_status_led_is_no_sender():
+    """A push button's status object (C W T U) listens; it does not make a group address 'sent to'."""
+    data = house.knxproject()
+    status = next(
+        co for co in data["communication_objects"].values() if co["device_address"] == "1.1.10" and co["number"] == 0
+    )
+    status["flags"].update(write=True, update=True)
+    project = Project.from_knxproject(data)
+    assert project.group_addresses["1/0/1"]["senders"] == 0 and project.group_addresses["1/0/1"]["listeners"] == 2

@@ -357,7 +357,7 @@ function renderDrawer() {
     const senders = Object.entries(s.sources || {}).sort((x, y) => y[1] - x[1]);
     html = `<div class="drawer-head"><div><div class="addr">${esc(a)}</div><h2>${esc(ga.name || (ga.known ? '' : 'Not in the project'))}</h2></div><button class="x" data-close aria-label="Close">&times;</button></div>` +
       '<section>' + kv([
-        ['Datapoint type', ga.dpt ? esc(ga.dpt) : ga.known ? '<span class="pill warning">not set</span>' : ''],
+        ['Datapoint type', ga.dpt ? esc(ga.dpt) : ga.dpt_objects ? `<span class="pill warning">not set</span> <span class="muted">read as ${esc(ga.dpt_objects)}, the type of its objects</span>` : ga.known ? '<span class="pill warning">not set</span>' : ''],
         ['Range', esc(ga.range || '')],
         ['Description', esc(ga.description || '')],
         ['Last value', last ? `${valueHtml(last)} <span class="muted">from ${ref(last.src)}, ${esc(fmtAgo(last.ts))}</span>` : ''],
@@ -386,6 +386,7 @@ function renderDrawer() {
         ['Application', esc(d.application || '')],
         ['Line', d.line ? `${esc(d.line)} <span class="muted">${esc(((model.project.lines || {})[d.line] || {}).name || '')} ${esc(d.medium || '')}</span>` : ''],
         ['Room', esc(d.room || '')],
+        ['Not downloaded by ETS', (d.pending || []).length ? `<span class="pill warning">${esc(d.pending.join(' '))}</span>` : ''],
         ['Telegrams', s.count ? `${s.count} <span class="muted">to ${Object.keys(s.addresses || {}).length} addresses, last ${esc(fmtAgo(s.last))}</span>` : 'none since the app started'],
         ['Busiest minute', s.peak > 1 ? `${s.peak} telegrams` : ''],
       ]) + (d.own ? '' : `<div class="toolbar" style="margin-top:10px"><button class="btn" data-job="ping">Check</button><button class="btn" data-job="info">Read details</button><button class="btn" data-job="deep" title="Every object, the state of each table, and the group addresses the device really holds. Takes a minute.">Read everything</button>${r ? '<button class="btn" data-forget>Forget answer</button>' : ''}</div>`) + '</section>' +

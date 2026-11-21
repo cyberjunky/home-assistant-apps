@@ -192,6 +192,12 @@ def knxproject() -> dict[str, Any]:
             "application": f"{product} application",
             "communication_object_ids": [],
             "channels": {},
+            # The kitchen push button's links were changed in ETS and not downloaded since
+            "individual_address_loaded": True,
+            "application_program_loaded": True,
+            "parameters_loaded": address != "1.2.10",
+            "communication_part_loaded": address != "1.1.11",
+            "medium_config_loaded": True,
         }
         spaces.setdefault(room, {"type": "Room", "name": room, "devices": [], "spaces": {}, "functions": []})
         spaces[room]["devices"].append(address)
