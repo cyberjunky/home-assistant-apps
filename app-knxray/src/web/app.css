@@ -192,6 +192,7 @@ a.ref:hover, button.ref:hover { text-decoration: underline; }
 .pill + .pill { margin-left: 4px; }
 .value { font-family: var(--mono); } .value.raw { color: var(--secondary-text-color); font-style: italic; } .value.bad { color: var(--danger-color); }
 .unit { color: var(--secondary-text-color); margin-left: 3px; }
+.value.guess { color: var(--secondary-text-color); font-style: italic; border-bottom: 1px dotted var(--muted-text-color); cursor: help; }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: var(--muted-text-color); }
 .dot.error { background: var(--danger-color); } .dot.warning { background: var(--warning-color); } .dot.info { background: var(--info-color); } .dot.ok { background: var(--success-color); }
 

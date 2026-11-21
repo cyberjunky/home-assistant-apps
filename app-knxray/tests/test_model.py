@@ -152,3 +152,15 @@ def test_entities_get_their_addresses_and_roles():
     assert by_id["sensor.outside_temperature"]["addresses"][0]["expects"] == "9.001"
     assert by_id["sensor.wind_speed"]["addresses"][0]["expects"] == "5.001"
     assert sorted(e["entity_id"] for e in stray) == ["light.attic", "switch.old_doorbell"]
+
+
+def test_a_guess_by_the_size_of_the_payload():
+    from src.telegrams import guess
+
+    assert guess("44554031", False) == "853"  # four bytes: a DPT 14 value
+    assert guess("0c1a", False) == "21"  # two bytes: a DPT 9 value
+    assert guess("80", False) == "128 (50 %)"
+    assert guess("01", True) == "on" and guess("00", None) == "off"
+    assert guess("001a7ea4", False) == "1736356"  # no sensible float: a counter
+    assert guess("3236313132313131343133315720", False) == "261121114131W"
+    assert guess("010203", False) is None and guess("", None) is None and guess("zz", False) is None
