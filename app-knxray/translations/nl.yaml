@@ -1,0 +1,26 @@
+configuration:
+  retain_days:
+    name: Telegrammen bewaren (dagen)
+    description: Opgenomen telegrammen ouder dan dit worden verwijderd. 0 bewaart ze voor altijd.
+  retain_rows:
+    name: Hoogstens bewaren (telegrammen)
+    description: >-
+      De oudste opgenomen telegrammen verdwijnen als het er meer zijn dan dit. Een miljoen
+      telegrammen is ongeveer 120 MB. 0 voor geen grens.
+  chatty_per_minute:
+    name: Druk boven (telegrammen per minuut)
+    description: >-
+      Een groepsadres dat in één minuut meer telegrammen krijgt dan dit wordt als erg druk gemeld;
+      een apparaat bij drie keer zoveel.
+  monitor_size:
+    name: Live monitor (telegrammen)
+    description: Hoeveel van de laatste telegrammen de live monitor in het geheugen houdt.
+  allow_remove:
+    name: Verwijderen toestaan
+    description: >-
+      Zet uit om de app alleen te laten melden: elke verwijderknop op de pagina Home Assistant
+      is dan weg. Aan: verweesde entiteiten en apparaten, en KNX-entiteiten die in de UI zijn
+      gemaakt, kunnen daar worden verwijderd.
+  log_level:
+    name: Logniveau
+    description: Hoeveel de app naar zijn eigen log schrijft.
