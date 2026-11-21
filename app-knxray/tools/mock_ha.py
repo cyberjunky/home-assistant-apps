@@ -14,7 +14,7 @@ from typing import Any
 
 from aiohttp import WSMsgType, web
 
-from src.telegrams import transcoder_for
+from src.telegrams import plain, transcoder_for
 from tools import installation as house
 
 logger = logging.getLogger(__name__)
@@ -36,11 +36,8 @@ def telegram_dict(source: str, address: str, kind: str, payload: Any, project: d
 
                 with contextlib.suppress(Exception):
                     decoded = transcoder.from_knx(DPTBinary(payload) if isinstance(payload, int) else DPTArray(payload))
-                    value = (
-                        decoded
-                        if isinstance(decoded, bool | int | float | str)
-                        else getattr(decoded, "name", str(decoded)).lower()
-                    )
+                    # As Home Assistant serializes it: numbers and words as they are, a time or date as its fields
+                    value = plain(decoded)
     device = project["devices"].get(source)
     return {
         "data_secure": False,
@@ -69,6 +66,10 @@ class MockHA:
         self.removed: set[str] = set()
         # What the integration's own telegram store answers to knx/query_telegrams
         self.stored: list[dict[str, Any]] = []
+        # What knx/group_telegrams answers: the last telegram per group address
+        self.last_telegrams: dict[str, dict[str, Any]] = {}
+        # Development: answer as a Home Assistant that has no ETS project
+        self.no_project = False
         self.app = web.Application()
         self.app.router.add_get("/core/websocket", self._websocket)
         self.app.router.add_get("/core/api/diagnostics/config_entry/{entry_id}", self._diagnostics)
@@ -161,17 +162,21 @@ class MockHA:
         if kind == "config_entries/get":
             return [{"entry_id": ENTRY_ID, "domain": "knx", "title": "KNX", "state": "loaded"}]
         if kind == "knx/get_base_data":
-            info = self.project["info"]
+            info = self.project["info"] if not self.no_project else None
             return {
                 "connection_info": {"version": "4.1.1", "connected": True, "current_address": house.HA_ADDRESS},
                 "dpt_metadata": {},
-                "project_info": {k: info[k] for k in ("name", "last_modified", "tool_version", "xknxproject_version")},
+                "project_info": {k: info[k] for k in ("name", "last_modified", "tool_version", "xknxproject_version")}
+                if info
+                else None,
                 "supported_platforms": sorted(house.HA_UI),
             }
         if kind == "knx/get_knx_project":
-            return self.project
+            return None if self.no_project else self.project
         if kind == "knx/get_entities_by_group":
             return self.by_group()
+        if kind == "knx/group_telegrams":
+            return self.last_telegrams
         if kind == "knx/query_telegrams":
             return {"telegrams": self.stored, "total_count": len(self.stored), "limit_reached": False}
         if kind == "knx/get_expose_groups":

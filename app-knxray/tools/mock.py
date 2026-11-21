@@ -22,6 +22,7 @@ def main() -> int:
     parser.add_argument("--bus", action="store_true", help="run a virtual KNX bus too (multicast on port 13671)")
     parser.add_argument("--history", type=float, default=0, help="days of recorded telegrams to start with")
     parser.add_argument("--remove", action="store_true", help="switch on removing stray data")
+    parser.add_argument("--no-project", action="store_true", help="a Home Assistant without an ETS project")
     parser.add_argument("--ha-port", type=int, default=18523)
     args = parser.parse_args()
     root = args.data or Path(tempfile.mkdtemp(prefix="knxray-mock-"))
@@ -42,7 +43,9 @@ def main() -> int:
             count = write_history(root / "telegrams.db", args.history)
             print(f"Wrote {count} telegrams of history")
         # With the virtual bus the devices talk there; Home Assistant then only reports what it hears
-        await MockHA(simulate=not args.bus).start(args.ha_port)
+        ha = MockHA(simulate=not args.bus)
+        ha.no_project = args.no_project
+        await ha.start(args.ha_port)
         if args.bus:
             from tools.fake_bus import FakeBus
 
