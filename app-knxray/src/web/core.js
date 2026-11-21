@@ -2,6 +2,8 @@
 // tables), telegrams.js (monitor and archive), charts.js (charts and statistics), main.js (start).
 // Telegrams and the state of the connections arrive over one WebSocket; everything else is asked of api/.
 'use strict';
+// Whether there is a project to be in at all: without one, nothing is 'not in the project'
+const projectLoaded = () => Boolean((state.project || {}).loaded);
 // Names from the project, from Home Assistant and from the bus are not ours: they only ever reach the page
 // through esc() or textContent
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -85,7 +87,7 @@ const fmtSize = n => n == null ? '–' : n < 1048576 ? `${(n / 1024).toFixed(0)}
 // Sorting addresses the way they read: 1/2/10 after 1/2/9, 1.1.10 after 1.1.9
 const addressKey = a => String(a || '').split(/[/.]/).map(p => String(parseInt(p, 10) || 0).padStart(5, '0')).join('');
 function nameOf(a) {
-  if (String(a).includes('/')) return gaIndex[a] ? gaIndex[a].name : '';
+  if (String(a).includes('/')) return gaIndex[a] ? gaIndex[a].name || gaIndex[a].name_ha || '' : '';
   if (a && a === (state.ha || {}).address) return 'Home Assistant';
   if (a && a === (state.bus || {}).address) return 'This app';
   return deviceName(deviceIndex[a]);
@@ -422,9 +424,9 @@ function renderDrawer() {
     const ga = gaIndex[a] || {address: a, name: '', known: false, stats: {}, users: []};
     const s = ga.stats || {}, last = s.last_value;
     const senders = Object.entries(s.sources || {}).sort((x, y) => y[1] - x[1]);
-    html = `<div class="drawer-head"><div><div class="addr">${esc(a)}</div><h2>${esc(ga.name || (ga.known ? '' : 'Not in the project'))}</h2></div><button class="x" data-close aria-label="Close">&times;</button></div>` +
+    html = `<div class="drawer-head"><div><div class="addr">${esc(a)}</div><h2>${esc(ga.name || ga.name_ha || (ga.known || !(state.project || {}).loaded ? '' : 'Not in the project'))}</h2></div><button class="x" data-close aria-label="Close">&times;</button></div>` +
       '<section>' + kv([
-        ['Datapoint type', ga.dpt ? esc(ga.dpt) : ga.dpt_objects ? `<span class="pill warning">not set</span> <span class="muted">read as ${esc(ga.dpt_objects)}, the type of its objects</span>` : ga.known ? '<span class="pill warning">not set</span>' : ''],
+        ['Datapoint type', ga.dpt ? esc(ga.dpt) : ga.dpt_ha ? `${esc(ga.dpt_ha)} <span class="muted">the type Home Assistant uses; not in a project</span>` : ga.dpt_objects ? `<span class="pill warning">not set</span> <span class="muted">read as ${esc(ga.dpt_objects)}, the type of its objects</span>` : ga.known ? '<span class="pill warning">not set</span>' : ''],
         ['Range', esc(ga.range || '')],
         ['Description', esc(ga.description || '')],
         ['Last value', last ? `${valueHtml(last)} <span class="muted">from ${ref(last.src)}, ${esc(fmtAgo(last.ts))}</span>` : ''],
@@ -446,7 +448,7 @@ function renderDrawer() {
     const d = deviceIndex[a] || {address: a, known: false, stats: {}};
     const s = d.stats || {}, r = d.reach;
     const targets = Object.entries(s.addresses || {}).sort((x, y) => y[1] - x[1]);
-    html = `<div class="drawer-head"><div><div class="addr">${esc(a)}</div><h2>${esc(deviceName(d) || (d.known ? '' : 'Not in the project'))}</h2></div><button class="x" data-close aria-label="Close">&times;</button></div>` +
+    html = `<div class="drawer-head"><div><div class="addr">${esc(a)}</div><h2>${esc(deviceName(d) || (d.known || !(state.project || {}).loaded ? '' : 'Not in the project'))}</h2></div><button class="x" data-close aria-label="Close">&times;</button></div>` +
       '<section>' + kv([
         ['Product', esc(d.product || '')],
         ['Order number', esc(d.order_number || '')],

@@ -126,8 +126,8 @@ TAB_RENDER.addresses = () => {
   $('addresses-count').textContent = `${rows.length} of ${model.addresses.length}`;
   table('addresses-table', [
     {key: 'address', label: 'Address', cls: 'addr', sort: a => addressKey(a.address), html: a => issueDot(a.address) + `<span class="ga-chip" style="--h:${hueOf(a.address)}">${esc(a.address)}</span>`},
-    {key: 'name', label: 'Name', sort: a => (a.name || '').toLowerCase(), html: a => `<span class="nm">${esc(a.name || '')}</span>${a.known ? '' : '<span class="pill warning">not in the project</span>'}<small>${esc(a.range || '')}</small>`},
-    {key: 'dpt', label: 'Type', cls: 'addr', sort: a => addressKey(a.dpt || a.dpt_objects || '999'), html: a => a.dpt ? esc(a.dpt) : a.dpt_objects ? `<span class="muted" title="Not set on the address: the type its objects agree on">(${esc(a.dpt_objects)})</span>` : a.known ? '<span class="muted">–</span>' : ''},
+    {key: 'name', label: 'Name', sort: a => (a.name || a.name_ha || '').toLowerCase(), html: a => `<span class="nm">${esc(a.name || a.name_ha || '')}</span>${a.known || !(state.project || {}).loaded ? '' : '<span class="pill warning">not in the project</span>'}<small>${esc(a.range || (a.name_ha && !a.name ? 'name of its entity in Home Assistant' : ''))}</small>`},
+    {key: 'dpt', label: 'Type', cls: 'addr', sort: a => addressKey(a.dpt || a.dpt_objects || a.dpt_ha || '999'), html: a => a.dpt ? esc(a.dpt) : a.dpt_ha ? `<span class="muted" title="Not in the project: the type Home Assistant uses">(${esc(a.dpt_ha)})</span>` : a.dpt_objects ? `<span class="muted" title="Not set on the address: the type its objects agree on">(${esc(a.dpt_objects)})</span>` : a.known ? '<span class="muted">–</span>' : ''},
     {key: 'value', label: 'Last value', html: a => valueHtml((a.stats || {}).last_value)},
     {key: 'last', label: 'Last seen', cls: 'sub', sort: a => (a.stats || {}).last || 0, html: a => (a.stats || {}).last ? esc(fmtAgo(a.stats.last)) : ''},
     {key: 'count', label: 'Telegrams', cls: 'num', sort: a => (a.stats || {}).count || 0, html: a => (a.stats || {}).count || ''},
@@ -168,7 +168,7 @@ TAB_RENDER.devices = () => {
   if (view === 'graph') { renderGraph(rows); return; }
   table('devices-table', [
     {key: 'address', label: 'Address', cls: 'addr', sort: d => addressKey(d.address), html: d => `<span class="avatar s-${deviceTone(d)}" title="${esc(d.line || '')}"><small>${esc(d.line || '')}</small>${esc(d.address.split('.').pop())}</span>`},
-    {key: 'name', label: 'Device', sort: d => (d.name || '').toLowerCase(), html: d => `<span class="nm">${esc(d.name || '')}</span>${d.known ? '' : d.own ? '' : '<span class="pill warning">not in the project</span>'}<small>${esc([d.maker, d.product].filter(Boolean).join(' · '))}</small>`},
+    {key: 'name', label: 'Device', sort: d => (d.name || '').toLowerCase(), html: d => `<span class="nm">${esc(d.name || '')}</span>${d.known || d.own || !projectLoaded() ? '' : '<span class="pill warning">not in the project</span>'}<small>${esc([d.maker, d.product].filter(Boolean).join(' · '))}</small>`},
     {key: 'room', label: 'Room', cls: 'sub hide-md', sort: d => (d.room || '').toLowerCase(), html: d => esc((d.room || '').split(' › ').pop())},
     {key: 'last', label: 'Last heard', cls: 'sub', sort: d => (d.stats || {}).last || 0, html: d => (d.stats || {}).last ? esc(fmtAgo(d.stats.last)) : ''},
     {key: 'count', label: 'Telegrams', cls: 'num', sort: d => (d.stats || {}).count || 0, html: d => (d.stats || {}).count || ''},
@@ -191,7 +191,7 @@ function renderLines(rows) {
       devices.map(d => {
         const found = issuesOf(d.address);
         const tone = d.reach && !d.reach.reachable ? 'error' : found.length ? worst(found) : (d.stats || {}).count || (d.reach && d.reach.reachable) ? 'ok' : '';
-        return `<button type="button" class="node ${tone}${d.known || d.own ? '' : ' unknown'}" data-ref="${esc(d.address)}" data-node="${esc(d.address)}" title="${esc(found.map(f => f.title).join('\n'))}"><b class="mono">${esc(d.address)}</b><span>${esc(d.name || (d.known ? '' : 'not in the project'))}</span><small>${(d.stats || {}).count ? fmtCount(d.stats.count) + ' sent' : 'silent'}</small></button>`;
+        return `<button type="button" class="node ${tone}${d.known || d.own || !projectLoaded() ? '' : ' unknown'}" data-ref="${esc(d.address)}" data-node="${esc(d.address)}" title="${esc(found.map(f => f.title).join('\n'))}"><b class="mono">${esc(d.address)}</b><span>${esc(d.name || (d.known || !projectLoaded() ? '' : 'not in the project'))}</span><small>${(d.stats || {}).count ? fmtCount(d.stats.count) + ' sent' : 'silent'}</small></button>`;
       }).join('') + '</div></div></div>';
   }).join('') : '<div class="panel"><div class="empty-state">No devices.</div></div>';
 }
@@ -268,7 +268,7 @@ TAB_RENDER.ha = () => {
     {key: 'entity', label: 'Entity', sort: e => e.entity_id || e.name, html: e => { const found = entityIssues(e); return `<div class="entity"><span class="plat p-${esc(e.platform)}" title="${esc(e.platform)}">${icon(ICONS[e.platform] ? e.platform : 'other')}</span><div>` + (found.length ? `<span class="dot ${worst(found)}" title="${esc(found.map(f => f.title).join('\n'))}"></span>` : '') + `<span class="mono">${esc(e.entity_id || '(no entity id)')}</span><small>${esc(e.name || '')}</small></div></div>`; }},
     {key: 'source', label: 'From', cls: 'sub', sort: e => e.source, html: e => `<span class="pill">${esc(e.source === 'ui' ? 'UI' : 'YAML')}</span>${e.disabled ? '<span class="pill">disabled</span>' : ''}`},
     {key: 'state', label: 'State', cls: 'sub hide-md', sort: e => String(e.state), html: e => e.state === 'unavailable' ? '<span class="pill warning">unavailable</span>' : esc(e.state ?? '')},
-    {key: 'addresses', label: 'Group addresses', html: e => e.addresses.map(a => `<div>${issueDot(`${e.entity_id || e.name}|${a.ga}`)}${ref(a.ga)} <span class="muted">${esc(a.role || '')}${a.use === 'state' ? ' · listens' : a.use === 'passive' ? ' · passive' : ''} ${esc(nameOf(a.ga) ? '· ' + nameOf(a.ga) : gaIndex[a.ga] && gaIndex[a.ga].known ? '' : '· not in the project')}</span></div>`).join('')},
+    {key: 'addresses', label: 'Group addresses', html: e => e.addresses.map(a => `<div>${issueDot(`${e.entity_id || e.name}|${a.ga}`)}${ref(a.ga)} <span class="muted">${esc(a.role || '')}${a.use === 'state' ? ' · listens' : a.use === 'passive' ? ' · passive' : ''} ${esc(nameOf(a.ga) ? '· ' + nameOf(a.ga) : gaIndex[a.ga] && gaIndex[a.ga].known || !projectLoaded() ? '' : '· not in the project')}</span></div>`).join('')},
     {key: 'acts', label: '', cls: 'acts', html: e => canRemove && e.source === 'ui' && e.entity_id ? `<button type="button" class="link-btn danger" data-remove="entity" data-id="${esc(e.entity_id)}" data-name="${esc(e.name)}">Remove</button>` : ''},
   ], rows, {sort: 'entity', empty: ha.loaded ? (model.entities.length ? 'Nothing matches.' : 'Home Assistant has no KNX entities.') : 'The KNX integration is not there.'});
 };

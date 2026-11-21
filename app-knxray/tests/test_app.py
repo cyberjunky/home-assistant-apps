@@ -336,3 +336,35 @@ async def test_documents_kept_with_a_device(app):
     assert sorted(d["title"] for d in again.items) == ["Manual AKS", "Wiring diagram"]
     again.delete(manual["id"])
     assert not (hub.data_dir / "documents" / f"{manual['id']}.pdf").exists()
+
+
+async def test_types_from_home_assistant_without_a_project(app):
+    """No ETS project: the types Home Assistant uses decode the values, and its entities name the addresses."""
+    client, hub, mock = app
+    mock.no_project = True
+    await hub.refresh()
+    assert not hub.project.loaded
+    # As at start: a telegram before Home Assistant's types are known
+    hub.ha_dpts.clear()
+    from xknx.dpt import DPTArray
+    from xknx.telegram import GroupAddress, IndividualAddress, Telegram, apci
+
+    hub._from_bus(Telegram(destination_address=GroupAddress("5/0/1"), source_address=IndividualAddress("1.2.12"),
+                           payload=apci.GroupValueWrite(DPTArray(bytes.fromhex("43c24064")))))  # fmt: skip
+    first = hub.monitor.telegrams[-1]
+    assert first["text"] is None and first["raw"] == "43c24064"
+    # What Home Assistant's integration last decoded on 4/0/2, and what its entities expect elsewhere
+    mock.last_telegrams = {"4/0/2": {"destination": "4/0/2", "dpt_main": 9, "dpt_sub": 5}}
+    await hub.refresh()
+    assert hub.ha_dpts["5/0/1"] == "14.056" and hub.ha_dpts["4/0/2"] == "9.005" and hub.ha_dpts["4/0/5"] == "1"
+    # What was already shown gets its value
+    assert first["text"] == "388.5" and first["unit"] == "W"
+    model = await (await client.get("/api/model")).json()
+    row = next(a for a in model["addresses"] if a["address"] == "5/0/1")
+    assert (
+        row["dpt_ha"] == "14.056" and row["name_ha"] == "Total power" and row["stats"]["last_value"]["text"] == "388.5"
+    )
+    # A telegram reported by Home Assistant teaches its type too
+    hub._from_ha({"destination": "6/0/1", "telegramtype": "GroupValueWrite", "payload": [3], "dpt_main": 17, "dpt_sub": 1,
+                  "direction": "Incoming", "source": "1.1.10", "timestamp": "2026-11-21T10:00:00+01:00"})  # fmt: skip
+    assert hub.ha_dpts["6/0/1"] == "17.001"

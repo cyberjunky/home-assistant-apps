@@ -27,7 +27,7 @@ from .ha_client import HAClient, HAClientError, HAWebSocket
 from .model import HAConfig, Project, _yaml_addresses, build_entities, line_of
 from .monitor import Monitor
 from .recorder import Recorder
-from .telegrams import decode, from_ha, from_xknx
+from .telegrams import decode, dpt_text, from_ha, from_xknx
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +87,11 @@ class Hub:
         self._findings: list[dict[str, Any]] = []
         self._findings_at = 0.0
         self._project_stamp: Any = None
+        # Datapoint types Home Assistant uses for addresses the project gives none (or there is no
+        # project): from its telegrams, and from what its entities are configured with
+        self.ha_dpts: dict[str, str] = {}
+        self._backfill_task: asyncio.Task | None = None
+        self._pending_dpts: dict[str, str] = {}
         # Frames seen with their flags, and how many of those were marked as sent again
         self._flagged = [0, 0]
         self._repeats_mean_nothing = False
@@ -177,9 +182,54 @@ class Hub:
             self._listening = listening
             self.recorder.event("connected" if listening else "disconnected")
 
+    def dpt_of(self, address: str) -> str | None:
+        """The type a value on this address is read as: the project's, or else the one Home Assistant uses."""
+        return self.project.dpt_of(address) or self.ha_dpts.get(address)
+
+    def _learn_dpts(self, found: dict[str, str]) -> None:
+        """Take in types Home Assistant uses. What was shown or recorded without a value gets one."""
+        new = {a: d for a, d in found.items() if d and not self.project.dpt_of(a) and self.ha_dpts.get(a) != d}
+        if not new:
+            return
+        self.ha_dpts.update(new)
+        for t in self.monitor.telegrams:
+            if t["dst"] in new and t.get("text") is None and t.get("raw") and t["type"] != "read":
+                self._redecode(t, new[t["dst"]])
+        for address in new:
+            last = (self.monitor.addresses.get(address) or {}).get("last_value")
+            if last and last.get("text") is None and last.get("raw"):
+                self._redecode(last, new[address])
+        self._backfill()
+        self._changed()
+
+    @staticmethod
+    def _redecode(t: dict[str, Any], dpt: str) -> None:
+        decoded = decode(dpt, t["raw"], t.get("bits"))
+        if decoded:
+            t["text"], t["num"], t["unit"] = decoded
+            t["dpt"] = dpt
+
+    def _backfill(self) -> None:
+        """Give recorded telegrams without a value one, now that their type is known."""
+        if self._backfill_task is not None and not self._backfill_task.done():
+            return
+        dpts = {a: d for a in {*self.project.group_addresses, *self.ha_dpts} if (d := self.dpt_of(a))}
+
+        def decoder(dst: str, raw: str) -> tuple | None:
+            dpt = dpts.get(dst)
+            if dpt is None:
+                return None
+            if not raw:
+                return (None, None, None, dpt)
+            decoded = decode(dpt, raw)
+            return (*decoded, dpt) if decoded else None
+
+        self._backfill_task = asyncio.create_task(asyncio.to_thread(self.recorder.backfill, decoder))
+        self._backfill_task.add_done_callback(lambda t: None if t.cancelled() else t.exception())
+
     def _decode_wire(self, frame: dict[str, Any]) -> None:
         """Give a group frame from the bus monitor its value, by the project's datapoint type."""
-        dpt = self.project.dpt_of(frame["dst"])
+        dpt = self.dpt_of(frame["dst"])
         frame["dpt"] = dpt
         decoded = decode(dpt, frame["payload"], frame["bits"]) if frame["payload"] else None
         frame["text"], frame["unit"] = (decoded[0], decoded[2]) if decoded else (None, None)
@@ -194,7 +244,7 @@ class Hub:
         return {**self.busmon.counts, "unanswered_to": [f"{d} ({unanswered[d]})" for d in top]}
 
     def _from_bus(self, telegram: Telegram, flags: Any = None) -> None:
-        t = from_xknx(telegram, self.project.dpt_of(str(telegram.destination_address)), flags)
+        t = from_xknx(telegram, self.dpt_of(str(telegram.destination_address)), flags)
         if t is None:
             return
         if t["src"] == "0.0.0":
@@ -212,9 +262,11 @@ class Hub:
         self._ingest(t)
 
     def _from_ha(self, event: dict[str, Any]) -> None:
+        t = from_ha(event)
+        if t is not None and t["dpt"] and not self.project.dpt_of(t["dst"]) and self.ha_dpts.get(t["dst"]) != t["dpt"]:
+            self._learn_dpts({t["dst"]: t["dpt"]})
         if self.bus.connected:
             return  # the app's own connection sees the same telegram
-        t = from_ha(event)
         if t is not None:
             self._ingest(t)
 
@@ -315,6 +367,8 @@ class Hub:
                 await self._read_project(ha)
                 await self._read_entities(ha)
         self.ha = ha
+        self._learn_dpts(self._pending_dpts)
+        self._pending_dpts = {}
         self._link_event()
         self._changed()
 
@@ -332,19 +386,7 @@ class Hub:
         )
         if self.project.loaded:
             # Telegrams recorded before the project was known get their values now
-            dpts = {a: dpt for a in self.project.group_addresses if (dpt := self.project.dpt_of(a))}
-
-            def decoder(dst: str, raw: str) -> tuple | None:
-                dpt = dpts.get(dst)
-                if dpt is None:
-                    return None
-                if not raw:
-                    return (None, None, None, dpt)
-                decoded = decode(dpt, raw)
-                return (*decoded, dpt) if decoded else None
-
-            task = asyncio.create_task(asyncio.to_thread(self.recorder.backfill, decoder))
-            task.add_done_callback(lambda t: t.exception())
+            self._backfill()
 
     async def _read_entities(self, ha: HAConfig) -> None:
         registry = await self._try({"type": "config/entity_registry/list"}, [])
@@ -369,6 +411,18 @@ class Hub:
             diagnostics.get("config_store"),
             yaml_config if isinstance(yaml_config, dict) else None,
         )
+        # The types Home Assistant uses: what its integration last decoded per address, then what its entities
+        # are configured with
+        found: dict[str, str] = {}
+        for entity in ha.entities:
+            for address in entity["addresses"]:
+                if address.get("expects") and address["ga"] not in found:
+                    found[address["ga"]] = address["expects"]
+        last = await self._try({"type": "knx/group_telegrams"}, {})
+        for address, telegram in (last or {}).items():
+            if isinstance(telegram, dict) and telegram.get("dpt_main") is not None:
+                found[str(address)] = dpt_text(telegram["dpt_main"], telegram.get("dpt_sub"))
+        self._pending_dpts = found
         exposes = await self._try({"type": "knx/get_expose_groups"}, {})
         ha.exposes = {str(k): [str(a) for a in v or []] for k, v in (exposes or {}).items()}
         for item in (yaml_config or {}).get("expose") or [] if isinstance(yaml_config, dict) else []:
@@ -641,6 +695,14 @@ class Hub:
         for address in users:
             if address not in self.project.group_addresses and address not in self.monitor.addresses:
                 addresses.append({"address": address, "name": "", "known": False, "stats": {}, "users": users[address]})
+        for row in addresses:
+            # Where the project says nothing: the type Home Assistant uses, and the name of its entity
+            if not row.get("dpt") and not row.get("dpt_objects") and row["address"] in self.ha_dpts:
+                row["dpt_ha"] = self.ha_dpts[row["address"]]
+            if not row["name"] and row["users"]:
+                row["name_ha"] = next(
+                    (u["name"] for u in row["users"] if u.get("name") and u["platform"] != "expose"), ""
+                )
 
         own = {self.bus.address: "This app", self.ha.address: "Home Assistant"}
         documents = self.documents.counts({a: product_key(d) for a, d in self.project.devices.items()})
