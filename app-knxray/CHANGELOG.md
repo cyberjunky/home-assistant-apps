@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1
+
+**After updating:** nothing to do.
+
+- **Every page its own look:** a header with an icon in the page's own colour, what the page is for, and that page's numbers. The colour carries into the page's buttons, panel titles, bars and heatmap.
+- **Overview:** opens with how things stand, tinted by the worst finding ("3 errors need attention", or "All clear"), with the bus of the last hour beside it.
+- **Easier to read at a glance:** findings carry their severity on their edge; telegrams a stripe by kind (write, read, response; red when the value does not fit); group addresses the colour of their main group everywhere; devices a badge that says how they stand; Home Assistant entities their platform's icon.
+
 ## 0.1.0
 
 First version.
