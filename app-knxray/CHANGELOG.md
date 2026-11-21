@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.2
+
+**After updating:** nothing to do.
+
+- **Values without an ETS project:** where Home Assistant has no project, or the project gives an address no datapoint type, the app now uses the type Home Assistant uses for it: the one its KNX integration decodes the address with, or else the one the entity is configured with. Values are shown decoded, also those already shown and recorded, and the charts can draw them. The type is shown in brackets.
+- **Names without a project:** an address without a name in the project shows the name of its entity in Home Assistant.
+- Without a project, nothing is marked "not in the project" any more.
+
 ## 0.1.1
 
 **After updating:** nothing to do.
