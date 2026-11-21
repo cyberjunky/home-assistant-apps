@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3
+
+**After updating:** nothing to do.
+
+- **Last values right after a start:** an address nothing came in on since the app started shows its last value from the app's recording, or the one Home Assistant last saw, with where it came from and when.
+- **A guess where no type is known:** an address of which no datapoint type is known anywhere (no project, no entity) shows what its payload most likely says by its size: a bit a switch, two bytes a DPT 9 value, four bytes a DPT 14 value (or a counter), fourteen bytes text. Marked with ≈; the raw payload is in its tooltip. Once a type is known, the decoded value takes its place.
+
 ## 0.1.2
 
 **After updating:** nothing to do.

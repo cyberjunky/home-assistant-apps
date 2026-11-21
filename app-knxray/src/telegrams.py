@@ -6,6 +6,7 @@
 as hex ('' for a read). A payload of up to 6 bits (DPT 1, 2, 3) is one hex byte; ``bits`` is then true.
 """
 
+import struct
 import time
 from datetime import datetime
 from enum import Enum
@@ -102,6 +103,38 @@ def decode(dpt: str | None, raw: str, bits: bool | None = None) -> tuple[str | N
     if num is None and small and transcoder.dpt_main_number == 1:
         num = float(data[0] & 1)
     return as_text(value), num, transcoder.unit or None
+
+
+def guess(raw: str, bits: bool | None) -> str | None:
+    """What a payload of an address without a known type most likely says, by its length. KNX types are
+    bound to a size, and a few sizes are nearly always the same type: one bit a switch, two bytes a DPT 9
+    measurement, four a DPT 14 one, fourteen text. Shown as a guess, never stored as the value."""
+    if not raw:
+        return None
+    try:
+        data = bytes.fromhex(raw)
+    except ValueError:
+        return None
+    if bits or (bits is None and len(data) == 1 and data[0] <= 1):
+        return "on" if data[0] & 1 else "off" if data[0] <= 1 else str(data[0] & 0x3F)
+    if len(data) == 1:
+        return f"{data[0]} ({round(data[0] / 255 * 100)} %)"
+    if len(data) == 2:
+        word = (data[0] << 8) | data[1]
+        mantissa = word & 0x07FF
+        if word & 0x8000:
+            mantissa -= 0x800
+        return as_text(0.01 * mantissa * (2 ** ((word & 0x7800) >> 11)))
+    if len(data) == 4:
+        value = struct.unpack(">f", data)[0]
+        if value == value and abs(value) < 1e9 and (value == 0 or abs(value) > 1e-6):
+            return as_text(value)
+        return str(int.from_bytes(data, "big"))
+    if len(data) == 14:
+        text = data.rstrip(b"\x00 ")
+        if text and all(32 <= c < 127 for c in text):
+            return text.decode("ascii")
+    return None
 
 
 def from_xknx(telegram: Telegram, dpt: str | None, flags: Any = None) -> dict[str, Any] | None:

@@ -109,6 +109,7 @@ function valueHtml(t) {
   if (!t || t.type === 'read') return '';
   if (t.text != null) return `<span class="value">${esc(t.text)}</span>${t.unit ? `<span class="unit">${esc(t.unit)}</span>` : ''}`;
   if (!t.raw) return '';
+  if (!t.dpt && t.guess != null) return `<span class="value guess" title="No datapoint type is known for this address: read by the size of the payload (0x${esc(t.raw)}). Set the type in ETS, or use the address in a Home Assistant entity.">≈ ${esc(t.guess)}</span>`;
   return `<span class="value ${t.dpt ? 'bad' : 'raw'}" title="${t.dpt ? 'does not fit DPT ' + esc(t.dpt) : 'no datapoint type: the payload as it is'}">0x${esc(t.raw)}</span>`;
 }
 const typePill = t => `<span class="pill ${esc(t)}">${esc(t)}</span>`;

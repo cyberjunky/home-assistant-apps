@@ -265,6 +265,15 @@ class Recorder:
             "retain_rows": self.retain_rows,
         }
 
+    def last_values(self) -> dict[str, dict[str, Any]]:
+        """The last value recorded on every group address: what the pages show before anything comes in."""
+        with self._lock:
+            rows = self._db.execute(
+                f"SELECT {COLUMNS} FROM telegrams AS t JOIN (SELECT ga AS g, max(ts) AS m FROM telegrams"
+                " WHERE ga IS NOT NULL AND type != 'read' GROUP BY ga) AS last ON t.ga = last.g AND t.ts = last.m"
+            ).fetchall()
+        return {r[4]: _row(r) for r in rows}
+
     def newest(self, limit: int) -> list[dict[str, Any]]:
         """The last telegrams recorded, oldest first: what the live monitor starts with after a restart."""
         with self._lock:

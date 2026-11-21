@@ -122,7 +122,7 @@ class Monitor:
         if kind != "read":
             size = "bits" if t.get("bits") else str(len(t.get("raw") or "") // 2)
             ga["sizes"][size] = ga["sizes"].get(size, 0) + 1
-            ga["last_value"] = {k: t.get(k) for k in ("ts", "src", "raw", "text", "unit", "type")}
+            ga["last_value"] = {k: t.get(k) for k in ("ts", "src", "raw", "text", "unit", "type", "bits", "guess")}
             if t.get("dpt") and t.get("text") is None:
                 ga["undecoded"] += 1
             # The same value from the same sender again and again, in quick succession

@@ -27,7 +27,7 @@ from .ha_client import HAClient, HAClientError, HAWebSocket
 from .model import HAConfig, Project, _yaml_addresses, build_entities, line_of
 from .monitor import Monitor
 from .recorder import Recorder
-from .telegrams import decode, dpt_text, from_ha, from_xknx
+from .telegrams import decode, dpt_text, from_ha, from_xknx, guess
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +92,8 @@ class Hub:
         self.ha_dpts: dict[str, str] = {}
         self._backfill_task: asyncio.Task | None = None
         self._pending_dpts: dict[str, str] = {}
+        # The newest value of each address from before this run: from the recording and from Home Assistant
+        self.last_known: dict[str, dict[str, Any]] = {}
         # Frames seen with their flags, and how many of those were marked as sent again
         self._flagged = [0, 0]
         self._repeats_mean_nothing = False
@@ -108,6 +110,8 @@ class Hub:
         self.recorder.start()
         for t in self.recorder.newest(SEED_TELEGRAMS):
             self.monitor.seed({**t, "via": "", "secure": None, "bits": None})
+        for address, t in (await asyncio.to_thread(self.recorder.last_values)).items():
+            self._known(address, {**t, "bits": None, "from": "recording"})
         await self.bus.restart()
         tasks = [asyncio.create_task(self._ticker(), name="ticker")]
         if self.client.available or os.environ.get("KNXRAY_SUPERVISOR_URL"):
@@ -196,9 +200,11 @@ class Hub:
             if t["dst"] in new and t.get("text") is None and t.get("raw") and t["type"] != "read":
                 self._redecode(t, new[t["dst"]])
         for address in new:
-            last = (self.monitor.addresses.get(address) or {}).get("last_value")
-            if last and last.get("text") is None and last.get("raw"):
-                self._redecode(last, new[address])
+            for last in ((self.monitor.addresses.get(address) or {}).get("last_value"), self.last_known.get(address)):
+                if last and last.get("text") is None and last.get("raw"):
+                    self._redecode(last, new[address])
+                    if last.get("text") is not None:
+                        last.pop("guess", None)
         self._backfill()
         self._changed()
 
@@ -270,7 +276,22 @@ class Hub:
         if t is not None:
             self._ingest(t)
 
+    def _known(self, address: str, t: dict[str, Any]) -> None:
+        """Keep the newest value of an address heard of before this run: from the recording or Home Assistant."""
+        if t.get("type") == "read" or not (t.get("raw") or t.get("text") is not None):
+            return
+        held = self.last_known.get(address)
+        if held is None or t["ts"] > held["ts"]:
+            value = {k: t.get(k) for k in ("ts", "src", "raw", "text", "unit", "type", "bits", "dpt", "from")}
+            if value["text"] is None and (dpt := self.dpt_of(address)) and value["raw"]:
+                self._redecode(value, dpt)
+            if value["text"] is None and not value.get("dpt"):
+                value["guess"] = guess(value["raw"], value["bits"])
+            self.last_known[address] = value
+
     def _ingest(self, t: dict[str, Any]) -> None:
+        if t.get("text") is None and t.get("raw") and not t.get("dpt") and t["type"] != "read":
+            t["guess"] = guess(t["raw"], t.get("bits"))
         self.monitor.add(t)
         self.recorder.add(t)
         self._findings_at = min(self._findings_at, time.time() - 3)
@@ -386,6 +407,11 @@ class Hub:
         )
         if self.project.loaded:
             # Telegrams recorded before the project was known get their values now
+            for address, last in self.last_known.items():
+                if last.get("text") is None and last.get("raw") and (dpt := self.project.dpt_of(address)):
+                    self._redecode(last, dpt)
+                    if last.get("text") is not None:
+                        last.pop("guess", None)
             self._backfill()
 
     async def _read_entities(self, ha: HAConfig) -> None:
@@ -422,6 +448,9 @@ class Hub:
         for address, telegram in (last or {}).items():
             if isinstance(telegram, dict) and telegram.get("dpt_main") is not None:
                 found[str(address)] = dpt_text(telegram["dpt_main"], telegram.get("dpt_sub"))
+            # The last value Home Assistant saw, for an address nothing came in on since the app started
+            if isinstance(telegram, dict) and (t := from_ha({"destination": address, **telegram})) is not None:
+                self._known(str(address), {**t, "from": "Home Assistant"})
         self._pending_dpts = found
         exposes = await self._try({"type": "knx/get_expose_groups"}, {})
         ha.exposes = {str(k): [str(a) for a in v or []] for k, v in (exposes or {}).items()}
@@ -692,10 +721,17 @@ class Hub:
                         "users": users.get(address, []),
                     }
                 )
-        for address in users:
-            if address not in self.project.group_addresses and address not in self.monitor.addresses:
-                addresses.append({"address": address, "name": "", "known": False, "stats": {}, "users": users[address]})
+        listed = {row["address"] for row in addresses}
+        for address in [*users, *self.last_known]:
+            if address not in listed:
+                listed.add(address)
+                addresses.append(
+                    {"address": address, "name": "", "known": False, "stats": {}, "users": users.get(address, [])}
+                )
         for row in addresses:
+            # Nothing came in yet since the app started: the last value from before
+            if not (row.get("stats") or {}).get("last_value") and row["address"] in self.last_known:
+                row["last_known"] = self.last_known[row["address"]]
             # Where the project says nothing: the type Home Assistant uses, and the name of its entity
             if not row.get("dpt") and not row.get("dpt_objects") and row["address"] in self.ha_dpts:
                 row["dpt_ha"] = self.ha_dpts[row["address"]]

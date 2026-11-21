@@ -368,3 +368,26 @@ async def test_types_from_home_assistant_without_a_project(app):
     hub._from_ha({"destination": "6/0/1", "telegramtype": "GroupValueWrite", "payload": [3], "dpt_main": 17, "dpt_sub": 1,
                   "direction": "Incoming", "source": "1.1.10", "timestamp": "2026-11-21T10:00:00+01:00"})  # fmt: skip
     assert hub.ha_dpts["6/0/1"] == "17.001"
+
+
+async def test_last_values_from_before_this_run(app):
+    """An address nothing came in on since the app started shows its last value from the recording or from
+    Home Assistant; an address of which no type is known shows a guess."""
+    client, hub, mock = app
+    from tools import installation
+
+    now = __import__("time").time()
+    hub.recorder.add({"ts": now - 3600, "dir": "in", "src": "1.2.10", "dst": "4/0/1", "type": "write", "raw": "0343",
+                      "text": "8.35", "num": 8.35, "unit": "°C", "dpt": "9.001"})  # fmt: skip
+    hub.recorder.add({"ts": now - 60, "dir": "in", "src": "1.1.77", "dst": "1/0/16", "type": "write", "raw": "44554031",
+                      "text": None, "num": None, "unit": None, "dpt": None})  # fmt: skip
+    hub.recorder.flush()
+    for address, t in hub.recorder.last_values().items():
+        hub._known(address, {**t, "bits": None, "from": "recording"})
+    mock.last_telegrams = {"5/0/1": __import__("tools.mock_ha", fromlist=["telegram_dict"]).telegram_dict(
+        "1.2.12", "5/0/1", "write", installation.struct.pack(">f", 412.5), mock.project)}  # fmt: skip
+    await hub.refresh()
+    rows = {a["address"]: a for a in (await (await client.get("/api/model")).json())["addresses"]}
+    assert rows["4/0/1"]["last_known"]["text"] == "8.35" and rows["4/0/1"]["last_known"]["from"] == "recording"
+    assert rows["1/0/16"]["last_known"]["guess"] == "853" and rows["1/0/16"]["known"] is False
+    assert rows["5/0/1"]["last_known"]["text"] == "412.5" and rows["5/0/1"]["last_known"]["from"] == "Home Assistant"
