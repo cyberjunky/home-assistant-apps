@@ -41,6 +41,8 @@ const telegramColumns = withDay => [
   {key: 'raw', label: 'Payload', cls: 'addr sub hide-md', html: t => esc(t.raw || '')},
 ];
 
+// A row says what kind of telegram it is by a stripe; one whose value does not fit its type in red
+const kindClass = t => `k-${t.type}${t.type !== 'read' && t.text == null && t.dpt && t.raw ? ' k-bad' : ''}`;
 // Rows are newest first: each gets the time since the one shown below it
 function withDeltas(rows) { rows.forEach((t, i) => { t.after = i + 1 < rows.length ? Math.max(0, t.ts - rows[i + 1].ts) : null; }); }
 
@@ -76,7 +78,7 @@ function renderLive() {
   withDeltas(rows);
   $('monitor-count').textContent = `${rows.length}${rows.length === LIVE_ROWS ? '+' : ''} shown, ${live.length} in memory`;
   $('archive-more').hidden = true;
-  table('monitor-table', telegramColumns(false), rows, {tight: true, limit: LIVE_ROWS, empty: live.length ? 'Nothing matches.' : 'No telegrams yet. They appear here as they come in.'});
+  table('monitor-table', telegramColumns(false), rows, {tight: true, limit: LIVE_ROWS, rowClass: kindClass, empty: live.length ? 'Nothing matches.' : 'No telegrams yet. They appear here as they come in.'});
 }
 
 function archiveQuery() {
@@ -101,7 +103,7 @@ async function loadArchive(fresh) {
   $('monitor-count').textContent = `${archive.items.length} of ${fmtCount(archive.total)} recorded`;
   $('archive-more').hidden = !archive.next;
   withDeltas(archive.items);
-  table('monitor-table', telegramColumns(true), archive.items, {tight: true, limit: 100000, empty: 'Nothing recorded matches.'});
+  table('monitor-table', telegramColumns(true), archive.items, {tight: true, limit: 100000, rowClass: kindClass, empty: 'Nothing recorded matches.'});
 }
 $('archive-more-btn').addEventListener('click', () => loadArchive(false));
 // From a group address's details: everything recorded for it
@@ -158,7 +160,7 @@ function renderWire() {
     {key: 'ack', label: 'Answer', html: f => ACK_PILL[f.ack] || ''},
     {key: 'flags', label: 'Priority, hops', cls: 'sub hide-md', html: f => f.kind === 'data' ? `${esc(f.priority)}, ${esc(f.hops)}` : ''},
     {key: 'raw', label: 'Frame', cls: 'addr sub hide-md', html: f => esc(f.raw)},
-  ], rows, {tight: true, limit: 400, empty: on ? 'Listening… frames appear as they pass.' : 'Start bus monitor mode to see the frames on the line.'});
+  ], rows, {tight: true, limit: 400, rowClass: f => f.kind !== 'data' ? 'k-other' : f.ack === 'ack' ? `k-${f.type || 'other'}` : `k-${f.type || 'other'} k-bad`, empty: on ? 'Listening… frames appear as they pass.' : 'Start bus monitor mode to see the frames on the line.'});
 }
 async function pollWire() {
   if (wireBusy || activeTab !== 'monitor' || monitorMode !== 'wire') return;

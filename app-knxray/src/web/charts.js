@@ -138,7 +138,7 @@ function renderStats() {
   const order = [1, 2, 3, 4, 5, 6, 0];
   $('stats-heat').innerHTML = '<div class="heat"><span></span>' + Array.from({length: 24}, (_, hour) => `<span>${hour % 3 ? '' : hour}</span>`).join('') +
     order.map(day => `<span class="d">${DAYS[day]}</span>` + s.heatmap[day].map((n, hour) =>
-      `<b title="${DAYS[day]} ${pad(hour)}:00  ${n} telegrams" style="${n ? `background:color-mix(in srgb, var(--primary-color) ${Math.round(12 + n / max * 88)}%, var(--grid-color))` : ''}"></b>`).join('')).join('') + '</div>';
+      `<b title="${DAYS[day]} ${pad(hour)}:00  ${n} telegrams" style="${n ? `background:color-mix(in srgb, var(--accent) ${Math.round(12 + n / max * 88)}%, var(--grid-color))` : ''}"></b>`).join('')).join('') + '</div>';
 
   topTable('stats-top-ga', s.top_addresses.map(r => ({address: r.ga, count: r.count})), 'Nothing recorded in this range.');
   topTable('stats-top-src', s.top_sources.map(r => ({address: r.src, count: r.count})), 'Nothing recorded in this range.');

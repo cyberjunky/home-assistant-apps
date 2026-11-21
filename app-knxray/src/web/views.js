@@ -2,7 +2,7 @@
 // the interface. They draw from `model` and `state` (core.js).
 'use strict';
 
-const tile = (label, value, detail, cls, go) => `<div class="tile${go ? ' click' : ''}"${go ? ` data-go="${go}"` : ''}><div class="l">${esc(label)}</div><div class="v ${cls || ''}">${value}</div><div class="d">${detail || '&nbsp;'}</div></div>`;
+const tile = (label, value, detail, cls, go) => `<div class="tile${go ? ' click' : ''}"${go ? ` data-go="${go}" data-page="${go}"` : ''}><div class="l">${esc(label)}</div><div class="v ${cls || ''}">${value}</div><div class="d">${detail || '&nbsp;'}</div></div>`;
 // Bars for counts over time: [{value, title}]
 function bars(el, items, axis) {
   const max = Math.max(1, ...items.map(i => i.value));
@@ -23,6 +23,17 @@ function topTable(el, rows, empty) {
 TAB_RENDER.overview = () => {
   const f = state.findings || {}, t = state.telegrams || {}, p = state.project || {}, ha = state.ha || {}, bus = state.bus || {}, r = state.recorder || {};
   const heard = model.devices.filter(d => d.known && (d.stats || {}).count).length;
+  // How things stand, in one sentence, tinted by the worst of it
+  const tone = f.error ? 'bad' : f.warning ? 'warn' : 'ok';
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  const headline = f.error ? `${plural(f.error, 'error')} need${f.error === 1 ? 's' : ''} attention` : f.warning ? `${plural(f.warning, 'warning')} to look at` : 'All clear';
+  const sub = [f.error && f.warning ? `and ${plural(f.warning, 'warning')}` : '', `${f.info || 0} notes`].filter(Boolean).join(', ');
+  const where = state.source === 'bus' ? `listening through ${interfaceLabel(bus)}` : state.source === 'ha' ? 'listening along with Home Assistant' : 'not listening to the bus';
+  $('overview-hero').className = 'hero ' + tone;
+  $('hero-status').innerHTML = `<span class="hero-icon">${icon(tone === 'ok' ? 'ok' : 'alert')}</span><div><h1>${esc(headline)}</h1>` +
+    `<p>${esc(sub)} · ${esc(where)}${p.loaded ? ` · project ${esc(p.name || '')}` : ''}</p>` +
+    `<div class="hero-facts"><span><b>${esc(t.rate ?? 0)}</b> telegrams a minute</span><span><b>${fmtCount(t.total)}</b> since ${t.since ? esc(fmtWhen(t.since)) : '–'}</span><span><b>${fmtCount(r.rows)}</b> recorded</span></div>` +
+    `<button class="btn hero-go" data-go="findings">${f.error || f.warning ? 'See the findings' : 'All findings'}</button></div>`;
   $('overview-tiles').innerHTML = [
     tile('Errors', f.error || 0, 'things that do not work', f.error ? 'bad' : 'ok', 'findings'),
     tile('Warnings', f.warning || 0, `${f.info || 0} notes`, f.warning ? 'warn' : 'ok', 'findings'),
@@ -35,7 +46,7 @@ TAB_RENDER.overview = () => {
 
   const open = model.findings.filter(x => !x.hidden);
   $('overview-findings').innerHTML = open.length
-    ? open.slice(0, 9).map(x => `<div class="finding-row short"><span class="pill ${esc(x.severity)}">${esc(x.severity === 'info' ? 'note' : x.severity)}</span><div class="what"><b>${esc(x.title)}</b><div class="muted">${subjectHtml(x)} ${esc(x.detail)}</div></div></div>`).join('') +
+    ? open.slice(0, 9).map(x => `<div class="finding-row short sev-${esc(x.severity)}"><span class="pill ${esc(x.severity)}">${esc(x.severity === 'info' ? 'note' : x.severity)}</span><div class="what"><b>${esc(x.title)}</b><div class="muted">${subjectHtml(x)} ${esc(x.detail)}</div></div></div>`).join('') +
       (open.length > 9 ? `<div class="muted" style="margin-top:8px">and ${open.length - 9} more</div>` : '')
     : `<div class="empty-state">${p.loaded ? 'Nothing found. The checks of the bus need telegrams: give it a day.' : 'No findings yet.'}</div>`;
 
@@ -83,7 +94,7 @@ TAB_RENDER.findings = () => {
   el.innerHTML = [...groups.entries()].map(([code, items]) => {
     const info = model.catalog[code] || {};
     const isOpen = findingsOpen.has(code) || groups.size <= 3 || items[0].severity === 'error';
-    return `<details class="finding-group" data-code="${esc(code)}"${isOpen ? ' open' : ''}><summary><span class="pill ${esc(items[0].severity)}">${esc(items[0].severity === 'info' ? 'note' : items[0].severity)}</span><span>${esc(info.title || code)}</span><span class="muted hide-sm">${esc(items[0].category)}</span><span class="n">${items.length}</span></summary>` +
+    return `<details class="finding-group sev-${esc(items[0].severity)}" data-code="${esc(code)}"${isOpen ? ' open' : ''}><summary><span class="pill ${esc(items[0].severity)}">${esc(items[0].severity === 'info' ? 'note' : items[0].severity)}</span><span>${esc(info.title || code)}</span><span class="muted hide-sm">${esc(items[0].category)}</span><span class="n">${items.length}</span></summary>` +
       `<div class="fix">${esc(info.fix || '')}</div>` +
       items.slice(0, 200).map(f => `<div class="finding-row"><div class="subject">${subjectHtml(f)}</div><div class="what">${esc(f.detail)}</div><button type="button" class="link-btn" data-hide="${esc(f.id)}" data-hidden="${f.hidden ? '' : '1'}">${f.hidden ? 'Show again' : 'Hide'}</button></div>`).join('') +
       (items.length > 200 ? `<div class="finding-row muted">and ${items.length - 200} more</div>` : '') + '</details>';
@@ -114,7 +125,7 @@ TAB_RENDER.addresses = () => {
   });
   $('addresses-count').textContent = `${rows.length} of ${model.addresses.length}`;
   table('addresses-table', [
-    {key: 'address', label: 'Address', cls: 'addr', sort: a => addressKey(a.address), html: a => issueDot(a.address) + esc(a.address)},
+    {key: 'address', label: 'Address', cls: 'addr', sort: a => addressKey(a.address), html: a => issueDot(a.address) + `<span class="ga-chip" style="--h:${hueOf(a.address)}">${esc(a.address)}</span>`},
     {key: 'name', label: 'Name', sort: a => (a.name || '').toLowerCase(), html: a => `<span class="nm">${esc(a.name || '')}</span>${a.known ? '' : '<span class="pill warning">not in the project</span>'}<small>${esc(a.range || '')}</small>`},
     {key: 'dpt', label: 'Type', cls: 'addr', sort: a => addressKey(a.dpt || a.dpt_objects || '999'), html: a => a.dpt ? esc(a.dpt) : a.dpt_objects ? `<span class="muted" title="Not set on the address: the type its objects agree on">(${esc(a.dpt_objects)})</span>` : a.known ? '<span class="muted">–</span>' : ''},
     {key: 'value', label: 'Last value', html: a => valueHtml((a.stats || {}).last_value)},
@@ -126,6 +137,13 @@ TAB_RENDER.addresses = () => {
 };
 
 // ---------------------------------------------------------------- devices
+// How a device stands, for its badge: does not answer, has findings, is heard, or nothing known yet
+function deviceTone(d) {
+  if (d.reach && !d.reach.reachable) return 'bad';
+  const found = issuesOf(d.address);
+  if (found.length) return worst(found) === 'error' ? 'bad' : worst(found) === 'warning' ? 'warn' : 'note';
+  return (d.stats || {}).count || (d.reach && d.reach.reachable) ? 'ok' : 'idle';
+}
 const devicesFilter = seg('devices-filter', () => TAB_RENDER.devices());
 const devicesView = seg('devices-view', () => TAB_RENDER.devices());
 $('devices-search').addEventListener('input', () => TAB_RENDER.devices());
@@ -149,7 +167,7 @@ TAB_RENDER.devices = () => {
   if (view === 'lines') { renderLines(rows); return; }
   if (view === 'graph') { renderGraph(rows); return; }
   table('devices-table', [
-    {key: 'address', label: 'Address', cls: 'addr', sort: d => addressKey(d.address), html: d => issueDot(d.address) + esc(d.address)},
+    {key: 'address', label: 'Address', cls: 'addr', sort: d => addressKey(d.address), html: d => `<span class="avatar s-${deviceTone(d)}" title="${esc(d.line || '')}"><small>${esc(d.line || '')}</small>${esc(d.address.split('.').pop())}</span>`},
     {key: 'name', label: 'Device', sort: d => (d.name || '').toLowerCase(), html: d => `<span class="nm">${esc(d.name || '')}</span>${d.known ? '' : d.own ? '' : '<span class="pill warning">not in the project</span>'}<small>${esc([d.maker, d.product].filter(Boolean).join(' · '))}</small>`},
     {key: 'room', label: 'Room', cls: 'sub hide-md', sort: d => (d.room || '').toLowerCase(), html: d => esc((d.room || '').split(' › ').pop())},
     {key: 'last', label: 'Last heard', cls: 'sub', sort: d => (d.stats || {}).last || 0, html: d => (d.stats || {}).last ? esc(fmtAgo(d.stats.last)) : ''},
@@ -247,7 +265,7 @@ TAB_RENDER.ha = () => {
   });
   $('ha-count').textContent = `${rows.length} of ${model.entities.length}`;
   table('ha-table', [
-    {key: 'entity', label: 'Entity', sort: e => e.entity_id || e.name, html: e => { const found = entityIssues(e); return (found.length ? `<span class="dot ${worst(found)}" title="${esc(found.map(f => f.title).join('\n'))}"></span>` : '') + `<span class="mono">${esc(e.entity_id || '(no entity id)')}</span><small>${esc(e.name || '')}</small>`; }},
+    {key: 'entity', label: 'Entity', sort: e => e.entity_id || e.name, html: e => { const found = entityIssues(e); return `<div class="entity"><span class="plat p-${esc(e.platform)}" title="${esc(e.platform)}">${icon(ICONS[e.platform] ? e.platform : 'other')}</span><div>` + (found.length ? `<span class="dot ${worst(found)}" title="${esc(found.map(f => f.title).join('\n'))}"></span>` : '') + `<span class="mono">${esc(e.entity_id || '(no entity id)')}</span><small>${esc(e.name || '')}</small></div></div>`; }},
     {key: 'source', label: 'From', cls: 'sub', sort: e => e.source, html: e => `<span class="pill">${esc(e.source === 'ui' ? 'UI' : 'YAML')}</span>${e.disabled ? '<span class="pill">disabled</span>' : ''}`},
     {key: 'state', label: 'State', cls: 'sub hide-md', sort: e => String(e.state), html: e => e.state === 'unavailable' ? '<span class="pill warning">unavailable</span>' : esc(e.state ?? '')},
     {key: 'addresses', label: 'Group addresses', html: e => e.addresses.map(a => `<div>${issueDot(`${e.entity_id || e.name}|${a.ga}`)}${ref(a.ga)} <span class="muted">${esc(a.role || '')}${a.use === 'state' ? ' · listens' : a.use === 'passive' ? ' · passive' : ''} ${esc(nameOf(a.ga) ? '· ' + nameOf(a.ga) : gaIndex[a.ga] && gaIndex[a.ga].known ? '' : '· not in the project')}</span></div>`).join('')},

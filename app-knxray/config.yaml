@@ -1,6 +1,6 @@
 # https://developers.home-assistant.io/docs/apps/configuration
 name: KNX-Ray
-version: "0.1.0"
+version: "0.1.1"
 slug: app-knxray
 description: "Unofficial KNX application, not associated with the KNX Association: an X-ray of your KNX installation - bus monitor, long-term recording with charts and statistics, and checks of the bus, the ETS project and Home Assistant's KNX entities against each other. Read-only"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-knxray"

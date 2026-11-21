@@ -43,20 +43,18 @@
   <div id="banners"></div>
 
   <!-- Overview: is everything all right, and if not, where to look -->
-  <div id="tab-overview" class="tab-content active">
+  <div id="tab-overview" class="tab-content active" data-page="overview">
+    <section class="hero" id="overview-hero">
+      <div class="hero-status" id="hero-status"></div>
+      <div class="hero-pulse"><div class="title"><span>The bus, the last hour</span><span class="hint">telegrams a minute</span></div><div id="overview-load" class="bars"></div></div>
+    </section>
     <div id="overview-tiles" class="tiles"></div>
     <div class="grid-2">
       <div class="panel"><div class="panel-body">
         <div class="title"><span>What needs attention</span><button class="link-btn" data-go="findings">All findings</button></div>
         <div id="overview-findings"></div>
       </div></div>
-      <div>
-        <div class="panel"><div class="panel-body">
-          <div class="title"><span>Telegrams per minute</span><span class="hint">the last hour</span></div>
-          <div id="overview-load" class="bars"></div>
-        </div></div>
-        <div class="panel flush"><div id="overview-links"></div></div>
-      </div>
+      <div class="panel flush"><div class="panel-head"><span>Connections</span></div><div id="overview-links"></div></div>
     </div>
     <div class="grid-2">
       <div class="panel flush"><div class="panel-head"><span>Busiest group addresses</span><span class="hint">since the app started</span></div><div id="overview-top-ga"></div></div>
@@ -65,7 +63,8 @@
   </div>
 
   <!-- Findings: everything the checks found, by kind -->
-  <div id="tab-findings" class="tab-content">
+  <div id="tab-findings" class="tab-content" data-page="findings">
+    <header class="page-head" id="head-findings"></header>
     <div class="toolbar">
       <div class="seg" id="findings-severity" role="group" aria-label="Severity">
         <button type="button" data-v="" class="active">All</button>
@@ -90,7 +89,8 @@
   </div>
 
   <!-- Monitor: the telegrams, live and from the recording -->
-  <div id="tab-monitor" class="tab-content">
+  <div id="tab-monitor" class="tab-content" data-page="monitor">
+    <header class="page-head" id="head-monitor"></header>
     <div class="toolbar">
       <div class="seg" id="monitor-mode" role="group" aria-label="Which telegrams">
         <button type="button" data-v="live" class="active">Live</button>
@@ -146,7 +146,8 @@
   </div>
 
   <!-- Charts: the recorded values of group addresses over time -->
-  <div id="tab-charts" class="tab-content">
+  <div id="tab-charts" class="tab-content" data-page="charts">
+    <header class="page-head" id="head-charts"></header>
     <div class="toolbar">
       <input type="search" id="chart-add" list="chart-options" placeholder="Add a group address" aria-label="Add a group address">
       <datalist id="chart-options"></datalist>
@@ -168,7 +169,8 @@
   </div>
 
   <!-- Statistics: how busy the bus is, who talks most, and when the app was listening -->
-  <div id="tab-stats" class="tab-content">
+  <div id="tab-stats" class="tab-content" data-page="stats">
+    <header class="page-head" id="head-stats"></header>
     <div class="toolbar">
       <div class="seg" id="stats-range" role="group" aria-label="Range">
         <button type="button" data-v="3600">1 h</button>
@@ -207,7 +209,8 @@
   </div>
 
   <!-- Group addresses -->
-  <div id="tab-addresses" class="tab-content">
+  <div id="tab-addresses" class="tab-content" data-page="addresses">
+    <header class="page-head" id="head-addresses"></header>
     <div class="toolbar">
       <input type="search" id="addresses-search" placeholder="Address, name or type" aria-label="Filter group addresses">
       <div class="seg" id="addresses-filter" role="group" aria-label="Which">
@@ -226,7 +229,8 @@
   </div>
 
   <!-- Devices -->
-  <div id="tab-devices" class="tab-content">
+  <div id="tab-devices" class="tab-content" data-page="devices">
+    <header class="page-head" id="head-devices"></header>
     <div class="toolbar">
       <div class="seg" id="devices-view" role="group" aria-label="View">
         <button type="button" data-v="list" class="active">List</button>
@@ -257,7 +261,8 @@
   </div>
 
   <!-- Home Assistant: its KNX entities held against the project -->
-  <div id="tab-ha" class="tab-content">
+  <div id="tab-ha" class="tab-content" data-page="ha">
+    <header class="page-head" id="head-ha"></header>
     <div id="ha-tiles" class="tiles"></div>
     <div id="ha-stray"></div>
     <div class="toolbar">
@@ -276,7 +281,8 @@
   </div>
 
   <!-- Interface: how the app reaches the bus -->
-  <div id="tab-interface" class="tab-content">
+  <div id="tab-interface" class="tab-content" data-page="interface">
+    <header class="page-head" id="head-interface"></header>
     <div class="grid-2">
       <div>
         <div class="panel"><div class="panel-body">
@@ -309,7 +315,8 @@
   </div>
 
   <!-- Info -->
-  <div id="tab-about" class="tab-content">
+  <div id="tab-about" class="tab-content" data-page="about">
+    <header class="page-head" id="head-about"></header>
     <div class="panel"><div class="panel-body prose">
       <h3 style="margin-top:0">What this is</h3>
       <p>An X-ray of a KNX installation: it listens to the bus, holds what it hears against the ETS project and against what Home Assistant has configured for KNX, and says what does not add up. It only reads. KNX-Ray is an unofficial KNX application: it is not made by, or associated with, the KNX Association.</p>
