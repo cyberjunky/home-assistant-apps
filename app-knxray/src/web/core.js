@@ -95,7 +95,12 @@ function deviceName(d) {
   return [d.maker, d.name].filter(Boolean).join(' ');
 }
 // A group address or a device, as something to click: opens its details
-const ref = a => a ? `<button type="button" class="ref" data-ref="${esc(a)}">${esc(a)}</button>` : '';
+// A group address takes the colour of its main group, so what belongs together looks alike everywhere
+const GROUP_HUES = [212, 32, 280, 152, 352, 190, 48, 254, 112, 320, 8, 232];
+const hueOf = a => GROUP_HUES[(parseInt(a, 10) || 0) % GROUP_HUES.length];
+const ref = a => !a ? '' : String(a).includes('/')
+  ? `<button type="button" class="ref ga" style="--h:${hueOf(a)}" data-ref="${esc(a)}">${esc(a)}</button>`
+  : `<button type="button" class="ref" data-ref="${esc(a)}">${esc(a)}</button>`;
 const refNamed = a => { const n = nameOf(a); return ref(a) + (n ? `<small>${esc(n)}</small>` : ''); };
 // The value of a telegram: decoded, or the payload as it is when it could not be read
 function valueHtml(t) {
@@ -143,6 +148,67 @@ $('theme-toggle').addEventListener('click', () => {
 });
 const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
+// ---- the look of each page: an icon, a title, what it is for, and its own numbers ----
+// Line icons on a 24 grid, drawn with the text colour
+const ICONS = {
+  overview: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+  findings: '<path d="M12 3 2 20.5h20L12 3Z"/><path d="M12 10v4.5M12 17.5v.01"/>',
+  monitor: '<path d="M2 12h4l3-8 5 16 3-8h5"/>',
+  charts: '<path d="M3 3v18h18"/><path d="m7 15 4-5 4 3 5-7"/>',
+  stats: '<path d="M6 20V11M12 20V4M18 20v-6M3 20h18"/>',
+  addresses: '<path d="M5 9h15M4 15h15M10 3 8 21M16 3l-2 18"/>',
+  devices: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
+  ha: '<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/><circle cx="12" cy="14.5" r="2"/>',
+  interface: '<path d="M8 3v5M16 3v5M5 8h14v3a7 7 0 0 1-14 0V8Z"/><path d="M12 18v3"/>',
+  about: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/>',
+  ok: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  alert: '<path d="M12 7v6M12 16.5v.01"/>',
+  // Home Assistant's platforms
+  light: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z"/>',
+  switch: '<rect x="3" y="7" width="18" height="10" rx="5"/><circle cx="16" cy="12" r="3"/>',
+  sensor: '<path d="M4 18a8 8 0 1 1 16 0"/><path d="m12 18 4-5"/>',
+  binary_sensor: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>',
+  cover: '<path d="M4 4h16M5 4v16M19 4v16M5 8h14M5 12h14M5 16h14"/>',
+  climate: '<path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0Z"/>',
+  expose: '<path d="M5 12h12M13 7l5 5-5 5"/>',
+  other: '<circle cx="12" cy="12" r="8"/>',
+};
+const icon = (name, cls = '') => `<svg class="ico-svg ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ICONS.other}</svg>`;
+const PAGES = {
+  findings: ['Findings', 'What does not add up between the bus, the ETS project and Home Assistant, and what to do about it.'],
+  monitor: ['Monitor', 'Every telegram as it happens: live, as a timeline, frame by frame on the wire, and everything recorded.'],
+  charts: ['Charts', 'The recorded values of up to four group addresses, from an hour to a month.'],
+  stats: ['Statistics', 'How busy the bus is, who talks most, when, and whether the app was listening.'],
+  addresses: ['Group addresses', 'Every address of the project and of the bus: its type, last value, senders, objects and entities.'],
+  devices: ['Devices', 'Every device of the project and of the bus: what it sends, what it answered, and its documents.'],
+  ha: ['Home Assistant', 'The KNX entities of Home Assistant, held against the project, and what was left behind.'],
+  interface: ['Interface', 'How the app reaches the bus: an interface of its own, or listening along with Home Assistant.'],
+  about: ['Info', 'What KNX-Ray is, where its data comes from, and what to know.'],
+};
+// A page's own numbers: [value, label, tone]
+function pageNumbers(name) {
+  const f = state.findings || {}, t = state.telegrams || {}, r = state.recorder || {}, p = state.project || {}, ha = state.ha || {}, bus = state.bus || {};
+  const known = model.devices.filter(d => d.known);
+  switch (name) {
+    case 'findings': return [[f.error || 0, 'errors', f.error ? 'bad' : 'ok'], [f.warning || 0, 'warnings', f.warning ? 'warn' : 'ok'], [f.info || 0, 'notes'], [f.hidden || 0, 'hidden']];
+    case 'monitor': return [[t.rate ?? 0, 'a minute'], [fmtCount(t.total), 'since start'], [fmtCount(r.rows), 'recorded']];
+    case 'charts': return [[typeof chartAddresses === 'undefined' ? 0 : chartAddresses.length, 'charted'], [fmtCount(r.rows), 'recorded'], [r.oldest ? fmtDay(r.oldest).slice(5) : '–', 'since']];
+    case 'stats': return [[fmtCount(r.rows), 'recorded'], [fmtSize(r.bytes), 'on disk'], [r.oldest ? fmtDay(r.oldest).slice(5) : '–', 'since']];
+    case 'addresses': return [[p.group_addresses || 0, 'in the project'], [t.addresses || 0, 'seen'], [model.addresses.filter(a => a.known && !a.dpt).length, 'without a type'], [model.addresses.filter(a => (a.users || []).length).length, 'in Home Assistant']];
+    case 'devices': return [[p.devices || 0, 'in the project'], [known.filter(d => (d.stats || {}).count).length, 'heard'], [model.devices.filter(d => d.reach && d.reach.reachable).length, 'answered'], [model.devices.filter(d => d.reach && !d.reach.reachable).length, 'silent', model.devices.some(d => d.reach && !d.reach.reachable) ? 'bad' : '']];
+    case 'ha': return [[ha.entities ?? '–', 'entities'], [ha.stray || 0, 'stray', ha.stray ? 'warn' : 'ok'], [ha.connected ? 'yes' : 'no', 'on the bus', ha.connected ? 'ok' : 'bad']];
+    case 'interface': return [[bus.state === 'connected' ? 'on' : bus.mode === 'ha' ? 'HA' : bus.state || '–', 'own link', bus.state === 'connected' ? 'ok' : bus.state === 'failed' ? 'bad' : ''], [bus.address || '–', 'as'], [(bus.interfaces || []).length, 'found']];
+    case 'about': return [[state.version || '–', 'version']];
+    default: return [];
+  }
+}
+function renderHead(name) {
+  const el = $('head-' + name), page = PAGES[name];
+  if (!el || !page) return;
+  el.innerHTML = `<span class="ico">${icon(name)}</span><div class="words"><h1>${esc(page[0])}</h1><p>${esc(page[1])}</p></div>` +
+    `<div class="kpis">${pageNumbers(name).map(([v, l, tone]) => `<div class="kpi ${tone || ''}"><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join('')}</div>`;
+}
+
 // ---- tabs ----
 const TAB_RENDER = {};
 function showTab(name) {
@@ -152,7 +218,7 @@ function showTab(name) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.toggle('active', el.id === 'tab-' + name));
   renderTab();
 }
-function renderTab() { if (TAB_RENDER[activeTab]) TAB_RENDER[activeTab](); }
+function renderTab() { renderHead(activeTab); if (TAB_RENDER[activeTab]) TAB_RENDER[activeTab](); }
 document.querySelectorAll('.topbar .tab[data-tab]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
 document.addEventListener('click', e => {
   const go = e.target.closest('[data-go]');
@@ -185,7 +251,7 @@ function table(target, columns, rows, opts = {}) {
   el.innerHTML = `<table class="list${opts.tight ? ' tight' : ''}"><thead><tr>` +
     columns.map(c => `<th class="${c.cls || ''}${c.sort ? ' sort' : ''}${view.sort === c.key ? ' sorted' + (view.asc ? ' asc' : '') : ''}" data-key="${esc(c.key)}">${esc(c.label)}</th>`).join('') +
     '</tr></thead><tbody>' +
-    shown.map((row, i) => `<tr class="${opts.onRow ? 'click' : ''}" data-i="${i}">` + columns.map(c => `<td class="${c.cls || ''}">${c.html(row)}</td>`).join('') + '</tr>').join('') +
+    shown.map((row, i) => `<tr class="${opts.onRow ? 'click' : ''} ${opts.rowClass ? opts.rowClass(row) : ''}" data-i="${i}">` + columns.map(c => `<td class="${c.cls || ''}">${c.html(row)}</td>`).join('') + '</tr>').join('') +
     '</tbody></table>' + (list.length > shown.length ? `<div class="more"><button type="button" class="btn" data-more>Show ${Math.min(500, list.length - shown.length)} more of ${list.length}</button></div>` : '');
   el.onclick = e => {
     const th = e.target.closest('th.sort');
@@ -277,6 +343,7 @@ function renderState() {
     `<span class="spacer"></span><span>${esc(state.version || '')}</span>`,
   ].join('');
   renderBanners();
+  renderHead(activeTab);
   if (activeTab === 'overview' || activeTab === 'interface' || activeTab === 'devices' || (activeTab === 'monitor' && typeof monitorMode !== 'undefined' && monitorMode === 'wire')) renderTab();
 }
 function renderBanners() {
