@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.8
+
+**After updating:** a rule made earlier with the *Router CPU > 85 %* template may watch
+`host_cpu_seconds_total` (another device's CPU seconds): edit it and pick
+`mktxp_system_cpu_load`, or delete it.
+
+- **Metric rules show their devices:** under the label filter, the rule editor lists the
+  metric's labels and values (`instance`, `job`, ..). A click puts one in the filter, and an
+  empty filter says that the rule takes all series together.
+- **The Router CPU template takes the router's CPU:** it picked the first metric with "cpu" in
+  its name, which could be another device's counter of CPU seconds. It now takes MikroTik's
+  `mktxp_system_cpu_load`, and leaves the metric empty when there is none.
+- **New patterns on the Overview one line each:** the count and its age sit side by side
+  instead of stacked, so the list has no gaps between the patterns.
+
 ## 0.1.7
 
 **After updating:** if Windows logs thousands of "The Windows Filtering Platform has permitted

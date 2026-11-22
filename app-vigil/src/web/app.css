@@ -508,6 +508,9 @@ td.nowrap { white-space: nowrap; }
 .form-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; margin: 6px 0; }
 .form-row > span:first-child { min-width: 120px; color: var(--secondary-text-color); }
 .form-row .input, .form-row .select { flex: 1; min-width: 160px; }
+.label-picks { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.label-pick-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.label-pick-row > span:first-child { min-width: 70px; }
 .form-row .input[type="number"] { flex: 0 0 110px; min-width: 0; }
 .modal.wide { width: min(720px, 100%); }
 .copy-tables { display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow: auto; padding: 6px 8px; border: var(--card-border); border-radius: 4px; }
@@ -652,6 +655,10 @@ tr.log-detail > td { padding: 0 !important; background: var(--ha-background); wh
 .pattern-row .template { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pattern-row .n { text-align: right; font-family: var(--mono); font-size: 12.5px; }
 .pattern-row .n small { display: block; color: var(--secondary-text-color); font-size: 11px; font-family: 'IBM Plex Sans', sans-serif; }
+/* Overview: one line per pattern, the count and its age side by side */
+.pattern-mini .pattern-row { grid-template-columns: minmax(0, 1fr) auto; padding: 4px 6px; }
+.pattern-mini .pattern-row .n { white-space: nowrap; }
+.pattern-mini .pattern-row .n small { display: inline-block; min-width: 72px; margin-left: 10px; text-align: right; }
 
 /* Metrics */
 .metrics-layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 14px; align-items: start; }
