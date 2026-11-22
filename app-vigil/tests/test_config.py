@@ -63,3 +63,13 @@ def test_chronicle_is_found_next_to_vigil_by_host_name():
     assert sibling_chronicle_host("local-app-vigil") == "local-app-chronicle"
     assert sibling_chronicle_host("app-vigil") is None
     assert sibling_chronicle_host("some-laptop") is None
+
+
+def test_fritzbox_options_in_their_own_section_and_the_old_flat_names():
+    from src.config import Config
+
+    nested = Config.from_options({"fritzbox": {"host": "192.168.178.1", "user": "vigil", "password": "pw"}}, {})
+    assert (nested.fritzbox_host, nested.fritzbox_user, nested.fritzbox_password) == ("192.168.178.1", "vigil", "pw")
+    flat = Config.from_options({"fritzbox_host": "fritz.box", "fritzbox_user": "u", "fritzbox_password": "p"}, {})
+    assert (flat.fritzbox_host, flat.fritzbox_user, flat.fritzbox_password) == ("fritz.box", "u", "p")
+    assert Config.from_options({"fritzbox": {"host": "", "user": "", "password": ""}}, {}).fritzbox_host == ""

@@ -91,6 +91,7 @@ class Config:
     @classmethod
     def from_options(cls, options: dict, environ: dict | None = None) -> "Config":
         env = os.environ if environ is None else environ
+        fritz = options.get("fritzbox") if isinstance(options.get("fritzbox"), dict) else {}
         targets = []
         seen = set()
         for item in options.get("scrape_targets") or []:
@@ -112,9 +113,11 @@ class Config:
             db_password=str(env.get("VIGIL_DB_PASSWORD", options.get("database_password")) or ""),
             ingest_token=str(options.get("ingest_token") or ""),
             scrape_targets=targets,
-            fritzbox_host=_text(options.get("fritzbox_host")),
-            fritzbox_user=_text(options.get("fritzbox_user")),
-            fritzbox_password=str(options.get("fritzbox_password") or ""),
+            # options.fritzbox {host, user, password}: its own section in the options form;
+            # the flat fritzbox_* names of the first drafts still work
+            fritzbox_host=_text(fritz.get("host", options.get("fritzbox_host"))),
+            fritzbox_user=_text(fritz.get("user", options.get("fritzbox_user"))),
+            fritzbox_password=str(fritz.get("password", options.get("fritzbox_password")) or ""),
             notify_service=_text(options.get("notify_service")),
             logs_retention_days=_int(options.get("logs_retention_days"), 14, 1, 365),
             metrics_retention_days=_int(options.get("metrics_retention_days"), 90, 1, 1825),

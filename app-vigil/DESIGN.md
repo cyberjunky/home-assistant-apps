@@ -23,7 +23,7 @@ and follow them.
 | Syslog receiver | 5514/udp, 5514/tcp (mapped to 514 on the host) | RFC 3164 and RFC 5424, octet-counted and newline-framed TCP |
 | OTLP/HTTP + JSON ingest | 4318/tcp | `POST /v1/logs`, `POST /v1/metrics` (OTLP **JSON** encoding), `POST /ingest/logs` (NDJSON lines). `Authorization: Bearer <ingest_token>` required when `ingest_token` is set; refuse all when unset except from private networks (RFC1918, ULA) |
 | Prometheus scraper | - | every target in `scrape_targets` at its `interval` (default 60 s) |
-| FRITZ!Box poller | - | every 30 s when `fritzbox_host` is set |
+| FRITZ!Box poller | - | every 30 s when `fritzbox.host` is set |
 | Rule engine | - | every 30 s |
 | Pattern miner / housekeeping | - | in the write path + every 5 min |
 
@@ -37,7 +37,7 @@ drop and count `dropped`), a writer flushes every 1 s or 2 000 records with `COP
 http://supervisor/addons`, the installed add-on whose slug ends in `app-chronicle`, then `GET
 /addons/<slug>/info` -> `hostname`), `database_port`, `database_name` (default `vigil`),
 `database_user` (default `vigil`), `database_password`, `ingest_token`, `scrape_targets`
-(`[{name, url, interval}]`), `fritzbox_host/user/password`, `notify_service` (e.g.
+(`[{name, url, interval}]`), `fritzbox: {host, user, password}`, `notify_service` (e.g.
 `notify.mobile_app_phone`; empty = persistent notification only), `logs_retention_days` (14),
 `metrics_retention_days` (90), `log_level`. Development: `VIGIL_*` environment variables override
 (`VIGIL_DB_HOST`, `VIGIL_DB_PORT`, `VIGIL_DB_NAME`, `VIGIL_DB_USER`, `VIGIL_DB_PASSWORD`,

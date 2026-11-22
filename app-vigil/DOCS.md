@@ -31,7 +31,7 @@ that the database and login are both named as in the options.
 | `database_name`, `database_user` | `vigil` | The names you gave the app database in Chronicle |
 | `ingest_token` | | The token for OpenTelemetry and JSON on port 4318 (see *Ingest port*) |
 | `scrape_targets` | | Prometheus exporters: `name`, `url` of its `/metrics`, `interval` in seconds (10-3600, default 60) |
-| `fritzbox_host`, `fritzbox_user`, `fritzbox_password` | | The FRITZ!Box to collect from; empty = off |
+| `fritzbox` (*FRITZ!Box (TR-064)*): `host`, `user`, `password` | | The FRITZ!Box to collect from; an empty address = off |
 | `notify_service` | | Where alerts go besides a Home Assistant notification, such as `notify.mobile_app_phone` |
 | `logs_retention_days` | 14 | How long logs are kept (1-365) |
 | `metrics_retention_days` | 90 | How long metrics are kept (1-1825) |
@@ -51,33 +51,242 @@ web UI has no port: it is only reachable through Home Assistant.
 
 The **Sources** page lists every sender Vigil has heard from, with when it last sent, how much
 per minute, and errors (a scrape target that doesn't answer shows its error there). Below it is
-copy-paste setup for each kind; the address of Home Assistant is filled in.
+copy-paste setup for each kind, with Home Assistant's address filled in. This section has the
+full steps. Everywhere below, `HOME_ASSISTANT_IP` is your Home Assistant's address on your
+network (such as `192.168.1.10`), and `<ingest_token>` the `ingest_token` from Vigil's options.
 
-- **MikroTik (RouterOS):** a remote logging action and the topics to send, pasted in a terminal
-  (Winbox → New Terminal, or SSH). RouterOS' topics (`firewall,info`) are kept: the first one is
-  the line's *app*, all of them are in the line's attributes. For the router's metrics (CPU,
-  interfaces), run the [MKTXP](https://github.com/akpw/mktxp) exporter somewhere and add it as a
-  scrape target; the built-in Network dashboard and the *Router CPU* rule template use its metric
-  names (`mktxp_system_cpu_load`, `mktxp_interface_rx_byte_total`).
-- **Netgear and other switches:** remote logging (syslog) to Home Assistant's address, port
-  514, UDP, severity *Informational*.
-- **Linux servers (rsyslog):** one line in `/etc/rsyslog.d/90-vigil.conf`:
-  `*.* @@HOME_ASSISTANT_IP:514` (TCP; one `@` for UDP), then `systemctl restart rsyslog`. This
-  covers sshd, sudo, the kernel and everything else in the system log.
-- **Servers with Vector or the OpenTelemetry Collector:** journald, files (such as a web
-  server's JSON access log) and host metrics, sent to port 4318. Vector: an `http` sink to
-  `/ingest/logs` with newline-delimited JSON. OpenTelemetry Collector: an `otlphttp` exporter with
-  `encoding: json` (Vigil doesn't take protobuf).
-- **Prometheus exporters** (node_exporter, MKTXP, ..): add them to `scrape_targets`; Vigil
-  fetches them at the interval. It also records `up` (1 or 0) and `scrape_duration_seconds` per
-  target, so a rule can alert when an exporter stops answering.
-- **FRITZ!Box:** set `fritzbox_host`, `fritzbox_user` and `fritzbox_password` (a FRITZ!Box user
-  with the *FRITZ!Box settings* permission). Every 30 seconds: `fritz.wan_bytes_received_rate`,
-  `fritz.wan_bytes_sent_rate`, `fritz.wan_link_up`, `fritz.uptime_seconds` and the line's maximum
-  bit rates; every 5 minutes the new lines of its event log, as logs of host `fritz.box`.
-- **Anything else:** `POST /ingest/logs` on port 4318 with one JSON object per line (or a JSON
-  array): `ts` or `timestamp`, `host`, `app`, `severity` or `level`, `message` or `msg`; every
-  other field becomes an attribute.
+After setting up a sender, check **Sources**: it appears within a minute. If it doesn't, the
+sender can't reach Home Assistant on that port (a firewall, a wrong address, or the port cleared
+in Vigil's Network settings).
+
+### MikroTik (RouterOS 7)
+
+**Logs.** In a terminal (Winbox → *New Terminal*, or SSH):
+
+```
+/system logging action add name=vigil target=remote remote=HOME_ASSISTANT_IP remote-port=514 \
+    remote-log-format=syslog syslog-facility=local0
+/system logging add action=vigil topics=info
+/system logging add action=vigil topics=warning
+/system logging add action=vigil topics=error
+/system logging add action=vigil topics=critical
+```
+
+In Winbox instead: **System → Logging → Actions → +**: Name `vigil`, Type *remote*, Remote
+Address, Remote Port `514`, Remote Log Format *syslog* (on RouterOS before 7.18: tick *BSD
+Syslog*). Then **Rules → +** for each topic (info, warning, error, critical) with Action
+`vigil`. Vigil shows RouterOS' first topic as the line's *app* (`firewall`, `dhcp`, `system`,
+`interface`), so `app:dhcp` finds the DHCP lines.
+
+**Firewall lines.** RouterOS only logs firewall rules that have *log* on. For the drop rules
+you want to see: `/ip firewall filter set [find comment="drop all not coming from LAN"] log=yes
+log-prefix="drop"` (or Winbox: open the rule → *Action* → tick *Log*). Logging every accepted
+connection is a lot of lines: log the drops.
+
+**Metrics** (CPU, memory, interfaces, Wi-Fi clients) come from the
+[MKTXP](https://github.com/akpw/mktxp) exporter, on any machine that can reach the router:
+
+1. On the router, a read-only user for it, and the API only from that machine:
+   ```
+   /user group add name=mktxp policy=api,read
+   /user add name=mktxp group=mktxp password=<a password>
+   /ip service set api address=<machine running MKTXP>/32 disabled=no
+   ```
+2. Run MKTXP (Docker: `ghcr.io/akpw/mktxp`), with the router's address, the user and password
+   in `mktxp.conf`. It serves its metrics on port 49090.
+3. In Vigil's options, a scrape target: `name: mikrotik`, `url: http://<that machine>:49090/metrics`,
+   `interval: 30`.
+
+The built-in Network dashboard and the *Router CPU* rule template use MKTXP's names
+(`mktxp_system_cpu_load`, `mktxp_interface_rx_byte_total`).
+
+### Netgear and other switches
+
+Managed Netgear switches (Smart Managed Plus/Pro, M4250, ..) send syslog; the menu differs per
+model and firmware:
+
+- **Smart Managed Pro** (GS7xx, GS108T, ..): **System → Logs → Server Log**: Admin Mode *Enable*,
+  then **Add**: Host Address `HOME_ASSISTANT_IP`, Port `514`, Severity Filter *Info*.
+- **Insight/M4250 and newer**: **System → Logs → Remote Log** (or *Syslog*), the same values.
+- **Netgear routers** (Nighthawk, Orbi): most consumer models can't send syslog; their logs can
+  only be e-mailed.
+
+Other brands are the same idea: look for *Remote syslog*, *Syslog server* or *Log server*, UDP,
+port 514, level *Informational*. Give each switch a clear system name (it becomes the *host*),
+such as `sw-office`, so `host:sw-*` finds them all.
+
+### FRITZ!Box
+
+Vigil asks the FRITZ!Box itself (TR-064); nothing changes on the box except a user:
+
+1. **Home Network → Network → Network Settings**: tick **Allow access for applications**
+   (Heimnetz → Netzwerk → Netzwerkeinstellungen → *Zugriff für Anwendungen zulassen*).
+2. **System → FRITZ!Box Users → Add User**: a user name such as `vigil`, a password, and only the
+   right **FRITZ!Box Settings**; no access from the internet.
+3. In Vigil's options, the section **FRITZ!Box (TR-064)**: the box's address (such as
+   `192.168.178.1`), that user and its password. Restart Vigil.
+
+Every 30 seconds: `fritz.wan_bytes_received_rate`, `fritz.wan_bytes_sent_rate` (bytes per
+second), `fritz.wan_link_up` (1 or 0), `fritz.uptime_seconds`, `fritz.connection_uptime_seconds`
+and the line's maximum (`fritz.max_bitrate_down/up`, bits per second). Every 5 minutes the new
+lines of the box's event log, as logs of host `fritz.box` (source `fritzbox`).
+
+### Linux servers: rsyslog
+
+rsyslog is on most Debian/Ubuntu servers (and Raspberry Pi OS, Proxmox VE with
+`apt install rsyslog`). It forwards everything in the system log: sshd, sudo, the kernel, cron
+and every systemd service.
+
+1. Create `/etc/rsyslog.d/90-vigil.conf`:
+   ```
+   # Everything to Vigil over TCP, in RFC 5424 (with the year and time zone),
+   # queued on the server while Vigil can't be reached
+   *.* action(type="omfwd" target="HOME_ASSISTANT_IP" port="514" protocol="tcp"
+              template="RSYSLOG_SyslogProtocol23Format"
+              queue.type="linkedList" queue.size="10000" action.resumeRetryCount="-1")
+   ```
+2. `sudo systemctl restart rsyslog`
+3. Test: `logger -t vigil-test "hello Vigil"`, then search `app:vigil-test` in Vigil.
+
+TCP and the queue mean no lines are lost when Vigil restarts. Only some facilities:
+`auth,authpriv.* action(...)` instead of `*.*`.
+
+### Linux servers: syslog-ng
+
+In `/etc/syslog-ng/conf.d/vigil.conf`:
+
+```
+destination d_vigil { syslog("HOME_ASSISTANT_IP" transport("tcp") port(514)); };
+log { source(s_src); destination(d_vigil); };
+```
+
+then `sudo systemctl restart syslog-ng`. (`syslog()` sends RFC 5424 with octet counting, which
+Vigil reads.) `s_src` is the system source in Debian's syslog-ng; check `syslog-ng.conf` for
+yours.
+
+### Vector (logs from journald, Docker and files; host metrics)
+
+[Vector](https://vector.dev) is one small program that collects from journald, Docker containers
+and log files, and sends them to Vigil as JSON lines. Install it from its repository
+(`bash -c "$(curl -L https://setup.vector.dev)"` then `sudo apt install vector`), and put this in
+`/etc/vector/vector.yaml`:
+
+```yaml
+sources:
+  journald:
+    type: journald                       # sshd, sudo, kernel, every systemd service
+  docker:
+    type: docker_logs                    # every container (the vector user needs the docker group)
+  host:
+    type: host_metrics                   # CPU, memory, disks, network
+    scrape_interval_secs: 30
+
+transforms:
+  to_vigil:
+    type: remap
+    inputs: [journald, docker]
+    source: |
+      app_name = .SYSLOG_IDENTIFIER || .container_name || ._SYSTEMD_UNIT || "vector"
+      level = to_int(.PRIORITY) ?? 6
+      if .stream == "stderr" { level = 4 }     # a container's error output
+      . = {"timestamp": .timestamp, "host": .host, "app": app_name,
+           "severity": level, "message": .message}
+
+sinks:
+  vigil:
+    type: http
+    inputs: [to_vigil]
+    uri: http://HOME_ASSISTANT_IP:4318/ingest/logs
+    encoding: { codec: json }
+    framing: { method: newline_delimited }
+    request:
+      headers: { Authorization: "Bearer <ingest_token>" }   # leave out when no token is set
+  metrics:
+    type: prometheus_exporter            # Vigil scrapes this, see below
+    inputs: [host]
+    address: 0.0.0.0:9598
+```
+
+`sudo systemctl restart vector`, and `sudo usermod -aG docker vector` for the Docker logs. For
+the host metrics, add a scrape target in Vigil's options: `url: http://<server>:9598/metrics`.
+A log file: a `file` source (`include: [/var/log/myapp/*.log]`) added to the transform's inputs;
+a JSON log file (a web server's access log): add `codec: json` to it, and its fields become
+attributes you can search with `attrs.<field>:value`.
+
+### OpenTelemetry Collector
+
+The [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) (the *contrib*
+distribution, `otelcol-contrib`) sends logs and metrics to Vigil over OTLP. Vigil takes **JSON**
+encoding only. In its `config.yaml`:
+
+```yaml
+receivers:
+  journald: {}
+  filelog:
+    include: [/var/log/myapp/*.log]
+  hostmetrics:
+    collection_interval: 30s
+    scrapers: { cpu: {}, memory: {}, load: {}, filesystem: {}, network: {} }
+
+processors:
+  batch: {}
+  resourcedetection:
+    detectors: [system]                  # host.name, which Vigil shows as the host
+
+exporters:
+  otlphttp/vigil:
+    endpoint: http://HOME_ASSISTANT_IP:4318
+    encoding: json
+    headers: { Authorization: "Bearer <ingest_token>" }
+
+service:
+  pipelines:
+    logs:    { receivers: [journald, filelog], processors: [resourcedetection, batch], exporters: [otlphttp/vigil] }
+    metrics: { receivers: [hostmetrics],       processors: [resourcedetection, batch], exporters: [otlphttp/vigil] }
+```
+
+Any program with OpenTelemetry built in can send straight to Vigil the same way: endpoint
+`http://HOME_ASSISTANT_IP:4318` with the JSON encoding (environment variables
+`OTEL_EXPORTER_OTLP_ENDPOINT=http://HOME_ASSISTANT_IP:4318` and
+`OTEL_EXPORTER_OTLP_PROTOCOL=http/json`).
+
+### Prometheus exporters (node_exporter and others)
+
+Vigil fetches exporters itself; add each one to `scrape_targets` in Vigil's options:
+
+```yaml
+scrape_targets:
+  - name: nas
+    url: http://192.168.1.20:9100/metrics
+    interval: 60
+```
+
+- **node_exporter** (a Linux server's CPU, memory, disks, network): `sudo apt install
+  prometheus-node-exporter` on Debian/Ubuntu; it listens on port 9100. Allow only Home
+  Assistant to reach it (`sudo ufw allow from HOME_ASSISTANT_IP to any port 9100`).
+- Anything with a Prometheus `/metrics` page works the same: MKTXP (MikroTik), Proxmox
+  (`prometheus-pve-exporter`), a UPS (`nut_exporter`), Docker (cAdvisor), Caddy (its admin
+  `/metrics`), Pi-hole, ..
+
+For each target Vigil also records `up` (1 when it answered, 0 when not) and
+`scrape_duration_seconds`, labelled with `job` (the name) and `instance`: a rule *metric
+`up` < 1* tells you when a server or exporter is down.
+
+### Anything else: JSON lines
+
+`POST http://HOME_ASSISTANT_IP:4318/ingest/logs` with one JSON object per line (or a JSON
+array). Vigil reads `ts`, `timestamp`, `time` or `@timestamp` (ISO 8601 or epoch seconds),
+`host` or `hostname`, `app`, `service` or `appname`, `severity`, `level` or `lvl` (a syslog
+name or number, `warn`, `error`, ..), and `message`, `msg` or `log`; every other field becomes
+an attribute. From a script:
+
+```
+curl -X POST http://HOME_ASSISTANT_IP:4318/ingest/logs \
+    -H 'Authorization: Bearer <ingest_token>' \
+    --data-binary '{"host": "nas", "app": "backup", "level": "error", "message": "Backup failed", "job": "nightly"}'
+```
+
+The answer says how many lines were accepted and rejected.
 
 ### Ingest port
 
