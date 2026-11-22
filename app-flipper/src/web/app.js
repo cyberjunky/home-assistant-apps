@@ -203,7 +203,7 @@ function renderState() {
     tile('SD card', storage.total ? fmtSize(storage.free) : '–', storage.total ? `free of ${fmtSize(storage.total)}` : on ? 'no card' : '');
   const pairs = [...Object.entries(info), ...Object.entries(power).map(([k, v]) => ['power_' + k, v])];
   $('device-info').innerHTML = pairs.length
-    ? `<table class="list kv"><tbody>${pairs.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join('')}</tbody></table>`
+    ? `<div class="kv">${pairs.map(([k, v]) => `<div><span>${esc(k)}</span><span>${esc(v)}</span></div>`).join('')}</div>`
     : '<div class="empty-state">What the Flipper says about itself shows here once it is connected.</div>';
   $('release-btn').textContent = f.state === 'released' ? 'Connect' : 'Release';
   $('release-btn').dataset.device = f.state === 'released' ? 'connect' : 'release';
@@ -217,7 +217,7 @@ function renderState() {
     : (sdk.installed
       ? `<p class="muted">Version <b class="mono">${esc(sdk.version)}</b>${sdk.channel ? ` from the ${esc(sdk.channel)} channel` : ''}.${sdk.compiler ? '' : ' The compiler (350 MB) is downloaded at the first build.'}</p>` +
         (sdkMismatch() ? `<p class="pill warn" style="white-space:normal;margin-top:8px">The Flipper runs ${esc(info.firmware_version)}: an app built with another version may not load.</p>` : '')
-      : `<p class="muted">Needed to build C apps. With its compiler it downloads about 400 MB and takes 1.5 GB; ${fmtSize(sdk.disk_free)} is free.</p>`) +
+      : `<p class="muted">Needed to build C apps. It is installed on the Home Assistant machine, in this app's own data, not on the Flipper. With its compiler it downloads about 400 MB and takes 1.5 GB; ${fmtSize(sdk.disk_free)} is free there.</p>`) +
       `<div class="sdk-row"><select id="sdk-channel" aria-label="Channel">${channels}</select>` +
       `<button type="button" class="btn" id="sdk-install"${job.running ? ' disabled' : ''}>${sdk.installed ? 'Update' : 'Install'}</button>` +
       (sdk.installed ? '<button type="button" class="link-btn danger" id="sdk-remove">Remove</button>' : '') + '</div>';

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+
+**After updating:** nothing to do.
+
+- **What the Flipper says about itself** is a two-column list instead of one long table.
+- The SDK install says where it goes: on the Home Assistant machine, in the app's own data, not on the Flipper.
+
 ## 0.1.0
 
 First version.
