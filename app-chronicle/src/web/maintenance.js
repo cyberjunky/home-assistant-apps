@@ -1,15 +1,15 @@
 // Chronicle dashboard - Maintenance: the tasks (VACUUM, REINDEX, compression, backups, restores,
-// copies) with their logs, the read-only logins for Grafana and other tools, and the upkeep
-// of a whole database. A table's own upkeep is on its page under Databases.
+// copies) with their logs, the read-only logins for Grafana and other tools, the databases of
+// other apps (each with a login of its own), and the upkeep of a whole database. A table's own upkeep is on its page under Databases.
 
 let maintenanceTimer = null;
 const openLogs = new Set();
 
 async function showMaintenance() {
     const el = document.getElementById('maintenance');
-    let tasks, readers, databases;
+    let tasks, readers, databases, apps;
     try {
-        [tasks, readers, databases] = await Promise.all([api('tasks'), api('readers'), api('databases')]);
+        [tasks, readers, databases, apps] = await Promise.all([api('tasks'), api('readers'), api('databases'), api('apps')]);
     } catch (e) {
         el.innerHTML = `<div class="empty-state">${escapeHtml(e.message)}</div>`;
         return;
@@ -37,6 +37,17 @@ async function showMaintenance() {
                         <td><button type="button" class="btn btn-small btn-danger" data-drop-reader="${escapeHtml(r.name)}">Remove</button></td></tr>`).join('')}</tbody></table>`
                     : '<div class="empty-state">No read-only logins yet</div>'}
                 <div class="detail-actions" style="margin-top:10px"><button type="button" class="btn btn-primary" onclick="createReader()">New read-only login…</button></div>
+            </div></div>
+            <div class="panel wide"><div class="panel-body">
+                <div class="section-title">App databases</div>
+                <p class="panel-sub">For another Home Assistant app (such as Vigil) that keeps its data here: a database with TimescaleDB, owned by a login of its own. Only that login can connect to it; it can't reach the other databases.</p>
+                ${apps.databases.length ? `<table class="data"><thead><tr><th>Database</th><th>Login</th><th>Size</th><th>TimescaleDB</th><th>Connections</th><th></th></tr></thead><tbody>
+                    ${apps.databases.map(d => `<tr><td><b>${escapeHtml(d.name)}</b></td><td class="mono">${escapeHtml(d.owner)}</td><td>${escapeHtml(fmtBytes(d.size))}</td>
+                        <td>${d.timescaledb ? escapeHtml(d.timescaledb) : '<span class="muted">not installed</span>'}</td><td>${escapeHtml(num(d.connections))}</td>
+                        <td style="white-space:nowrap"><button type="button" class="btn btn-small" data-app-password="${escapeHtml(d.name)}">New password…</button>
+                            <button type="button" class="btn btn-small btn-danger" data-drop-app="${escapeHtml(d.name)}">Remove…</button></td></tr>`).join('')}</tbody></table>`
+                    : '<div class="empty-state">No app databases yet</div>'}
+                <div class="detail-actions" style="margin-top:10px"><button type="button" class="btn btn-primary" onclick="createAppDatabase()" ${running ? 'disabled' : ''}>New app database…</button></div>
             </div></div>
         </div>
         <div class="panel" style="margin-top:14px"><div class="panel-body">
@@ -107,12 +118,57 @@ function showReaderPassword(r) {
     document.getElementById('copy-reader-pw').onclick = () => copyPlain(r.password, 'Password');
 }
 
+function createAppDatabase() {
+    actionModal('New app database', `
+        <label class="form-row"><span>Name</span><input class="input" id="app-name" value="vigil" autocomplete="off" spellcheck="false"></label>
+        <p class="panel-sub">The database and its login get this name: 3 to 31 lowercase letters, digits and underscores. The login owns the database, which gets TimescaleDB. The password is made by the app and shown once.</p>`,
+        'Create', false, async () => {
+            const result = await api('apps/create', {name: document.getElementById('app-name').value.trim()});
+            setTimeout(() => showAppConnection(result, `App database ${result.database}`), 0);
+        });
+}
+
+function showAppConnection(r, title) {
+    actionModal(title, `
+        <p>Enter this in the other app. Copy the password now: it is not shown again.</p>
+        ${infoRow('Host', `<span class="mono">${escapeHtml(r.host)}</span>`)}
+        ${infoRow('Port', `<span class="mono">${escapeHtml(String(r.port))}</span>`)}
+        ${infoRow('Database', `<span class="mono">${escapeHtml(r.database)}</span>`)}
+        ${infoRow('User', `<span class="mono">${escapeHtml(r.username)}</span>`)}
+        ${infoRow('Password', `<span class="mono">${escapeHtml(r.password)}</span> <button type="button" class="btn btn-small" id="copy-app-pw">Copy</button>`)}`,
+        'Done', false, async () => { showMaintenance(); });
+    document.getElementById('copy-app-pw').onclick = () => copyPlain(r.password, 'Password');
+}
+
 document.getElementById('maintenance').addEventListener('click', (e) => {
     const log = e.target.closest('[data-log]');
     if (log) {
         const id = log.dataset.log;
         if (openLogs.has(id)) openLogs.delete(id); else openLogs.add(id);
         showMaintenance();
+        return;
+    }
+    const password = e.target.closest('[data-app-password]');
+    if (password) {
+        const name = password.dataset.appPassword;
+        actionModal(`New password for ${name}`, `<p>The login <b>${escapeHtml(name)}</b> gets a new password, shown once. The old one stops working at once: enter the new one in the app that uses it.</p>`, 'New password', false, async () => {
+            const result = await api('apps/password', {name});
+            setTimeout(() => showAppConnection(result, `New password for ${result.username}`), 0);
+        });
+        return;
+    }
+    const dropApp = e.target.closest('[data-drop-app]');
+    if (dropApp) {
+        const name = dropApp.dataset.dropApp;
+        actionModal(`Remove the app database ${name}`, `
+            <p>Removes the database <b>${escapeHtml(name)}</b> with everything in it, and its login <b>${escapeHtml(name)}</b>. The app that uses it can't connect any more. This can't be undone, except from a backup.</p>
+            <label class="form-row"><span>Type <b>${escapeHtml(name)}</b> to confirm</span><input class="input" id="dropapp-confirm" autocomplete="off" spellcheck="false"></label>`,
+            'Remove', true, async () => {
+                const confirm = document.getElementById('dropapp-confirm').value.trim();
+                if (confirm !== name) throw new Error('Type the name to confirm');
+                await api('apps/drop', {name, confirm});
+                showMaintenance();
+            });
         return;
     }
     const drop = e.target.closest('[data-drop-reader]');

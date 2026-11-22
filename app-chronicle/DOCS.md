@@ -296,6 +296,8 @@ What the server is doing, refreshed every 10 seconds while the page is open:
 - **Read-only logins** for Grafana and other tools: a login that reads every table of the
   databases you pick, also tables the Chronicle integration adds later. The app makes the
   password and shows it once. **Remove** takes the login away again.
+- **App databases** for other Home Assistant apps: a database with TimescaleDB and a login of
+  its own; see *App databases* below.
 - **Tasks:** the last 30 tasks (maintenance, backups, restores, copies), newest first, with how
   long they took and their log; a running task updates by itself. One task runs at a time.
 
@@ -324,6 +326,37 @@ they can read the dumps there, which hold your whole history.
 The database (PostgreSQL and TimescaleDB versions), the connection for the integration (the
 password on request), what the Chronicle integration set up (layout version, averages and
 their time zone), the app version and links.
+
+## App databases
+
+Another Home Assistant app can keep its data in this app's database server, in a database of
+its own. Vigil does that: it stores the logs and metrics it collects in a `vigil` database here.
+
+**Maintenance → App databases → New app database…**, enter a name (such as `vigil`) and
+**Create**:
+
+- **The login and the database** both get that name. The login owns the database and does what
+  it wants in it: its own schemas, tables and hypertables. It is no superuser, can't create
+  databases or roles, and can't connect to the other databases (Chronicle's history among
+  them).
+- **TimescaleDB** is added to the database right away, by the helper (it needs the superuser).
+  When that fails, nothing is created.
+- **The connection** to enter in the other app is shown once: the host (this app's hostname on
+  Home Assistant's internal network), port `5432`, the database, the user and the password.
+  Copy the password then: it is not shown again.
+
+The list shows each app database with its login, size, TimescaleDB release and connections.
+
+- **New password…** gives the login a new password, shown once. The old one stops working at
+  once; enter the new one in the other app.
+- **Remove…** removes the database with everything in it, and its login. Type the name to
+  confirm. The Databases page's *Remove* doesn't take an app database, so its login doesn't
+  stay behind.
+
+Only databases made here are listed (the app marks them); Chronicle's own database, `postgres`
+and the templates never are. Other apps reach the database on Home Assistant's internal
+network; no port needs to be set in the Network settings. Home Assistant's backups of this app
+hold the app databases too.
 
 ## Backups of the app
 
@@ -354,12 +387,12 @@ The database holds when you are home and what you do; how the app protects it:
 - **Roles:** `postgres` (the superuser) only for the app's own scripts, inside the app; the
   integration's `chronicle` only from Home Assistant's internal network, with a password the app
   generates; the web UI's `chronicle_ui` without a password, only from inside the app, and no
-  superuser; read-only logins with their own password.
+  superuser; read-only logins and app database logins with their own password.
 - **The web UI** is only reachable through Home Assistant (ingress, administrators only);
   direct connections to its port are refused. Requests that change something must come from
   the page itself.
-- **Superuser tasks** (backups, restores, copies) run in a separate process that only takes
-  these tasks, with checked names, and only from the web UI.
+- **Superuser tasks** (backups, restores, copies, TimescaleDB in a new app database) run in a
+  separate process that only takes these tasks, with checked names, and only from the web UI.
 - **Passwords** are stored in the app's folder, readable by the app only, and never logged.
 - **Restores** check that a dump is the app's own (or that you trust it), and keep the owners
   from the dump, so nothing in it runs with more rights than it had.
