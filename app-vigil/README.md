@@ -48,7 +48,7 @@ answers **"What changed?"** for any moment you pick.
 
 ## Supported Features
 
-- 📥 **Collects** — syslog over UDP and TCP (RFC 3164, RFC 5424, MikroTik's topics), OpenTelemetry over HTTP (JSON: logs and metrics), JSON lines, Prometheus exporters it scrapes itself, the FRITZ!Box (line throughput, connection state, its event log) and MikroTik routers (CPU, memory, temperature, interfaces, DHCP, Wi-Fi clients, over the RouterOS API)
+- 📥 **Collects** — syslog over UDP and TCP (RFC 3164, RFC 5424, MikroTik's topics), OpenTelemetry over HTTP (JSON: logs and metrics), JSON lines, Prometheus exporters it scrapes itself, Windows event logs (through Fluent Bit, with the security events named and tagged with their MITRE ATT&CK technique), the FRITZ!Box (line throughput, connection state, its event log) and MikroTik routers (CPU, memory, temperature, interfaces, DHCP, Wi-Fi clients, over the RouterOS API)
 - 🗄️ **Stores in Chronicle** — a database of its own on the Chronicle app (0.3.0 or later), with TimescaleDB's compression and how long to keep logs and metrics
 - 🔎 **Logs** — search with free text, phrases and filters (`host:mikrotik severity:<=warning -dhcp`), the matches by severity over time (drag to zoom), every field of a line, lines around it, live tail, saved searches
 - 🧩 **Patterns** — log lines grouped into templates with the changing parts masked; new and spiking patterns marked, with their trend
@@ -56,7 +56,7 @@ answers **"What changed?"** for any moment you pick.
 - ❓ **What changed?** — for any time range, what is different from just before it: new and growing patterns, hosts that started, stopped or got louder, more errors, metrics that moved
 - 🧱 **Dashboards** — your own panels on a grid (charts, numbers, bars, tables, log lists), with built-in Hosts and Network dashboards
 - 🔔 **Alerts** — rules on a log search, a metric, silence, new patterns or an anomaly, tested before saving; firing and resolved as Home Assistant notifications, events (`vigil_alert`) and a notify service of your choice
-- 📡 **Sources** — every sender with when it was last heard and how much it sends, and copy-paste setup for MikroTik, Netgear, rsyslog, Vector, the OpenTelemetry Collector and node_exporter
+- 📡 **Sources** — every sender with when it was last heard and how much it sends, and copy-paste setup for MikroTik, Netgear, rsyslog, Windows (Fluent Bit), Vector, the OpenTelemetry Collector and node_exporter
 - 🔒 **Locked down** — the web UI only through Home Assistant; the ingest port only with a token or from your own network; its database login can't reach anything but its own database
 
 ## Installation

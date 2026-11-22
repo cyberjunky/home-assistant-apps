@@ -12,6 +12,7 @@ const SETUP_INFO = {
     rsyslog: {label: 'rsyslog', text: 'Linux servers: forward everything over TCP. Put this in /etc/rsyslog.d/90-vigil.conf and restart rsyslog.'},
     vector: {label: 'Vector', text: 'Vector: journald and files to Vigil\'s JSON lines endpoint, with the ingest token.'},
     otelcol: {label: 'OTel Collector', text: 'OpenTelemetry Collector: an otlphttp exporter (JSON encoding) for logs and metrics.'},
+    windows: {label: 'Windows', text: 'Windows PCs and servers: install Fluent Bit (fluentbit.io, the Windows installer), put this in its configuration and run it as a service. It sends the Security, System, Application, Defender and (when installed) Sysmon event logs. Vigil names the security events (failed logons, lockouts, new users and admins, cleared logs, new services) and tags them with their MITRE ATT&CK technique: see the Windows examples on the Logs page.'},
     node_exporter: {label: 'node_exporter', text: 'Prometheus exporters: add the exporter as a scrape target in Vigil\'s configuration (scrape_targets).'},
     json_lines: {label: 'JSON lines', text: 'Anything that can POST: one JSON object per line to the ingest port, with the ingest token.'},
     fritzbox: {label: 'FRITZ!Box', text: 'The FRITZ!Box is polled over TR-064: set these options in Vigil\'s configuration. Use a FRITZ!Box user with the "FRITZ!Box settings" permission.'},
@@ -132,7 +133,7 @@ function renderSetupBody(examples) {
         : '';
     body.innerHTML = `<p class="panel-sub setup-text">${escapeHtml(info.text)}</p>${hostHint}
         <div class="snippet"><button type="button" class="btn btn-small snippet-copy">Copy</button><pre class="code-block">${escapeHtml(text)}</pre></div>
-        ${setupTab === 'vector' || setupTab === 'otelcol' ? `<p class="panel-sub" style="margin-top:8px">${(sourcesData && sourcesData.setup && sourcesData.setup.token_set)
+        ${['vector', 'otelcol', 'windows'].includes(setupTab) ? `<p class="panel-sub" style="margin-top:8px">${(sourcesData && sourcesData.setup && sourcesData.setup.token_set)
             ? 'Replace the token placeholder with the <b>ingest_token</b> from Vigil\'s configuration.'
             : 'No <b>ingest_token</b> is set: only senders on private networks are accepted. Set one in Vigil\'s configuration to accept others.'}</p>` : ''}`;
     body.querySelector('.snippet-copy').onclick = () => copyPlain(text, 'Snippet');

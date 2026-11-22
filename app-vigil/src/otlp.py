@@ -11,6 +11,7 @@ import math
 from datetime import UTC, datetime
 
 from .records import MAX_MESSAGE, LogEntry, Sample, clip, otlp_severity, parse_time, severity_number
+from .windows import is_windows_event, windows_fields
 
 MAX_ATTRS = 64
 MAX_ATTR_VALUE = 2048
@@ -228,7 +229,23 @@ _SEVERITY_KEYS = ("severity", "level", "lvl")
 _MESSAGE_KEYS = ("message", "msg", "log")
 
 
+def _windows_entry(item: dict, now: datetime) -> LogEntry:
+    fields = windows_fields(item)
+    return LogEntry(
+        ts=fields["ts"] or now,
+        source="json",
+        host=clip(fields["host"]),
+        app=clip(fields["app"]),
+        severity=fields["severity"],
+        facility=None,
+        message=fields["message"][:MAX_MESSAGE],
+        attrs=_attrs(fields["attrs"]),
+    )
+
+
 def _json_entry(item: dict, now: datetime) -> LogEntry | None:
+    if is_windows_event(item):
+        return _windows_entry(item, now)
     item = dict(item)
     ts = None
     for key in _TIME_KEYS:

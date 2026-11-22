@@ -287,3 +287,51 @@ async def test_reconnects_after_the_connection_is_lost(database):
 
 async def test_both_layouts_are_tested(database, request):
     assert database.timescaledb == ("timescaledb" in request.node.callspec.id)
+
+
+async def test_windows_events_are_searchable(database):
+    import json
+
+    from src.otlp import parse_json_lines
+
+    now = datetime.now(UTC).replace(microsecond=0)
+    stamp = now.astimezone().strftime("%Y-%m-%d %H:%M:%S %z")
+    records = [
+        {
+            "Channel": "Security",
+            "Computer": "pc1",
+            "EventID": 4625,
+            "Level": 0,
+            "Keywords": "0x8010000000000000",
+            "TimeCreated": stamp,
+            "ProviderName": "Microsoft-Windows-Security-Auditing",
+            "Message": "An account failed to log on.",
+            "EventData": {"TargetUserName": "bob", "LogonType": 10},
+        },
+        {
+            "Channel": "Security",
+            "Computer": "pc1",
+            "EventID": 4732,
+            "Level": 0,
+            "Keywords": "0x8020000000000000",
+            "TimeCreated": stamp,
+            "ProviderName": "Microsoft-Windows-Security-Auditing",
+            "Message": "A member was added to a security-enabled local group.",
+            "EventData": {"TargetUserName": "Administrators", "MemberSid": "S-1-5-21-1"},
+        },
+    ]
+    entries, rejected = parse_json_lines("\n".join(json.dumps(r) for r in records))
+    assert rejected == 0
+    await _write(database, entries)
+    t = now.timestamp()
+
+    async def count(q):
+        return len((await database.logs(q, t - 60, t + 60, 100, None))["rows"])
+
+    assert await count("attrs.event_id:4625") == 1
+    assert await count("attrs.event_id:4625 attrs.logon_type:10") == 1
+    assert await count("attrs.mitre:T*") == 2
+    assert await count('attrs.event:"failed logon"') == 1
+    assert await count("attrs.category:account_change attrs.group:Administrators") == 1
+    assert await count("host:pc1 app:Security severity:<=warning") == 1
+    assert await database.count_logs("attrs.mitre:T1110", t - 60, t + 60) == 1
