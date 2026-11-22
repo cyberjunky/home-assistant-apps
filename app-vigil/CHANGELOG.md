@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.5
+
+**After updating:** nothing to do.
+
+- **Metric charts on short ranges show their line:** over 15 minutes or an hour, Vigil
+  split the time into 10 or 15 second steps, while most metrics arrive once a minute. Most steps
+  were then empty, and a chart draws no line across an empty step, so the chart stayed blank
+  with only its axes. The step is now never finer than how often the metric's points arrive.
+
 ## 0.1.4
 
 **After updating:** nothing to do. To collect a MikroTik router's metrics, give the router a

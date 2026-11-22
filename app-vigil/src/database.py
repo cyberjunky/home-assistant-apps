@@ -943,6 +943,21 @@ class Database:
         unit = await self.fetchval("SELECT max(unit) FROM vigil.series WHERE name = $1", name)
         return result, unit
 
+    async def _metric_interval(self, name: str, filters: dict, end: float) -> float | None:
+        """The usual seconds between two points of a metric (the median over its latest points)."""
+        value = await self.fetchval(
+            """WITH s AS (SELECT id FROM vigil.series WHERE name = $1 AND labels @> $2::jsonb LIMIT 20)
+               SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY d) FROM (
+                   SELECT extract(epoch FROM q.ts - lag(q.ts) OVER (PARTITION BY s.id ORDER BY q.ts))::float8 AS d
+                   FROM s, LATERAL (SELECT ts FROM vigil.points WHERE series = s.id AND ts < $3
+                                    ORDER BY ts DESC LIMIT 50) q) x
+               WHERE d > 0""",
+            name,
+            _dumps(filters),
+            epoch(end),
+        )
+        return _number(value)
+
     async def metric_query(
         self,
         name: str,
@@ -955,7 +970,15 @@ class Database:
         anomaly: bool,
     ) -> dict:
         span = end - start
-        step = max(int(step or 0), nice_step(span, 300), math.ceil(span / MAX_BUCKETS))
+        # Never finer than the points arrive: a 15 s step over a 60 s scrape leaves three empty
+        # buckets between every two values, and a chart draws no line across a gap
+        interval = await self._metric_interval(name, filters, end)
+        step = max(
+            int(step or 0),
+            nice_step(span, 300),
+            math.ceil(span / MAX_BUCKETS),
+            nice_step(interval * 0.95, 1) if interval else 0,
+        )
         origin = math.floor(start / step) * step
         n = max(1, math.ceil((end - origin) / step))
         history_start = origin - WEEK if anomaly else origin
