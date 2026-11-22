@@ -31,7 +31,7 @@ that the database and login are both named as in the options.
 | `database_name`, `database_user` | `vigil` | The names you gave the app database in Chronicle |
 | `ingest_token` | | The token for OpenTelemetry and JSON on port 4318 (see *Ingest port*) |
 | `scrape_targets` | | Prometheus exporters: `name`, `url` of its `/metrics`, `interval` in seconds (10-3600, default 60) |
-| `fritzbox_host`, `fritzbox_user`, `fritzbox_password` | | The FRITZ!Box to collect from; empty = off |
+| `fritzbox` (*FRITZ!Box (TR-064)*): `host`, `user`, `password` | | The FRITZ!Box to collect from; an empty address = off |
 | `notify_service` | | Where alerts go besides a Home Assistant notification, such as `notify.mobile_app_phone` |
 | `logs_retention_days` | 14 | How long logs are kept (1-365) |
 | `metrics_retention_days` | 90 | How long metrics are kept (1-1825) |
@@ -123,8 +123,8 @@ Vigil asks the FRITZ!Box itself (TR-064); nothing changes on the box except a us
    (Heimnetz → Netzwerk → Netzwerkeinstellungen → *Zugriff für Anwendungen zulassen*).
 2. **System → FRITZ!Box Users → Add User**: a user name such as `vigil`, a password, and only the
    right **FRITZ!Box Settings**; no access from the internet.
-3. In Vigil's options: `fritzbox_host` (the box's address, such as `192.168.178.1`),
-   `fritzbox_user`, `fritzbox_password`. Restart Vigil.
+3. In Vigil's options, the section **FRITZ!Box (TR-064)**: the box's address (such as
+   `192.168.178.1`), that user and its password. Restart Vigil.
 
 Every 30 seconds: `fritz.wan_bytes_received_rate`, `fritz.wan_bytes_sent_rate` (bytes per
 second), `fritz.wan_link_up` (1 or 0), `fritz.uptime_seconds`, `fritz.connection_uptime_seconds`

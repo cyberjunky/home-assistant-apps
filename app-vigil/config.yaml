@@ -35,9 +35,10 @@ options:
   database_password: ""
   ingest_token: ""
   scrape_targets: []
-  fritzbox_host: ""
-  fritzbox_user: ""
-  fritzbox_password: ""
+  fritzbox:
+    host: ""
+    user: ""
+    password: ""
   notify_service: ""
   logs_retention_days: 14
   metrics_retention_days: 90
@@ -54,9 +55,10 @@ schema:
     - name: match(^[A-Za-z0-9_.-]{1,40}$)
       url: url
       interval: int(10,3600)?
-  fritzbox_host: str?
-  fritzbox_user: str?
-  fritzbox_password: password?
+  fritzbox:
+    host: str?
+    user: str?
+    password: password?
   notify_service: match(^(notify\.)?[a-z0-9_]+$)?
   logs_retention_days: int(1,365)
   metrics_retention_days: int(1,1825)

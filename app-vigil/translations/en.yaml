@@ -27,17 +27,21 @@ configuration:
     description: >-
       Exporters to collect metrics from, such as node_exporter on a server:
       a name, the full URL of its /metrics page and the interval in seconds.
-  fritzbox_host:
-    name: FRITZ!Box
+  fritzbox:
+    name: FRITZ!Box (TR-064)
     description: >-
-      The FRITZ!Box's address (such as 192.168.178.1) to collect line throughput,
-      connection state and its event log. Leave empty to skip.
-  fritzbox_user:
-    name: FRITZ!Box user
-    description: A FRITZ!Box user with the right to read settings.
-  fritzbox_password:
-    name: FRITZ!Box password
-    description: That user's password.
+      Line throughput, connection state and the event log, asked from the FRITZ!Box
+      over TR-064. Leave the address empty to skip.
+    fields:
+      host:
+        name: Address
+        description: The FRITZ!Box's address, such as 192.168.178.1 or fritz.box.
+      user:
+        name: User
+        description: A FRITZ!Box user with the right "FRITZ!Box Settings".
+      password:
+        name: Password
+        description: That user's password.
   notify_service:
     name: Notify service
     description: >-
