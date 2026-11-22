@@ -353,6 +353,20 @@ imports its history and logs every outage. Read-only, published to Home Assistan
 
 [:books: Documentation](app-toon/DOCS.md) · [:memo: Changelog](app-toon/CHANGELOG.md) · [:lock: Security](app-toon/SECURITY.md)
 
+### <img src="app-vigil/icon.png" alt="" width="36" align="absmiddle"> [Vigil](app-vigil/)
+
+![Version][vigil-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+Logs, metrics and alerts for your network and servers, opened from the sidebar. Syslog from
+routers, switches and servers, OpenTelemetry and JSON from Vector or the OpenTelemetry
+Collector, Prometheus exporters and the FRITZ!Box, stored in its own database on the
+[Chronicle](app-chronicle/) app. Searchable logs, charts and dashboards, alerts as Home
+Assistant notifications, and log patterns, anomaly bands and "what changed?" for any moment.
+
+[:books: Documentation](app-vigil/DOCS.md) · [:memo: Changelog](app-vigil/CHANGELOG.md) · [:lock: Security](app-vigil/SECURITY.md)
+
 ## Releases
 
 Each app is versioned on its own, following [Semantic Versioning](https://semver.org/):
@@ -435,3 +449,4 @@ software each app packages keeps its own license, noted in the app's README.
 [proxmox-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-proxmox%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [proxmox-bs-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-proxmox-bs%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [scanner-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-scanner%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[vigil-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-vigil%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge

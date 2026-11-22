@@ -1,0 +1,63 @@
+name: Vigil
+version: "0.1.0"
+slug: app-vigil
+description: "Logs, metrics and alerts for your network and servers: syslog, OpenTelemetry and Prometheus in, searchable events, charts, smart patterns and anomalies out, stored in Chronicle"
+url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-vigil"
+init: false
+arch:
+  - aarch64
+  - amd64
+# Prebuilt by the repository Builder workflow; bump `version` to publish a new image
+image: "ghcr.io/cyberjunky/app-vigil"
+ingress: true
+panel_icon: mdi:radar
+panel_title: Vigil
+# Alerts become Home Assistant notifications and events; Chronicle is found through the Supervisor
+homeassistant_api: true
+hassio_api: true
+
+# What devices and servers send to: syslog (routers, switches, rsyslog), and OpenTelemetry / JSON
+# over HTTP (Vector, the OpenTelemetry Collector). Leave a port empty to switch that receiver off.
+ports:
+  5514/udp: 514
+  5514/tcp: 514
+  4318/tcp: 4318
+ports_description:
+  5514/udp: Syslog (UDP), from routers, switches and servers
+  5514/tcp: Syslog (TCP), from rsyslog and other senders that keep a connection
+  4318/tcp: OpenTelemetry (OTLP/HTTP, JSON) and JSON lines, with the ingest token
+
+options:
+  database_host: ""
+  database_port: 5432
+  database_name: vigil
+  database_user: vigil
+  database_password: ""
+  ingest_token: ""
+  scrape_targets: []
+  fritzbox_host: ""
+  fritzbox_user: ""
+  fritzbox_password: ""
+  notify_service: ""
+  logs_retention_days: 14
+  metrics_retention_days: 90
+  log_level: info
+
+schema:
+  database_host: str?
+  database_port: port
+  database_name: match(^[a-z][a-z0-9_]{1,30}$)
+  database_user: match(^[a-z][a-z0-9_]{1,30}$)
+  database_password: password?
+  ingest_token: password?
+  scrape_targets:
+    - name: match(^[A-Za-z0-9_.-]{1,40}$)
+      url: url
+      interval: int(10,3600)?
+  fritzbox_host: str?
+  fritzbox_user: str?
+  fritzbox_password: password?
+  notify_service: match(^(notify\.)?[a-z0-9_]+$)?
+  logs_retention_days: int(1,365)
+  metrics_retention_days: int(1,1825)
+  log_level: list(debug|info|warning|error)?

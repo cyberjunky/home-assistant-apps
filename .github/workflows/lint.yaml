@@ -73,6 +73,7 @@ jobs:
           - app-scanner
           - app-knxray
           - app-lottery
+          - app-vigil
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v7.0.1

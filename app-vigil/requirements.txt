@@ -1,0 +1,7 @@
+# Python dependencies for Vigil (installed in the Dockerfile).
+# aiohttp - web server behind Home Assistant ingress, the OTLP/JSON receiver and the scraper's client
+# asyncpg - writes and reads Vigil's database on the Chronicle app (ready-made musl wheels)
+# fritzconnection - FRITZ!Box TR-064: line throughput, connection state and the event log
+aiohttp>=3.14.5,<4
+asyncpg==0.32.0
+fritzconnection==1.15.1
