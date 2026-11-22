@@ -1059,6 +1059,16 @@ async def changes(request):
     return web.json_response({"items": items[:20]})
 
 
+def windows_snippet(host: str) -> str:
+    """The real Windows snippet when Vigil's modules load (they need asyncpg), else a short one."""
+    try:
+        from src.webui import setup_examples
+
+        return setup_examples(514, 4318, True)["windows"].replace("HOME_ASSISTANT_IP", host)
+    except ImportError:
+        return f"pipeline:\n  inputs:\n    - name: winevtlog\n  outputs:\n    - name: http\n      host: {host}\n      port: 4318"
+
+
 async def sources(_request):
     tick()
     now = time.time()
@@ -1144,6 +1154,7 @@ async def sources(_request):
                     "otelcol": f'exporters:\n  otlphttp/vigil:\n    endpoint: http://{host}:4318\n    encoding: json\n    headers:\n      Authorization: "Bearer <ingest_token>"\n'
                     "service:\n  pipelines:\n    logs:\n      exporters: [otlphttp/vigil]\n    metrics:\n      exporters: [otlphttp/vigil]",
                     "node_exporter": "scrape_targets:\n  - name: node-freqle\n    url: http://freqle:9100/metrics\n    interval: 60",
+                    "windows": windows_snippet(host),
                 },
             },
         }

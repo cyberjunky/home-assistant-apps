@@ -142,6 +142,11 @@ const RULE_TEMPLATES = [
         return {name: `${host || 'Host'} silent`, kind: 'absence', query: {q: host ? `host:${queryValue(host)}` : 'host:'}, condition: {op: '>', threshold: 600}, for_seconds: 0, severity: 'warning'};
     }},
     {key: 'ssh', label: 'SSH login', make: async () => ({name: 'SSH login', kind: 'log_count', query: {q: 'app:sshd Accepted', window: 300}, condition: {op: '>', threshold: 0}, for_seconds: 0, severity: 'info'})},
+    // Windows: the attributes come from Vigil's naming of Windows events (Fluent Bit, see Sources)
+    {key: 'win-logon', label: 'Windows failed logons', make: async () => ({name: 'Windows: failed logons', kind: 'log_count', query: {q: 'attrs.event_id:4625', window: 300}, condition: {op: '>', threshold: 10}, for_seconds: 0, severity: 'warning'})},
+    {key: 'win-account', label: 'Windows users and admins', make: async () => ({name: 'Windows: user or group membership changed', kind: 'log_count', query: {q: 'attrs.category:account_change', window: 300}, condition: {op: '>', threshold: 0}, for_seconds: 0, severity: 'warning'})},
+    {key: 'win-cleared', label: 'Windows log cleared', make: async () => ({name: 'Windows: event log cleared', kind: 'log_count', query: {q: 'attrs.category:log_cleared', window: 300}, condition: {op: '>', threshold: 0}, for_seconds: 0, severity: 'critical'})},
+    {key: 'win-malware', label: 'Windows malware', make: async () => ({name: 'Windows: Defender found malware', kind: 'log_count', query: {q: 'attrs.category:malware', window: 300}, condition: {op: '>', threshold: 0}, for_seconds: 0, severity: 'critical'})},
     {key: 'patterns', label: 'New log patterns', make: async () => ({name: 'New log patterns', kind: 'pattern_new', query: {q: '', window: 3600}, condition: {op: '>', threshold: 0}, for_seconds: 0, severity: 'info'})},
     {key: 'cpu', label: 'Router CPU > 85 %', make: async () => {
         let name = '';

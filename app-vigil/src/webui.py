@@ -127,6 +127,38 @@ def setup_examples(syslog_port: int | None, otlp_port: int | None, token_set: bo
             + "service:\n  pipelines:\n    logs:\n      exporters: [otlphttp/vigil]\n"
             "    metrics:\n      exporters: [otlphttp/vigil]\n"
         ),
+        "windows": (
+            "# C:\\Program Files\\fluent-bit\\conf\\fluent-bit.yaml\n"
+            "service:\n"
+            "  flush: 5\n"
+            "pipeline:\n"
+            "  inputs:\n"
+            "    - name: winevtlog\n"
+            "      channels: Security,System,Application,Microsoft-Windows-Windows Defender/Operational"
+            ",Microsoft-Windows-Sysmon/Operational\n"
+            "      # with PowerShell script block logging on, add: ,Microsoft-Windows-PowerShell/Operational\n"
+            "      ignore_missing_channels: true\n"
+            "      interval_sec: 5\n"
+            "      db: C:\\ProgramData\\fluent-bit\\winevtlog.db\n"
+            "      event_data_as_map: true\n"
+            "      string_inserts: false\n"
+            "  outputs:\n"
+            "    - name: http\n"
+            "      match: '*'\n"
+            f"      host: {host}\n"
+            f"      port: {otlp}\n"
+            "      uri: /ingest/logs\n"
+            "      format: json_lines\n"
+            "      json_date_key: false\n"
+            + ("      header:\n        - Authorization Bearer <ingest_token>\n" if token_set else "")
+            + "\n# As a service, if the installer made none (Command Prompt as administrator):\n"
+            "#   mkdir C:\\ProgramData\\fluent-bit\n"
+            '#   sc.exe create fluent-bit binpath= "\\"C:\\Program Files\\fluent-bit\\bin\\fluent-bit.exe\\"'
+            ' -c \\"C:\\Program Files\\fluent-bit\\conf\\fluent-bit.yaml\\"" start= auto\n'
+            "#   sc.exe start fluent-bit\n"
+            "# Failed logons are only logged when logon auditing is on:\n"
+            '#   auditpol /set /subcategory:"Logon" /success:enable /failure:enable'
+        ),
         "node_exporter": (
             "# In Vigil's options (Configuration tab):\n"
             "scrape_targets:\n"

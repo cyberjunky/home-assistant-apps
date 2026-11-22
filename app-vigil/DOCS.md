@@ -294,6 +294,53 @@ For each target Vigil also records `up` (1 when it answered, 0 when not) and
 `scrape_duration_seconds`, labelled with `job` (the name) and `instance`: a rule *metric
 `up` < 1* tells you when a server or exporter is down.
 
+### Windows: Fluent Bit
+
+Windows keeps its logs in the Event Log, not in syslog. [Fluent Bit](https://fluentbit.io)
+(free, a few MB, no account needed) reads it and sends it to Vigil as JSON lines:
+
+1. Install Fluent Bit with its Windows installer from fluentbit.io.
+2. Copy the **Windows** snippet from **Sources** into
+   `C:\Program Files\fluent-bit\conf\fluent-bit.yaml`. It reads the Security, System,
+   Application, Defender and (when installed) Sysmon logs; `db` remembers how far it got, so
+   nothing is sent twice after a restart.
+3. Run it as a service (the snippet has the commands for Command Prompt as administrator). It
+   must run as the local system account, the default for a service: only that can read the
+   Security log.
+4. Failed logons are only logged when logon auditing is on. Most Windows versions have it; if
+   *Windows: failed logons* stays empty, run
+   `auditpol /set /subcategory:"Logon" /success:enable /failure:enable`.
+
+The computer becomes the **host** and the event log the **app** (`host:pc1 app:Security`). The
+Windows level becomes the severity, and an audit failure is a warning. Every event has
+`attrs.event_id`, and the fields of the event come along: the common ones under short names
+(`attrs.user`, `attrs.source_ip`, `attrs.logon_type`, `attrs.group`, `attrs.service`,
+`attrs.image`, `attrs.command`), the rest as `attrs.data.<Name>`.
+
+Vigil names the events that matter for security, and tags them with the
+[MITRE ATT&CK](https://attack.mitre.org) technique they can be a sign of:
+
+| Event | `attrs.category` | `attrs.mitre` |
+|---|---|---|
+| 4625 failed logon, 4740 account locked out | `logon_failure` | T1110 brute force |
+| 4624 logon, 4648 logon with other credentials | `logon` | T1078 valid accounts |
+| 4720 user created, 4722 enabled, 4724 password reset | `account_change` | T1136.001, T1098 |
+| 4726 user deleted | `account_change` | T1531 |
+| 4728, 4732, 4756 member added to a group | `account_change` | T1098 account manipulation |
+| 1102 Security log cleared, 104 (System) event log cleared | `log_cleared` | T1070.001 |
+| 7045 (System), 4697 service installed | `service_installed` | T1543.003 |
+| 4698 scheduled task created | `task_created` | T1053.005 |
+| 4719 audit policy changed | `policy_change` | T1562.002 |
+| Defender 1116, 1117 malware found and handled | `malware` | |
+| Defender 5001 real-time protection off, 5007 settings changed | `defense_off`, `policy_change` | T1562.001 |
+| PowerShell 4104 script block | `powershell` | T1059.001 |
+| Sysmon 1, 3, 11, 13, 22: process, network connection, file, registry, DNS | `process`, `network`, .. | |
+
+`attrs.event` holds the name (`attrs.event:"failed logon"`), so `attrs.mitre:T*` finds every
+tagged event. **Logs → Examples** has the Windows searches, and **Alerts → Templates** has rules
+for failed logons, user and admin changes, cleared logs and malware. A technique is a hint of
+what an event *can* mean, not proof of an attack: installing software also installs services.
+
 ### Anything else: JSON lines
 
 `POST http://HOME_ASSISTANT_IP:4318/ingest/logs` with one JSON object per line (or a JSON
