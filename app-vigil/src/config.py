@@ -77,6 +77,11 @@ class Config:
     fritzbox_host: str = ""
     fritzbox_user: str = ""
     fritzbox_password: str = field(default="", repr=False)
+    mikrotik_host: str = ""
+    mikrotik_user: str = ""
+    mikrotik_password: str = field(default="", repr=False)
+    mikrotik_port: int = 0  # 0 = the API's default (8728, or 8729 with SSL)
+    mikrotik_ssl: bool = False
     notify_service: str = ""
     logs_retention_days: int = 14
     metrics_retention_days: int = 90
@@ -92,6 +97,7 @@ class Config:
     def from_options(cls, options: dict, environ: dict | None = None) -> "Config":
         env = os.environ if environ is None else environ
         fritz = options.get("fritzbox") if isinstance(options.get("fritzbox"), dict) else {}
+        router = options.get("mikrotik") if isinstance(options.get("mikrotik"), dict) else {}
         targets = []
         seen = set()
         for item in options.get("scrape_targets") or []:
@@ -118,6 +124,11 @@ class Config:
             fritzbox_host=_text(fritz.get("host", options.get("fritzbox_host"))),
             fritzbox_user=_text(fritz.get("user", options.get("fritzbox_user"))),
             fritzbox_password=str(fritz.get("password", options.get("fritzbox_password")) or ""),
+            mikrotik_host=_text(router.get("host")),
+            mikrotik_user=_text(router.get("user")),
+            mikrotik_password=str(router.get("password") or ""),
+            mikrotik_port=_int(router.get("port"), 0, 0, 65535),
+            mikrotik_ssl=bool(router.get("ssl")),
             notify_service=_text(options.get("notify_service")),
             logs_retention_days=_int(options.get("logs_retention_days"), 14, 1, 365),
             metrics_retention_days=_int(options.get("metrics_retention_days"), 90, 1, 1825),

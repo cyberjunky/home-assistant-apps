@@ -5,3 +5,5 @@
 aiohttp>=3.14.5,<4
 asyncpg==0.32.0
 fritzconnection==1.15.1
+# librouteros - MikroTik RouterOS API: CPU, memory, interfaces, DHCP, Wi-Fi (pure Python)
+librouteros==4.2.2

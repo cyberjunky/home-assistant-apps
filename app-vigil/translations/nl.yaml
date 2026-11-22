@@ -42,6 +42,28 @@ configuration:
       password:
         name: Wachtwoord
         description: Het wachtwoord van die gebruiker.
+  mikrotik:
+    name: MikroTik (RouterOS API)
+    description: >-
+      CPU, geheugen, temperatuur, verkeer en status van elke interface, DHCP-leases,
+      Wi-Fi-clients en verbindingen, opgevraagd bij de router via zijn API. Laat het
+      adres leeg om over te slaan. Logs komen via syslog (zie Bronnen).
+    fields:
+      host:
+        name: Adres
+        description: Het IP-adres van de router, zoals 192.168.88.1.
+      user:
+        name: Gebruiker
+        description: Een routergebruiker in een groep met alleen de rechten read en api.
+      password:
+        name: Wachtwoord
+        description: Het wachtwoord van die gebruiker.
+      port:
+        name: Poort
+        description: Leeg voor de standaard (8728, of 8729 met SSL).
+      ssl:
+        name: API-SSL
+        description: Gebruik de SSL-dienst van de API (heeft een certificaat op de router nodig).
   notify_service:
     name: Meldingsdienst
     description: >-
