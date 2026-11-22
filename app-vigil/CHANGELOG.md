@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.1
+
+**After updating:** if you set the FRITZ!Box options, enter them again in their new section
+**FRITZ!Box (TR-064)** on the Configuration tab (address, user, password); the old fields are
+gone from the form.
+
+- **FRITZ!Box options in their own section:** *FRITZ!Box (TR-064)*, instead of three fields that
+  looked like part of the Prometheus targets above them.
+- **Examples:** *Examples* on the Logs page (18 described searches: errors, SSH logins, sudo,
+  firewall blocks, out of memory, disk errors, MikroTik logins, firewall, DHCP and links, switch
+  ports, the FRITZ!Box) and on the Metrics page (10 charts: node_exporter, the FRITZ!Box, MKTXP,
+  exporters up, Vigil itself). One click runs it; a placeholder such as `<host>` is selected to
+  type over.
+- **Documentation:** step-by-step setup for every source: MikroTik (terminal and Winbox,
+  firewall logging, MKTXP), Netgear and other switches, the FRITZ!Box, rsyslog, syslog-ng,
+  Vector, the OpenTelemetry Collector, Prometheus exporters and JSON lines. The Vector and
+  OpenTelemetry Collector examples are checked with those programs.
+
 ## 0.1.0
 
 **After updating:** first release. It needs a database of its own in the Chronicle app (0.3.0 or

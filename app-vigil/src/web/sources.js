@@ -16,7 +16,7 @@ const SETUP_INFO = {
     json_lines: {label: 'JSON lines', text: 'Anything that can POST: one JSON object per line to the ingest port, with the ingest token.'},
     fritzbox: {label: 'FRITZ!Box', text: 'The FRITZ!Box is polled over TR-064: set these options in Vigil\'s configuration. Use a FRITZ!Box user with the "FRITZ!Box settings" permission.'},
 };
-const FRITZ_SNIPPET = 'fritzbox_host: fritz.box\nfritzbox_user: vigil\nfritzbox_password: "…"';
+const FRITZ_SNIPPET = 'fritzbox:\n  host: fritz.box\n  user: vigil\n  password: "…"';
 
 async function showSources() {
     await loadSources();

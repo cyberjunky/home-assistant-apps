@@ -27,17 +27,21 @@ configuration:
     description: >-
       Exporters om metrics van te verzamelen, zoals node_exporter op een server:
       een naam, de volledige URL van de /metrics-pagina en het interval in seconden.
-  fritzbox_host:
-    name: FRITZ!Box
+  fritzbox:
+    name: FRITZ!Box (TR-064)
     description: >-
-      Het adres van de FRITZ!Box (zoals 192.168.178.1) voor de doorvoer van de lijn,
-      de verbindingsstatus en het gebeurtenissenlog. Leeg laten om over te slaan.
-  fritzbox_user:
-    name: FRITZ!Box-gebruiker
-    description: Een FRITZ!Box-gebruiker met het recht om instellingen te lezen.
-  fritzbox_password:
-    name: FRITZ!Box-wachtwoord
-    description: Het wachtwoord van die gebruiker.
+      Doorvoer van de lijn, verbindingsstatus en het gebeurtenissenlog, opgevraagd
+      bij de FRITZ!Box via TR-064. Laat het adres leeg om over te slaan.
+    fields:
+      host:
+        name: Adres
+        description: Het adres van de FRITZ!Box, zoals 192.168.178.1 of fritz.box.
+      user:
+        name: Gebruiker
+        description: Een FRITZ!Box-gebruiker met het recht "FRITZ!Box-instellingen".
+      password:
+        name: Wachtwoord
+        description: Het wachtwoord van die gebruiker.
   notify_service:
     name: Meldingsdienst
     description: >-

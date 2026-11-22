@@ -21,7 +21,7 @@ Home Assistant notifications. It also does the work for you: it groups log lines
 **patterns** and shows the new and spiking ones, draws an **anomaly band** around a metric, and
 answers **"What changed?"** for any moment you pick.
 
-![Overview: log lines, errors, hosts and rules firing, log volume by severity, the busiest hosts and new log patterns](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-vigil/screenshots/overview-dark.webp)
+![Overview: log lines, errors, hosts and rules firing, log volume by severity, the busiest hosts and new log patterns (light theme)](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-vigil/screenshots/overview-light.webp)
 
 <details>
 <summary>More screenshots</summary>
@@ -41,8 +41,8 @@ answers **"What changed?"** for any moment you pick.
 **Alerts** — a rule from a template, tested against the data before saving
 ![Alerts](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-vigil/screenshots/alerts-light.webp)
 
-**Overview, light theme** — follows Home Assistant's light/dark mode
-![Overview in the light theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-vigil/screenshots/overview-light.webp)
+**Overview, dark theme** — follows Home Assistant's light/dark mode
+![Overview in the dark theme](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-vigil/screenshots/overview-dark.webp)
 
 </details>
 
@@ -75,7 +75,7 @@ answers **"What changed?"** for any moment you pick.
 | `database_host`, `database_port`, `database_name`, `database_user` | found / 5432 / vigil / vigil | Only when the database is elsewhere |
 | `ingest_token` | | Required from senders on port 4318 outside your own network |
 | `scrape_targets` | | Prometheus exporters: a name, the URL and the interval |
-| `fritzbox_host`, `fritzbox_user`, `fritzbox_password` | | The FRITZ!Box to collect from |
+| `fritzbox`: `host`, `user`, `password` | | The FRITZ!Box to collect from, in its own section *FRITZ!Box (TR-064)* |
 | `notify_service` | | Where alerts go besides a notification, such as `notify.mobile_app_phone` |
 | `logs_retention_days`, `metrics_retention_days` | 14 / 90 | How long to keep them |
 | `log_level` | `info` | `debug`, `info`, `warning` or `error` |
