@@ -85,6 +85,20 @@ def _id(body: dict, name: str = "id") -> int:
     return value
 
 
+def metric_search(text: str) -> tuple[str, dict]:
+    """The metric picker's search: label=value words filter on a label (job=freqle), the other
+    words are part of the name ("job=freqle cpu" is every freqle metric with cpu in its name).
+    = and not :, because Prometheus names may hold colons (node:cpu:rate5m), never =."""
+    words, labels = [], {}
+    for word in text.split():
+        key, sep, value = word.partition("=")
+        if sep and value and LABEL_KEY.match(key):
+            labels[key] = value
+        else:
+            words.append(word)
+    return " ".join(words), labels
+
+
 def setup_examples(syslog_port: int | None, otlp_port: int | None, token_set: bool) -> dict:
     """Copy-paste configuration for the Sources page (HOME_ASSISTANT_IP is for the page to fill in)."""
     host = HOST_PLACEHOLDER
@@ -142,6 +156,8 @@ def setup_examples(syslog_port: int | None, otlp_port: int | None, token_set: bo
             "      db: C:\\ProgramData\\fluent-bit\\winevtlog.db\n"
             "      event_data_as_map: true\n"
             "      string_inserts: false\n"
+            "      # Leave out 'connection permitted' and 'port bound': thousands an hour when auditing is on\n"
+            "      event_query: '*[System[(EventID!=5156 and EventID!=5158)]]'\n"
             "  outputs:\n"
             "    - name: http\n"
             "      match: '*'\n"
@@ -151,13 +167,16 @@ def setup_examples(syslog_port: int | None, otlp_port: int | None, token_set: bo
             "      format: json_lines\n"
             "      json_date_key: false\n"
             + ("      header:\n        - Authorization Bearer <ingest_token>\n" if token_set else "")
-            + "\n# As a service, if the installer made none (Command Prompt as administrator):\n"
-            "#   mkdir C:\\ProgramData\\fluent-bit\n"
-            '#   sc.exe create fluent-bit binpath= "\\"C:\\Program Files\\fluent-bit\\bin\\fluent-bit.exe\\"'
-            ' -c \\"C:\\Program Files\\fluent-bit\\conf\\fluent-bit.yaml\\"" start= auto\n'
-            "#   sc.exe start fluent-bit\n"
+            + "\n# As a service, if the installer made none (PowerShell as administrator):\n"
+            "#   New-Item -ItemType Directory -Force C:\\ProgramData\\fluent-bit\n"
+            "#   New-Service -Name fluent-bit -StartupType Automatic -BinaryPathName "
+            '\'"C:\\Program Files\\fluent-bit\\bin\\fluent-bit.exe" -c "C:\\Program Files\\fluent-bit\\conf\\fluent-bit.yaml"\'\n'
+            "#   Start-Service fluent-bit\n"
             "# Failed logons are only logged when logon auditing is on:\n"
-            '#   auditpol /set /subcategory:"Logon" /success:enable /failure:enable'
+            '#   auditpol /set /subcategory:"Logon" /success:enable /failure:enable\n'
+            "# Windows should not log every permitted connection (blocked ones stay logged):\n"
+            '#   auditpol /set /subcategory:"Filtering Platform Connection" /success:disable\n'
+            '#   auditpol /set /subcategory:"Filtering Platform Packet Drop" /success:disable'
         ),
         "node_exporter": (
             "# In Vigil's options (Configuration tab):\n"
@@ -397,7 +416,8 @@ class WebUI:
     # ------------------------------------------------------------------ metrics
 
     async def _handle_metric_names(self, request: web.Request) -> web.Response:
-        return _json({"names": await self.database.metric_names(request.query.get("q", "")[:200])})
+        q, labels = metric_search(request.query.get("q", "")[:200])
+        return _json({"names": await self.database.metric_names(q, labels)})
 
     async def _handle_metric_labels(self, request: web.Request) -> web.Response:
         name = request.query.get("name", "")

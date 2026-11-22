@@ -96,6 +96,9 @@ class LogEntry:
     facility: int | None
     message: str
     attrs: dict = field(default_factory=dict)
+    # The text to find the log pattern in, when not the whole message (a Windows event: its
+    # first line, which says what happened; the lines below differ per event)
+    pattern_text: str | None = None
 
 
 @dataclass(slots=True)

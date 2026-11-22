@@ -37,6 +37,23 @@ function metricsHashArg() {
     return qs_.length ? JSON.stringify(qs_) : '';
 }
 
+// From other pages (Sources): the metric list for this search, such as job=freqle
+function openMetricSearch(text) {
+    document.getElementById('metric-search').value = text;
+    metrics.namesQuery = null;
+    switchTab('metrics', metricsHashArg());
+}
+
+// The label=value words of the metric search (job=freqle), as the server reads them
+function searchLabels(text) {
+    const labels = {};
+    for (const word of String(text || '').split(/\s+/)) {
+        const at = word.indexOf('=');
+        if (at > 0 && at < word.length - 1 && /^[A-Za-z0-9_.\-]{1,64}$/.test(word.slice(0, at))) labels[word.slice(0, at)] = word.slice(at + 1);
+    }
+    return labels;
+}
+
 // From other pages (a dashboard panel, What changed?): this query in the explorer
 function openMetrics(queries) {
     metrics.queries = (Array.isArray(queries) ? queries : [queries]).map(normaliseQuery);
@@ -112,7 +129,8 @@ async function pickMetricName(n) {
     const i = Math.min(metrics.active, metrics.queries.length - 1);
     const q = metrics.queries[i];
     q.name = n.name;
-    q.filter = {};
+    // Found with job=freqle: the chart shows freqle's series of it
+    q.filter = searchLabels(document.getElementById('metric-search').value);
     q.group = '';
     q.agg = n.kind === 'counter' ? 'rate' : 'avg';
     await loadLabels(n.name);

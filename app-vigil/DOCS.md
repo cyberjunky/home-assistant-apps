@@ -303,15 +303,19 @@ Windows keeps its logs in the Event Log, not in syslog. [Fluent Bit](https://flu
 2. Copy the **Windows** snippet from **Sources** into
    `C:\Program Files\fluent-bit\conf\fluent-bit.yaml`. It reads the Security, System,
    Application, Defender and (when installed) Sysmon logs; `db` remembers how far it got, so
-   nothing is sent twice after a restart.
-3. Run it as a service (the snippet has the commands for Command Prompt as administrator). It
+   nothing is sent twice after a restart. `event_query` leaves out "connection permitted" and
+   "port bound" (5156, 5158): with network auditing on, Windows writes thousands of those an
+   hour. The snippet also has the `auditpol` lines that stop Windows from writing them.
+3. Run it as a service (the snippet has the commands for PowerShell as administrator). It
    must run as the local system account, the default for a service: only that can read the
    Security log.
 4. Failed logons are only logged when logon auditing is on. Most Windows versions have it; if
    *Windows: failed logons* stays empty, run
    `auditpol /set /subcategory:"Logon" /success:enable /failure:enable`.
 
-The computer becomes the **host** and the event log the **app** (`host:pc1 app:Security`). The
+The computer becomes the **host** and the event log the **app** (`host:pc1 app:Security`).
+**Patterns** groups Windows events by their first line, which says what happened ("An account
+failed to log on."), so each kind of event is one pattern. The
 Windows level becomes the severity, and an audit failure is a warning. Every event has
 `attrs.event_id`, and the fields of the event come along: the common ones under short names
 (`attrs.user`, `attrs.source_ip`, `attrs.logon_type`, `attrs.group`, `attrs.service`,

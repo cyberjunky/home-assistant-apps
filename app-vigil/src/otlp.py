@@ -240,6 +240,7 @@ def _windows_entry(item: dict, now: datetime) -> LogEntry:
         facility=None,
         message=fields["message"][:MAX_MESSAGE],
         attrs=_attrs(fields["attrs"]),
+        pattern_text=fields["pattern_text"],
     )
 
 

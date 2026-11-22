@@ -66,9 +66,13 @@ function renderSources() {
                 const age = x.last_seen ? Date.now() / 1000 - x.last_seen : Infinity;
                 const state = age < 300 ? 'ok' : age < 3600 ? 'warn' : 'bad';
                 const logsLink = ['syslog', 'otlp', 'json', 'fritzbox'].includes(x.kind) && (x.host || x.name);
+                // A scrape target's series carry job=<its name>; the MikroTik ones are named mktxp_*
+                const metricSearch = x.kind === 'scrape' ? `job=${x.name}` : x.kind === 'mikrotik' ? 'mktxp_' : '';
                 return `<tr>
                     <td><span class="badge muted-badge">${escapeHtml(x.kind)}</span></td>
-                    <td>${logsLink ? `<button type="button" class="cell-link" data-host="${escapeHtml(x.host || x.name)}" title="Show its logs">${escapeHtml(x.name)}</button>` : `<b>${escapeHtml(x.name)}</b>`}</td>
+                    <td>${logsLink ? `<button type="button" class="cell-link" data-host="${escapeHtml(x.host || x.name)}" title="Show its logs">${escapeHtml(x.name)}</button>`
+                        : metricSearch ? `<button type="button" class="cell-link" data-metrics="${escapeHtml(metricSearch)}" title="Show its metrics">${escapeHtml(x.name)}</button>`
+                        : `<b>${escapeHtml(x.name)}</b>`}</td>
                     <td class="mono">${escapeHtml(x.host || '–')}</td>
                     <td><span class="state ${state}" title="${escapeHtml(x.last_seen ? fmtDateTime(x.last_seen) : '')}">${escapeHtml(fmtAgo(x.last_seen))}</span></td>
                     <td class="n">${missing(x.rate_per_min) ? '–' : `${fmtValue(x.rate_per_min)}<small class="muted"> /min</small>`}</td>
@@ -78,6 +82,8 @@ function renderSources() {
                 </tr>`;
             }).join('')}</tbody></table>`;
         table.onclick = (e) => {
+            const m = e.target.closest('[data-metrics]');
+            if (m) return openMetricSearch(m.dataset.metrics);
             const b = e.target.closest('[data-host]');
             if (b) openLogs(`host:${queryValue(b.dataset.host)}`);
         };

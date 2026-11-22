@@ -83,3 +83,12 @@ def test_unterminated_quote_takes_the_rest():
 def test_too_many_terms():
     with pytest.raises(QueryError):
         to_where(" ".join(f"w{i}" for i in range(40)))
+
+
+def test_metric_search_labels():
+    from src.webui import metric_search
+
+    assert metric_search("job=freqle") == ("", {"job": "freqle"})
+    assert metric_search("job=freqle  cpu seconds") == ("cpu seconds", {"job": "freqle"})
+    assert metric_search("node:cpu:rate5m") == ("node:cpu:rate5m", {})  # Prometheus names may hold colons
+    assert metric_search("=x a= ") == ("=x a=", {})

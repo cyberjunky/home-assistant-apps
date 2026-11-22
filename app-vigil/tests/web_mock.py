@@ -363,7 +363,7 @@ def build_series(now: float) -> None:
     for inst in ("freqle:9100", "nas:9100"):
         add_series(
             "node_load1",
-            {"instance": inst, "job": "node"},
+            {"instance": inst, "job": "node-" + inst.split(":")[0]},
             "",
             "gauge",
             lambda t, k=len(inst): 0.6 + 0.4 * diurnal(t, 14) + k / 40,
@@ -371,7 +371,7 @@ def build_series(now: float) -> None:
         )
         add_series(
             "node_memory_MemAvailable_bytes",
-            {"instance": inst, "job": "node"},
+            {"instance": inst, "job": "node-" + inst.split(":")[0]},
             "bytes",
             "gauge",
             lambda t: 6.2e9 - 1e9 * diurnal(t),
@@ -380,7 +380,7 @@ def build_series(now: float) -> None:
         for mode in ("user", "system", "iowait"):
             add_series(
                 "node_cpu_seconds_total",
-                {"instance": inst, "job": "node", "mode": mode},
+                {"instance": inst, "job": "node-" + inst.split(":")[0], "mode": mode},
                 "s",
                 "counter",
                 lambda t, m=mode: {"user": 0.8, "system": 0.3, "iowait": 0.05}[m] * (1.2 + diurnal(t, 14)),
@@ -944,10 +944,15 @@ async def patterns(request):
 
 
 async def metric_names(request):
-    q = request.query.get("q", "").lower()
+    # As the server: label=value words filter on labels, the rest is part of the name
+    words = request.query.get("q", "").split()
+    labels = dict(w.split("=", 1) for w in words if "=" in w.strip("="))
+    q = " ".join(w for w in words if "=" not in w.strip("=")).lower()
     names: dict = {}
     for s in SERIES:
         if q and q not in s["name"].lower():
+            continue
+        if any(s.get("labels", {}).get(k) != v for k, v in labels.items()):
             continue
         n = names.setdefault(s["name"], {"name": s["name"], "series": 0, "unit": s["unit"], "kind": s["kind"]})
         n["series"] += 1

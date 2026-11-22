@@ -176,11 +176,15 @@ def windows_fields(item: dict) -> dict:
     if not isinstance(message, str) or not message.strip():
         label = known[0] if known else f"event {event_id}"
         message = f"{label} ({provider or channel})"
+    message = message.strip()
     return {
         "ts": _time(item.get("TimeCreated")),
         "host": item.get("Computer") if isinstance(item.get("Computer"), str) else None,
         "app": channel or None,
         "severity": severity,
-        "message": message.strip(),
+        "message": message,
+        # One pattern per kind of event: the first line says what happened ("An account failed
+        # to log on."), the lines below hold this event's details
+        "pattern_text": message.splitlines()[0].strip(),
         "attrs": {k: v for k, v in attrs.items() if v is not None},
     }

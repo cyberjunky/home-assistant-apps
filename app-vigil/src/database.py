@@ -877,12 +877,14 @@ class Database:
 
     # ------------------------------------------------------------------ metrics
 
-    async def metric_names(self, q: str = "") -> list[dict]:
+    async def metric_names(self, q: str = "", labels: dict | None = None) -> list[dict]:
+        """Metric names containing q, counting only the series with these labels (job=freqle)."""
         pattern = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         rows = await self.fetch(
             """SELECT name, count(*) AS series, max(unit) AS unit, max(kind) AS kind FROM vigil.series
-               WHERE name ILIKE $1 GROUP BY name ORDER BY name LIMIT 1000""",
+               WHERE name ILIKE $1 AND labels @> $2::jsonb GROUP BY name ORDER BY name LIMIT 1000""",
             pattern,
+            _dumps(labels or {}),
         )
         return [dict(r) for r in rows]
 
@@ -1442,7 +1444,7 @@ class Writer:
                     # A sender with a wrong clock: keep the line, at the time it arrived
                     item.attrs["original_ts"] = item.ts.isoformat()
                     item.ts = now
-                match = self.miner.match(item.message)
+                match = self.miner.match(_clean(item.pattern_text) or item.message)
                 if match.renamed_from:
                     renames.append((match.renamed_from, match.template))
                 logs.append(item)
