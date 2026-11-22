@@ -27,7 +27,7 @@ fonts, the background and the accent colour; give a block its own colour.
 <details>
 <summary>More screenshots</summary>
 
-![Design mode: drag entities from the drawer onto the page](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-dashboard/screenshots/design-light.webp)
+![Design mode: a block's settings, with the search to add entities to it](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-dashboard/screenshots/design-light.webp)
 
 ![Thermostat, temperatures, the forecast and cameras](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-dashboard/screenshots/home-light.webp)
 

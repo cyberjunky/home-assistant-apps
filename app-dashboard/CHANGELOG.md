@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+
+**After updating:** nothing to do.
+
+- **Search to add:** a block's settings have a search for entities to add to it. It shows only what that block takes; click one, or press Enter for the first, to add it. Dragging still works.
+- The screenshots show the white background.
+
 ## 0.1.0
 
 First version.

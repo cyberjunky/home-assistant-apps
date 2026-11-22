@@ -239,6 +239,8 @@ svg.ic .f { fill: currentColor; stroke: none; }
 .d-ent small { display: block; color: var(--muted); font-size: 11px; }
 .d-ent > span { color: var(--muted); white-space: nowrap; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
 .d-ent.row-only { cursor: default; }
+#d-add { margin-top: 6px; }
+#d-add .d-ent { cursor: pointer; }
 .d-ent .x { color: var(--muted); padding: 2px 4px; }
 .d-ent .x:hover { color: var(--accent); }
 .d-ent svg.ic { width: 14px; height: 14px; }
