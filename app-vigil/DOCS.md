@@ -32,7 +32,7 @@ that the database and login are both named as in the options.
 | `ingest_token` | | The token for OpenTelemetry and JSON on port 4318 (see *Ingest port*) |
 | `scrape_targets` | | Prometheus exporters: `name`, `url` of its `/metrics`, `interval` in seconds (10-3600, default 60) |
 | `fritzbox` (*FRITZ!Box (TR-064)*): `host`, `user`, `password` | | The FRITZ!Box to collect from; an empty address = off |
-| `notify_service` | | Where alerts go besides a Home Assistant notification, such as `notify.mobile_app_phone` |
+| `notify_service` | | Where alerts go besides a Home Assistant notification: any action that takes a title and a message, such as `notify.mobile_app_phone` or `telegram_bot.send_message` |
 | `logs_retention_days` | 14 | How long logs are kept (1-365) |
 | `metrics_retention_days` | 90 | How long metrics are kept (1-1825) |
 | `log_level` | `info` | The app's own logging |

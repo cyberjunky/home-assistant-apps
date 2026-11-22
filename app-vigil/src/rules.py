@@ -250,7 +250,8 @@ class HomeAssistant:
             await self._post("services/persistent_notification/dismiss", {"notification_id": notification_id})
         target = self.config.notify_target
         if target:
-            await self._post(f"services/notify/{target}", {"title": f"Vigil: {rule['name']}", "message": message})
+            domain, action = target
+            await self._post(f"services/{domain}/{action}", {"title": f"Vigil: {rule['name']}", "message": message})
 
     async def dismiss(self, rule_id: int) -> None:
         await self._post("services/persistent_notification/dismiss", {"notification_id": f"vigil_rule_{rule_id}"})
