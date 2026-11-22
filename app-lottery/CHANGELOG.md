@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+
+**After updating:** nothing to do.
+
+- Miners that don't answer share one short line on the Draw page; hover a name for the error.
+- The app no longer calls itself unofficial.
+
 ## 0.1.0
 
 The first version.
