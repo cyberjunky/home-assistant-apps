@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- The top bar is as high as Home Assistant's own header (its --header-height, 56px by default) -->
+    <script>try{const h=getComputedStyle(window.parent.document.documentElement).getPropertyValue('--header-height').trim();if(h)document.documentElement.style.setProperty('--ha-header-height',h);}catch(e){}</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lottery</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f7931a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a3 3 0 0 0 0 6v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a3 3 0 0 0 0-6Z'/%3E%3Cpath d='M10 9h3a1.5 1.5 0 0 1 0 3h-3V9Zm0 3h3.5a1.5 1.5 0 0 1 0 3H10v-3Z'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="static/app.css?v=__VERSION__"/>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a3 3 0 0 0 0 6v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a3 3 0 0 0 0-6Z"/><path d="M10 9h3a1.5 1.5 0 0 1 0 3h-3V9Zm0 3h3.5a1.5 1.5 0 0 1 0 3H10v-3Z"/></svg>
+            <span class="brand-name">LOTTERY</span>
+        </div>
+        <nav class="tabs" id="nav" aria-label="Views">
+            <button type="button" class="tab" data-tab="overview" onclick="switchTab('overview')">Draw</button>
+            <span id="miner-tabs" class="miner-tabs"></span>
+            <span class="tab-sep" aria-hidden="true"></span>
+            <button type="button" class="tab" data-tab="info" onclick="switchTab('info')" title="Info"><span class="tab-label">Info</span><span class="tab-icon" aria-hidden="true">ⓘ</span></button>
+        </nav>
+        <span class="spacer"></span>
+        <div class="tabs" role="group" aria-label="Theme">
+            <button type="button" id="theme-toggle" class="tab icon-tab" onclick="cycleTheme()" title="Theme"><span id="theme-icon" aria-hidden="true">🌓</span></button>
+        </div>
+        <span id="clock" class="clock"></span>
+    </header>
+
+    <div class="views">
+        <div class="pages" id="pages">
+            <div class="container">
+                <!-- The draw: all miners together, your odds first -->
+                <div id="tab-overview" class="tab-content">
+                    <div id="ov-notices"></div>
+                    <div class="draw">
+                        <div class="panel draw-gauge"><div class="panel-body">
+                            <div class="chart-title"><span>Your best share against a block</span><span class="hint" id="ov-gauge-hint"></span></div>
+                            <div id="ov-gauge"></div>
+                        </div></div>
+                        <div class="draw-odds" id="ov-odds"></div>
+                    </div>
+                    <div class="tiles draw-facts" id="ov-facts"></div>
+                    <div class="panel"><div class="panel-body">
+                        <div class="chart-title"><span>Your tickets</span><span class="hint">each miner's part of the chance; pause and resume with its Mining switch in Home Assistant</span></div>
+                        <div id="ov-tickets"></div>
+                    </div></div>
+                    <div class="dash-grid wide-left">
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Hash rate</span><span class="tabs" role="group" aria-label="Period" id="ov-range"></span></div>
+                            <div id="ov-rate" class="chart"></div>
+                            <div class="legend" id="ov-rate-legend"></div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Closest tickets</span><span class="hint">the best shares, ever</span></div>
+                            <div id="ov-bests" class="table-wrap"></div>
+                        </div></div>
+                    </div>
+                    <div class="dash-grid">
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Best share per day</span><span class="hint" id="ov-days-hint">against the network difficulty, log scale</span></div>
+                            <div id="ov-days" class="chart"></div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>What happened</span></div>
+                            <div id="ov-events" class="events"></div>
+                        </div></div>
+                    </div>
+                </div>
+
+                <!-- One miner: the same page for each, filled for the miner that is open -->
+                <div id="tab-miner" class="tab-content">
+                    <div id="m-head" class="miner-head"></div>
+                    <div class="miner-hero">
+                        <div class="panel"><div class="panel-body" id="m-rate"></div></div>
+                        <div class="tiles miner-odds" id="m-odds"></div>
+                    </div>
+                    <div class="tiles stat-tiles" id="m-stats"></div>
+                    <div class="panel" id="m-chips-panel"><div class="panel-body">
+                        <div class="chart-title"><span>ASICs</span><span class="hint" id="m-chips-hint"></span></div>
+                        <div id="m-chips" class="chips-grid"></div>
+                    </div></div>
+                    <div class="panel"><div class="panel-body">
+                        <div class="chart-title"><span>History</span><span class="filters-inline"><span class="tabs" role="group" aria-label="Show" id="m-chart-kind"></span> <span class="tabs" role="group" aria-label="Period" id="m-range"></span></span></div>
+                        <div id="m-chart" class="chart"></div>
+                        <div class="legend" id="m-chart-legend"></div>
+                    </div></div>
+                    <div class="dash-grid">
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Closest tickets</span><span class="hint">this miner's best shares</span></div>
+                            <div id="m-bests" class="table-wrap"></div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>What happened</span></div>
+                            <div id="m-events" class="events"></div>
+                        </div></div>
+                    </div>
+                    <div class="panel"><div class="panel-body">
+                        <div class="chart-title"><span>Details</span><span class="hint">as the miner reports them</span></div>
+                        <div id="m-details" class="info-grid"></div>
+                    </div></div>
+                </div>
+
+                <!-- Info: the miners, the sensors, the data -->
+                <div id="tab-info" class="tab-content">
+                    <div class="dash-stack">
+                        <div class="panel"><div class="panel-body"><div class="section-title">Miners</div><div id="set-miners" class="table-wrap"></div>
+                            <p class="panel-sub" style="margin-top:8px">Add or change miners under Miners in the app's configuration.</p></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">How the odds are worked out</div><div id="set-odds"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">In Home Assistant</div><div id="set-mqtt"></div><div id="set-entities"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Data</div><div id="set-data"></div>
+                            <div class="detail-actions" style="margin-top:12px"><a class="btn" href="api/backup" download>Database backup</a></div>
+                            <p class="panel-sub" style="margin-top:8px">The readings, best shares, days and events this app kept. Your options aren't in it.</p>
+                            <div class="danger-zone">
+                                <div class="section-title">Danger zone</div>
+                                <p class="panel-sub">Deletes the history and the counters this app kept: the work done, the energy, the best shares. Nothing on the miners is touched. Download a backup first if you may want them back.</p>
+                                <button type="button" class="btn btn-danger" onclick="deleteAllData()">Delete the app's history</button>
+                            </div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">About</div><div id="set-about"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Donate</div>
+                            <div class="panel-sub" style="margin-bottom:12px">This app is free and open source. If it's useful to you, please consider supporting its development.</div>
+                            <div class="detail-actions">
+                                <a class="btn btn-primary" href="https://www.paypal.me/cyberjunkynl/" target="_blank" rel="noopener">Donate via PayPal</a>
+                                <a class="btn" href="https://github.com/sponsors/cyberjunky" target="_blank" rel="noopener">Sponsor on GitHub</a>
+                            </div>
+                        </div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="statusbar" id="statusbar"></footer>
+    <div id="toast-root"></div>
+    <div id="modal-root"></div>
+
+    <script src="static/core.js?v=__VERSION__"></script>
+    <script src="static/charts.js?v=__VERSION__"></script>
+    <script src="static/overview.js?v=__VERSION__"></script>
+    <script src="static/miner.js?v=__VERSION__"></script>
+    <script src="static/info.js?v=__VERSION__"></script>
+    <script src="static/main.js?v=__VERSION__"></script>
+    <script src="static/donate.js?v=__VERSION__" data-app="Lottery" data-api="api/donate"></script>
+</body>
+</html>
