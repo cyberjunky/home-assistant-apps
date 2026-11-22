@@ -115,7 +115,9 @@ class WebUI:
     async def _history(self, request: web.Request) -> web.Response:
         hours = self._int(request, "hours", 24, 1, MAX_HOURS)
         end = int(time.time())
-        result = await asyncio.to_thread(self.database.history, end - hours * 3600, end, self._miner_arg(request))
+        slug = self._miner_arg(request)
+        result = await asyncio.to_thread(self.database.history, end - hours * 3600, end, slug)
+        add_recent(result, [self.miners[slug]] if slug else list(self.miners.values()))
         return web.json_response(result)
 
     async def _bests(self, request: web.Request) -> web.Response:
@@ -192,6 +194,22 @@ class WebUI:
             return response
         finally:
             path.unlink(missing_ok=True)
+
+
+def add_recent(history: dict, miners: list[Miner]) -> None:
+    """Add each miner's readings since its last full bucket, so the charts are up to the last reading."""
+    rows = history["rows"]
+    for miner in miners:
+        own = [row for row in rows if row["miner"] == miner.slug]
+        recent = [point for point in miner.recent if point["ts"] >= history["start"]]
+        if own and recent and recent[0]["ts"] <= own[-1]["ts"]:
+            # The newest bucket is still filling and the readings cover all of it: they show it better
+            rows.remove(own[-1])
+            cut = own[-1]["ts"]
+        else:
+            cut = own[-1]["ts"] + 1 if own else history["start"]
+        rows.extend({"miner": miner.slug, **point} for point in recent if point["ts"] >= cut)
+    rows.sort(key=lambda row: row["ts"])
 
 
 def _entity_row(topic: str, payload: dict) -> dict:

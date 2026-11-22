@@ -280,7 +280,8 @@ function legendHtml(items) {
 // Date labels for a time axis: hours within a day, days within months, months beyond
 function timeAxisTicks(x0, x1, count) {
     const span = x1 - x0;
-    const fmt = span <= 2 * 86400 ? fmtTime : span <= 120 * 86400 ? fmtDay
+    const fmt = span <= 900 ? (t => new Date(t * 1000).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'}))
+        : span <= 2 * 86400 ? fmtTime : span <= 120 * 86400 ? fmtDay
         : (t => new Date(t * 1000).toLocaleDateString([], {month: 'short', year: '2-digit'}));
     return timeTicks([x0, x1], count, fmt);
 }

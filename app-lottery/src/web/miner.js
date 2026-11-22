@@ -28,6 +28,7 @@ onTab('miner', (changed) => {
 }, () => {
     renderMiner();
     if (Date.now() - minerPage.loadedAt > 60000) loadMinerData();
+    else loadMinerHistory();
 });
 
 async function loadMinerData() {

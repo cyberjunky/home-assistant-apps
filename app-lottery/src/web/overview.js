@@ -11,8 +11,9 @@ onTab('overview', () => {
     loadOverviewData();
 }, () => {
     renderOverview();
-    // The slower data every minute
+    // The slower data every minute; the hash rate with every update
     if (Date.now() - overview.loadedAt > 60000) loadOverviewData();
+    else loadOverviewHistory();
 });
 
 async function loadOverviewData() {
@@ -150,7 +151,7 @@ function renderRateChart() {
     const series = miners().map(m => {
         const values = new Array(xs.length).fill(null);
         h.rows.filter(r => r.miner === m.slug).forEach(r => { values[index.get(r.ts)] = r.hashrate; });
-        return {name: m.name, color: minerColor(m.slug), values, area: true, areaOpacity: 0.08};
+        return {name: m.name, color: minerColor(m.slug), values: holdBetween(xs, values, Math.max(90, 2 * h.bucket)), area: true, areaOpacity: 0.08};
     });
     if (series.length > 1) {
         const total = xs.map((_, i) => series.some(s => !missing(s.values[i])) ? series.reduce((a, s) => a + (s.values[i] || 0), 0) : null);
@@ -176,6 +177,19 @@ function renderOverviewLists() {
         ? overview.events.map(e => eventHtml(e, true)).join('')
         : '<div class="empty-state">Nothing yet</div>';
     renderDaysChart(document.getElementById('ov-days'), overview.days, null);
+}
+
+// The miners are read at different moments: between two of its own readings a miner keeps its last
+// value, so the lines don't break at the other miners' readings. A longer silence stays a gap.
+function holdBetween(xs, values, maxGap) {
+    const out = values.slice();
+    let last = null;
+    values.forEach((v, i) => {
+        if (!missing(v)) { last = i; return; }
+        const next = values.findIndex((w, j) => j > i && !missing(w));
+        if (last !== null && next !== -1 && xs[next] - xs[last] <= maxGap) out[i] = values[last];
+    });
+    return out;
 }
 
 // Each miner's best share per day as dots, the network difficulty as a line, on a log scale

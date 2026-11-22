@@ -360,3 +360,36 @@ async def test_web_api(database, monkeypatch, tmp_path):
         assert done.status == 200 and database.events() == []
         page = await (await client.get("/")).text()
         assert "__VERSION__" not in page
+
+
+# --- the charts up to the last reading ---------------------------------------------------------
+
+
+def test_short_history_gets_fine_buckets(database):
+    now = int(time.time())
+    for ts in range(now - 1200, now, 60):
+        database.add_sample(ts, "a", {"hashrate": 1000})
+    history = database.history(now - 86400, now)
+    # 20 minutes of samples: minute buckets, not the 4 minutes a full day gets
+    assert history["bucket"] == 60 and len(history["rows"]) >= 19
+
+
+async def test_history_ends_with_the_latest_readings(database, monkeypatch, tmp_path):
+    monkeypatch.setattr("src.webui.DATA_DIR", tmp_path)
+    fake = Fake("lv08")
+    server = await served(fake)
+    miner = Miner(MinerConfig("Lucky LV08", "lucky_lv08", f"127.0.0.1:{server.port}"), 5, database)
+    try:
+        async with aiohttp.ClientSession() as session:
+            for _ in range(3):
+                await miner.poll(session)
+                miner._last_poll -= 5
+        assert len(miner.recent) == 3
+        web = WebUI(0, Config(), database, [miner], Network(False, [miner]))
+        async with TestClient(TestServer(web.app)) as client:
+            history = await (await client.get("/api/history?hours=24")).json()
+        # The minute sample in the database, then the readings after it
+        assert len(history["rows"]) >= 2
+        assert history["rows"][-1]["hashrate"] == miner.values["hashrate"]
+    finally:
+        await server.close()

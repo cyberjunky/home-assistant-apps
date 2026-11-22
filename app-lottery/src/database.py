@@ -128,12 +128,17 @@ class Database:
 
     # --- reads --------------------------------------------------------
     def history(self, start: int, end: int, miner: str | None = None, points: int = 360) -> dict:
-        """Averages per time bucket, at most about `points` per miner, oldest first."""
-        bucket = max(60, (end - start) // max(1, points) // 60 * 60)
+        """Averages per time bucket, at most about `points` per miner, oldest first.
+
+        The buckets cover the time there are samples for, so a short history isn't averaged as coarsely
+        as a full one."""
         where, params = "ts >= ? AND ts <= ?", [start, end]
         if miner:
             where += " AND miner = ?"
             params.append(miner)
+        first = self._read(f"SELECT MIN(ts) AS ts FROM samples WHERE {where}", tuple(params))[0]["ts"]
+        span = end - max(start, first or start)
+        bucket = max(60, span // max(1, points) // 60 * 60)
         columns = ", ".join(f"AVG({column}) AS {column}" for column in SAMPLE_COLUMNS)
         rows = self._read(
             f"SELECT miner, (ts / {bucket}) * {bucket} AS ts, {columns} FROM samples WHERE {where}"

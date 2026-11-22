@@ -16,6 +16,7 @@ import json
 import logging
 import math
 import time
+from collections import deque
 
 import aiohttp
 
@@ -27,6 +28,8 @@ logger = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT = 10
 SAMPLE_SECONDS = 60
+# Every reading of the last hour, for the charts between the minute samples
+RECENT_SECONDS = 3600
 SAVE_SECONDS = 60
 # A poll later than this many poll intervals is a gap: no work or energy is counted over it
 GAP_POLLS = 3
@@ -222,6 +225,7 @@ class Miner:
         self._wake = asyncio.Event()
         self._last_poll: float | None = None
         self._last_sample = 0.0
+        self.recent: deque[dict] = deque()
         self._last_save = 0.0
         self._load()
 
@@ -462,11 +466,14 @@ class Miner:
             )
             if key in v
         }
+        sample = {key: v.get(key) for key in ("hashrate", "power", "temp", "vr_temp")}
+        sample["fan"] = v.get("fan_speed")
+        sample["mining"] = None if mining is None else int(mining)
+        self.recent.append({"ts": int(now), **sample})
+        while self.recent and self.recent[0]["ts"] < now - RECENT_SECONDS:
+            self.recent.popleft()
         if now - self._last_sample >= SAMPLE_SECONDS:
             self._last_sample = now
-            sample = dict(v)
-            sample["fan"] = v.get("fan_speed")
-            sample["mining"] = None if mining is None else int(mining)
             self.database.add_sample(int(now), self.slug, sample)
         if now - self._last_save >= SAVE_SECONDS:
             self._last_save = now
