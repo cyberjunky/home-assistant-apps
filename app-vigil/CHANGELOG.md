@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.6
+
+**After updating:** nothing to do. To collect a Windows PC's event logs, install Fluent Bit on
+it and copy the configuration from **Sources → Windows** (see the documentation).
+
+- **Windows event logs:** Fluent Bit sends the Security, System, Application, Defender and
+  Sysmon logs to Vigil. The computer becomes the host and the event log the app, Windows' levels
+  become severities, and the event's fields can be searched (`attrs.event_id:4625`,
+  `attrs.user`, `attrs.source_ip`, ..).
+- **Security events named and tagged:** failed logons, lockouts, new users and admins, cleared
+  logs, new services and tasks, Defender detections and more get a name, a category and the
+  MITRE ATT&CK technique they can be a sign of (`attrs.mitre:T1110`).
+- **Windows examples and alert templates:** 11 example searches on the Logs page, and rule
+  templates for failed logons, user and admin changes, cleared logs and malware.
+
 ## 0.1.5
 
 **After updating:** nothing to do.
