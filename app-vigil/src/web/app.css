@@ -508,6 +508,9 @@ td.nowrap { white-space: nowrap; }
 .form-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; margin: 6px 0; }
 .form-row > span:first-child { min-width: 120px; color: var(--secondary-text-color); }
 .form-row .input, .form-row .select { flex: 1; min-width: 160px; }
+.label-picks { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.label-pick-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.label-pick-row > span:first-child { min-width: 70px; }
 .form-row .input[type="number"] { flex: 0 0 110px; min-width: 0; }
 .modal.wide { width: min(720px, 100%); }
 .copy-tables { display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow: auto; padding: 6px 8px; border: var(--card-border); border-radius: 4px; }

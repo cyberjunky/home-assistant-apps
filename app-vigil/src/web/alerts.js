@@ -149,8 +149,10 @@ const RULE_TEMPLATES = [
     {key: 'win-malware', label: 'Windows malware', make: async () => ({name: 'Windows: Defender found malware', kind: 'log_count', query: {q: 'attrs.category:malware', window: 300}, condition: {op: '>', threshold: 0}, for_seconds: 0, severity: 'critical'})},
     {key: 'patterns', label: 'New log patterns', make: async () => ({name: 'New log patterns', kind: 'pattern_new', query: {q: '', window: 3600}, condition: {op: '>', threshold: 0}, for_seconds: 0, severity: 'info'})},
     {key: 'cpu', label: 'Router CPU > 85 %', make: async () => {
+        // MikroTik's CPU load in % (the MikroTik options or MKTXP); empty when there is none,
+        // rather than some other metric with cpu in its name (a counter of CPU seconds)
         let name = '';
-        try { const n = await api('metrics/names?' + qs({q: 'cpu'})); name = ((n.names || [])[0] || {}).name || ''; } catch (e) { /* the user fills it in */ }
+        try { const n = await api('metrics/names?' + qs({q: 'mktxp_system_cpu_load'})); name = (n.names || []).some(x => x.name === 'mktxp_system_cpu_load') ? 'mktxp_system_cpu_load' : ''; } catch (e) { /* the user fills it in */ }
         return {name: 'Router CPU > 85 %', kind: 'metric', query: {name, filter: {}, agg: 'avg', window: 300}, condition: {op: '>', threshold: 85}, for_seconds: 300, severity: 'warning'};
     }},
 ];
@@ -187,7 +189,8 @@ function openRuleEditor(rule) {
                     <label class="action-check"><input type="radio" name="re-target" value="metric"${r.query.name ? ' checked' : ''}> a metric</label></div>
                 <div class="form-row" data-kinds="log_count pattern_new absence:logs"><span>Log search</span><input type="text" class="input mono" id="re-q" value="${escapeHtml(r.query.q || '')}" placeholder='e.g. severity:<=err host:mikrotik' spellcheck="false"></div>
                 <div class="form-row" data-kinds="metric anomaly absence:metric"><span>Metric</span><input type="text" class="input mono" id="re-metric" list="metric-name-options" value="${escapeHtml(r.query.name || '')}" spellcheck="false" autocomplete="off"></div>
-                <div class="form-row" data-kinds="metric anomaly absence:metric"><span>Label filter</span><input type="text" class="input mono" id="re-filter" value="${escapeHtml(filterText(r.query.filter))}" placeholder="interface=ether1, host=freqle" spellcheck="false"></div>
+                <div class="form-row" data-kinds="metric anomaly absence:metric"><span>Label filter</span><input type="text" class="input mono" id="re-filter" value="${escapeHtml(filterText(r.query.filter))}" placeholder="empty: all series together" spellcheck="false"></div>
+                <div class="form-row" data-kinds="metric anomaly absence:metric"><span></span><div id="re-labels" class="label-picks"></div></div>
                 <div class="form-row" data-kinds="metric"><span>Aggregation</span><select class="select" id="re-agg">${opt(METRIC_AGGS, r.query.agg || 'avg')}</select></div>
                 <div class="form-row" data-kinds="log_count metric pattern_new"><span>Window</span><select class="select" id="re-window">${opt(RULE_WINDOWS, r.query.window || 300, fmtDuration)}</select></div>
             </div>
@@ -226,8 +229,58 @@ function openRuleEditor(rule) {
     };
     overlay.querySelectorAll('input[name="re-target"]').forEach(i => { i.onchange = sync; });
     overlay.querySelector('#re-test').onclick = () => testRule(r);
+    // Which devices the metric has: its labels and their values, a click puts one in the filter
+    let labelsTimer = null;
+    overlay.querySelector('#re-metric').addEventListener('input', () => {
+        clearTimeout(labelsTimer);
+        labelsTimer = setTimeout(() => renderRuleLabels(overlay), 300);
+    });
+    overlay.querySelector('#re-metric').addEventListener('change', () => renderRuleLabels(overlay));
+    overlay.querySelector('#re-filter').addEventListener('input', () => renderRuleLabels(overlay));
+    overlay.querySelector('#re-labels').onclick = (e) => {
+        const b = e.target.closest('[data-label]');
+        if (!b) return;
+        const input = overlay.querySelector('#re-filter');
+        let filter = {};
+        try { filter = parseFilterText(input.value); } catch (err) { /* replaced below */ }
+        if (filter[b.dataset.label] === b.dataset.value) delete filter[b.dataset.label];
+        else filter[b.dataset.label] = b.dataset.value;
+        input.value = filterText(filter);
+        renderRuleLabels(overlay);
+    };
+    renderRuleLabels(overlay);
     sync();
     if (!metrics.names.length) loadMetricNames('').then(() => renderNameOptions());
+}
+
+// The label picker under a metric rule's filter: every label of the metric with its values
+const MAX_LABEL_VALUES = 24;
+async function renderRuleLabels(overlay) {
+    const el = overlay.querySelector('#re-labels');
+    const name = overlay.querySelector('#re-metric').value.trim();
+    if (!name) { el.dataset.drawn = ''; el.innerHTML = '<span class="muted">Pick a metric to see its devices and labels</span>'; return; }
+    await loadLabels(name);
+    if (overlay.querySelector('#re-metric').value.trim() !== name) return;  // typed on meanwhile
+    const labels = metrics.labels[name] || {};
+    let filter = {};
+    try { filter = parseFilterText(overlay.querySelector('#re-filter').value); } catch (e) { /* shown on save */ }
+    // Only when something changed: leaving the metric field (on the way to a click here) must
+    // not replace the button being clicked
+    const drawn = `${name}|${filterText(filter)}`;
+    if (el.dataset.drawn === drawn) return;
+    el.dataset.drawn = drawn;
+    const keys = Object.keys(labels).filter(k => (labels[k] || []).length);
+    if (!keys.length) { el.innerHTML = '<span class="muted">No series of this metric yet: is the name right?</span>'; return; }
+    const known = metrics.names.find(n => n.name === name);
+    const empty = !Object.keys(filter).length;
+    el.innerHTML = `<div class="muted">${empty
+        ? `No filter: the rule takes all ${known ? num(known.series) + ' ' : ''}series of this metric together. Click a value to watch only that one.`
+        : 'Only the series with the highlighted values. Click one again to remove it.'}</div>
+        ${keys.map(k => {
+            const values = labels[k];
+            return `<div class="label-pick-row"><span class="mono muted">${escapeHtml(k)}</span>${values.slice(0, MAX_LABEL_VALUES).map(v =>
+                `<button type="button" class="btn btn-small mono${filter[k] === v ? ' btn-primary' : ''}" data-label="${escapeHtml(k)}" data-value="${escapeHtml(v)}">${escapeHtml(v)}</button>`).join('')}${values.length > MAX_LABEL_VALUES ? `<span class="muted">+${num(values.length - MAX_LABEL_VALUES)} more: type it</span>` : ''}</div>`;
+        }).join('')}`;
 }
 
 function readRuleForm(base) {
