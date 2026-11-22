@@ -1,6 +1,6 @@
 # https://developers.home-assistant.io/docs/apps/configuration
 name: Flipper
-version: "0.1.0"
+version: "0.1.1"
 slug: app-flipper
 description: "A workbench for a Flipper Zero on USB - see its screen, press its buttons, manage its files, and write, build and run apps on it"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-flipper"
