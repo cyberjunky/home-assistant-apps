@@ -5,7 +5,7 @@ const basePath = window.location.pathname.endsWith('/') ? window.location.pathna
 const LS = 'vigil_';
 
 // What the server told us about the connection; filled by loadStatus()
-const app = {version: '', status: null, checkedAt: null};
+const app = {version: '', status: null, checkedAt: null, unreachable: 0, unreachableError: ''};
 
 async function api(path, body) {
     // Everything that changes something is a POST with this header (the server refuses it without)
@@ -307,7 +307,8 @@ const rangeHistory = [];   // the ranges before a zoom, for Back
 function rangeWindow() {
     if (timeRange.preset) {
         const p = RANGE_PRESETS.find(r => r.key === timeRange.preset) || RANGE_PRESETS[1];
-        const to = Math.round(Date.now() / 1000);
+        // Up, not to the nearest: a line or alert from this very second must fall inside
+        const to = Math.ceil(Date.now() / 1000);
         return {from: to - p.secs, to};
     }
     return {from: timeRange.from, to: timeRange.to};
@@ -469,8 +470,16 @@ async function loadStatus() {
     try {
         app.status = await api('status');
         app.version = app.status.version || '';
+        app.unreachable = 0;
     } catch (e) {
-        app.status = {connected: false, error: e.message, database: {}};
+        // Vigil itself didn't answer (Home Assistant's ingress refreshing its session (401), the
+        // app restarting (502), the network): that says nothing about the database. Keep what we
+        // knew; only a page that never got an answer, or several misses in a row, says so.
+        app.unreachable += 1;
+        app.unreachableError = e.status === 401 || e.status === 403
+            ? `Home Assistant refused the request (${e.status}): reload the page to sign in again`
+            : `${e.message}: the app may be restarting`;
+        if (!app.status) app.status = {connected: false, unreachable: true, database: {}};
     }
     app.checkedAt = Date.now() / 1000;
     renderChrome();
@@ -493,7 +502,10 @@ function renderChrome() {
     document.getElementById('brand-db').textContent = db.name || '';
     const hint = document.getElementById('setup-hint');
     const text = document.getElementById('setup-hint-text');
-    if (!s.connected) {
+    if (app.unreachable >= 3 || (s.unreachable && app.unreachable)) {
+        hint.hidden = false;
+        text.textContent = `Vigil is not answering: ${app.unreachableError}.`;
+    } else if (!s.connected) {
         hint.hidden = false;
         text.innerHTML = `The database is not reachable: ${escapeHtml(s.error || 'unknown error')}. Vigil keeps its data in a database on the Chronicle app: make it in <b>Chronicle → Maintenance → App databases</b> and put its password in Vigil's configuration. The app's log in Home Assistant says more.`;
     } else if (noDataYet()) {

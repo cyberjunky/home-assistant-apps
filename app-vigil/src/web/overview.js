@@ -108,14 +108,15 @@ function renderOverview(data, volume, hours) {
 
     const firing = data.firing || [];
     document.getElementById('overview-firing').innerHTML = firing.length ? `<table class="data"><thead><tr>
-            <th>State</th><th>Rule</th><th>Severity</th><th>Since</th><th class="n">Value</th><th>Message</th></tr></thead><tbody>${firing.map(a => `
-            <tr class="link" onclick="switchTab('alerts')">
+            <th>State</th><th>Rule</th><th>Severity</th><th>Since</th><th class="n">Value</th><th>Message</th><th></th></tr></thead><tbody>${firing.map(a => `
+            <tr class="link" onclick="if (!event.target.closest('button')) switchTab('alerts')">
                 <td>${statePill(a.state || 'firing')}</td>
                 <td><b>${escapeHtml(a.rule_name || a.name || '#' + a.rule)}</b></td>
                 <td>${ruleSeverityPill(a.severity)}</td>
                 <td class="muted" title="${escapeHtml(a.ts ? fmtDateTime(a.ts) : '')}">${escapeHtml(fmtAgo(a.ts))}</td>
                 <td class="n">${escapeHtml(fmtValue(a.value))}</td>
                 <td class="wrap">${escapeHtml(a.message || '')}</td>
+                <td class="n"><button type="button" class="btn btn-small" onclick="clearAlert(${Number(a.rule)}, ${escapeHtml(JSON.stringify(a.rule_name || ''))})" title="Stop counting it as firing and dismiss its notification">Clear</button></td>
             </tr>`).join('')}</tbody></table>`
         : `<div class="empty-state"><span class="state ok">Nothing is firing</span></div>`;
 }

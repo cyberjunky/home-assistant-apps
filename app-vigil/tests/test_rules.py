@@ -31,6 +31,14 @@ def test_pending_that_clears_never_fires():
     assert step("pending", 100, False, 60, 130) == ("ok", 130, None)
 
 
+def test_cleared_stays_quiet_until_false_once():
+    # Cleared by hand while the condition still holds: no new firing, no resolved message
+    assert step("cleared", 100, True, 0, 130) == ("cleared", 100, None)
+    assert step("cleared", 100, False, 0, 160) == ("ok", 160, None)
+    # .. and after that it can fire again
+    assert step("ok", 160, True, 0, 190) == ("firing", 190, "firing")
+
+
 def test_validate():
     rule = validate(
         {

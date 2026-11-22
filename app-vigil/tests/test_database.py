@@ -239,6 +239,22 @@ async def test_rules_alerts_and_saved_things(database):
     assert alerts[0]["state"] == "firing" and alerts[0]["value"] == 3.0
     rule = await database.rule(rule_id)
     assert rule["state"] == "firing" and rule["query"]["q"] == "severity:<=err"
+    # Cleared by hand: not firing any more, the notification dismissed, a row in the history
+    from src.rules import RuleEngine
+
+    class FakeHomeAssistant:
+        dismissed: list = []
+
+        async def dismiss(self, rule_id):
+            self.dismissed.append(rule_id)
+
+    home_assistant = FakeHomeAssistant()
+    engine = RuleEngine(database, home_assistant)
+    assert await engine.clear(rule_id)
+    assert (await database.rule(rule_id))["state"] == "cleared" and home_assistant.dismissed == [rule_id]
+    assert await database.firing_alerts() == [] and not await engine.clear(rule_id)
+    states = [a["state"] for a in await database.alerts(time.time() - 60, time.time() + 60)]
+    assert states == ["cleared", "firing"]
     # A changed condition starts from ok again
     await database.save_rule({**rule, "condition": {"op": ">", "threshold": 5}})
     assert (await database.rule(rule_id))["state"] == "ok"

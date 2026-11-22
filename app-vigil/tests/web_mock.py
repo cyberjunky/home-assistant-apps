@@ -1251,6 +1251,27 @@ async def rules_delete(request):
     return web.json_response({"ok": True})
 
 
+async def rules_clear(request):
+    body = await request.json()
+    rule = next((r for r in D.rules if r["id"] == body.get("id")), None)
+    if not rule or rule["state"] != "firing":
+        return web.json_response({"error": "This rule is not firing"}, status=409)
+    rule["state"], rule["state_since"] = "cleared", time.time()
+    D.alerts.append(
+        {
+            "id": len(D.alerts) + 1,
+            "rule": rule["id"],
+            "rule_name": rule["name"],
+            "ts": time.time(),
+            "state": "cleared",
+            "value": rule.get("last_value"),
+            "message": f"{rule['name']}: cleared by hand",
+            "severity": rule["severity"],
+        }
+    )
+    return web.json_response({"ok": True, "rule": rule})
+
+
 async def rules_test(request):
     body = await request.json()
     value, detail = rule_value(body)
@@ -1352,6 +1373,7 @@ def make_app(state: str = "ok") -> web.Application:
     r.add_get("/api/rules", rules_get)
     r.add_post("/api/rules/save", rules_save)
     r.add_post("/api/rules/delete", rules_delete)
+    r.add_post("/api/rules/clear", rules_clear)
     r.add_post("/api/rules/test", rules_test)
     r.add_get("/api/alerts", alerts)
     r.add_get("/api/dashboards", dashboards_get)
