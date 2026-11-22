@@ -1,5 +1,5 @@
 name: Lottery
-version: "0.1.1"
+version: "0.1.2"
 slug: app-lottery
 description: "Dashboard for your Bitaxe, NerdQAxe and other AxeOS solo miners - your odds of a block, every miner's stats, and their sensors and Mining switch in Home Assistant over MQTT"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-lottery"
