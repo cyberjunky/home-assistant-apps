@@ -2,7 +2,7 @@
 'use strict';
 
 const UNDO = [];
-let drawerTab = 'entities', entQuery = '', entDomain = '', stageScale = 1;
+let drawerTab = 'entities', entQuery = '', entDomain = '', addQuery = '', stageScale = 1;
 
 function snapshot() {
     UNDO.push(JSON.stringify(S.doc));
@@ -54,6 +54,7 @@ function fitStage() {
 window.addEventListener('resize', fitStage);
 
 function select(id) {
+    if (id !== S.sel) addQuery = '';
     S.sel = id;
     $$('.w.sel').forEach(el => el.classList.remove('sel'));
     if (id) $(`.w[data-id="${id}"]`)?.classList.add('sel');
@@ -67,6 +68,7 @@ function renderDrawer() {
     const head = `<div class="d-head"><span class="lbl">Design</span><button class="d-btn" data-undo ${UNDO.length ? '' : 'disabled'} title="Undo (Ctrl+Z)">${ic('undo')}</button><button class="d-btn primary" data-done>Done</button></div>`;
     if (w) {
         $('#drawer').innerHTML = head + `<div class="d-tabs"><button class="lbl" data-back>‹ Entities</button><button class="lbl on">${esc(BLOCKS[w.type]?.name || w.type)}</button></div><div class="d-body">${inspector(w)}</div>`;
+        renderAddList();
         return;
     }
     const tabs = [['entities', 'Entities'], ['blocks', 'Blocks'], ['page', 'Pages'], ['style', 'Style'], ['tablet', 'Tablet']];
@@ -80,17 +82,40 @@ function entitiesTab() {
         <div class="d-filter"><input class="d-search" type="search" placeholder="Search ${Object.keys(S.states).length} entities" value="${esc(entQuery)}" data-search>
         <select data-domain><option value="">All</option>${domains.map(d => `<option${d === entDomain ? ' selected' : ''}>${esc(d)}</option>`).join('')}</select></div><div id="d-list"></div>`;
 }
+const entMatch = (e, q) => !q || e.includes(q) || ename(e).toLowerCase().includes(q) || (S.areas[e] || '').toLowerCase().includes(q);
+const entRow = e => `<div class="d-ent" data-drag-entity="${esc(e)}"><div><b class="cut">${esc(ename(e))}</b><small class="cut">${esc(e)}</small></div><span>${esc(stateText(e))}</span></div>`;
 function renderEntityList() {
     const q = entQuery.trim().toLowerCase();
-    const found = Object.keys(S.states).filter(e => !S.hidden.has(e) && (!entDomain || dom(e) === entDomain)
-        && (!q || e.includes(q) || ename(e).toLowerCase().includes(q) || (S.areas[e] || '').toLowerCase().includes(q)));
+    const found = Object.keys(S.states).filter(e => !S.hidden.has(e) && (!entDomain || dom(e) === entDomain) && entMatch(e, q));
     const groups = {};
     for (const e of found.slice(0, 300)) (groups[S.areas[e] || ''] ||= []).push(e);
     const names = Object.keys(groups).sort((a, b) => !a - !b || a.localeCompare(b));
     $('#d-list').innerHTML = (names.map(area => `<div class="lbl d-area">${esc(area || 'No area')}</div>` + groups[area]
         .sort((a, b) => ename(a).localeCompare(ename(b)))
-        .map(e => `<div class="d-ent" data-drag-entity="${esc(e)}"><div><b class="cut">${esc(ename(e))}</b><small class="cut">${esc(e)}</small></div><span>${esc(stateText(e))}</span></div>`).join('')).join('')
+        .map(entRow).join('')).join('')
         || '<p class="d-hint">Nothing found.</p>') + (found.length > 300 ? `<p class="d-hint">…and ${found.length - 300} more. Search to narrow it down.</p>` : '');
+}
+// Whether the selected block can take one more entity
+const canAdd = w => { const block = BLOCKS[w.type] || BLOCKS.list; return block.takes !== BLOCKS.clock.takes && (block.many || !w.entities.length); };
+// The search in a block's own settings: the entities that block takes; click one (or drag it) to add it
+function renderAddList() {
+    const el = $('#d-add'), w = S.sel && findWidget(S.sel), q = addQuery.trim().toLowerCase();
+    if (!el || !w) return;
+    if (!q) { el.innerHTML = ''; return; }
+    const block = BLOCKS[w.type] || BLOCKS.list;
+    const found = Object.keys(S.states).filter(e => !S.hidden.has(e) && block.takes(e) && !w.entities.includes(e) && entMatch(e, q))
+        .sort((a, b) => ename(a).localeCompare(ename(b)));
+    el.innerHTML = (found.slice(0, 30).map(entRow).join('') || `<p class="d-hint">Nothing found that a ${esc(block.name.toLowerCase())} block takes.</p>`)
+        + (found.length > 30 ? `<p class="d-hint">…and ${found.length - 30} more. Type more to narrow it down.</p>` : '');
+}
+function addEntity(w, entity) {
+    const block = BLOCKS[w.type] || BLOCKS.list;
+    if (!canAdd(w) || !block.takes(entity) || w.entities.includes(entity)) return;
+    snapshot();
+    w.entities.push(entity);
+    changed();
+    const field = $('[data-add-search]');
+    if (field) { field.focus(); field.select(); }
 }
 function blocksTab() {
     return `<p class="d-hint">Drag a block onto the page, then drag entities onto it. An entity dropped on an empty spot picks its own block; you can change it afterwards.</p>`
@@ -194,7 +219,8 @@ function inspector(w) {
         ${w.entities.map((e, n) => `<div class="d-ent row-only"><div><input class="d-search" type="text" value="${esc(w.opts.names?.[e] || '')}" placeholder="${esc(attr(e, 'friendly_name') || e)}" data-ename="${esc(e)}">
             ${w.type === 'actions' ? `<input class="d-search" style="margin-top:4px" type="text" value="${esc(w.opts.subs?.[e] || '')}" placeholder="Text below (${esc(S.areas[e] || cap(dom(e)))})" data-esub="${esc(e)}">` : ''}
             <small class="cut">${esc(e)}</small></div>${n ? `<button class="x" data-eup="${n}" title="Earlier">${ic('up')}</button>` : ''}<button class="x" data-erm="${n}" title="Take off">${ic('x')}</button></div>`).join('')}
-        <p class="d-hint">${block.many ? 'Drag more entities onto this block to add them. The field renames one on this dashboard only.' : w.entities.length ? 'The field renames it on this dashboard only.' : 'Drag an entity onto this block.'}</p>` : '';
+        <p class="d-hint">${block.many ? (w.entities.length ? 'The field renames one on this dashboard only. ' : '') + 'Search below to add more, or drag them onto this block.' : w.entities.length ? 'The field renames it on this dashboard only.' : 'Search for an entity below, or drag one onto this block.'}</p>
+        ${canAdd(w) ? `<input class="d-search" type="search" placeholder="Search an entity to add" value="${esc(addQuery)}" data-add-search><div id="d-add"></div>` : ''}` : '';
     return `<label class="d-field"><span class="lbl">Shown as</span><select data-type>${types.map(t => `<option value="${t}"${t === w.type ? ' selected' : ''}>${BLOCKS[t].name} - ${BLOCKS[t].hint}</option>`).join('')}</select></label>
         <label class="d-field"><span class="lbl">Label</span><input type="text" data-label value="${esc(w.label)}" placeholder="${esc(auto)}" maxlength="80"></label>
         ${check('nohead', 'Hide the label line', w.opts.nohead)}${check('rule', 'Line above', w.opts.rule ?? w.y > 0)}${extra}${entities}
@@ -251,6 +277,7 @@ $('#drawer').addEventListener('input', ev => {
     const t = ev.target, d = t.dataset, w = S.sel && findWidget(S.sel);
     if ('search' in d) { entQuery = t.value; renderEntityList(); return; }
     if ('domain' in d) { entDomain = t.value; renderEntityList(); return; }
+    if ('addSearch' in d) { addQuery = t.value; renderAddList(); return; }
     if (t.matches('select, input[type=checkbox], input[type=number]')) return;
     fieldEdit();
     if (d.style) { (S.doc.style ||= {})[d.style] = t.value; applyStyle(); scheduleSave(); return; }
@@ -290,6 +317,8 @@ $('#drawer').addEventListener('change', ev => {
     changed();
 });
 $('#drawer').addEventListener('click', ev => {
+    const add = ev.target.closest('#d-add [data-drag-entity]');
+    if (add && S.sel && findWidget(S.sel)) return addEntity(findWidget(S.sel), add.dataset.dragEntity);
     const t = ev.target.closest('button');
     if (!t) return;
     const d = t.dataset, w = S.sel && findWidget(S.sel), page = currentPage();
@@ -446,6 +475,11 @@ document.addEventListener('pointerdown', ev => {
     dragWidget(ev, el, Boolean(ev.target.closest('.w-size')));
 });
 document.addEventListener('keydown', ev => {
+    if (S.design && ev.key === 'Enter' && 'addSearch' in ev.target.dataset) {
+        const first = $('#d-add [data-drag-entity]'), w = S.sel && findWidget(S.sel);
+        if (first && w) addEntity(w, first.dataset.dragEntity);
+        return;
+    }
     if (!S.design || ev.target.matches('input, select, textarea')) return;
     if ((ev.ctrlKey || ev.metaKey) && ev.key === 'z') { ev.preventDefault(); return undo(); }
     const w = S.sel && findWidget(S.sel);

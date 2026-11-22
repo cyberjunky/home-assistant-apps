@@ -38,7 +38,7 @@ Press the pencil on the top bar. A drawer opens on the left and the page shrinks
   - on a **block that takes more** (tiles, a list, a chart, bars) it joins that block,
   - on the **top bar** it becomes a reading that shows on every page.
 - **Blocks**: drag an empty block onto the page and then entities onto it.
-- **A block**: click it. Change what it is shown as, its label, the names of its entities on this dashboard, and its own settings. Drag it to move it, drag the round handle at its corner to size it, or use the arrow keys (with Shift to size). Delete removes it.
+- **A block**: click it. Change what it is shown as, its label, the names of its entities on this dashboard, and its own settings. Under **Entities** you can search for an entity and click it to add it to the block; the search shows only what that block takes. Drag it to move it, drag the round handle at its corner to size it, or use the arrow keys (with Shift to size). Delete removes it.
 - **Pages**: name, order, copy, delete and add pages; the readings on the top bar; and the grid. Every page fills the screen, so more columns and rows only place things more precisely.
 - **Style**: the look of every page. See below.
 - **Tablet**: what the tablet does by itself. See below.
