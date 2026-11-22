@@ -45,8 +45,9 @@ configuration:
   notify_service:
     name: Meldingsdienst
     description: >-
-      Waar meldingen naast een Home Assistant-melding heen gaan, zoals
-      notify.mobile_app_mijn_telefoon. Leeg laten voor alleen meldingen.
+      Waar meldingen naast een Home Assistant-melding heen gaan: elke actie met een
+      titel en een bericht, zoals notify.mobile_app_mijn_telefoon of
+      telegram_bot.send_message. Leeg laten voor alleen meldingen.
   logs_retention_days:
     name: Logs bewaren (dagen)
     description: Hoe lang logs bewaard blijven.

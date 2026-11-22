@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.2
+
+**After updating:** nothing to do. Set *Notify service* to another action now if saving it
+failed before.
+
+- **Alerts to any action:** *Notify service* takes any Home Assistant action with a title and a
+  message, such as `telegram_bot.send_message`, not only `notify.…`; saving the options with
+  another action failed with "does not match regular expression".
+
 ## 0.1.1
 
 **After updating:** if you set the FRITZ!Box options, enter them again in their new section

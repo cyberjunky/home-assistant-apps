@@ -45,8 +45,9 @@ configuration:
   notify_service:
     name: Notify service
     description: >-
-      Where alerts go besides a Home Assistant notification, such as
-      notify.mobile_app_my_phone. Leave empty for notifications only.
+      Where alerts go besides a Home Assistant notification: any action that takes
+      a title and a message, such as notify.mobile_app_my_phone or
+      telegram_bot.send_message. Leave empty for notifications only.
   logs_retention_days:
     name: Keep logs (days)
     description: How long logs are kept.

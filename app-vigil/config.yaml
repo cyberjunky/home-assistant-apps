@@ -1,5 +1,5 @@
 name: Vigil
-version: "0.1.1"
+version: "0.1.2"
 slug: app-vigil
 description: "Logs, metrics and alerts for your network and servers: syslog, OpenTelemetry and Prometheus in, searchable events, charts, smart patterns and anomalies out, stored in Chronicle"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-vigil"
@@ -59,7 +59,7 @@ schema:
     host: str?
     user: str?
     password: password?
-  notify_service: match(^(notify\.)?[a-z0-9_]+$)?
+  notify_service: match(^[a-z0-9_]+(\.[a-z0-9_]+)?$)?
   logs_retention_days: int(1,365)
   metrics_retention_days: int(1,1825)
   log_level: list(debug|info|warning|error)?
