@@ -304,7 +304,7 @@ Windows keeps its logs in the Event Log, not in syslog. [Fluent Bit](https://flu
    `C:\Program Files\fluent-bit\conf\fluent-bit.yaml`. It reads the Security, System,
    Application, Defender and (when installed) Sysmon logs; `db` remembers how far it got, so
    nothing is sent twice after a restart.
-3. Run it as a service (the snippet has the commands for Command Prompt as administrator). It
+3. Run it as a service (the snippet has the commands for PowerShell as administrator). It
    must run as the local system account, the default for a service: only that can read the
    Security log.
 4. Failed logons are only logged when logon auditing is on. Most Windows versions have it; if

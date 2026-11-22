@@ -151,11 +151,11 @@ def setup_examples(syslog_port: int | None, otlp_port: int | None, token_set: bo
             "      format: json_lines\n"
             "      json_date_key: false\n"
             + ("      header:\n        - Authorization Bearer <ingest_token>\n" if token_set else "")
-            + "\n# As a service, if the installer made none (Command Prompt as administrator):\n"
-            "#   mkdir C:\\ProgramData\\fluent-bit\n"
-            '#   sc.exe create fluent-bit binpath= "\\"C:\\Program Files\\fluent-bit\\bin\\fluent-bit.exe\\"'
-            ' -c \\"C:\\Program Files\\fluent-bit\\conf\\fluent-bit.yaml\\"" start= auto\n'
-            "#   sc.exe start fluent-bit\n"
+            + "\n# As a service, if the installer made none (PowerShell as administrator):\n"
+            "#   New-Item -ItemType Directory -Force C:\\ProgramData\\fluent-bit\n"
+            "#   New-Service -Name fluent-bit -StartupType Automatic -BinaryPathName "
+            '\'"C:\\Program Files\\fluent-bit\\bin\\fluent-bit.exe" -c "C:\\Program Files\\fluent-bit\\conf\\fluent-bit.yaml"\'\n'
+            "#   Start-Service fluent-bit\n"
             "# Failed logons are only logged when logon auditing is on:\n"
             '#   auditpol /set /subcategory:"Logon" /success:enable /failure:enable'
         ),
