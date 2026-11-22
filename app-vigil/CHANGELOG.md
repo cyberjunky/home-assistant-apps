@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.9
+
+**After updating:** nothing to do.
+
+- **Clear a firing alert:** a firing alert has a **Clear** button on the Alerts page and in the
+  Overview. It stops counting as firing, its Home Assistant notification is dismissed, and the
+  history shows it was cleared. It stays quiet while its condition still holds, and can fire
+  again once the condition has been false.
+- **No false "database is not reachable":** when the page's status check itself failed (Home
+  Assistant refreshing its login, the app restarting), the page said the database was not
+  reachable. Now it waits; if Vigil really stops answering, it says so and what to do.
+- **Nothing from the current second missing:** an alert or log line from the very second the
+  page asked could be left out until the next refresh.
+
 ## 0.1.8
 
 **After updating:** a rule made earlier with the *Router CPU > 85 %* template may watch

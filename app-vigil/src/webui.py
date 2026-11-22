@@ -242,6 +242,7 @@ class WebUI:
         get("/api/rules", self._handle_rules)
         post("/api/rules/save", self._handle_rule_save)
         post("/api/rules/delete", self._handle_rule_delete)
+        post("/api/rules/clear", self._handle_rule_clear)
         post("/api/rules/test", self._handle_rule_test)
         get("/api/alerts", self._handle_alerts)
         get("/api/dashboards", self._handle_dashboards)
@@ -505,6 +506,12 @@ class WebUI:
         self.engine.errors.pop(rule_id, None)
         await self.home_assistant.dismiss(rule_id)
         return _json({"ok": True})
+
+    async def _handle_rule_clear(self, request: web.Request) -> web.Response:
+        rule_id = _id(await self._body(request))
+        if not await self.engine.clear(rule_id):
+            return _error("This rule is not firing", 409)
+        return _json({"ok": True, "rule": await self.database.rule(rule_id)})
 
     async def _handle_rule_test(self, request: web.Request) -> web.Response:
         try:

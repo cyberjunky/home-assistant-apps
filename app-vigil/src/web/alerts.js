@@ -82,7 +82,7 @@ function renderRules() {
         el.innerHTML = '<div class="empty-state">No rules yet. Start from a template above, or <button type="button" class="btn btn-small" onclick="openRuleEditor()">+ New rule</button></div>';
         return;
     }
-    const order = {firing: 0, pending: 1, ok: 2};
+    const order = {firing: 0, pending: 1, cleared: 2, ok: 3};
     const sorted = [...rules].sort((a, b) => (a.enabled === false) - (b.enabled === false)
         || (order[a.state] ?? 3) - (order[b.state] ?? 3) || String(a.name).localeCompare(String(b.name)));
     el.innerHTML = `<table class="data rules-table"><thead><tr><th>State</th><th>Rule</th><th>Severity</th><th class="n">Value</th><th>Since</th><th>Checked</th><th></th></tr></thead><tbody>
@@ -94,6 +94,7 @@ function renderRules() {
             <td class="muted" title="${escapeHtml(r.state_since ? fmtDateTime(r.state_since) : '')}">${escapeHtml(r.state_since ? fmtAgo(r.state_since) : '–')}</td>
             <td class="muted">${escapeHtml(r.last_eval ? fmtAgo(r.last_eval) : 'not yet')}</td>
             <td class="n actions">
+                ${r.state === 'firing' && r.enabled !== false ? '<button type="button" class="btn btn-small" data-act="clear" title="Stop counting it as firing and dismiss its notification; it can fire again after its condition was false once">Clear</button>' : ''}
                 <button type="button" class="btn btn-small" data-act="edit">Edit</button>
                 <button type="button" class="btn btn-small" data-act="toggle">${r.enabled === false ? 'Enable' : 'Disable'}</button>
                 <button type="button" class="btn btn-small btn-danger" data-act="delete" title="Delete">×</button>
@@ -106,6 +107,7 @@ function renderRules() {
         const r = rules.find(x => String(x.id) === id);
         if (!r) return;
         if (b.dataset.act === 'edit') return openRuleEditor(r);
+        if (b.dataset.act === 'clear') return clearAlert(r.id, r.name);
         if (b.dataset.act === 'toggle') {
             try {
                 await api('rules/save', {...cleanRule(r), enabled: r.enabled === false});
@@ -121,6 +123,19 @@ function renderRules() {
             loadAlertHistory();
         });
     };
+}
+
+// A firing alert cleared by hand (Alerts and the Overview)
+async function clearAlert(id, name) {
+    try {
+        await api('rules/clear', {id});
+        toast(`Cleared ${name}: it fires again only after its condition was false once`, 'success');
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+    if (activeTab === 'alerts') { loadRules(); loadAlertHistory(); }
+    if (activeTab === 'overview') loadOverview();
+    loadStatus();
 }
 
 // What the API takes: the rule without its live state
@@ -354,7 +369,7 @@ async function loadAlertHistory() {
         return;
     }
     const alerts = (data.alerts || []).slice().sort((a, b) => a.ts - b.ts);
-    // Lanes: per rule, firing until the next resolved (or now)
+    // Lanes: per rule, firing until the next resolved or cleared (or now)
     const byRule = new Map();
     alerts.forEach(a => {
         const key = String(a.rule);
@@ -368,7 +383,7 @@ async function loadAlertHistory() {
         lane.events.forEach((a, i) => {
             if (a.state === 'firing') {
                 if (!open) open = a;
-            } else if (a.state === 'resolved') {
+            } else if (a.state === 'resolved' || a.state === 'cleared') {
                 const start = open ? open.ts : (i === 0 ? w.from : null);
                 if (start !== null) segments.push({from: start, to: a.ts, state: 'firing', title: (open && open.message) || a.message});
                 open = null;

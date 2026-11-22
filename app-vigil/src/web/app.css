@@ -556,6 +556,7 @@ label.btn { display: inline-flex; align-items: center; }
 .pill::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
 .pill-ok, .pill-resolved { --c: var(--success-color); }
 .pill-pending { --c: var(--warning-color); }
+.pill-cleared { --c: var(--secondary-text-color); }
 .pill-firing { --c: var(--danger-color); }
 .pill-firing::before { animation: rec-pulse-bad 1.6s ease-out infinite; }
 .pill-off { --c: var(--muted-text-color); }

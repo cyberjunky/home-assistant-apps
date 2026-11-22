@@ -100,8 +100,9 @@ def step(state: str, since: float | None, active: bool, for_seconds: float, now:
     """The state machine: (state, since, event) after one evaluation; event is 'firing',
     'resolved' or None."""
     if active:
-        if state == "firing":
-            return "firing", since, None
+        if state in ("firing", "cleared"):
+            # Cleared by hand: quiet until the condition is false once, then it can fire again
+            return state, since, None
         if state == "pending" and since is not None:
             if now - since >= for_seconds:
                 return "firing", now, "firing"
@@ -112,7 +113,7 @@ def step(state: str, since: float | None, active: bool, for_seconds: float, now:
         return "pending", now, None
     if state == "firing":
         return "ok", now, "resolved"
-    if state == "pending":
+    if state in ("pending", "cleared"):
         return "ok", now, None
     return "ok", since if since is not None else now, None
 
@@ -319,6 +320,33 @@ class RuleEngine:
                 # A lost connection is shown on the status page already; anything else is a bug
                 if not is_connection_error(e):
                     logger.exception("The rule engine failed")
+
+    async def clear(self, rule_id: int) -> bool:
+        """A firing alert cleared by hand: no longer counted as firing, its notification dismissed,
+        and no new one until the condition was false once. False when it isn't firing."""
+        async with self._lock:
+            rule = await self.database.rule(rule_id)
+            if not rule or rule["state"] != "firing":
+                return False
+            message = f"{rule['name']}: cleared by hand"
+            await self.database.set_rule_state(
+                rule_id, "cleared", time.time(), rule.get("last_value"), ("cleared", rule.get("last_value"), message)
+            )
+        if self.log:
+            self.log(
+                LogEntry(
+                    ts=datetime.now(UTC),
+                    source="vigil",
+                    host=None,
+                    app="vigil",
+                    severity=6,
+                    facility=None,
+                    message=f"Alert cleared: {message}",
+                    attrs={"rule": rule_id, "state": "cleared"},
+                )
+            )
+        await self.home_assistant.dismiss(rule_id)
+        return True
 
     async def evaluate_all(self) -> None:
         async with self._lock:
