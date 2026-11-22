@@ -87,6 +87,7 @@
                         </div>
                         <button type="button" class="btn btn-primary" onclick="runLogSearch()">Search</button>
                         <button type="button" class="btn live-btn" id="log-live" onclick="toggleLive()" title="Show new lines as they arrive (every 2 s)"><i></i>Live</button>
+                        <button type="button" class="btn" onclick="showExamples('logs')" title="Described searches for each kind of source">Examples</button>
                         <select class="select" id="log-saved" aria-label="Saved searches"></select>
                         <button type="button" class="btn" onclick="saveLogSearch()" title="Save this search">Save</button>
                         <button type="button" class="btn" onclick="alertFromSearch()" title="A rule that fires when this search finds too many lines">Create alert</button>
@@ -126,6 +127,7 @@
                                 <div id="metric-queries" class="metric-queries"></div>
                                 <div class="detail-actions" style="margin-top:10px">
                                     <button type="button" class="btn btn-small" onclick="addMetricQuery()">+ Add query</button>
+                                    <button type="button" class="btn btn-small" onclick="showExamples('metrics')" title="Described charts for each kind of source">Examples</button>
                                     <label class="action-check small-check">Step <select class="select" id="metric-step" aria-label="Step"></select></label>
                                     <span class="spacer"></span>
                                     <button type="button" class="btn" onclick="metricToDashboard()">Add to dashboard</button>
@@ -232,6 +234,7 @@
     <script src="__BASE__/web/sources.js?v=__ADDON_VERSION__"></script>
     <script src="__BASE__/web/info.js?v=__ADDON_VERSION__"></script>
     <script src="__BASE__/web/changes.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/examples.js?v=__ADDON_VERSION__"></script>
     <script src="__BASE__/web/main.js?v=__ADDON_VERSION__"></script>
     <script src="__BASE__/web/donate.js?v=__ADDON_VERSION__" data-app="Vigil" data-api="__BASE__/api/donate"></script>
 </body>
