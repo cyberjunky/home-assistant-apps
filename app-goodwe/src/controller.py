@@ -135,6 +135,7 @@ class BatteryController:
         self.surplus_w = 0
         self.curtailed_w = 0
         self.surplus_reason = ""
+        self.battery_full = False  # SoC at or above the "full" setting, as last read
         # The house no longer covered by the panels (importing, or the battery discharging): the
         # miners stop one by one while this holds; the reason in words, empty when covered
         self.overload = ""
@@ -603,6 +604,7 @@ class BatteryController:
         pgrid = float(data.get("pgrid") or 0)
         pbat = float(data.get("pbattery1") or 0)
         full = soc >= s.surplus_full_soc
+        self.battery_full = full
         exporting_w = max(-pgrid, 0.0)
         # Under zero export a full battery means the inverter curtails the panels: the surplus is
         # invisible in the grid power, so estimate it as the forecast's headroom above the live PV
