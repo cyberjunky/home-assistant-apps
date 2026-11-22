@@ -84,14 +84,33 @@ function renderSources() {
     renderSetup(setup);
 }
 
-// The server can't know Home Assistant's LAN address; under ingress the page's own host is it
-function withHost(text, placeholder) {
-    return placeholder ? text.split(placeholder).join(window.location.hostname || placeholder) : text;
+// The server can't know Home Assistant's LAN address. The page's own host is it when Home
+// Assistant is opened on the LAN (192.168.x.x, homeassistant.local); through the Nabu Casa or
+// another remote URL it is a cloud name a router can't send to, so the placeholder stays.
+function lanHost(ipOnly) {
+    const h = window.location.hostname || '';
+    const v4 = h.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+    if (v4) {
+        const [a, b] = [Number(v4[1]), Number(v4[2])];
+        if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) return h;
+        return null;
+    }
+    if (ipOnly) return null;
+    if (/\.(local|lan|home|internal)$/i.test(h) || (h && !h.includes('.'))) return h;
+    return null;
+}
+
+// Routers and switches take an IP address only (RouterOS' remote= refuses a name)
+const IP_ONLY = new Set(['mikrotik', 'netgear']);
+
+function withHost(text, placeholder, key) {
+    const host = lanHost(IP_ONLY.has(key));
+    return placeholder && host ? text.split(placeholder).join(host) : text;
 }
 
 function renderSetup(setup) {
     const examples = {};
-    for (const [key, text] of Object.entries(setup.examples || {})) examples[key] = withHost(String(text), setup.host_placeholder);
+    for (const [key, text] of Object.entries(setup.examples || {})) examples[key] = withHost(String(text), setup.host_placeholder, key);
     if (!examples.fritzbox) examples.fritzbox = FRITZ_SNIPPET;
     const keys = [...Object.keys(SETUP_INFO).filter(k => examples[k]), ...Object.keys(examples).filter(k => !SETUP_INFO[k])];
     if (!keys.includes(setupTab)) setupTab = keys[0];
@@ -108,7 +127,10 @@ function renderSetupBody(examples) {
     const info = SETUP_INFO[setupTab] || {text: ''};
     const text = String(examples[setupTab] || '');
     const body = document.getElementById('setup-body');
-    body.innerHTML = `<p class="panel-sub setup-text">${escapeHtml(info.text)}</p>
+    const hostHint = text.includes((sourcesData && sourcesData.setup && sourcesData.setup.host_placeholder) || 'HOME_ASSISTANT_IP')
+        ? '<p class="panel-sub setup-text">Replace <b>HOME_ASSISTANT_IP</b> with Home Assistant\'s IP address on your network (such as 192.168.1.10).</p>'
+        : '';
+    body.innerHTML = `<p class="panel-sub setup-text">${escapeHtml(info.text)}</p>${hostHint}
         <div class="snippet"><button type="button" class="btn btn-small snippet-copy">Copy</button><pre class="code-block">${escapeHtml(text)}</pre></div>
         ${setupTab === 'vector' || setupTab === 'otelcol' ? `<p class="panel-sub" style="margin-top:8px">${(sourcesData && sourcesData.setup && sourcesData.setup.token_set)
             ? 'Replace the token placeholder with the <b>ingest_token</b> from Vigil\'s configuration.'

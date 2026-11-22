@@ -74,3 +74,12 @@ def test_fritzbox_options_in_their_own_section_and_the_old_flat_names():
     flat = Config.from_options({"fritzbox_host": "fritz.box", "fritzbox_user": "u", "fritzbox_password": "p"}, {})
     assert (flat.fritzbox_host, flat.fritzbox_user, flat.fritzbox_password) == ("fritz.box", "u", "p")
     assert Config.from_options({"fritzbox": {"host": "", "user": "", "password": ""}}, {}).fritzbox_host == ""
+
+
+def test_mikrotik_snippet_uses_only_parameters_every_routeros_knows():
+    from src.webui import setup_examples
+
+    mikrotik = setup_examples(514, 4318, False)["mikrotik"]
+    first = mikrotik.splitlines()[0]
+    assert first == "/system logging action add name=vigil target=remote remote=HOME_ASSISTANT_IP remote-port=514"
+    assert "remote-log-format" not in mikrotik and "bsd-syslog" not in mikrotik
