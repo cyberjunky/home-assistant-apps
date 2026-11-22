@@ -187,7 +187,8 @@ transforms:
     inputs: [journald, docker]
     source: |
       app_name = .SYSLOG_IDENTIFIER || .container_name || ._SYSTEMD_UNIT || "vector"
-      level = to_int(.PRIORITY) ?? (if .stream == "stderr" { 4 } else { 6 })
+      level = to_int(.PRIORITY) ?? 6
+      if .stream == "stderr" { level = 4 }     # a container's error output
       . = {"timestamp": .timestamp, "host": .host, "app": app_name,
            "severity": level, "message": .message}
 
