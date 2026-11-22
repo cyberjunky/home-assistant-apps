@@ -1,6 +1,6 @@
 // Lottery dashboard - one miner's page.
 
-const minerPage = {range: '24', kind: 'hashrate', history: null, bests: [], events: [], days: [], loadedAt: 0, slug: null};
+const minerPage = {range: '24', kind: 'hashrate', history: null, bests: [], events: [], days: [], loadedAt: 0, slug: null, drawnMining: null};
 
 const CHART_KINDS = [
     {key: 'hashrate', label: 'Hash rate'},
@@ -28,7 +28,11 @@ onTab('miner', (changed) => {
 }, () => {
     renderMiner();
     if (Date.now() - minerPage.loadedAt > 60000) loadMinerData();
+    // Paused or mining again: show it now, not at the next reload
+    else if (minerPage.history && liveMining(minerBySlug(currentMiner)) !== minerPage.drawnMining) renderMinerChart();
 });
+
+const liveMining = m => (!m || !m.connected || m.values.mining === undefined || m.values.mining === null) ? null : (m.values.mining ? 1 : 0);
 
 async function loadMinerData() {
     const slug = currentMiner;
@@ -155,7 +159,15 @@ function renderMinerChart() {
     const h = minerPage.history;
     const legend = document.getElementById('m-chart-legend');
     if (!m || !h || !h.rows.length) { legend.innerHTML = ''; return emptyChart(el, 'No readings in this period yet'); }
-    const rows = h.rows;
+    // The stored readings are a minute apart and averaged per bucket: end on the live reading
+    const rows = h.rows.slice();
+    const live = liveMining(m);
+    minerPage.drawnMining = live;
+    const last = rows[rows.length - 1];
+    if (live !== null && m.last_seen && m.last_seen > last.ts) {
+        const v = m.values;
+        rows.push({ts: Math.floor(m.last_seen), hashrate: live ? v.hashrate : 0, temp: v.temp, vr_temp: v.vr_temp, power: v.power, mining: live});
+    }
     const xs = rows.map(r => r.ts);
     const kind = minerPage.kind;
     let series, formatY, formatTick, hlines = [];
@@ -179,7 +191,8 @@ function renderMinerChart() {
     let from = null;
     rows.forEach((r, i) => {
         if (r.mining !== null && r.mining < 0.5) { if (from === null) from = r.ts; }
-        else if (from !== null) { bands.push({from, to: rows[i].ts, color: color('warning-color')}); from = null; }
+        // The bucket before a live 'mining' reading mixes both, so the band stops at its start
+        else if (from !== null) { bands.push({from, to: rows[i === rows.length - 1 && i > 0 ? i - 1 : i].ts, color: color('warning-color')}); from = null; }
     });
     if (from !== null) bands.push({from, to: rows[rows.length - 1].ts, color: color('warning-color')});
     lineChart(el, {

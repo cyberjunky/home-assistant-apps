@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+**After updating:** nothing to do.
+
+- The history chart follows the miner: it ends on the live reading, and an open page shows a pause or a resume within seconds instead of a minute or more later.
+
 ## 0.1.1
 
 **After updating:** nothing to do.
