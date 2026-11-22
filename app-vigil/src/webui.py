@@ -142,6 +142,8 @@ def setup_examples(syslog_port: int | None, otlp_port: int | None, token_set: bo
             "      db: C:\\ProgramData\\fluent-bit\\winevtlog.db\n"
             "      event_data_as_map: true\n"
             "      string_inserts: false\n"
+            "      # Leave out 'connection permitted' and 'port bound': thousands an hour when auditing is on\n"
+            "      event_query: '*[System[(EventID!=5156 and EventID!=5158)]]'\n"
             "  outputs:\n"
             "    - name: http\n"
             "      match: '*'\n"
@@ -157,7 +159,10 @@ def setup_examples(syslog_port: int | None, otlp_port: int | None, token_set: bo
             '\'"C:\\Program Files\\fluent-bit\\bin\\fluent-bit.exe" -c "C:\\Program Files\\fluent-bit\\conf\\fluent-bit.yaml"\'\n'
             "#   Start-Service fluent-bit\n"
             "# Failed logons are only logged when logon auditing is on:\n"
-            '#   auditpol /set /subcategory:"Logon" /success:enable /failure:enable'
+            '#   auditpol /set /subcategory:"Logon" /success:enable /failure:enable\n'
+            "# Windows should not log every permitted connection (blocked ones stay logged):\n"
+            '#   auditpol /set /subcategory:"Filtering Platform Connection" /success:disable\n'
+            '#   auditpol /set /subcategory:"Filtering Platform Packet Drop" /success:disable'
         ),
         "node_exporter": (
             "# In Vigil's options (Configuration tab):\n"

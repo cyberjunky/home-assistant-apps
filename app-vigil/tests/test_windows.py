@@ -141,3 +141,21 @@ def test_the_attributes_are_searchable():
     for q in ("attrs.event_id:4625", "attrs.mitre:T*", 'attrs.event:"failed logon"', "attrs.category:account_change"):
         assert to_where(q).sql
     assert all(len(v) == 4 for v in EVENTS.values())
+
+
+def test_one_pattern_per_kind_of_event():
+    from src.patterns import PatternMiner
+
+    miner = PatternMiner()
+    templates = set()
+    for i, app in enumerate(("esrv_svc.exe", "svchost.exe", "very long name with spaces.exe")):
+        message = (
+            "The Windows Filtering Platform has permitted a connection.\r\n\r\nApplication Information:\r\n"
+            f"\tProcess ID:\t\t{100 + i}\r\n\tApplication Name:\t\\device\\harddiskvolume3\\program files\\{app}\r\n"
+            + "\tDirection:\t\tInbound\r\n"
+            * i
+        )
+        entry = _parse(_record(EventID=5156, Message=message, EventData={}))
+        assert entry.message.startswith("The Windows Filtering Platform") and "Process ID" in entry.message
+        templates.add(miner.match(entry.pattern_text or entry.message).template)
+    assert templates == {"The Windows Filtering Platform has permitted a connection."}

@@ -1442,7 +1442,7 @@ class Writer:
                     # A sender with a wrong clock: keep the line, at the time it arrived
                     item.attrs["original_ts"] = item.ts.isoformat()
                     item.ts = now
-                match = self.miner.match(item.message)
+                match = self.miner.match(_clean(item.pattern_text) or item.message)
                 if match.renamed_from:
                     renames.append((match.renamed_from, match.template))
                 logs.append(item)
