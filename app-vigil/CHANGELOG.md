@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.3
+
+**After updating:** nothing to do. If the MikroTik commands failed with *expected end of
+command*, paste them again from the Sources page.
+
+- **MikroTik setup works on every RouterOS:** the command used `remote-log-format=syslog`, which
+  older RouterOS doesn't know and newer RouterOS takes other values for, so pasting it failed
+  with *expected end of command*. It now uses only parameters every version has; the
+  documentation explains the optional format setting per version. Vigil reads every format.
+- **The right address in the setup snippets:** they were filled in with the address the page
+  was opened on, which through the Nabu Casa or another remote URL is a name routers can't send
+  to. Now only an address on your own network is filled in (an IP address for routers and
+  switches, which don't take names); otherwise the snippet says to fill it in.
+
 ## 0.1.2
 
 **After updating:** nothing to do. Set *Notify service* to another action now if saving it

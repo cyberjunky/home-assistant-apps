@@ -59,23 +59,29 @@ After setting up a sender, check **Sources**: it appears within a minute. If it 
 sender can't reach Home Assistant on that port (a firewall, a wrong address, or the port cleared
 in Vigil's Network settings).
 
-### MikroTik (RouterOS 7)
+### MikroTik (RouterOS 6 and 7)
 
 **Logs.** In a terminal (Winbox → *New Terminal*, or SSH):
 
 ```
-/system logging action add name=vigil target=remote remote=HOME_ASSISTANT_IP remote-port=514 \
-    remote-log-format=syslog syslog-facility=local0
+/system logging action add name=vigil target=remote remote=HOME_ASSISTANT_IP remote-port=514
 /system logging add action=vigil topics=info
 /system logging add action=vigil topics=warning
 /system logging add action=vigil topics=error
 /system logging add action=vigil topics=critical
 ```
 
+These are the parameters every RouterOS knows. With them the router sends its own short
+format, and Vigil shows the router's address as the host. To get the router's **name** as the
+host, switch it to the classic syslog format; the setting differs per version, so let the
+terminal show yours: type `/system logging action set vigil ` and press **Tab** for the
+parameters, then pick the BSD / RFC 3164 one (`bsd-syslog=yes` on older versions,
+`remote-log-format=` and **Tab** for the values on newer ones). A parameter or value the
+router doesn't know gives *expected end of command*. Vigil reads every one of these formats.
+
 In Winbox instead: **System → Logging → Actions → +**: Name `vigil`, Type *remote*, Remote
-Address, Remote Port `514`, Remote Log Format *syslog* (on RouterOS before 7.18: tick *BSD
-Syslog*). Then **Rules → +** for each topic (info, warning, error, critical) with Action
-`vigil`. Vigil shows RouterOS' first topic as the line's *app* (`firewall`, `dhcp`, `system`,
+Address, Remote Port `514` (and, optionally, the BSD syslog format as above). Then
+**Rules → +** for each topic (info, warning, error, critical) with Action `vigil`. Vigil shows RouterOS' first topic as the line's *app* (`firewall`, `dhcp`, `system`,
 `interface`), so `app:dhcp` finds the DHCP lines.
 
 **Firewall lines.** RouterOS only logs firewall rules that have *log* on. For the drop rules

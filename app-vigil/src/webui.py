@@ -97,8 +97,9 @@ def setup_examples(syslog_port: int | None, otlp_port: int | None, token_set: bo
             f"*.* @@{host}:{syslog}    # TCP; use a single @ for UDP"
         ),
         "mikrotik": (
-            f"/system logging action add name=vigil target=remote remote={host} remote-port={syslog} "
-            "remote-log-format=syslog syslog-facility=local0\n"
+            # Only parameters every RouterOS knows: the format setting differs per version
+            # (bsd-syslog=yes, remote-log-format=..), and Vigil reads all of them
+            f"/system logging action add name=vigil target=remote remote={host} remote-port={syslog}\n"
             "/system logging add action=vigil topics=info\n"
             "/system logging add action=vigil topics=warning\n"
             "/system logging add action=vigil topics=error\n"
