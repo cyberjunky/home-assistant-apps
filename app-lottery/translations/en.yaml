@@ -1,0 +1,59 @@
+configuration:
+  miners:
+    name: Miners
+    description: >-
+      Your solo miners: Bitaxe, NerdQAxe, Lucky Miner and other miners with AxeOS
+      firmware. Coming from the Bitaxe integration? Give each miner the name its
+      device had there, so its entities keep the same ids. Keep a name once set:
+      the miner's history and entities are stored under it.
+    fields:
+      name:
+        name: Name
+        description: The miner's name on the pages and in Home Assistant.
+      host:
+        name: Address
+        description: The miner's IP address or host name, for example 192.168.1.50.
+  poll_seconds:
+    name: Read every (seconds)
+    description: How often each miner is read.
+  network_data:
+    name: Network data from mempool.space
+    description: >-
+      Reads the recent blocks from mempool.space: the fees a block pays, for the
+      prize, and the network difficulty while no miner is running. Only public data
+      is asked for. Turn off to use only what your miners report.
+  firmware_check:
+    name: Look for new firmware
+    description: >-
+      Looks on GitHub for the newest Bitaxe and NerdQAxe firmware, for each miner's
+      Firmware entity. Installing stays in AxeOS.
+  mqtt:
+    name: MQTT
+    description: >-
+      The miners' sensors, Mining switch and Restart button in Home Assistant. Leave
+      the host empty to use the broker Home Assistant knows.
+    fields:
+      enabled:
+        name: Enabled
+        description: Publish the miners over MQTT.
+      host:
+        name: Host
+        description: Address of the broker.
+      port:
+        name: Port
+        description: Port of the broker.
+      user:
+        name: User
+        description: User for the broker.
+      password:
+        name: Password
+        description: Password for the broker.
+      base_topic:
+        name: Base topic
+        description: Topic under which the miners' state and commands go.
+      discovery_prefix:
+        name: Discovery prefix
+        description: Home Assistant's discovery prefix.
+  log_level:
+    name: Log level
+    description: Amount of logging.

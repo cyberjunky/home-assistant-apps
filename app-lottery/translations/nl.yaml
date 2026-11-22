@@ -1,0 +1,59 @@
+configuration:
+  miners:
+    name: Miners
+    description: >-
+      Je solo miners: Bitaxe, NerdQAxe, Lucky Miner en andere miners met AxeOS
+      firmware. Kom je van de Bitaxe-integratie? Geef elke miner de naam die zijn
+      apparaat daar had, dan houden de entiteiten dezelfde id's. Houd een naam
+      daarna vast: de geschiedenis en entiteiten van de miner staan eronder.
+    fields:
+      name:
+        name: Naam
+        description: De naam van de miner op de pagina's en in Home Assistant.
+      host:
+        name: Adres
+        description: Het IP-adres of de hostnaam van de miner, bijvoorbeeld 192.168.1.50.
+  poll_seconds:
+    name: Uitlezen elke (seconden)
+    description: Hoe vaak elke miner wordt uitgelezen.
+  network_data:
+    name: Netwerkgegevens van mempool.space
+    description: >-
+      Leest de laatste blokken van mempool.space: de fees die een blok oplevert, voor
+      de prijs, en de netwerk-difficulty zolang er geen miner draait. Alleen openbare
+      gegevens. Zet uit om alleen te gebruiken wat je miners melden.
+  firmware_check:
+    name: Zoeken naar nieuwe firmware
+    description: >-
+      Zoekt op GitHub naar de nieuwste Bitaxe- en NerdQAxe-firmware, voor de
+      Firmware-entiteit van elke miner. Installeren blijft in AxeOS.
+  mqtt:
+    name: MQTT
+    description: >-
+      De sensoren, Mining-schakelaar en Restart-knop van de miners in Home Assistant.
+      Laat de host leeg om de broker te gebruiken die Home Assistant kent.
+    fields:
+      enabled:
+        name: Aan
+        description: Publiceer de miners via MQTT.
+      host:
+        name: Host
+        description: Adres van de broker.
+      port:
+        name: Poort
+        description: Poort van de broker.
+      user:
+        name: Gebruiker
+        description: Gebruiker voor de broker.
+      password:
+        name: Wachtwoord
+        description: Wachtwoord voor de broker.
+      base_topic:
+        name: Basistopic
+        description: Topic waaronder de status en opdrachten van de miners gaan.
+      discovery_prefix:
+        name: Discovery-prefix
+        description: De discovery-prefix van Home Assistant.
+  log_level:
+    name: Logniveau
+    description: Hoeveelheid logging.
