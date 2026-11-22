@@ -185,6 +185,11 @@ async def test_metrics_query_with_rate(database):
     names = {n["name"]: n for n in await database.metric_names("")}
     assert names["bytes_total"]["series"] == 2 and names["temp"]["unit"] == "C"
     assert await database.metric_names("emp") == [{"name": "temp", "series": 1, "unit": "C", "kind": "gauge"}]
+    # A label narrows the list and the series count: job=nas has only bytes_total, both its series
+    by_job = await database.metric_names("", {"job": "nas"})
+    assert [(n["name"], n["series"]) for n in by_job] == [("bytes_total", 2)]
+    assert [n["series"] for n in await database.metric_names("bytes", {"if": "eth0"})] == [1]
+    assert await database.metric_names("", {"job": "nowhere"}) == []
     labels = await database.metric_labels("bytes_total")
     assert labels == {"if": ["eth0", "eth1"], "job": ["nas"]}
     t0, t1 = start.timestamp(), now.timestamp() + 1

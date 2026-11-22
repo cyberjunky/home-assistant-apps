@@ -85,6 +85,20 @@ def _id(body: dict, name: str = "id") -> int:
     return value
 
 
+def metric_search(text: str) -> tuple[str, dict]:
+    """The metric picker's search: label=value words filter on a label (job=freqle), the other
+    words are part of the name ("job=freqle cpu" is every freqle metric with cpu in its name).
+    = and not :, because Prometheus names may hold colons (node:cpu:rate5m), never =."""
+    words, labels = [], {}
+    for word in text.split():
+        key, sep, value = word.partition("=")
+        if sep and value and LABEL_KEY.match(key):
+            labels[key] = value
+        else:
+            words.append(word)
+    return " ".join(words), labels
+
+
 def setup_examples(syslog_port: int | None, otlp_port: int | None, token_set: bool) -> dict:
     """Copy-paste configuration for the Sources page (HOME_ASSISTANT_IP is for the page to fill in)."""
     host = HOST_PLACEHOLDER
@@ -402,7 +416,8 @@ class WebUI:
     # ------------------------------------------------------------------ metrics
 
     async def _handle_metric_names(self, request: web.Request) -> web.Response:
-        return _json({"names": await self.database.metric_names(request.query.get("q", "")[:200])})
+        q, labels = metric_search(request.query.get("q", "")[:200])
+        return _json({"names": await self.database.metric_names(q, labels)})
 
     async def _handle_metric_labels(self, request: web.Request) -> web.Response:
         name = request.query.get("name", "")
