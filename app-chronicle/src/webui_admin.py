@@ -94,6 +94,10 @@ class AdminRoutes:
         get("/api/readers", self.readers)
         post("/api/readers/create", self.reader_create)
         post("/api/readers/drop", self.reader_drop)
+        get("/api/apps", self.apps)
+        post("/api/apps/create", self.app_create)
+        post("/api/apps/password", self.app_password)
+        post("/api/apps/drop", self.app_drop)
         get("/api/backups", self.backups)
         get("/api/backups/file", self.backup_download)
         post("/api/backups/upload", self.backup_upload)
@@ -249,6 +253,36 @@ class AdminRoutes:
         await self.admin.drop_reader(str(body.get("name", "")))
         return _json({"ok": True})
 
+    # ------------------------------------------------------------------ app databases
+
+    async def apps(self, _request):
+        return _json({"databases": await self.admin.app_databases(), "host": self.admin.config.integration()["host"]})
+
+    async def app_create(self, request):
+        """The login and its database first (as the web UI), then TimescaleDB through the helper;
+        when that fails, both are removed again and nothing is shown."""
+        body = await _body(request)
+        name = str(body.get("name", ""))
+        result = await self.admin.create_app_database(name)
+        try:
+            await self._helper_wait("/timescaledb", {"database": name})
+        except AdminError as e:
+            await self.admin.drop_app_database(name, name)
+            raise AdminError(f"Nothing was created: TimescaleDB could not be added ({e})") from e
+        finally:
+            self.on_change()
+        return _json(result)
+
+    async def app_password(self, request):
+        body = await _body(request)
+        return _json(await self.admin.rotate_app_password(body.get("name")))
+
+    async def app_drop(self, request):
+        body = await _body(request)
+        await self.admin.drop_app_database(body.get("name"), body.get("confirm"))
+        self.on_change()
+        return _json({"ok": True})
+
     # ------------------------------------------------------------------ backups
 
     async def backups(self, _request):
@@ -397,6 +431,22 @@ class AdminRoutes:
                 return None
             raise AdminError(f"The database helper is not running: {e}") from e
 
+    async def _helper_wait(self, path: str, body: dict, seconds: float = 120) -> dict:
+        """Runs a short helper task and waits until it is done; fails with its error."""
+        task = await self._helper("POST", path, body)
+        deadline = time.monotonic() + seconds
+        while time.monotonic() < deadline:
+            await asyncio.sleep(0.3)
+            data = await self._helper("GET", "/tasks")
+            found = next((t for t in data.get("tasks", []) if t["id"] == task.get("id")), None)
+            if found is None:
+                raise AdminError("The helper lost the task")
+            if found["state"] == "done":
+                return found
+            if found["state"] != "running":
+                raise AdminError(found.get("error") or "the task failed")
+        raise AdminError("The task took too long; see the Maintenance page")
+
     async def _helper_task(self, request, path: str, keys: tuple[str, ...]) -> web.Response:
         body = await _body(request)
         task = await self._helper("POST", path, {k: body.get(k) for k in keys if k in body})
@@ -433,6 +483,9 @@ class AdminRoutes:
         return await self._helper_task(request, "/use", ("database",))
 
     async def helper_drop(self, request):
+        body = await _body(request)
+        if body.get("database") in {d["name"] for d in await self.admin.app_databases()}:
+            return _error("This is an app database: remove it under Maintenance → App databases, with its login")
         return await self._helper_task(request, "/drop", ("database",))
 
     # ------------------------------------------------------------------ the integration's connection

@@ -11,6 +11,7 @@ these tasks, each with checked arguments; it runs no SQL it is sent:
   copy      a database from another PostgreSQL server into a new database
   use       make a database the one the Chronicle integration records into
   drop      remove a database (never the one the integration records into)
+  timescaledb  add TimescaleDB to a new, empty app database (made under App databases)
 
 How it stays safe as the superuser:
 
@@ -91,6 +92,30 @@ HOST_NAME = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$|^[0-9a-
 ROLE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_.-]{0,62}$")
 # Databases nobody may restore into, drop or rename
 PROTECTED = {"postgres", "template0", "template1"}
+# The comment the web UI puts on an app database (src/admin.py APP_MARK)
+APP_MARK = "chronicle:app"
+# Objects made after initdb have an oid from here on (PostgreSQL's FirstNormalObjectId)
+FIRST_NORMAL_OID = 16384
+# The catalogs where a database's owner could have put something of its own
+OWNED_CATALOGS = (
+    "pg_class",
+    "pg_proc",
+    "pg_type",
+    "pg_operator",
+    "pg_namespace",
+    "pg_cast",
+    "pg_collation",
+    "pg_conversion",
+    "pg_opclass",
+    "pg_opfamily",
+    "pg_ts_config",
+    "pg_ts_dict",
+    "pg_ts_parser",
+    "pg_ts_template",
+    "pg_extension",
+    "pg_default_acl",
+    "pg_language",
+)
 TASKS_KEPT = 30
 LOG_LINES = 200
 CHUNK = 1024 * 1024
@@ -425,6 +450,36 @@ class Helper:
             await conn.close()
         task.say(f"Removed {database}")
         return {"database": database}
+
+    async def timescaledb(self, task: Task, database: str) -> dict:
+        """TimescaleDB in an app database, right after the web UI made it. Its scripts run as the
+        superuser in the database's public schema, which the app's login owns; so only while the
+        database is still empty (the login can't have put anything of its own there yet)."""
+        conn = await connect(database)
+        try:
+            app = await conn.fetchval(
+                """SELECT shobj_description(d.oid, 'pg_database') = $1 AND r.rolname = d.datname
+                          AND r.rolcanlogin AND NOT r.rolsuper AND r.rolname <> ALL($2::text[])
+                   FROM pg_database d JOIN pg_roles r ON r.oid = d.datdba WHERE d.datname = current_database()""",
+                APP_MARK,
+                sorted(APP_ROLES),
+            )
+            if not app:
+                raise TaskError(f"{database} is not an app database (made under App databases)")
+            version = await conn.fetchval("SELECT extversion FROM pg_extension WHERE extname = 'timescaledb'")
+            if version:
+                task.say(f"TimescaleDB {version} is already in {database}")
+                return {"database": database, "timescaledb": version}
+            found = " OR ".join(f"EXISTS (SELECT FROM {c} WHERE oid >= {FIRST_NORMAL_OID})" for c in OWNED_CATALOGS)
+            if await conn.fetchval(f"SELECT {found}"):
+                raise TaskError(f"{database} is not empty any more; TimescaleDB is only added to a new app database")
+            task.say(f"Creating TimescaleDB in {database}..")
+            await conn.execute("CREATE EXTENSION timescaledb SCHEMA public")
+            version = await conn.fetchval("SELECT extversion FROM pg_extension WHERE extname = 'timescaledb'")
+        finally:
+            await conn.close()
+        task.say(f"Done: TimescaleDB {version} in {database}")
+        return {"database": database, "timescaledb": version}
 
     # ------------------------------------------------------------------ restore steps
 
@@ -787,6 +842,12 @@ def make_app(helper: Helper) -> web.Application:
         task = Task("drop", f"Remove {database}")
         return _json(helper.start(task, lambda t: helper.drop(t, database)).public())
 
+    async def timescaledb(request):
+        body = await _body(request)
+        database = check_database(body.get("database"), new=True)
+        task = Task("timescaledb", f"Add TimescaleDB to {database}")
+        return _json(helper.start(task, lambda t: helper.timescaledb(t, database)).public())
+
     app = web.Application(middlewares=[errors], client_max_size=64 * 1024)
     app.router.add_get("/tasks", tasks)
     app.router.add_post("/dump", dump)
@@ -794,6 +855,7 @@ def make_app(helper: Helper) -> web.Application:
     app.router.add_post("/copy", copy)
     app.router.add_post("/use", use)
     app.router.add_post("/drop", drop)
+    app.router.add_post("/timescaledb", timescaledb)
     return app
 
 

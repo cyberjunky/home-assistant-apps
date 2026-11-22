@@ -1,7 +1,8 @@
 """The database pages: browse every database, its dashboard, the server's activity, and
 maintenance. As the web UI's role (chronicle_ui): it reads the statistics of the whole server
 (pg_monitor), can stop queries (pg_signal_backend), run VACUUM, ANALYZE and REINDEX on every
-table (pg_maintain), manage what the Chronicle integration owns, and create read-only logins.
+table (pg_maintain), manage what the Chronicle integration owns, and create read-only logins
+and app databases (a database with a login of its own, for another Home Assistant app).
 
 Names from the page (databases, schemas, tables, columns) never go into SQL as they come:
 a database must exist, a table is looked up in the catalog and used by its oid, a column must
@@ -23,7 +24,7 @@ from dataclasses import dataclass, field
 
 import asyncpg
 
-from .config import INTEGRATION_ROLE, Config
+from .config import INTEGRATION_ROLE, POSTGRES_PORT, Config
 from .database import _cell
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,10 @@ SYSTEM_PREFIXES = ("_timescaledb_", "timescaledb_", "pg_temp_", "pg_toast_temp_"
 # Roles the app manages itself; never shown as logins to remove
 APP_ROLES = {"postgres", INTEGRATION_ROLE, "chronicle_ui"}
 READER_NAME = re.compile(r"^[a-z][a-z0-9_]{2,30}$")
+# The comment that marks a database made under App databases; only those are listed and managed
+APP_MARK = "chronicle:app"
+# Databases that are never an app database, whatever their comment says
+PROTECTED_DATABASES = {"postgres", "template0", "template1"}
 ROWS_LIMIT = 500
 STATEMENT_TIMEOUT = "30s"
 SAMPLE_SECONDS = 60
@@ -773,8 +778,11 @@ class Admin:
                FROM pg_roles r
                WHERE r.rolcanlogin AND NOT r.rolsuper AND r.rolname <> ALL($1::text[])
                  AND pg_has_role('chronicle_ui', r.oid, 'USAGE')
+                 AND NOT EXISTS (SELECT FROM pg_database d
+                                 WHERE d.datdba = r.oid AND shobj_description(d.oid, 'pg_database') = $2)
                ORDER BY 1""",
             list(APP_ROLES),
+            APP_MARK,
         )
         return [dict(r) for r in rows]
 
@@ -839,6 +847,118 @@ class Admin:
             await pool.execute(f"DROP OWNED BY {name}")
         pool = await self.pool("postgres")
         await pool.execute(f"DROP ROLE {name}")
+
+    # ------------------------------------------------------------------ app databases
+
+    async def app_databases(self) -> list[dict]:
+        """The databases made under App databases: marked with APP_MARK, owned by a login of the
+        same name that is no superuser and none of the app's own roles. Anything else, whatever
+        its comment says (an owner can comment on its own database), is not listed or managed."""
+        pool = await self.pool("postgres")
+        rows = await pool.fetch(
+            """SELECT d.datname AS name, r.rolname AS owner, pg_database_size(d.oid) AS size,
+                      (SELECT count(*) FROM pg_stat_activity a WHERE a.datname = d.datname) AS connections
+               FROM pg_database d JOIN pg_roles r ON r.oid = d.datdba
+               WHERE shobj_description(d.oid, 'pg_database') = $1 AND r.rolname = d.datname
+                 AND r.rolcanlogin AND NOT r.rolsuper AND NOT d.datistemplate AND d.datallowconn
+                 AND d.datname <> ALL($2::text[])
+               ORDER BY 1""",
+            APP_MARK,
+            sorted(APP_ROLES | PROTECTED_DATABASES | {self.config.database}),
+        )
+        result = []
+        for r in rows:
+            timescale = None
+            with contextlib.suppress(AdminError, asyncpg.PostgresError, OSError):
+                timescale = await (await self.pool(r["name"])).fetchval(
+                    "SELECT extversion FROM pg_extension WHERE extname = 'timescaledb'"
+                )
+            result.append({**dict(r), "timescaledb": timescale})
+        return result
+
+    def _check_app_name(self, name: str) -> None:
+        if (
+            not READER_NAME.match(name)
+            or name in APP_ROLES
+            or name in PROTECTED_DATABASES
+            or name == self.config.database
+            or name.startswith("pg_")
+        ):
+            raise AdminError("A name has 3 to 31 lowercase letters, digits and underscores, and starts with a letter")
+
+    async def _app_database(self, name: object) -> str:
+        if not isinstance(name, str) or name not in {d["name"] for d in await self.app_databases()}:
+            raise AdminError("Not an app database of this app")
+        return name
+
+    def connection(self, name: str, password: str) -> dict:
+        """What to enter in the other app; the password only in the one response that makes it."""
+        return {
+            "host": self.config.integration()["host"],
+            "port": POSTGRES_PORT,
+            "database": name,
+            "username": name,
+            "password": password,
+        }
+
+    async def create_app_database(self, name: str) -> dict:
+        """A login and a database of the same name that it owns, for another Home Assistant app.
+        Only that login (and the web UI) may connect to it. TimescaleDB is added by the helper
+        afterwards (it needs the superuser), before the password is shown. The password is shown
+        once; only its SCRAM verifier reaches the server."""
+        self._check_app_name(name)
+        pool = await self.pool("postgres")
+        async with pool.acquire() as conn:
+            if await conn.fetchval("SELECT EXISTS (SELECT FROM pg_roles WHERE rolname = $1)", name):
+                raise AdminError(f"There is already a role {name}")
+            if await conn.fetchval("SELECT EXISTS (SELECT FROM pg_database WHERE datname = $1)", name):
+                raise AdminError(f"There is already a database {name}")
+            quoted = await conn.fetchval("SELECT quote_ident($1)", name)
+            password = secrets.token_urlsafe(24)
+            await conn.execute(
+                f"CREATE ROLE {quoted} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS "
+                f"PASSWORD '{scram_verifier(password)}'"
+            )
+            try:
+                # From template0: nothing that was put in template1 comes along
+                await conn.execute(f"CREATE DATABASE {quoted} OWNER {quoted} TEMPLATE template0")
+                await conn.execute(f"COMMENT ON DATABASE {quoted} IS '{APP_MARK}'")
+                await conn.execute(f"REVOKE CONNECT, TEMPORARY ON DATABASE {quoted} FROM PUBLIC")
+                await conn.execute(f"GRANT CONNECT, TEMPORARY ON DATABASE {quoted} TO {quoted}")
+                # The web UI shows it on the Databases page
+                await conn.execute(f"GRANT CONNECT ON DATABASE {quoted} TO CURRENT_USER")
+            except BaseException:
+                with contextlib.suppress(asyncpg.PostgresError):
+                    await conn.execute(f"DROP DATABASE IF EXISTS {quoted} WITH (FORCE)")
+                with contextlib.suppress(asyncpg.PostgresError):
+                    await conn.execute(f"DROP ROLE IF EXISTS {quoted}")
+                raise
+        return self.connection(name, password)
+
+    async def rotate_app_password(self, name: object) -> dict:
+        """A new password for an app database's login; the old one stops working at once."""
+        name = await self._app_database(name)
+        pool = await self.pool("postgres")
+        async with pool.acquire() as conn:
+            quoted = await conn.fetchval("SELECT quote_ident($1)", name)
+            password = secrets.token_urlsafe(24)
+            await conn.execute(f"ALTER ROLE {quoted} PASSWORD '{scram_verifier(password)}'")
+        return self.connection(name, password)
+
+    async def drop_app_database(self, name: object, confirm: object) -> None:
+        """Removes an app database with everything in it, and its login."""
+        name = await self._app_database(name)
+        if confirm != name:
+            raise AdminError("Type the database's name to confirm")
+        await self.forget(name)
+        pool = await self.pool("postgres")
+        quoted = await pool.fetchval("SELECT quote_ident($1)", name)
+        await pool.execute(f"DROP DATABASE {quoted} WITH (FORCE)")
+        # Anything granted to the login elsewhere goes with it
+        for database in await self._database_names():
+            with contextlib.suppress(asyncpg.PostgresError):
+                await (await self.pool(database)).execute(f"DROP OWNED BY {quoted}")
+        await pool.execute(f"DROP ROLE {quoted}")
 
 
 def scram_verifier(password: str, iterations: int = 4096) -> str:

@@ -31,6 +31,7 @@ can hold other databases you put in it.
 | The web UI | Every database, as the role `chronicle_ui` | Over the local socket, as its own OS user (no password); not a superuser |
 | The Chronicle integration | Its database, as the role `chronicle` | From Home Assistant's internal network only, with a password the app generates |
 | Read-only logins (Grafana, ..) | The databases they were given | With their own password; from another machine only when you set a port in the app's Network settings |
+| App database logins (Vigil, ..) | Their own database only, as its owner | With their own password, from Home Assistant's internal network (or through the port when you set one) |
 | `postgres` (the superuser) | Everything | Only the app's own scripts and its helper, inside the app |
 
 - **The SQL page** runs whatever an administrator types, as `chronicle_ui`: it can read and
@@ -50,6 +51,15 @@ can hold other databases you put in it.
   doesn't run as the superuser. Owners this server doesn't have get a role without login for
   the restore; what they owned goes to `chronicle` afterwards. Event triggers are removed;
   subscriptions and publications are left out.
+- **App database logins** own one database each, of the same name, with TimescaleDB in it. A
+  login can do anything inside its own database (schemas, tables, hypertables, functions), but
+  it is no superuser, can't create databases or roles, and can't connect to any other
+  database. The web UI makes the login and the database as `chronicle_ui`; only adding
+  TimescaleDB is a superuser task, and the helper does it only while the database is still
+  empty, right after it was made and before the password is shown, so the extension's scripts
+  never run among objects of the login's own. Only databases the app marked (a comment), owned
+  by a same-name login that is no superuser and none of the app's own roles, are listed,
+  get a new password or are removed; Chronicle's database, `postgres` and the templates never.
 - **Requests that change something** must carry a header that only the page's own scripts send,
   so a link, a form or another website can't make the UI act.
 - **Every database** is only open to the roles that were given it (not to every role, as
@@ -61,8 +71,9 @@ can hold other databases you put in it.
 - The integration's password is generated on the first start and stored in the app's folder,
   readable by the app only. Home Assistant gets it through discovery; the Info page shows it on
   request.
-- Read-only logins get a generated password that is shown once. Only its SCRAM verifier is sent
-  to PostgreSQL, so it never lands in a log or in the statement statistics; neither does the
+- Read-only logins and app database logins get a generated password that is shown once (and
+  again a new one, shown once, on *New password…*). Only its SCRAM verifier is sent to
+  PostgreSQL, so it never lands in a log or in the statement statistics; neither does the
   integration's.
 - The password of another server, for a copy, goes into a private file for that copy only, and
   is never logged or stored.
@@ -88,6 +99,8 @@ can hold other databases you put in it.
   scripts run as the superuser in that database's `public` schema, which the database's owner
   controls. This is a known weakness class of PostgreSQL extensions (such as CVE-2023-25149)
   that the app can't remove; it keeps TimescaleDB updated, which is where such issues are fixed.
+  It matters more for an app database: its owner is another app, and the update on the first
+  start after an app update runs there too.
 - An administrator of Home Assistant can do anything with the data, by design.
 
 ### Audit

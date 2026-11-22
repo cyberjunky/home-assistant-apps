@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+**After updating:** nothing to do.
+
+- **App databases:** a database of its own for another Home Assistant app, such as Vigil (Maintenance → *App databases*). It is owned by a login of the same name, has TimescaleDB, and only that login can connect to it. The connection to enter in the other app is shown once, with the password. *New password…* gives the login a new one; *Remove…* removes the database and its login, after typing the name.
+- **Databases:** *Remove* refuses an app database; remove it under App databases, with its login.
+
 ## 0.2.2
 
 **After updating:** nothing to do.
