@@ -351,7 +351,7 @@ function renderStatusbar() {
     }
     if (s.network.height) parts.push(`<span class="sb-extra">block <b>${num(s.network.height)}</b></span>`);
     if (s.mqtt.broker) parts.push(`<span class="sb-extra">MQTT <b class="${s.mqtt.connected ? 'sb-ok' : 'sb-bad'}">${s.mqtt.connected ? 'connected' : 'offline'}</b></span>`);
-    parts.push(`<span class="spacer"></span><span class="sb-extra">Lottery app ${escapeHtml(s.version)} · unofficial</span>`);
+    parts.push(`<span class="spacer"></span><span class="sb-extra">Lottery app ${escapeHtml(s.version)}</span>`);
     document.getElementById('statusbar').innerHTML = parts.join('');
 }
 

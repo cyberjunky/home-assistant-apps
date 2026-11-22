@@ -165,8 +165,8 @@ interfaces on the network and asks devices whether they are there.
 ![Supports aarch64 Architecture][aarch64-shield]
 ![Supports amd64 Architecture][amd64-shield]
 
-Unofficial dashboard for your Bitaxe, NerdQAxe, Lucky Miner and other AxeOS solo miners, opened
-from the sidebar. Your odds of a block this block, today and this year, how close your best share
+Dashboard for your Bitaxe, NerdQAxe, Lucky Miner and other AxeOS solo miners, opened from the
+sidebar. Your odds of a block this block, today and this year, how close your best share
 came, the prize and the cost of a ticket, and a page per miner with its stats, ASICs and history.
 Each miner appears in Home Assistant over MQTT with the Bitaxe integration's sensors, a Mining
 switch and a Restart button, so it replaces the integration.

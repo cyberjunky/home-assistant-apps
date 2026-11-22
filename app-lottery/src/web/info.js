@@ -52,7 +52,6 @@ function renderInfo() {
         ${infoRow('Version', escapeHtml(s.version))}
         ${infoRow('Read every', `${num(s.config.poll_seconds)} s`)}
         ${infoRow('Source', '<a href="https://github.com/cyberjunky/home-assistant-apps/tree/main/app-lottery" target="_blank" rel="noopener">github.com/cyberjunky/home-assistant-apps</a>')}
-        ${infoRow('Note', 'An unofficial app, not made by or associated with the Bitaxe, NerdQAxe or Lucky Miner makers.')}
     </div>`;
 }
 
