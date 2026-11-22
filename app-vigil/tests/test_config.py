@@ -41,8 +41,9 @@ def test_secrets_stay_out_of_repr_and_public():
 
 
 def test_notify_target():
-    assert Config(notify_service="notify.mobile_app_phone").notify_target == "mobile_app_phone"
-    assert Config(notify_service="mobile_app_phone").notify_target == "mobile_app_phone"
+    assert Config(notify_service="notify.mobile_app_phone").notify_target == ("notify", "mobile_app_phone")
+    assert Config(notify_service="mobile_app_phone").notify_target == ("notify", "mobile_app_phone")
+    assert Config(notify_service="telegram_bot.send_message").notify_target == ("telegram_bot", "send_message")
     assert Config().notify_target is None
 
 

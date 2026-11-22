@@ -59,7 +59,7 @@ schema:
     host: str?
     user: str?
     password: password?
-  notify_service: match(^(notify\.)?[a-z0-9_]+$)?
+  notify_service: match(^[a-z0-9_]+(\.[a-z0-9_]+)?$)?
   logs_retention_days: int(1,365)
   metrics_retention_days: int(1,1825)
   log_level: list(debug|info|warning|error)?

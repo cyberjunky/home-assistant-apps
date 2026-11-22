@@ -8,6 +8,9 @@ gone from the form.
 
 - **FRITZ!Box options in their own section:** *FRITZ!Box (TR-064)*, instead of three fields that
   looked like part of the Prometheus targets above them.
+- **Alerts to any action:** *Notify service* takes any Home Assistant action with a title and a
+  message, such as `telegram_bot.send_message`, not only `notify.…`; saving the options with
+  another action failed with "does not match regular expression".
 - **Examples:** *Examples* on the Logs page (18 described searches: errors, SSH logins, sudo,
   firewall blocks, out of memory, disk errors, MikroTik logins, firewall, DHCP and links, switch
   ports, the FRITZ!Box) and on the Metrics page (10 charts: node_exporter, the FRITZ!Box, MKTXP,

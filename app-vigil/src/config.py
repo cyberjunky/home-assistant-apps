@@ -143,10 +143,15 @@ class Config:
         return cls.from_options(options)
 
     @property
-    def notify_target(self) -> str | None:
-        """The notify action's name without the domain ('notify.mobile_app_phone' -> 'mobile_app_phone')."""
-        name = self.notify_service.removeprefix("notify.")
-        return name or None
+    def notify_target(self) -> tuple[str, str] | None:
+        """The Home Assistant action alerts are sent to, as (domain, action): any action that takes
+        a title and a message. 'notify.mobile_app_phone' and a bare 'mobile_app_phone' are notify
+        actions; 'telegram_bot.send_message' is Telegram's own."""
+        name = self.notify_service.strip()
+        if not name:
+            return None
+        domain, _, action = name.rpartition(".")
+        return (domain or "notify", action)
 
     def public(self) -> dict:
         """The connection as the Info page and the log show it: never a password or the token."""

@@ -76,7 +76,7 @@ answers **"What changed?"** for any moment you pick.
 | `ingest_token` | | Required from senders on port 4318 outside your own network |
 | `scrape_targets` | | Prometheus exporters: a name, the URL and the interval |
 | `fritzbox`: `host`, `user`, `password` | | The FRITZ!Box to collect from, in its own section *FRITZ!Box (TR-064)* |
-| `notify_service` | | Where alerts go besides a notification, such as `notify.mobile_app_phone` |
+| `notify_service` | | Where alerts go besides a notification, such as `notify.mobile_app_phone` or `telegram_bot.send_message` |
 | `logs_retention_days`, `metrics_retention_days` | 14 / 90 | How long to keep them |
 | `log_level` | `info` | `debug`, `info`, `warning` or `error` |
 

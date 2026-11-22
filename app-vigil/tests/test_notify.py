@@ -48,3 +48,27 @@ async def test_firing_and_resolving_notify_home_assistant(monkeypatch):
     await home_assistant.alert({**rule, "notify": False}, "firing", 1.0, "x")
     assert [c[0] for c in calls] == ["/core/api/events/vigil_alert"]
     await server.close()
+
+
+async def test_alerts_go_to_any_action_such_as_telegram(monkeypatch):
+    calls = []
+
+    async def record(request):
+        calls.append((request.path, await request.json()))
+        return web.json_response([])
+
+    app = web.Application()
+    app.router.add_post("/core/api/{tail:.*}", record)
+    server = TestServer(app, host="127.0.0.1")
+    await server.start_server()
+    monkeypatch.setattr(rules, "CORE_API_URL", f"http://127.0.0.1:{server.port}/core/api")
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "abc")
+    home_assistant = rules.HomeAssistant(Config(notify_service="telegram_bot.send_message"))
+    await home_assistant.alert(
+        {"id": 4, "name": "Disk", "severity": "critical", "notify": True}, "firing", 0.9, "Disk: 90 %"
+    )
+    assert calls[-1] == (
+        "/core/api/services/telegram_bot/send_message",
+        {"title": "Vigil: Disk", "message": "Disk: 90 %"},
+    )
+    await server.close()
