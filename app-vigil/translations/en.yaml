@@ -1,0 +1,62 @@
+configuration:
+  database_host:
+    name: Database host
+    description: >-
+      The Chronicle app's host name. Leave empty: Vigil finds Chronicle by itself.
+  database_port:
+    name: Database port
+    description: PostgreSQL's port on the Chronicle app, normally 5432.
+  database_name:
+    name: Database
+    description: >-
+      The database made for Vigil in Chronicle (Maintenance → App databases).
+  database_user:
+    name: Database login
+    description: The login Chronicle made with that database, normally the same name.
+  database_password:
+    name: Database password
+    description: The password Chronicle showed when it made the database.
+  ingest_token:
+    name: Ingest token
+    description: >-
+      The token senders must give for OpenTelemetry and JSON on port 4318
+      (Authorization: Bearer <token>). Without one, only senders on your own
+      network are accepted. Syslog needs no token.
+  scrape_targets:
+    name: Prometheus targets
+    description: >-
+      Exporters to collect metrics from, such as node_exporter on a server:
+      a name, the full URL of its /metrics page and the interval in seconds.
+  fritzbox_host:
+    name: FRITZ!Box
+    description: >-
+      The FRITZ!Box's address (such as 192.168.178.1) to collect line throughput,
+      connection state and its event log. Leave empty to skip.
+  fritzbox_user:
+    name: FRITZ!Box user
+    description: A FRITZ!Box user with the right to read settings.
+  fritzbox_password:
+    name: FRITZ!Box password
+    description: That user's password.
+  notify_service:
+    name: Notify service
+    description: >-
+      Where alerts go besides a Home Assistant notification, such as
+      notify.mobile_app_my_phone. Leave empty for notifications only.
+  logs_retention_days:
+    name: Keep logs (days)
+    description: How long logs are kept.
+  metrics_retention_days:
+    name: Keep metrics (days)
+    description: How long metrics are kept.
+  log_level:
+    name: Log level
+    description: Amount of logging of the app itself.
+network:
+  5514/udp: >-
+    Syslog over UDP, for routers, switches and servers. Point them at Home
+    Assistant's address on this port (514 is the usual one).
+  5514/tcp: Syslog over TCP, for rsyslog and other senders that keep a connection.
+  4318/tcp: >-
+    OpenTelemetry (OTLP/HTTP, JSON) and JSON lines, for Vector and the
+    OpenTelemetry Collector, with the ingest token.

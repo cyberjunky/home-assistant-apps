@@ -1,0 +1,62 @@
+configuration:
+  database_host:
+    name: Database-host
+    description: >-
+      De hostnaam van de Chronicle-app. Leeg laten: Vigil vindt Chronicle zelf.
+  database_port:
+    name: Databasepoort
+    description: De poort van PostgreSQL op de Chronicle-app, normaal 5432.
+  database_name:
+    name: Database
+    description: >-
+      De database die Chronicle voor Vigil maakte (Onderhoud → App-databases).
+  database_user:
+    name: Databaselogin
+    description: De login die Chronicle bij die database maakte, normaal dezelfde naam.
+  database_password:
+    name: Databasewachtwoord
+    description: Het wachtwoord dat Chronicle liet zien bij het maken van de database.
+  ingest_token:
+    name: Ingest-token
+    description: >-
+      Het token dat afzenders moeten meegeven voor OpenTelemetry en JSON op poort
+      4318 (Authorization: Bearer <token>). Zonder token worden alleen afzenders
+      op je eigen netwerk geaccepteerd. Syslog heeft geen token nodig.
+  scrape_targets:
+    name: Prometheus-doelen
+    description: >-
+      Exporters om metrics van te verzamelen, zoals node_exporter op een server:
+      een naam, de volledige URL van de /metrics-pagina en het interval in seconden.
+  fritzbox_host:
+    name: FRITZ!Box
+    description: >-
+      Het adres van de FRITZ!Box (zoals 192.168.178.1) voor de doorvoer van de lijn,
+      de verbindingsstatus en het gebeurtenissenlog. Leeg laten om over te slaan.
+  fritzbox_user:
+    name: FRITZ!Box-gebruiker
+    description: Een FRITZ!Box-gebruiker met het recht om instellingen te lezen.
+  fritzbox_password:
+    name: FRITZ!Box-wachtwoord
+    description: Het wachtwoord van die gebruiker.
+  notify_service:
+    name: Meldingsdienst
+    description: >-
+      Waar meldingen naast een Home Assistant-melding heen gaan, zoals
+      notify.mobile_app_mijn_telefoon. Leeg laten voor alleen meldingen.
+  logs_retention_days:
+    name: Logs bewaren (dagen)
+    description: Hoe lang logs bewaard blijven.
+  metrics_retention_days:
+    name: Metrics bewaren (dagen)
+    description: Hoe lang metrics bewaard blijven.
+  log_level:
+    name: Logniveau
+    description: Hoeveelheid logging van de app zelf.
+network:
+  5514/udp: >-
+    Syslog via UDP, voor routers, switches en servers. Stuur ze naar het adres
+    van Home Assistant op deze poort (514 is de gebruikelijke).
+  5514/tcp: Syslog via TCP, voor rsyslog en andere afzenders die een verbinding openhouden.
+  4318/tcp: >-
+    OpenTelemetry (OTLP/HTTP, JSON) en JSON-regels, voor Vector en de
+    OpenTelemetry Collector, met het ingest-token.

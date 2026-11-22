@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- The top bar is as high as Home Assistant's own header (its --header-height, 56px by default) -->
+    <script>try{const h=getComputedStyle(window.parent.document.documentElement).getPropertyValue('--header-height').trim();if(h)document.documentElement.style.setProperty('--ha-header-height',h);}catch(e){}</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vigil</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234c8dff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20.5 12A8.5 8.5 0 1 1 12 3.5'/%3E%3Cpath d='M16.2 12A4.2 4.2 0 1 1 12 7.8'/%3E%3Cpath d='M12 12l6-6'/%3E%3Ccircle cx='12' cy='12' r='0.6'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="__BASE__/web/vendor/uplot/uPlot.min.css?v=__ADDON_VERSION__"/>
+    <link rel="stylesheet" href="__BASE__/web/app.css?v=__ADDON_VERSION__"/>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 12A8.5 8.5 0 1 1 12 3.5"/><path d="M16.2 12A4.2 4.2 0 1 1 12 7.8"/><path d="M12 12l6-6"/><circle cx="12" cy="12" r="0.6"/></svg>
+            <span class="brand-name">VIGIL</span>
+            <span class="brand-sub" id="brand-db"></span>
+        </div>
+        <nav class="tabs" aria-label="Views">
+            <button type="button" class="tab" data-tab="overview" onclick="switchTab('overview')">Overview</button>
+            <button type="button" class="tab" data-tab="logs" onclick="switchTab('logs')">Logs</button>
+            <button type="button" class="tab" data-tab="patterns" onclick="switchTab('patterns')">Patterns</button>
+            <button type="button" class="tab" data-tab="metrics" onclick="switchTab('metrics')">Metrics</button>
+            <button type="button" class="tab" data-tab="dashboards" onclick="switchTab('dashboards')">Dashboards</button>
+            <button type="button" class="tab" data-tab="alerts" onclick="switchTab('alerts')">Alerts<span class="tab-count" id="alerts-count" hidden></span></button>
+            <span class="tab-sep" aria-hidden="true"></span>
+            <button type="button" class="tab" data-tab="sources" onclick="switchTab('sources')">Sources</button>
+            <span class="tab-sep" aria-hidden="true"></span>
+            <button type="button" class="tab" data-tab="info" onclick="switchTab('info')" title="Info"><span class="tab-label">Info</span><span class="tab-icon" aria-hidden="true">ⓘ</span></button>
+        </nav>
+        <span class="spacer"></span>
+        <div class="tabs" role="group" aria-label="Theme">
+            <button type="button" id="theme-toggle" class="tab icon-tab" onclick="cycleTheme()" title="Theme"><span id="theme-icon" aria-hidden="true">🌓</span></button>
+        </div>
+        <span id="clock" class="clock"></span>
+    </header>
+
+    <div class="views">
+        <div class="pages" id="pages">
+            <div class="container">
+                <div id="setup-hint" class="setup-hint" hidden><span id="setup-hint-text"></span></div>
+
+                <!-- The time range every page with time in it shares -->
+                <div class="range-bar" id="range-bar" hidden>
+                    <div class="tabs" role="group" aria-label="Time range" id="range-chips"></div>
+                    <button type="button" class="btn btn-small" id="range-back" onclick="rangeBack()" hidden title="Back to the range before the zoom">‹ Back</button>
+                    <span class="range-text" id="range-text"></span>
+                    <span class="spacer"></span>
+                    <button type="button" class="btn" id="changes-btn" onclick="openChanges()" title="Compare this window with the one just before it">
+                        <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>What changed?</button>
+                </div>
+
+                <!-- Overview: how much arrives, how bad, from where, and what is new -->
+                <div id="tab-overview" class="tab-content">
+                    <div id="overview-tiles" class="tiles kpi-tiles"></div>
+                    <div class="panel"><div class="panel-body rows-panel">
+                        <div class="chart-title"><span>Log volume</span><span class="hint" id="overview-volume-hint">by severity · drag to zoom</span></div>
+                        <div id="overview-summary" class="rows-summary"></div>
+                        <div id="chart-volume" class="chart"></div>
+                    </div></div>
+                    <div class="stats-grid" style="margin-top:14px">
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>Top hosts</span><span class="hint">log lines · errors</span></div>
+                            <div id="top-hosts" class="rank"></div>
+                        </div></div>
+                        <div class="panel"><div class="panel-body">
+                            <div class="chart-title"><span>New patterns</span><span class="hint"><a href="#patterns" onclick="switchTab('patterns');return false">all patterns</a></span></div>
+                            <div id="new-patterns" class="pattern-mini"></div>
+                        </div></div>
+                        <div class="panel wide"><div class="panel-body">
+                            <div class="chart-title"><span>Firing now</span><span class="hint"><a href="#alerts" onclick="switchTab('alerts');return false">all rules</a></span></div>
+                            <div id="overview-firing" class="table-wrap"></div>
+                        </div></div>
+                    </div>
+                </div>
+
+                <!-- Logs: search, histogram, the lines -->
+                <div id="tab-logs" class="tab-content">
+                    <div class="query-bar">
+                        <div class="query-input-wrap">
+                            <svg class="query-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+                            <input type="text" class="input query-input" id="log-q" placeholder='Search: words, "a phrase", -not, host:sw-*, severity:<=err, app:sshd …' aria-label="Search the logs" autocomplete="off" spellcheck="false" autocapitalize="off">
+                            <div class="suggest" id="log-suggest" role="listbox" hidden></div>
+                        </div>
+                        <button type="button" class="btn btn-primary" onclick="runLogSearch()">Search</button>
+                        <button type="button" class="btn live-btn" id="log-live" onclick="toggleLive()" title="Show new lines as they arrive (every 2 s)"><i></i>Live</button>
+                        <select class="select" id="log-saved" aria-label="Saved searches"></select>
+                        <button type="button" class="btn" onclick="saveLogSearch()" title="Save this search">Save</button>
+                        <button type="button" class="btn" onclick="alertFromSearch()" title="A rule that fires when this search finds too many lines">Create alert</button>
+                    </div>
+                    <div class="filter-chips" id="log-chips"></div>
+                    <div class="panel"><div class="panel-body rows-panel">
+                        <div class="chart-title"><span>Matching lines</span><span class="hint" id="log-hist-hint"></span></div>
+                        <div id="chart-histogram" class="chart"></div>
+                    </div></div>
+                    <div class="panel" style="margin-top:14px">
+                        <div class="log-head"><span id="log-count" class="range-text"></span><span class="spacer"></span><span id="log-live-state" class="live-state" hidden></span>
+                            <button type="button" class="btn btn-small" onclick="expandAllLogs(false)">Collapse all</button></div>
+                        <div id="log-table" class="table-wrap scroll tall log-scroll"></div>
+                        <div class="log-foot"><button type="button" class="btn btn-small" id="log-more" onclick="loadOlderLogs()" hidden>Load older lines</button><span id="log-foot-text" class="range-text"></span></div>
+                    </div>
+                </div>
+
+                <!-- Patterns: message templates, new and spiking -->
+                <div id="tab-patterns" class="tab-content">
+                    <div class="filters">
+                        <div class="tabs" role="group" aria-label="Sort" id="pattern-sort"></div>
+                        <input type="search" class="input search" id="pattern-q" placeholder="Filter templates…" aria-label="Filter patterns" autocomplete="off" spellcheck="false">
+                        <span id="pattern-count" class="range-text"></span>
+                    </div>
+                    <div class="panel"><div id="pattern-list" class="table-wrap"></div></div>
+                </div>
+
+                <!-- Metrics: pick, filter, aggregate, overlay -->
+                <div id="tab-metrics" class="tab-content">
+                    <div class="metrics-layout">
+                        <aside class="panel metric-picker"><div class="panel-body">
+                            <input type="search" class="input search" id="metric-search" placeholder="Find a metric…" aria-label="Find a metric" autocomplete="off" spellcheck="false">
+                            <div id="metric-names" class="metric-names"></div>
+                        </div></aside>
+                        <div class="metric-main">
+                            <div class="panel"><div class="panel-body">
+                                <div id="metric-queries" class="metric-queries"></div>
+                                <div class="detail-actions" style="margin-top:10px">
+                                    <button type="button" class="btn btn-small" onclick="addMetricQuery()">+ Add query</button>
+                                    <label class="action-check small-check">Step <select class="select" id="metric-step" aria-label="Step"></select></label>
+                                    <span class="spacer"></span>
+                                    <button type="button" class="btn" onclick="metricToDashboard()">Add to dashboard</button>
+                                    <button type="button" class="btn" onclick="metricAlert()">Alert on this</button>
+                                </div>
+                            </div></div>
+                            <div class="panel" style="margin-top:14px"><div class="panel-body">
+                                <div class="chart-title"><span id="metric-chart-title">Metric</span><span class="hint" id="metric-chart-hint"></span></div>
+                                <div id="chart-metrics" class="chart"></div>
+                            </div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dashboards: panels on a 4-column grid -->
+                <div id="tab-dashboards" class="tab-content">
+                    <div class="filters dash-toolbar">
+                        <div class="tabs" role="group" aria-label="Dashboards" id="dash-list"></div>
+                        <button type="button" class="btn btn-small" onclick="newDashboard()">+ New</button>
+                        <span class="spacer"></span>
+                        <span id="dash-edit-tools" class="detail-actions" hidden>
+                            <button type="button" class="btn" onclick="editPanel(null)">+ Add panel</button>
+                            <button type="button" class="btn" onclick="renameDashboard()">Rename</button>
+                            <button type="button" class="btn btn-danger" onclick="deleteDashboard()">Delete</button>
+                            <button type="button" class="btn" onclick="cancelDashboardEdit()">Cancel</button>
+                            <button type="button" class="btn btn-primary" onclick="saveDashboard()">Save</button>
+                        </span>
+                        <button type="button" class="btn" id="dash-edit" onclick="editDashboard()">Edit</button>
+                    </div>
+                    <div id="dash-grid" class="dash-grid"></div>
+                </div>
+
+                <!-- Alerts: rules, their state, and what fired -->
+                <div id="tab-alerts" class="tab-content">
+                    <div class="filters">
+                        <button type="button" class="btn btn-primary" onclick="openRuleEditor()">+ New rule</button>
+                        <span class="muted small-label">Templates</span>
+                        <span id="rule-templates" class="detail-actions"></span>
+                        <span id="rules-count" class="range-text"></span>
+                    </div>
+                    <div class="panel"><div id="rules-table" class="table-wrap"></div></div>
+                    <div class="panel" style="margin-top:14px"><div class="panel-body">
+                        <div class="chart-title"><span>Alert history</span><span class="hint">when each rule fired, in the time range</span></div>
+                        <div id="chart-alerts" class="chart"></div>
+                        <div id="alert-history" class="table-wrap scroll" style="margin-top:12px"></div>
+                    </div></div>
+                </div>
+
+                <!-- Sources: what sends, and how to point more at Vigil -->
+                <div id="tab-sources" class="tab-content">
+                    <div id="sources-tiles" class="tiles kpi-tiles"></div>
+                    <div class="panel"><div class="panel-body">
+                        <div class="chart-title"><span>Receivers and targets</span><span class="hint">every sender Vigil has heard from</span></div>
+                        <div id="sources-table" class="table-wrap"></div>
+                    </div></div>
+                    <div class="panel" style="margin-top:14px"><div class="panel-body">
+                        <div class="chart-title"><span>Set up a source</span><span class="hint" id="setup-hint-ports"></span></div>
+                        <div class="tabs inline-tabs setup-tabs" role="group" aria-label="Source" id="setup-tabs"></div>
+                        <div id="setup-body"></div>
+                    </div></div>
+                </div>
+
+                <!-- Info: the connection and the app -->
+                <div id="tab-info" class="tab-content">
+                    <div class="info-grid">
+                        <div class="panel"><div class="panel-body"><div class="section-title">Database</div><div id="info-database"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Receivers</div><div id="info-receivers"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Vigil</div><div id="info-vigil"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">About</div><div id="info-about"></div></div></div>
+                        <div class="panel"><div class="panel-body"><div class="section-title">Donate</div>
+                            <div class="panel-sub" style="margin-bottom:12px">Vigil is free and open source. If it's useful to you, please consider supporting its development.</div>
+                            <div class="detail-actions">
+                                <a class="btn btn-primary" href="https://www.paypal.me/cyberjunkynl/" target="_blank" rel="noopener">Donate via PayPal</a>
+                                <a class="btn" href="https://github.com/sponsors/cyberjunky" target="_blank" rel="noopener">Sponsor on GitHub</a>
+                            </div>
+                        </div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- What changed? The window against the one just before it -->
+        <aside class="side-drawer" id="changes-panel" aria-label="What changed" hidden>
+            <div class="drawer-head"><div><div class="modal-title">What changed?</div><div class="panel-sub" id="changes-window"></div></div>
+                <button type="button" class="modal-close" aria-label="Close" onclick="closeChanges()">×</button></div>
+            <div class="drawer-body" id="changes-body"></div>
+        </aside>
+    </div>
+
+    <footer class="statusbar" id="statusbar"></footer>
+
+    <div id="modal-root"></div>
+    <div id="toast-root"></div>
+
+    <script src="__BASE__/web/vendor/uplot/uPlot.iife.min.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/core.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/charts.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/overview.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/logs.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/patterns.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/metrics.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/dashboards.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/alerts.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/sources.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/info.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/changes.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/main.js?v=__ADDON_VERSION__"></script>
+    <script src="__BASE__/web/donate.js?v=__ADDON_VERSION__" data-app="Vigil" data-api="__BASE__/api/donate"></script>
+</body>
+</html>
