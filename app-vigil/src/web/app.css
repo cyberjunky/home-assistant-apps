@@ -652,6 +652,10 @@ tr.log-detail > td { padding: 0 !important; background: var(--ha-background); wh
 .pattern-row .template { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pattern-row .n { text-align: right; font-family: var(--mono); font-size: 12.5px; }
 .pattern-row .n small { display: block; color: var(--secondary-text-color); font-size: 11px; font-family: 'IBM Plex Sans', sans-serif; }
+/* Overview: one line per pattern, the count and its age side by side */
+.pattern-mini .pattern-row { grid-template-columns: minmax(0, 1fr) auto; padding: 4px 6px; }
+.pattern-mini .pattern-row .n { white-space: nowrap; }
+.pattern-mini .pattern-row .n small { display: inline-block; min-width: 72px; margin-left: 10px; text-align: right; }
 
 /* Metrics */
 .metrics-layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 14px; align-items: start; }

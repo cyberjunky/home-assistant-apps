@@ -340,3 +340,25 @@ async def test_windows_events_are_searchable(database):
     assert await count("attrs.category:account_change attrs.group:Administrators") == 1
     assert await count("host:pc1 app:Security severity:<=warning") == 1
     assert await database.count_logs("attrs.mitre:T1110", t - 60, t + 60) == 1
+
+
+async def test_windows_events_make_one_pattern_each(database):
+    import json
+
+    from src.otlp import parse_json_lines
+
+    lines = []
+    for i, app in enumerate(("esrv_svc.exe", "svchost.exe", "a much longer program name.exe")):
+        message = (
+            "The Windows Filtering Platform has permitted a connection.\r\n\r\nApplication Information:\r\n"
+            f"\tProcess ID:\t\t{100 + i}\r\n\tApplication Name:\t\\device\\{app}\r\n"
+            + "\tDirection:\t\tInbound\r\n"
+            * i
+        )
+        lines.append(
+            json.dumps({"Channel": "Security", "Computer": "pc1", "EventID": 5156, "Level": 0, "Message": message})
+        )
+    entries, _ = parse_json_lines("\n".join(lines))
+    await _write(database, entries)
+    rows = await database.fetch("SELECT template FROM vigil.patterns")
+    assert [r["template"] for r in rows] == ["The Windows Filtering Platform has permitted a connection."]
