@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.1.7
+
+**After updating:** if Windows logs thousands of "The Windows Filtering Platform has permitted
+a connection" events, add the new `event_query` line from **Sources → Windows** to Fluent Bit's
+configuration and restart it (or run the two `auditpol` lines in the snippet).
+
+- **One pattern per kind of Windows event:** Patterns grouped a Windows event by its whole
+  message, whose lines (paths, ports, IDs) differ per event, so one kind of event became many
+  patterns. They are now grouped by the first line, which says what happened.
+- **Fewer Windows events nobody reads:** the Windows snippet leaves out "connection permitted"
+  and "port bound" (5156, 5158), and has the `auditpol` lines that stop Windows from writing
+  them.
+- **The Windows service commands work in PowerShell:** the `sc.exe` line failed there on its
+  quotes; the snippet now uses `New-Service` and `Start-Service`.
+- **A source's metrics in one list:** the metric search takes a label, `job=freqle` lists every
+  metric of the scrape target freqle (`job=freqle cpu` narrows it), and a metric picked from it
+  is charted for that source only. On Sources, a scrape target's name (and MikroTik) opens that
+  list.
+
 ## 0.1.6
 
 **After updating:** nothing to do. To collect a Windows PC's event logs, install Fluent Bit on
