@@ -54,6 +54,7 @@ def clock(monkeypatch):
 
 def controller(**kw):
     settings = SimpleNamespace(surplus_debounce_s=120, surplus_margin_w=500)
+    kw.setdefault("battery_full", True)
     return SimpleNamespace(settings=settings, surplus=True, surplus_w=0, surplus_reason="", overload="", **kw)
 
 
@@ -145,6 +146,59 @@ def test_stop_last_started_first_while_the_house_imports(tmp_path, clock):
     c.overload = ""
     step(miners, clock, 200)
     assert len(ha.calls) == 3, "the import ended: the other miner keeps running"
+
+
+def test_stop_without_surplus_while_the_battery_charges(tmp_path, clock):
+    # Miners that run by themselves (a reboot, a firmware update, switched on in Home Assistant)
+    # while the battery charges: no import and no discharge, so no overload, but they take the
+    # battery's charge. Stopped one by one, last started first
+    miners, ha = make(tmp_path, TWO)
+    c = miners.controller
+    c.surplus, c.battery_full, c.surplus_reason = False, False, "battery 80% not full"
+    ha.states["switch.left"] = {"state": "on"}
+    ha.states["switch.right"] = {"state": "on"}
+    step(miners, clock)
+    assert ha.calls == [] and "battery not full: stopping" in miners.action
+    step(miners, clock, 121)
+    assert len(ha.calls) == 1 and ha.calls[0][1] == "turn_off"
+    assert "battery 80% not full" in miners.action
+    step(miners, clock, 60)
+    assert len(ha.calls) == 1, "the next one only after another full step"
+    step(miners, clock, 61)
+    assert [call[1] for call in ha.calls] == ["turn_off", "turn_off"]
+
+
+def test_stop_a_miner_the_app_started_once_the_battery_is_not_full(tmp_path, clock):
+    miners, ha = make(tmp_path, TWO[:1])
+    c = miners.controller
+    c.surplus_w = 2000
+    step(miners, clock)
+    assert ha.calls == [("switch", "turn_on", "switch.left")]
+    c.surplus, c.battery_full = False, False
+    step(miners, clock, 60)
+    step(miners, clock, 121)
+    assert ha.calls[-1] == ("switch", "turn_off", "switch.left")
+
+
+def test_no_stop_without_surplus_while_the_battery_is_full(tmp_path, clock):
+    # Nothing to take from the battery; an overload (import, discharge) still stops it
+    miners, ha = make(tmp_path, TWO[:1])
+    miners.controller.surplus = False
+    ha.states["switch.left"] = {"state": "on"}
+    step(miners, clock)
+    step(miners, clock, 300)
+    assert ha.calls == []
+
+
+def test_no_stop_without_surplus_when_control_is_off(tmp_path, clock):
+    miners, ha = make(tmp_path, TWO[:1])
+    c = miners.controller
+    c.surplus, c.battery_full = False, False
+    miners.set_auto("S19 left", False)
+    ha.states["switch.left"] = {"state": "on"}
+    step(miners, clock)
+    step(miners, clock, 300)
+    assert ha.calls == []
 
 
 def test_a_stopped_miner_stays_off_a_while(tmp_path, clock):

@@ -143,6 +143,7 @@ class Miners:
         self.action = ""  # what the app did last, or is waiting for, in words
         self._last_action = -1e9
         self._overload_since: float | None = None
+        self._no_surplus_since: float | None = None  # since when miners run without surplus, battery not full
         self._saved_at = 0.0
         self._load()
         # After the controller's listener (which stamps "surplus"), before the recorder's
@@ -322,6 +323,22 @@ class Miners:
             self._overload_since = now  # the next one only if it still lasts a full step
             return
         self._overload_since = None
+
+        # No surplus and the battery not full: a running miner takes the charge the battery should
+        # get, whoever started it (the app, its switch in Home Assistant, or its own reboot after a
+        # power cut or a firmware update). Stop them one by one like an overload
+        if running and not c.surplus and not c.battery_full:
+            if self._no_surplus_since is None:
+                self._no_surplus_since = now
+            last = max(running, key=lambda u: (u.started_mono, u.index))
+            wait = max(self._no_surplus_since + step, self._last_action + step) - now
+            if wait > 0:
+                self.action = f"no solar surplus and the battery not full: stopping {last.name} in {int(wait)} s"
+                return
+            await self._switch(last, False, c.surplus_reason or "no solar surplus, battery not full")
+            self._no_surplus_since = now  # the next one only after another full step
+            return
+        self._no_surplus_since = None
 
         stopped = [u for u in auto if not u.switch_on]
         if not stopped:

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.16
+
+**After updating:** nothing to do. A miner you want to keep running without a solar surplus needs to be on manual on the dashboard.
+
+- **Miners stop without a surplus while the battery charges:** a miner on auto that runs while there's no solar surplus and the battery isn't full now stops, one by one after the debounce time, whoever started it: the app, its switch in Home Assistant, or the miner itself after a reboot, a power cut or a firmware update. Before, the app only stopped a miner when the house imported from the grid or the battery discharged, so a miner whose draw the panels still covered kept running on the battery's charge.
+
 ## 0.3.15
 
 **After updating:** nothing to do, unless you still use the option name `planes` from 0.1.x: it is no longer read.

@@ -108,9 +108,13 @@ folder. The Dashboard shows what the controller is doing.
   - **Stop**: once the house imports more than *off when importing* from the grid, or the
     battery discharges, for the debounce time, the miner that started last stops; then the
     next one, as long as that lasts.
+  - **Stop without surplus**: a miner on auto that runs while the surplus signal is off and
+    the battery isn't full also stops, the same way, whoever started it: the app, its switch
+    in Home Assistant, or the miner itself after a reboot, a power cut or a firmware update.
+    It would take the charge the battery should get.
   - That is the **hysteresis**: a miner starts only when the surplus carries it, and stops
-    only when the house actually draws from the grid or the battery, not when the estimate
-    dips. There is at most one switch per debounce period (two minutes by default), and a
+    when the house actually draws from the grid or the battery, or once the surplus signal is
+    off with the battery not full, not when the estimate dips. There is at most one switch per debounce period (two minutes by default), and a
     stopped miner stays off for at least five minutes.
   - Each miner can be put on **manual** on the dashboard: the app leaves it alone and you
     can start and stop it there by hand. A miner without a switch is only read; one with
