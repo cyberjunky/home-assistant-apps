@@ -147,6 +147,17 @@ async function forceExit(tradeId) {
 // ---------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------
+// What the open trades hold with leverage: the position they make, and how much leverage they use
+function leverageTile(open) {
+    if (!open.length) return tile('Leverage', '–', 'no open trades');
+    const exposure = open.reduce((a, t) => a + position(t), 0), stake = open.reduce((a, t) => a + (Number(t.stake_amount) || 0), 0);
+    const levs = open.map(lev), most = Math.max(...levs);
+    const nearest = Math.min(...open.map(liquidationDistance).filter(v => v != null));
+    const cls = most >= 10 || nearest < 0.1 ? 'warn' : '';
+    return tile('Leverage', `${num(stake ? exposure / stake : 1, 1)}×<small> avg · max ${num(most, most % 1 ? 1 : 0)}×</small>`,
+        `position ${escapeHtml(money(exposure, cur(), 0))}${Number.isFinite(nearest) ? ` · liquidation ${plainPct(nearest)}` : ''}`, cls);
+}
+
 function renderSummary() {
     const d = app.bot, data = botData();
     const p = (data.profit_all && data.profit_all.all) || {};
@@ -163,6 +174,7 @@ function renderSummary() {
         tile('Win rate', plainPct(missing(p.winrate) && wl ? p.winning_trades / wl : p.winrate), `${p.winning_trades ?? 0} won · ${p.losing_trades ?? 0} lost`),
         tile('Balance', amountHtml(bal.total_bot, cur(), dec()), `start ${escapeHtml(bm(bal.starting_capital))}`),
         tile('Drawdown', plainPct(p.current_drawdown, 2), `max ${plainPct(p.max_drawdown, 2)} · ${escapeHtml(bm(p.max_drawdown_abs))}`, ddCls),
+        ...(app.bot.config.trading_mode === 'futures' ? [leverageTile(data.status || [])] : []),
         tile('Best pair', `<span style="font-size:18px">${escapeHtml(p.best_pair || '–')}</span>`, p.best_pair ? `${pnl(pct(p.best_pair_profit_ratio), p.best_pair_profit_ratio)} · ${escapeHtml(bsm(p.best_pair_profit_abs))}` : ''),
     ].join('');
     renderCumulative();
@@ -269,30 +281,37 @@ function renderOpenTrades() {
     const canExit = !readOnly() && app.bot.connected;
     const total = trades.reduce((a, t) => a + (missing(t.total_profit_abs) ? t.profit_abs || 0 : t.total_profit_abs), 0);
     document.getElementById('bot-open-hint').innerHTML = trades.length ? `${trades.length} open · ${pnl(escapeHtml(bsm(total)), total)}` : '';
+    const largest = Math.max(0, ...trades.map(t => Math.abs(t.profit_ratio || 0)));
     const rows = trades.map(t => {
         const profit = missing(t.total_profit_abs) ? t.profit_abs : t.total_profit_abs;
         const dist = t.stoploss_current_dist_ratio;
+        const liqDist = liquidationDistance(t);
         return `<tr>
             ${td('#' + t.trade_id, 'muted')}
             ${td(`<b>${escapeHtml(t.pair)}</b>${t.has_open_orders ? ' <span class="badge warn">order open</span>' : ''}`)}
-            ${td(`${sideTag(t.is_short)}${t.leverage && t.leverage !== 1 ? ` <span class="muted">${num(t.leverage, 0)}×</span>` : ''}`)}
+            ${td(sideTag(t.is_short))}
+            ${futures ? td(levTag(t)) : ''}
             ${td(escapeHtml(t.enter_tag || '–'))}
             ${td(`${escapeHtml(fmtDateTime(ms(t.open_timestamp)))}<span class="sub">${escapeHtml(fmtDuration(Date.now() / 1000 - ms(t.open_timestamp)))}</span>`)}
-            ${td(bm(t.stake_amount), 'n')}
+            ${td(futures ? `${bm(t.stake_amount)}<span class="sub">${escapeHtml(bm(position(t)))}</span>` : bm(t.stake_amount), 'n')}
             ${td(`${price(t.open_rate)}<span class="sub">${price(t.current_rate)}</span>`, 'n')}
             ${td(`${price(t.stop_loss_abs)}<span class="sub">${missing(dist) ? '' : pct(dist)}</span>`, 'n')}
-            ${futures ? td(price(t.liquidation_price), 'n') : ''}
-            ${td(pct(t.profit_ratio), 'n ' + pnlClass(t.profit_ratio))}
+            ${futures ? td(`${price(t.liquidation_price)}<span class="sub ${liqDist != null && liqDist < 0.1 ? 'neg' : ''}">${liqDist == null ? '' : plainPct(liqDist) + ' away'}</span>`, 'n') : ''}
+            ${td(pct(t.profit_ratio) + pnlBar(t.profit_ratio, largest), 'n ' + pnlClass(t.profit_ratio))}
             ${td(bsm(profit), 'n ' + pnlClass(profit))}
             ${canExit ? td(`<button type="button" class="btn btn-small" onclick="forceExit(${Number(t.trade_id)})" title="Close this trade now at the market">Exit</button>`) : ''}
         </tr>`;
     });
-    const head = [{label: 'ID'}, {label: 'Pair'}, {label: 'Side'}, {label: 'Entry tag'}, {label: 'Opened'}, {label: 'Stake', n: 1},
+    const head = [{label: 'ID'}, {label: 'Pair'}, {label: 'Side'}, ...(futures ? [{label: 'Leverage'}] : []), {label: 'Entry tag'}, {label: 'Opened'},
+        {label: futures ? 'Stake<span class="sub">position</span>' : 'Stake', n: 1},
         {label: 'Open<span class="sub">now</span>', n: 1}, {label: 'Stop-loss<span class="sub">distance</span>', n: 1}];
-    if (futures) head.push({label: 'Liquidation', n: 1});
+    if (futures) head.push({label: 'Liquidation<span class="sub">distance</span>', n: 1});
     head.push({label: 'Profit %', n: 1}, {label: 'Profit', n: 1});
     if (canExit) head.push({label: ''});
-    document.getElementById('bot-open').innerHTML = table(head, rows, {empty: 'No open trades'});
+    const state = app.bot.config.state;
+    document.getElementById('bot-open').innerHTML = table(head, rows, {empty: 'No open trades',
+        emptySub: !app.bot.connected ? 'The bot can\'t be read right now.' : state === 'running' ? 'The bot is watching the market for its next entry.'
+            : state === 'paused' ? 'The bot is paused: it opens no new trades.' : 'The bot is stopped: it opens no trades.'});
 }
 
 // ---------------------------------------------------------------------
@@ -319,12 +338,14 @@ function renderTrades() {
     const pages = Math.max(1, Math.ceil(list.length / TRADES_PER_PAGE));
     trFilter.page = Math.min(trFilter.page, pages - 1);
     const shown = list.slice(trFilter.page * TRADES_PER_PAGE, (trFilter.page + 1) * TRADES_PER_PAGE);
+    const futures = app.bot.config.trading_mode === 'futures';
     const rows = shown.map(t => {
         const opened = ms(t.open_timestamp), closed = ms(t.close_timestamp);
         return `<tr>
             ${td('#' + t.trade_id, 'muted')}
             ${td(`<b>${escapeHtml(t.pair)}</b>`)}
-            ${td(`${sideTag(t.is_short)}${t.leverage && t.leverage !== 1 ? ` <span class="muted">${num(t.leverage, 0)}×</span>` : ''}`)}
+            ${td(sideTag(t.is_short))}
+            ${futures ? td(levTag(t)) : ''}
             ${td(escapeHtml(t.enter_tag || '–'))}
             ${td(escapeHtml(t.exit_reason || '–'))}
             ${td(escapeHtml(fmtDateTime(opened)))}
@@ -337,7 +358,7 @@ function renderTrades() {
         </tr>`;
     });
     document.getElementById('tr-table').innerHTML = table([
-        {label: 'ID'}, {label: 'Pair'}, {label: 'Side'}, {label: 'Entry tag'}, {label: 'Exit reason'}, {label: 'Opened'}, {label: 'Closed'},
+        {label: 'ID'}, {label: 'Pair'}, {label: 'Side'}, ...(futures ? [{label: 'Leverage'}] : []), {label: 'Entry tag'}, {label: 'Exit reason'}, {label: 'Opened'}, {label: 'Closed'},
         {label: 'Duration', n: 1}, {label: 'Stake', n: 1}, {label: 'Open<span class="sub">close</span>', n: 1}, {label: 'Profit %', n: 1}, {label: 'Profit', n: 1},
     ], rows, {empty: all.length ? 'No trades match' : 'No closed trades yet'});
     document.getElementById('tr-pager').innerHTML = list.length > TRADES_PER_PAGE ? `
@@ -373,6 +394,15 @@ function renderPerformance() {
     renderTags();
 }
 
+// The best and the worst closed trade, from the trades the page holds, in the chosen direction
+function bestWorst() {
+    const list = closedByTime().filter(t => pfDirection === 'all' || (pfDirection === 'short') === Boolean(t.is_short));
+    if (!list.length) return [];
+    const by = list.slice().sort((a, b) => (a.profit_ratio || 0) - (b.profit_ratio || 0));
+    const show = t => `${pnl(pct(t.profit_ratio), t.profit_ratio)} <span class="muted">${escapeHtml(t.pair)} #${t.trade_id} · ${escapeHtml(bsm(t.profit_abs))} · ${escapeHtml(fmtDay(ms(t.close_timestamp)))}</span>`;
+    return [['Best trade', show(by[by.length - 1])], ['Worst trade', show(by[0])]];
+}
+
 function renderPfMetrics() {
     const p = (botData().profit_all || {})[pfDirection] || {};
     const when = v => v ? escapeHtml(fmtDateTime(ms(v))) : '–';
@@ -385,6 +415,7 @@ function renderPfMetrics() {
         ['Profit factor', ratio(p.profit_factor)],
         ['Expectancy', `${escapeHtml(bsm(p.expectancy))} <span class="muted">(ratio ${ratio(p.expectancy_ratio)})</span>`],
         ['Average duration', escapeHtml(p.avg_duration || '–')],
+        ...bestWorst(),
         ['Best pair', p.best_pair ? `${escapeHtml(p.best_pair)} <span class="muted">${pct(p.best_pair_profit_ratio)} · ${escapeHtml(bsm(p.best_pair_profit_abs))}</span>` : '–'],
         ['CAGR', missing(p.cagr) ? '–' : pnl(pct(p.cagr), p.cagr)],
         ['Sharpe / Sortino', `${ratio(p.sharpe)} / ${ratio(p.sortino)}`],
@@ -432,20 +463,26 @@ function avgPct(row) {
 function renderPairs() {
     const pairs = (botData().performance || []).slice().sort((a, b) => (b.profit_abs || 0) - (a.profit_abs || 0));
     const max = Math.max(1e-9, ...pairs.map(p => Math.abs(p.profit_abs || 0)));
+    const won = winsBy(closedByTime(), t => t.pair);
     const rows = pairs.map(p => {
         const share = Math.abs(p.profit_abs || 0) / max * 50;
         const bar = `<div class="cell-bar"><span class="mid"></span><i style="${p.profit_abs >= 0 ? `left:50%;width:${share}%;background:var(--pos)` : `right:50%;width:${share}%;background:var(--neg)`}"></i></div>`;
-        return `<tr>${td(`<b>${escapeHtml(p.pair)}</b>`)}${td(num(p.count), 'n')}${td(pct(avgPct(p)), 'n ' + pnlClass(avgPct(p)))}${td(bsm(p.profit_abs), 'n ' + pnlClass(p.profit_abs))}${td(bar)}</tr>`;
+        const w = won.get(p.pair);
+        return `<tr>${td(`<b>${escapeHtml(p.pair)}</b>`)}${td(num(p.count), 'n')}${td(w ? winBar(w.wins, w.count) : '–', 'n')}${td(pct(avgPct(p)), 'n ' + pnlClass(avgPct(p)))}${td(bsm(p.profit_abs), 'n ' + pnlClass(p.profit_abs))}${td(bar)}</tr>`;
     });
-    document.getElementById('pf-pairs').innerHTML = table([{label: 'Pair'}, {label: 'Trades', n: 1}, {label: 'Avg profit %', n: 1}, {label: 'Profit', n: 1}, {label: ''}],
+    document.getElementById('pf-pairs').innerHTML = table([{label: 'Pair'}, {label: 'Trades', n: 1}, {label: 'Win rate', n: 1}, {label: 'Avg profit %', n: 1}, {label: 'Profit', n: 1}, {label: ''}],
         rows, {empty: 'No closed trades yet'});
 }
 
 function renderTags() {
     const data = botData();
     const entries = (data.entries || []).slice().sort((a, b) => (b.profit_abs || 0) - (a.profit_abs || 0));
-    document.getElementById('pf-entries').innerHTML = table([{label: 'Entry tag'}, {label: 'Trades', n: 1}, {label: 'Avg %', n: 1}, {label: 'Profit', n: 1}],
-        entries.map(e => `<tr>${td(escapeHtml(e.enter_tag || 'Other'))}${td(num(e.count), 'n')}${td(pct(avgPct(e)), 'n ' + pnlClass(avgPct(e)))}${td(bsm(e.profit_abs), 'n ' + pnlClass(e.profit_abs))}</tr>`),
+    const tagWins = winsBy(closedByTime(), t => t.enter_tag || 'Other');
+    document.getElementById('pf-entries').innerHTML = table([{label: 'Entry tag'}, {label: 'Trades', n: 1}, {label: 'Win rate', n: 1}, {label: 'Avg %', n: 1}, {label: 'Profit', n: 1}],
+        entries.map(e => {
+            const w = tagWins.get(e.enter_tag || 'Other');
+            return `<tr>${td(escapeHtml(e.enter_tag || 'Other'))}${td(num(e.count), 'n')}${td(w ? winBar(w.wins, w.count) : '–', 'n')}${td(pct(avgPct(e)), 'n ' + pnlClass(avgPct(e)))}${td(bsm(e.profit_abs), 'n ' + pnlClass(e.profit_abs))}</tr>`;
+        }),
         {empty: data.entries ? 'No entry tags yet' : 'This Freqtrade version doesn\'t report entry tags'});
     const reasons = (data.stats && data.stats.exit_reasons) || {};
     const exits = (data.exits || []).slice().sort((a, b) => (b.count || 0) - (a.count || 0));

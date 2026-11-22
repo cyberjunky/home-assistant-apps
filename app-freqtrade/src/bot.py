@@ -718,6 +718,8 @@ class BotClient:
                         "pair",
                         "is_short",
                         "leverage",
+                        "liquidation_price",
+                        "current_rate",
                         "open_timestamp",
                         "stake_amount",
                         "profit_ratio",

@@ -120,10 +120,45 @@ function sideTag(isShort) {
 }
 function table(head, rows, opts) {
     opts = opts || {};
-    if (!rows.length) return `<div class="empty-state">${escapeHtml(opts.empty || 'Nothing here yet')}</div>`;
+    if (!rows.length) return `<div class="empty-state">${escapeHtml(opts.empty || 'Nothing here yet')}${opts.emptySub ? `<span class="empty-sub">${escapeHtml(opts.emptySub)}</span>` : ''}</div>`;
     const th = head.map(h => `<th class="${h.n ? 'n' : ''}">${h.label}</th>`).join('');
     const foot = opts.foot ? `<tfoot><tr>${opts.foot.map((c, i) => `<td class="${head[i] && head[i].n ? 'n' : ''}">${c}</td>`).join('')}</tr></tfoot>` : '';
     return `<table class="data ${opts.cls || ''}"><thead><tr>${th}</tr></thead><tbody>${rows.join('')}</tbody>${foot}</table>`;
+}
+// Leverage: "3×", "1×" for none; the position a stake makes with it; how far the price may still go
+const lev = t => Number(t.leverage) > 0 ? Number(t.leverage) : 1;
+function levTag(t) {
+    const x = lev(t);
+    const cls = x >= 10 ? 'lev high' : x >= 5 ? 'lev mid' : x > 1 ? 'lev' : 'lev none';
+    return `<span class="${cls}" title="Leverage">${num(x, x % 1 ? 1 : 0)}×</span>`;
+}
+const position = t => (Number(t.stake_amount) || 0) * lev(t);
+function liquidationDistance(t) {
+    const liq = Number(t.liquidation_price), now = Number(t.current_rate);
+    if (!(liq > 0) || !(now > 0)) return null;
+    return t.is_short ? (liq - now) / now : (now - liq) / now;
+}
+// A small bar for a share of the largest value: green for gains, red for losses
+function pnlBar(value, largest) {
+    if (missing(value) || !(largest > 0)) return '';
+    return `<span class="pnl-bar"><i class="${value >= 0 ? 'pos' : 'neg'}" style="width:${Math.max(4, Math.min(100, Math.abs(value) / largest * 100))}%"></i></span>`;
+}
+// Win rate with a bar under it
+function winBar(wins, count) {
+    if (!count) return '–';
+    const rate = wins / count;
+    return `${plainPct(rate)}<span class="win-bar"><i style="width:${rate * 100}%"></i></span>`;
+}
+// Won and lost per key over the closed trades the page holds (by pair, by entry tag)
+function winsBy(trades, keyOf) {
+    const out = new Map();
+    for (const t of trades) {
+        const key = keyOf(t), row = out.get(key) || {wins: 0, count: 0};
+        row.count += 1;
+        if ((t.profit_abs || 0) > 0) row.wins += 1;
+        out.set(key, row);
+    }
+    return out;
 }
 function td(html, cls) { return `<td class="${cls || ''}">${html}</td>`; }
 

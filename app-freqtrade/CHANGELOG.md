@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1
+
+**After updating:** nothing to do.
+
+- **Leverage:** futures bots get a Leverage column in their open and closed trades (amber from 5×, red from 10×), also in the overview's open trades. Under each trade's stake is the position it holds (stake × leverage), and beside the liquidation price how far the price still is from it. A Leverage tile on a futures bot's page and on the overview shows the average and highest leverage, the total position and the nearest liquidation.
+- **Best and worst trade** in a bot's performance metrics.
+- **Win rate per pair and per entry tag**, with a bar, and a profit bar in each open trade.
+- **Empty open trades say why:** the bot is watching for an entry, paused, stopped, or can't be read.
+
 ## 0.2.0
 
 **After updating:** nothing to do. Your bots and their logins stay as they are, and the new options are off or as before until you set them.

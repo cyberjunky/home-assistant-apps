@@ -84,6 +84,20 @@ function renderOvNotices() {
     document.getElementById('ov-notices').innerHTML = notes.map(([kind, html]) => `<div class="setup-hint ${kind}"><span>${html}</span></div>`).join('');
 }
 
+// The futures bots' open trades together: the position they make with leverage, and the highest leverage in use
+function ovLeverageTile(up) {
+    const futures = up.filter(b => b.config.trading_mode === 'futures');
+    const open = futures.flatMap(b => b.open_trades.map(t => ({...t, cur: b.config.stake_currency})));
+    if (!open.length) return tile('Leverage', '–', `${futures.length} futures ${futures.length === 1 ? 'bot' : 'bots'}, no open trades`);
+    const exposure = byCurrency(futures, b => b.open_trades.reduce((a, t) => a + position(t), 0));
+    const stake = open.reduce((a, t) => a + (Number(t.stake_amount) || 0), 0), weighted = open.reduce((a, t) => a + position(t), 0);
+    const most = Math.max(...open.map(lev));
+    const nearest = Math.min(...open.map(liquidationDistance).filter(v => v != null));
+    return tile('Leverage', `${num(stake ? weighted / stake : 1, 1)}×<small> avg · max ${num(most, most % 1 ? 1 : 0)}×</small>`,
+        `position ${escapeHtml(currencyText(exposure, (v, c) => money(v, c, 0)))}${Number.isFinite(nearest) ? ` · liquidation ${plainPct(nearest)}` : ''}`,
+        most >= 10 || nearest < 0.1 ? 'warn' : '');
+}
+
 function renderOvTiles() {
     const all = overviewBots();
     const up = all.filter(b => b.connected);
@@ -117,6 +131,7 @@ function renderOvTiles() {
         tile('Open profit', pnl(currencyText(openProfit, tileSigned), openProfit.get(main)), 'not yet realised'),
         tile('Win rate', plainPct(wins + losses ? wins / (wins + losses) : null), `${wins} won · ${losses} lost`),
         tile('Closed trades', num(closed), Number.isFinite(first) ? `since ${escapeHtml(fmtDay(first))}` : ''),
+        ...(up.some(b => b.config.trading_mode === 'futures') ? [ovLeverageTile(up)] : []),
     ].join('');
 }
 
@@ -210,23 +225,26 @@ function renderOvEvents() {
 function renderOvOpen() {
     const trades = overviewBots().flatMap(b => b.open_trades.map(t => ({...t, bot: b})))
         .sort((a, b) => (b.open_timestamp || 0) - (a.open_timestamp || 0));
+    const anyFutures = trades.some(t => t.bot.config.trading_mode === 'futures');
     const rows = trades.map(t => {
         const c = t.bot.config, cur = c.stake_currency || '';
         const profit = missing(t.total_profit_abs) ? t.profit_abs : t.total_profit_abs;
         return `<tr onclick="switchTab('bot-${escapeHtml(t.bot.slug)}')">
             ${td(`<span style="color:${botColor(t.bot.slug)}">●</span> ${escapeHtml(t.bot.name)}`)}
             ${td(`<b>${escapeHtml(t.pair)}</b>${t.has_open_orders ? ' <span class="badge warn">order open</span>' : ''}`)}
-            ${td(`${sideTag(t.is_short)}${t.leverage && t.leverage !== 1 ? ` <span class="muted">${num(t.leverage, 0)}×</span>` : ''}`)}
+            ${td(sideTag(t.is_short))}
+            ${anyFutures ? td(c.trading_mode === 'futures' ? levTag(t) : '<span class="muted">spot</span>') : ''}
             ${td(escapeHtml(fmtAgo(ms(t.open_timestamp))))}
-            ${td(money(t.stake_amount, cur, c.stake_currency_decimals), 'n')}
+            ${td(c.trading_mode === 'futures' ? `${money(t.stake_amount, cur, c.stake_currency_decimals)}<span class="sub">${escapeHtml(money(position(t), cur, c.stake_currency_decimals))}</span>` : money(t.stake_amount, cur, c.stake_currency_decimals), 'n')}
             ${td(pct(t.profit_ratio), 'n ' + pnlClass(t.profit_ratio))}
             ${td(signedMoney(profit, cur, c.stake_currency_decimals), 'n ' + pnlClass(profit))}
         </tr>`;
     });
     document.getElementById('ov-open-hint').textContent = trades.length ? `${trades.length} on ${new Set(trades.map(t => t.bot.slug)).size} bots` : '';
     document.getElementById('ov-open').innerHTML = table([
-        {label: 'Bot'}, {label: 'Pair'}, {label: 'Side'}, {label: 'Opened'}, {label: 'Stake', n: 1}, {label: 'Profit %', n: 1}, {label: 'Profit', n: 1},
-    ], rows, {cls: 'hover', empty: 'No open trades'});
+        {label: 'Bot'}, {label: 'Pair'}, {label: 'Side'}, ...(anyFutures ? [{label: 'Leverage'}] : []), {label: 'Opened'},
+        {label: anyFutures ? 'Stake<span class="sub">position</span>' : 'Stake', n: 1}, {label: 'Profit %', n: 1}, {label: 'Profit', n: 1},
+    ], rows, {cls: 'hover', empty: 'No open trades', emptySub: 'The running bots are watching the market for their next entries.'});
 }
 
 // ---------------------------------------------------------------------

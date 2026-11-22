@@ -68,7 +68,8 @@ class MockBot:
             "base_currency": pair.split("/")[0],
             "quote_currency": "USDT",
             "is_short": short,
-            "leverage": 3.0 if self.futures else 1.0,
+            # Futures bots use different leverage per trade, so the dashboard shows the range
+            "leverage": self.rng.choice((2.0, 3.0, 3.0, 5.0, 10.0)) if self.futures else 1.0,
             "enter_tag": self.rng.choice(TAGS),
             "open_timestamp": int(t * 1000),
             "open_date": iso(t),
@@ -111,7 +112,10 @@ class MockBot:
             stop_loss_abs=trade["open_rate"] * 0.9,
             stop_loss_pct=-10.0,
             stoploss_current_dist_ratio=-0.1 - ratio,
-            liquidation_price=trade["open_rate"] * (0.7 if not trade["is_short"] else 1.3) if self.futures else None,
+            # Roughly where an exchange liquidates: most of the margin gone, so nearer with more leverage
+            liquidation_price=trade["open_rate"] * (1 + (0.9 if trade["is_short"] else -0.9) / trade["leverage"])
+            if self.futures
+            else None,
             has_open_orders=False,
             nr_of_successful_entries=1,
             realized_profit=0.0,
