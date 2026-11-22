@@ -150,9 +150,16 @@ function keyUp(key) {
   send({t: 'key', key, kind: 'release'});
   document.querySelectorAll(`.k-${key}`).forEach(b => b.classList.remove('down'));
 }
+// The big pad draws its arrows as outlines, like the print on the real one
+const REAL_GLYPH = {
+  up: '<svg viewBox="0 0 20 20"><path d="M10 4 17 15H3Z"/></svg>', down: '<svg viewBox="0 0 20 20"><path d="M10 16 17 5H3Z"/></svg>',
+  left: '<svg viewBox="0 0 20 20"><path d="M4 10 15 3V17Z"/></svg>', right: '<svg viewBox="0 0 20 20"><path d="M16 10 5 3V17Z"/></svg>',
+  ok: '', back: '<svg viewBox="0 0 20 20"><path d="M6 6h7a4 4 0 0 1 0 8H7"/><path d="M8.5 3.5 6 6l2.5 2.5"/></svg>',
+};
 const PAD = [['up', '▲', 'Up'], ['left', '◀', 'Left'], ['ok', 'OK', 'OK'], ['right', '▶', 'Right'], ['down', '▼', 'Down'], ['back', '↩', 'Back']];
 ['pad-main', 'pad-side'].forEach(id => {
-  $(id).innerHTML = PAD.map(([key, glyph, name]) => `<button type="button" class="k-${key}" data-key="${key}" aria-label="${name}" title="${name}">${glyph}</button>`).join('');
+  const real = $(id).classList.contains('real');
+  $(id).innerHTML = PAD.map(([key, glyph, name]) => `<button type="button" class="k-${key}" data-key="${key}" aria-label="${name}" title="${name}">${real ? REAL_GLYPH[key] : glyph}</button>`).join('');
   $(id).querySelectorAll('button').forEach(button => {
     const key = button.dataset.key;
     button.addEventListener('pointerdown', e => { e.preventDefault(); button.setPointerCapture(e.pointerId); keyDown(key); });

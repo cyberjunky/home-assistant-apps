@@ -42,7 +42,14 @@
     <div class="device-grid">
       <div class="panel"><div class="panel-body">
         <div class="title"><span>Screen</span><span class="hint">arrow keys, Enter = OK, Backspace = Back; hold for a long press</span></div>
-        <div class="flipper"><i class="led" id="led" aria-hidden="true"></i>
+        <div class="flipper">
+          <svg class="shell" viewBox="0 0 1322 570" preserveAspectRatio="none" aria-hidden="true">
+            <defs><linearGradient id="shell-face" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fdfcfa"/><stop offset="1" stop-color="#ebe7e0"/></linearGradient></defs>
+            <path d="M290 40 H1235 L1300 105 V505 Q1300 540 1265 540 H150 L22 365 Q10 345 22 325 L250 52 Q262 40 290 40Z" fill="#e2ddd5" stroke="#cdc7bd" stroke-width="3" stroke-linejoin="round"/>
+            <path d="M300 52 H1228 L1286 110 V470 Q1286 500 1256 500 H178 L44 350 Q36 340 44 330 L262 64 Q272 52 300 52Z" fill="url(#shell-face)"/>
+          </svg>
+          <svg class="word" viewBox="0 0 540 70" aria-hidden="true"><text x="285" y="58" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-weight="700" font-size="66" letter-spacing="10" fill="#f26a2e" transform="skewX(-14)">FLIPPER</text></svg>
+          <i class="led" id="led" aria-hidden="true"></i>
           <div class="lcd" id="lcd-main"><canvas width="128" height="64" aria-label="The Flipper's screen"></canvas><div class="lcd-off">no picture</div></div>
           <div class="pad real" id="pad-main"></div>
         </div>
