@@ -74,9 +74,10 @@ function oddsTile(label, value, detail, lead) {
 function renderNotices(s) {
     const notes = [];
     if (!miners().length) notes.push('<div class="note warn">No miners yet. Add each one with its name and IP address under Miners in the app\'s configuration, then restart the app.</div>');
-    miners().filter(m => !m.connected && !m.last_seen).forEach(m => {
-        notes.push(`<div class="note warn"><b>${escapeHtml(m.name)}</b> hasn't answered at ${escapeHtml(m.host)} yet: ${escapeHtml(m.error || 'waiting')}. Check its address in the app's configuration.</div>`);
-    });
+    const silent = miners().filter(m => !m.connected && !m.last_seen);
+    if (silent.length) {
+        notes.push(`<div class="note warn">Not answering: ${silent.map(m => `<b title="${escapeHtml(m.error || '')}">${escapeHtml(m.name)}</b> (${escapeHtml(m.host)})`).join(', ')}</div>`);
+    }
     if (s.totals.blocks_found > 0) notes.push(`<div class="note jackpot">🎉 <b>A block was found!</b> ${num(s.totals.blocks_found)} so far. Check your wallet.</div>`);
     const el = document.getElementById('ov-notices');
     const html = notes.join('');

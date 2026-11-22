@@ -12,8 +12,6 @@
 
 <img src="https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-lottery/icon.png" alt="Lottery" width="128" align="right">
 
-> **Unofficial.** An independent project, not affiliated with, endorsed by or sponsored by Bitaxe, NerdQAxe, Lucky Miner or any other miner maker.
-
 Solo mining is a lottery: every block is a draw, and your miners hold a few tickets. This app shows
 what your tickets are worth. It is a dashboard for your Bitaxe, NerdQAxe, Lucky Miner and other
 AxeOS miners in Home Assistant. Your odds come first: the chance of a block in the next ten minutes,
@@ -84,8 +82,7 @@ from the Bitaxe integration, the entities, and how the odds are worked out.
 
 ## Disclaimer
 
-This app is an independent project. It is not affiliated with, endorsed by or sponsored by the
-makers of the miners or their firmware. The odds are statistics: they tell what to expect on
+The odds are statistics: they tell what to expect on
 average, not what will happen. Nothing in this app is financial advice.
 
 ## 💖 Support This Project

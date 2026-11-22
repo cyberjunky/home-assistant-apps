@@ -1,7 +1,5 @@
 # Home Assistant App: Lottery
 
-> **Unofficial.** An independent project, not affiliated with, endorsed by or sponsored by Bitaxe, NerdQAxe, Lucky Miner or any other miner maker.
-
 Lottery shows your solo miners in a dashboard, served through ingress: your odds of a block for all miners together on **Draw**, and a page per miner. It reads each miner over its AxeOS web API, and publishes every miner to Home Assistant over MQTT, with its sensors, a **Mining** switch and a **Restart** button.
 
 The app doesn't mine and doesn't change your miners by itself. Pausing, resuming and restarting only happen through a miner's Mining switch or Restart button in Home Assistant.
