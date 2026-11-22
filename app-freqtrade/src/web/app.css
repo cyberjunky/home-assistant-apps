@@ -483,3 +483,18 @@ table.data .was { display: block; }
 .tile .d { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
 .chart-title { flex-wrap: wrap; }
 .chart-title .hint { white-space: normal; }
+
+/* Leverage: the more of it, the more it stands out */
+.lev { display: inline-block; min-width: 30px; padding: 1px 6px; border-radius: 4px; font-family: var(--mono, monospace); font-size: 12px; font-weight: 600; text-align: center;
+    color: var(--primary-color); background: color-mix(in srgb, var(--primary-color) 12%, transparent); }
+.lev.none { color: var(--secondary-text-color); background: transparent; font-weight: 400; }
+.lev.mid { color: var(--warning-color); background: color-mix(in srgb, var(--warning-color) 14%, transparent); }
+.lev.high { color: var(--danger-color); background: color-mix(in srgb, var(--danger-color) 14%, transparent); }
+
+/* A profit bar under a trade's profit, and a win-rate bar under a win rate */
+.pnl-bar, .win-bar { display: block; height: 4px; margin-top: 4px; border-radius: 2px; background: var(--divider-color); overflow: hidden; }
+.pnl-bar { margin-left: auto; width: 64px; }
+.pnl-bar i, .win-bar i { display: block; height: 100%; border-radius: 2px; }
+.pnl-bar i.pos { background: var(--pos); margin-left: 0; } .pnl-bar i.neg { background: var(--neg); margin-left: auto; }
+.win-bar { margin-left: auto; width: 56px; } .win-bar i { background: var(--primary-color); }
+.empty-sub { display: block; margin-top: 4px; font-size: 12px; opacity: 0.75; }
