@@ -204,6 +204,14 @@ async def test_metrics_query_with_rate(database):
     assert await database.metric_value("temp", {"room": "nowhere"}, "max", 3600) is None
     assert await database.last_point("temp", {}, 3600) is not None
     assert len(await database.metric_recent("temp", {}, "avg", 60, 3600)) >= 30
+    # Points every minute: a short window (or a small asked step) still gets one-minute buckets,
+    # not 15 s ones with empty buckets between every two values
+    for asked in (None, 10):
+        short = await database.metric_query("temp", {}, "avg", None, t0, t1, asked, False)
+        assert short["step"] == 60, short["step"]
+        values = short["series"][0]["values"]
+        filled = [k for k, v in enumerate(values) if v is not None]
+        assert all(values[k] is not None for k in range(filled[0], filled[-1] + 1)), values
 
 
 async def test_rules_alerts_and_saved_things(database):
