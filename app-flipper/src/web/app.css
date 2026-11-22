@@ -170,48 +170,48 @@ table.list .acts .link-btn { margin-left: 12px; }
 
 /* ---------- The Flipper: screen and buttons ---------- */
 .device-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 14px; align-items: start; }
-/* The shell: white and rounded like the real one, the screen on the left, the round orange pad on the right */
-.flipper { position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 26px 40px;
-    padding: 34px 38px 38px; border: 1px solid var(--shell-edge);
-    background: linear-gradient(180deg, #fcfbf9 0%, #f3f0ea 55%, #e6e1d9 100%);
-    border-radius: 44px 44px 58px 58px / 44px 44px 64px 64px;
-    box-shadow: inset 0 2px 0 #fff, inset 0 -8px 12px rgba(60,40,20,0.07), 0 8px 22px rgba(0,0,0,0.22); }
-.flipper .led { position: absolute; top: 15px; left: 50%; width: 9px; height: 9px; margin-left: -4px; border-radius: 50%;
-    background: #d9d3ca; box-shadow: inset 0 1px 2px rgba(0,0,0,0.25); }
-.flipper .led.on { background: #43d17a; box-shadow: 0 0 8px #43d17a; }
-.lcd { position: relative; flex: 1 1 320px; max-width: 560px; padding: 10px; border-radius: 12px; background: #17130f; line-height: 0;
-    box-shadow: 0 0 0 3px #e9e4dc, 0 0 0 4px var(--shell-edge), inset 0 0 6px #000; }
+/* The shell: the real outline (pointed on the left, the top right corner cut off), drawn as SVG.
+   Everything on it is placed in % of its width, so it keeps its proportions at any size. */
+.flipper { position: relative; width: 100%; aspect-ratio: 1322 / 570; container-type: inline-size; }
+.flipper > svg.shell { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.22)); }
+.flipper .led { position: absolute; left: 64.3%; top: 63.5%; width: 1.1cqw; height: 1.1cqw; border-radius: 50%;
+    background: #6a6560; box-shadow: inset 0 1px 1px rgba(0,0,0,0.6); }
+.flipper .led.on { background: #43d17a; box-shadow: 0 0 1cqw #43d17a; }
+.flipper .word { position: absolute; left: 33%; top: 78%; width: 41%; height: 12%; overflow: visible; }
+.lcd { position: relative; padding: 10px; border-radius: 12px; background: #17130f; line-height: 0; }
 .lcd canvas { width: 100%; height: auto; display: block; image-rendering: pixelated; border-radius: 4px; background: var(--lcd-bg); }
-.lcd.tall { flex: 0 1 220px; }
 .lcd-off { position: absolute; inset: 10px; display: none; align-items: center; justify-content: center; border-radius: 4px;
     background: color-mix(in srgb, var(--lcd-bg) 45%, #17130f); color: var(--lcd-ink); font-family: var(--mono); font-size: 12px; line-height: 1.4; }
 .lcd.off .lcd-off { display: flex; }
-.lcd.small { padding: 6px; border-radius: 8px; box-shadow: none; }
+/* The screen in its dark grey frame; a turned (tall) picture fits inside it */
+.flipper .lcd { position: absolute; left: 23.5%; top: 14.5%; width: 39%; height: 54%; padding: 2.2cqw 2.4cqw; border-radius: 1.6cqw;
+    background: #2b2b2b; box-shadow: inset 0 0 0 0.35cqw #111, inset 0 0 1.4cqw #000, 0 0 0 0.3cqw #cfcac2; }
+.flipper .lcd canvas { width: 100%; height: 100%; object-fit: contain; border-radius: 0; background: none; }
+.flipper .lcd-off { inset: 2.2cqw 2.4cqw; border-radius: 0; }
+.lcd.small { padding: 6px; border-radius: 8px; }
 .lcd.small .lcd-off { inset: 6px; }
 .pad { display: grid; grid-template-columns: repeat(3, 44px) 16px 44px; grid-template-rows: repeat(3, 44px); gap: 4px; flex-shrink: 0; }
 .pad button { border: 1px solid var(--shell-edge); background: #fff; color: var(--shell-ink); border-radius: 10px; cursor: pointer;
     font-size: 15px; display: flex; align-items: center; justify-content: center; touch-action: none; user-select: none; -webkit-user-select: none; }
-.pad button:hover { border-color: var(--lcd-bg); }
-.pad button.down { background: var(--lcd-bg); border-color: var(--lcd-bg); color: #fff; }
 .pad .k-up { grid-area: 1 / 2; } .pad .k-left { grid-area: 2 / 1; } .pad .k-ok { grid-area: 2 / 2; border-radius: 50%; font-size: 11px; font-weight: 600; }
 .pad .k-right { grid-area: 2 / 3; } .pad .k-down { grid-area: 3 / 2; } .pad .k-back { grid-area: 3 / 5; border-radius: 50%; }
-/* The real pad: one orange disc with the four directions on it, OK in the middle, Back beside it */
-.pad.real { position: relative; display: block; width: 204px; height: 160px; }
-.pad.real::before { content: ''; position: absolute; left: 0; top: 0; width: 160px; height: 160px; border-radius: 50%;
-    background: radial-gradient(circle at 35% 28%, #ffa858, #f57e14 70%);
-    box-shadow: 0 4px 8px rgba(60,30,0,0.3), inset 0 -5px 9px rgba(120,50,0,0.25), inset 0 2px 2px rgba(255,255,255,0.45); }
-.pad.real button { position: absolute; width: 50px; height: 50px; border: none; border-radius: 50%; background: transparent; color: #8a3f00; font-size: 13px; }
-.pad.real button:hover { background: rgba(255,255,255,0.16); }
-.pad.real button.down { background: rgba(110,45,0,0.28); color: #fff; }
-.pad.real .k-up { left: 55px; top: 3px; } .pad.real .k-down { left: 55px; top: 107px; }
-.pad.real .k-left { left: 3px; top: 55px; } .pad.real .k-right { left: 107px; top: 55px; }
-.pad.real .k-ok { left: 49px; top: 49px; width: 62px; height: 62px; font-size: 0;
-    background: radial-gradient(circle at 38% 30%, #ffb46e, #f57e14 75%);
-    box-shadow: 0 0 0 3px rgba(120,50,0,0.32), 0 2px 4px rgba(60,30,0,0.35), inset 0 1px 1px rgba(255,255,255,0.5); }
-.pad.real .k-back { left: 158px; top: 112px; width: 44px; height: 44px; font-size: 16px;
-    background: radial-gradient(circle at 38% 30%, #ffb46e, #f57e14 75%);
-    box-shadow: 0 3px 6px rgba(60,30,0,0.3), inset 0 -3px 5px rgba(120,50,0,0.25), inset 0 1px 1px rgba(255,255,255,0.45); }
-.pad.real .k-ok.down, .pad.real .k-back.down { background: #d96a08; box-shadow: 0 0 0 3px rgba(120,50,0,0.32), inset 0 2px 5px rgba(60,30,0,0.5); }
+/* The real pad: one flat orange disc with outlined arrows, OK in the middle, Back down to its right */
+.pad.real { position: absolute; display: block; left: 65%; top: 17%; width: 22%; height: auto; aspect-ratio: 1; }
+.pad.real::before { content: ''; position: absolute; inset: 0; border-radius: 50%; background: #f26a2e;
+    box-shadow: inset 0 -0.5cqw 0.9cqw rgba(120,40,0,0.25), inset 0 0.3cqw 0.3cqw rgba(255,255,255,0.3), 0 0.3cqw 0.6cqw rgba(0,0,0,0.2); }
+.pad.real button { position: absolute; padding: 0; border: none; border-radius: 50%; background: transparent; }
+.pad.real button svg { width: 38%; height: 38%; fill: none; stroke: #c24a14; stroke-width: 1.6; stroke-linejoin: round; pointer-events: none; }
+.pad.real button:hover { background: rgba(255,255,255,0.14); }
+.pad.real button.down { background: rgba(110,40,0,0.2); }
+.pad.real .k-up { left: 31%; top: 2%; width: 38%; height: 30%; } .pad.real .k-down { left: 31%; top: 68%; width: 38%; height: 30%; }
+.pad.real .k-left { left: 2%; top: 31%; width: 30%; height: 38%; } .pad.real .k-right { left: 68%; top: 31%; width: 30%; height: 38%; }
+.pad.real .k-ok { left: 35%; top: 35%; width: 30%; height: 30%; background: #f26a2e;
+    box-shadow: 0 0.3cqw 0.5cqw rgba(90,30,0,0.45), inset 0 0.2cqw 0.2cqw rgba(255,255,255,0.35); }
+.pad.real .k-back { left: 96.8%; top: 67.6%; width: 31.8%; height: 31.8%; background: #f26a2e;
+    box-shadow: 0 0.3cqw 0.6cqw rgba(0,0,0,0.25), inset 0 -0.3cqw 0.5cqw rgba(120,40,0,0.25); }
+.pad.real .k-back svg { width: 52%; height: 52%; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.pad.real .k-ok:hover, .pad.real .k-back:hover { background: #f57a42; }
+.pad.real .k-ok.down, .pad.real .k-back.down { background: #d4561d; box-shadow: inset 0 0.2cqw 0.5cqw rgba(60,20,0,0.5); }
 .pad.small { grid-template-columns: repeat(3, 34px) 10px 34px; grid-template-rows: repeat(3, 34px); margin: 12px auto 0; width: max-content; }
 .pad.small button { background: var(--ha-background); border-color: var(--divider-color); color: var(--primary-text-color); font-size: 13px; }
 .pad.small button.down { background: var(--primary-color); border-color: var(--primary-color); color: #fff; }

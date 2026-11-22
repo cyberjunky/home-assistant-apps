@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+**After updating:** nothing to do.
+
+- **The Flipper on the Device tab looks like the real one:** pointed on the left, the screen in its dark frame, a flat orange pad with outlined arrows, Back beside it, the LED next to the screen and FLIPPER along the bottom. It keeps its shape at any width.
+
 ## 0.1.1
 
 **After updating:** nothing to do.
