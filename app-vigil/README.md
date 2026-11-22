@@ -48,7 +48,7 @@ answers **"What changed?"** for any moment you pick.
 
 ## Supported Features
 
-- 📥 **Collects** — syslog over UDP and TCP (RFC 3164, RFC 5424, MikroTik's topics), OpenTelemetry over HTTP (JSON: logs and metrics), JSON lines, Prometheus exporters it scrapes itself, and the FRITZ!Box (line throughput, connection state, its event log)
+- 📥 **Collects** — syslog over UDP and TCP (RFC 3164, RFC 5424, MikroTik's topics), OpenTelemetry over HTTP (JSON: logs and metrics), JSON lines, Prometheus exporters it scrapes itself, the FRITZ!Box (line throughput, connection state, its event log) and MikroTik routers (CPU, memory, temperature, interfaces, DHCP, Wi-Fi clients, over the RouterOS API)
 - 🗄️ **Stores in Chronicle** — a database of its own on the Chronicle app (0.3.0 or later), with TimescaleDB's compression and how long to keep logs and metrics
 - 🔎 **Logs** — search with free text, phrases and filters (`host:mikrotik severity:<=warning -dhcp`), the matches by severity over time (drag to zoom), every field of a line, lines around it, live tail, saved searches
 - 🧩 **Patterns** — log lines grouped into templates with the changing parts masked; new and spiking patterns marked, with their trend
@@ -76,6 +76,7 @@ answers **"What changed?"** for any moment you pick.
 | `ingest_token` | | Required from senders on port 4318 outside your own network |
 | `scrape_targets` | | Prometheus exporters: a name, the URL and the interval |
 | `fritzbox`: `host`, `user`, `password` | | The FRITZ!Box to collect from, in its own section *FRITZ!Box (TR-064)* |
+| `mikrotik`: `host`, `user`, `password`, `port`, `ssl` | | The MikroTik router to collect from, in its own section *MikroTik (RouterOS API)* |
 | `notify_service` | | Where alerts go besides a notification, such as `notify.mobile_app_phone` or `telegram_bot.send_message` |
 | `logs_retention_days`, `metrics_retention_days` | 14 / 90 | How long to keep them |
 | `log_level` | `info` | `debug`, `info`, `warning` or `error` |

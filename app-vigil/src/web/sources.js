@@ -7,7 +7,7 @@ let sourcesTimer = null;
 
 // What each snippet is for; the snippets themselves come from the server (they hold its address)
 const SETUP_INFO = {
-    mikrotik: {label: 'MikroTik', text: 'RouterOS: a remote logging action and the topics to send to it. Paste in a terminal (Winbox → New Terminal, or SSH).'},
+    mikrotik: {label: 'MikroTik', text: 'RouterOS logs: a remote logging action and the topics to send to it. Paste in a terminal (Winbox → New Terminal, or SSH). For the router\'s CPU, memory and interfaces, set the MikroTik (RouterOS API) options: see the documentation.'},
     netgear: {label: 'Netgear', text: 'Managed switches: System → Logs → Server Log (Syslog) in the web interface, with these settings.'},
     rsyslog: {label: 'rsyslog', text: 'Linux servers: forward everything over TCP. Put this in /etc/rsyslog.d/90-vigil.conf and restart rsyslog.'},
     vector: {label: 'Vector', text: 'Vector: journald and files to Vigil\'s JSON lines endpoint, with the ingest token.'},

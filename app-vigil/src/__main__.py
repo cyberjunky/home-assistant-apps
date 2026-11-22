@@ -13,6 +13,7 @@ from .database import Database, Sources, Writer, describe
 from .fritzbox import HOST as FRITZ_HOST
 from .fritzbox import FritzBox
 from .ingest import IngestServer, Intake
+from .mikrotik import MikroTik
 from .patterns import PatternMiner
 from .rules import HomeAssistant, RuleEngine
 from .scrape import Scraper
@@ -92,6 +93,11 @@ async def main() -> int:
         writer.put_log,
         lambda count, error: sources.seen("fritzbox", FRITZ_HOST, config.fritzbox_host, count, error),
     )
+    mikrotik = MikroTik(
+        config,
+        writer.put_samples,
+        lambda count, error: sources.seen("mikrotik", "mikrotik", config.mikrotik_host, count, error),
+    )
     webui = WebUI(config.web_port, config, database, writer, intake, engine, home_assistant, receivers)
 
     tasks = [
@@ -121,6 +127,7 @@ async def main() -> int:
         receivers["otlp"] = config.ingest_port if ingest.listening else False
     scraper.start()
     fritzbox.start()
+    mikrotik.start()
 
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -145,6 +152,7 @@ async def main() -> int:
             await ingest.stop()
     await scraper.stop()
     await fritzbox.stop()
+    await mikrotik.stop()
     for task in tasks:
         if task.get_name() != "database":
             task.cancel()

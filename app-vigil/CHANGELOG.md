@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.4
+
+**After updating:** nothing to do. To collect a MikroTik router's metrics, give the router a
+read-only API user and fill in the new section **MikroTik (RouterOS API)** (see the
+documentation); an MKTXP exporter is no longer needed.
+
+- **MikroTik metrics without an exporter:** Vigil asks the router itself over the RouterOS API
+  every 30 seconds: CPU, memory, disk, uptime, temperature and voltage, every interface's traffic,
+  errors and state, DHCP leases, Wi-Fi clients and tracked connections. The names are MKTXP's, so
+  the Network dashboard, the *Router CPU* template and the examples work with either.
+
 ## 0.1.3
 
 **After updating:** nothing to do. If the MikroTik commands failed with *expected end of

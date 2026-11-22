@@ -42,6 +42,28 @@ configuration:
       password:
         name: Password
         description: That user's password.
+  mikrotik:
+    name: MikroTik (RouterOS API)
+    description: >-
+      CPU, memory, temperature, every interface's traffic and state, DHCP leases,
+      Wi-Fi clients and connections, asked from the router over its API. Leave the
+      address empty to skip. Logs come by syslog (see Sources).
+    fields:
+      host:
+        name: Address
+        description: The router's IP address, such as 192.168.88.1.
+      user:
+        name: User
+        description: A router user in a group with only the read and api policies.
+      password:
+        name: Password
+        description: That user's password.
+      port:
+        name: Port
+        description: Empty for the default (8728, or 8729 with SSL).
+      ssl:
+        name: API-SSL
+        description: Use the API's SSL service (needs a certificate on the router).
   notify_service:
     name: Notify service
     description: >-

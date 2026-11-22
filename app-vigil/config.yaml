@@ -1,5 +1,5 @@
 name: Vigil
-version: "0.1.3"
+version: "0.1.4"
 slug: app-vigil
 description: "Logs, metrics and alerts for your network and servers: syslog, OpenTelemetry and Prometheus in, searchable events, charts, smart patterns and anomalies out, stored in Chronicle"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-vigil"
@@ -39,6 +39,11 @@ options:
     host: ""
     user: ""
     password: ""
+  mikrotik:
+    host: ""
+    user: ""
+    password: ""
+    ssl: false
   notify_service: ""
   logs_retention_days: 14
   metrics_retention_days: 90
@@ -59,6 +64,12 @@ schema:
     host: str?
     user: str?
     password: password?
+  mikrotik:
+    host: str?
+    user: str?
+    password: password?
+    port: port?
+    ssl: bool?
   notify_service: match(^[a-z0-9_]+(\.[a-z0-9_]+)?$)?
   logs_retention_days: int(1,365)
   metrics_retention_days: int(1,1825)

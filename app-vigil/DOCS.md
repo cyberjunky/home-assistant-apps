@@ -89,22 +89,38 @@ you want to see: `/ip firewall filter set [find comment="drop all not coming fro
 log-prefix="drop"` (or Winbox: open the rule → *Action* → tick *Log*). Logging every accepted
 connection is a lot of lines: log the drops.
 
-**Metrics** (CPU, memory, interfaces, Wi-Fi clients) come from the
-[MKTXP](https://github.com/akpw/mktxp) exporter, on any machine that can reach the router:
+**Metrics.** Vigil asks the router itself over the RouterOS API, every 30 seconds; nothing else
+to run. On the router, a user that can only read, and the API open only to Home Assistant:
 
-1. On the router, a read-only user for it, and the API only from that machine:
-   ```
-   /user group add name=mktxp policy=api,read
-   /user add name=mktxp group=mktxp password=<a password>
-   /ip service set api address=<machine running MKTXP>/32 disabled=no
-   ```
-2. Run MKTXP (Docker: `ghcr.io/akpw/mktxp`), with the router's address, the user and password
-   in `mktxp.conf`. It serves its metrics on port 49090.
-3. In Vigil's options, a scrape target: `name: mikrotik`, `url: http://<that machine>:49090/metrics`,
-   `interval: 30`.
+```
+/user group add name=vigil policy=read,api
+/user add name=vigil group=vigil password=<a password>
+/ip service set api address=HOME_ASSISTANT_IP/32 disabled=no
+```
 
-The built-in Network dashboard and the *Router CPU* rule template use MKTXP's names
-(`mktxp_system_cpu_load`, `mktxp_interface_rx_byte_total`).
+Then in Vigil's options, the section **MikroTik (RouterOS API)**: the router's IP address, that
+user and its password; restart Vigil. (For the API over SSL: enable `api-ssl` with a certificate
+on the router, `/ip service set api-ssl address=HOME_ASSISTANT_IP/32 certificate=<name>
+disabled=no`, and tick *API-SSL*; Vigil accepts the router's own self-signed certificate.)
+
+What it collects, with the router's identity (System → Identity) as `host`:
+
+| Metric | Labels | |
+|---|---|---|
+| `mktxp_system_cpu_load` | | CPU in % |
+| `mktxp_system_free_memory`, `mktxp_system_total_memory` | | bytes |
+| `mktxp_system_free_hdd_space`, `mktxp_system_total_hdd_space` | | bytes |
+| `mktxp_system_uptime` | | seconds |
+| `mktxp_system_<sensor>` (`cpu_temperature`, `temperature`, `voltage`, ..) | | what the router's health menu has |
+| `mktxp_interface_rx_byte_total`, `..._tx_byte_total`, `..._packet_total`, `..._error_total`, `..._drop_total` | name, type | counters per interface: use *rate* |
+| `mktxp_interface_running` | name, type | 1 when the link is up |
+| `mktxp_dhcp_lease_active_count` | | DHCP leases in use |
+| `mktxp_wlan_clients_count` | name | Wi-Fi clients per interface (wifi and wireless packages) |
+| `mktxp_firewall_connections_total` | | connections the firewall tracks |
+
+The names are the [MKTXP](https://github.com/akpw/mktxp) exporter's, so the built-in Network
+dashboard and the *Router CPU* template work with either. Already running MKTXP? Add it as a
+scrape target instead (port 49090); don't do both for the same router.
 
 ### Netgear and other switches
 
