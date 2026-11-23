@@ -86,9 +86,9 @@ function renderRules() {
     const sorted = [...rules].sort((a, b) => (a.enabled === false) - (b.enabled === false)
         || (order[a.state] ?? 3) - (order[b.state] ?? 3) || String(a.name).localeCompare(String(b.name)));
     el.innerHTML = `<table class="data rules-table"><thead><tr><th>State</th><th>Rule</th><th>Severity</th><th class="n">Value</th><th>Since</th><th>Checked</th><th></th></tr></thead><tbody>
-        ${sorted.map(r => `<tr class="${r.enabled === false ? 'off' : ''}" data-id="${escapeHtml(r.id)}">
+        ${sorted.map(r => `<tr class="link${r.enabled === false ? ' off' : ''}" data-id="${escapeHtml(r.id)}">
             <td>${statePill(r.state, r.enabled)}</td>
-            <td class="wrap"><b>${escapeHtml(r.name)}</b><small class="rule-desc">${escapeHtml(kindLabel(r.kind))} · ${escapeHtml(describeRule(r))}</small></td>
+            <td class="wrap"><button type="button" class="cell-link" data-act="show" title="Show what it counts: its log lines and their hosts, or its metric"><b>${escapeHtml(r.name)}</b></button><small class="rule-desc">${escapeHtml(kindLabel(r.kind))} · ${escapeHtml(describeRule(r))}</small></td>
             <td>${ruleSeverityPill(r.severity)}${r.notify ? ' <span class="muted" title="Sends a notification">🔔</span>' : ''}</td>
             <td class="n">${escapeHtml(fmtValue(r.last_value))}</td>
             <td class="muted" title="${escapeHtml(r.state_since ? fmtDateTime(r.state_since) : '')}">${escapeHtml(r.state_since ? fmtAgo(r.state_since) : '–')}</td>
@@ -102,10 +102,12 @@ function renderRules() {
         </tr>`).join('')}</tbody></table>`;
     el.onclick = async (e) => {
         const b = e.target.closest('[data-act]');
-        if (!b) return;
-        const id = b.closest('[data-id]').dataset.id;
-        const r = rules.find(x => String(x.id) === id);
+        const row = e.target.closest('[data-id]');
+        if (!row) return;
+        const r = rules.find(x => String(x.id) === row.dataset.id);
         if (!r) return;
+        // A click on the row (not one of its buttons): what the rule counts
+        if (!b || b.dataset.act === 'show') return showRuleEvidence(r);
         if (b.dataset.act === 'edit') return openRuleEditor(r);
         if (b.dataset.act === 'clear') return clearAlert(r.id, r.name);
         if (b.dataset.act === 'toggle') {
@@ -123,6 +125,26 @@ function renderRules() {
             loadAlertHistory();
         });
     };
+}
+
+// What a rule looks at: its log lines (with their hosts) on the Logs page, or its metric on the
+// Metrics page, over the window it counts. at: the moment an alert fired (a history row); without,
+// now. The range before is kept, so Back returns to it.
+function showRuleEvidence(r, at) {
+    if (!r) return toast('This rule is gone');
+    const q = r.query || {};
+    const window = Math.max(60, Number(q.window || q.step) || 300);
+    const end = at ? at + 60 : Date.now() / 1000;
+    const from = (at || end) - (r.kind === 'absence' || r.kind === 'anomaly' ? Math.max(window, 3600) : window) - (at ? 60 : 0);
+    setRange({from, to: end}, true);
+    if (q.name) {
+        openMetrics([{name: q.name, filter: q.filter || {}, agg: q.agg || 'avg'}]);
+    } else if (r.kind === 'pattern_new') {
+        // New patterns: the Patterns page lists the ones first seen in that window
+        switchTab('patterns');
+    } else {
+        openLogs(q.q || '');
+    }
 }
 
 // A firing alert cleared by hand (Alerts and the Overview)
@@ -401,13 +423,20 @@ async function loadAlertHistory() {
         empty: 'Nothing fired in this time range',
     });
     const newest = alerts.slice().reverse();
-    table.innerHTML = newest.length ? `<table class="data"><thead><tr><th>Time</th><th>Rule</th><th>State</th><th>Severity</th><th class="n">Value</th><th>Message</th></tr></thead><tbody>${newest.map(a => `<tr>
+    table.innerHTML = newest.length ? `<table class="data"><thead><tr><th>Time</th><th>Rule</th><th>State</th><th>Severity</th><th class="n">Value</th><th>Message</th></tr></thead><tbody>${newest.map((a, i) => `<tr class="link" data-alert="${i}" title="Show the lines (and their hosts) or the metric behind it, at that moment">
         <td class="mono" title="${escapeHtml(fmtAgo(a.ts))}">${escapeHtml(fmtDateTime(a.ts))}</td>
         <td><b>${escapeHtml(a.rule_name || '#' + a.rule)}</b></td>
         <td>${statePill(a.state === 'resolved' ? 'resolved' : a.state)}</td>
         <td>${ruleSeverityPill(a.severity)}</td>
         <td class="n">${escapeHtml(fmtValue(a.value))}</td>
         <td class="wrap">${escapeHtml(a.message || '')}</td></tr>`).join('')}</tbody></table>` : '';
+    table.onclick = (e) => {
+        const row = e.target.closest('[data-alert]');
+        if (!row) return;
+        const a = newest[Number(row.dataset.alert)];
+        // A resolved or cleared row: the window before it too, to see what went before
+        showRuleEvidence(rules.find(x => x.id === a.rule), a.ts);
+    };
 }
 
 onTab('alerts', showAlerts);
