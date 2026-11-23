@@ -763,6 +763,19 @@ class MockHA:
         mikrotik_entries, mikrotik_states = mikrotik_entities()
         self.port_entries += mikrotik_entries
         self.ports.update({s["entity_id"]: s for s in mikrotik_states})
+        # A port forward to Home Assistant, as the FRITZ!Box integration makes a switch for it
+        self.ports["switch.fritz_box_port_forward_https"] = {
+            "entity_id": "switch.fritz_box_port_forward_https",
+            "state": "on",
+            "attributes": {
+                "friendly_name": "FRITZ!Box Port forward HTTPS",
+                "internal_ip": "192.168.10.20",
+                "internal_port": 8123,
+                "external_port": 443,
+                "protocol": "TCP",
+                "description": "HTTPS",
+            },
+        }
         # The traffic as it was made: _simulate moves around it
         self.rates = {
             entity_id: float(s["state"])

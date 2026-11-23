@@ -134,6 +134,37 @@ def port_entity(state: dict) -> dict | None:
     }
 
 
+def is_port_forward(state: dict | None) -> bool:
+    """A switch for a port forward: the FRITZ!Box integration makes one per forward to Home
+    Assistant's own address ("Port forward <name>", internal_ip, external_port, ..); any
+    integration with these attributes counts."""
+    if not state or not str(state.get("entity_id", "")).startswith("switch."):
+        return False
+    a = state.get("attributes") or {}
+    return a.get("external_port") not in (None, "") and bool(a.get("internal_ip"))
+
+
+def port_forward(state: dict) -> dict:
+    a = state.get("attributes") or {}
+
+    def port(value) -> int | None:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    return {
+        "entity_id": state["entity_id"],
+        "name": str(a.get("friendly_name") or state["entity_id"]),
+        "enabled": state.get("state") == "on",
+        "external_port": port(a.get("external_port")),
+        "protocol": str(a.get("protocol") or "").upper(),
+        "internal_ip": str(a.get("internal_ip") or ""),
+        "internal_port": port(a.get("internal_port")),
+        "description": str(a.get("description") or ""),
+    }
+
+
 def battery_value(state: dict | None) -> float | None:
     """A battery sensor's level in %, or None when it has none now."""
     try:
@@ -484,6 +515,7 @@ class Inventory:
         self.batteries: dict[str, tuple[str, dict]] = {}
         # Home Assistant's zones: home, work... with their position and radius
         self.zones: dict[str, dict] = {}
+        self.forwards: dict[str, dict] = {}
         self.ha_version = ""
         self.loaded_at: float | None = None
         self.error = ""
@@ -520,6 +552,7 @@ class Inventory:
         self.areas = {a["area_id"]: a for a in areas or []}
         self.states = {s["entity_id"]: s for s in states or [] if s.get("entity_id", "").startswith(DOMAIN)}
         self.zones = {s["entity_id"]: s for s in states or [] if s.get("entity_id", "").startswith("zone.")}
+        self.forwards = {s["entity_id"]: s for s in states or [] if is_port_forward(s)}
         self.ports = {p["entity_id"]: p for p in (port_entity(s) for s in states or []) if p}
         self.netgear = netgear_roles(entities or [])
         self.netgear_states = {s["entity_id"]: s for s in states or [] if s.get("entity_id") in self.netgear}
@@ -597,6 +630,12 @@ class Inventory:
             for (owner, port), rates in sorted(found.items(), key=lambda x: (x[0][0], _port_order(x[0][1])))
         ]
 
+    def port_forwards(self) -> list[dict]:
+        """Port forwards Home Assistant has a switch for, by external port."""
+        return sorted(
+            (port_forward(s) for s in self.forwards.values()), key=lambda f: (f["external_port"] or 0, f["name"])
+        )
+
     def zone_list(self) -> list[dict]:
         out = []
         for entity_id, z in sorted(self.zones.items()):
@@ -633,6 +672,13 @@ class Inventory:
     def _state_changed(self, event: dict) -> None:
         data = event.get("data") or {}
         entity_id = data.get("entity_id", "")
+        if entity_id in self.forwards or is_port_forward(data.get("new_state")):
+            if is_port_forward(data.get("new_state")):
+                self.forwards[entity_id] = data["new_state"]
+            else:
+                self.forwards.pop(entity_id, None)
+            self._bump(entity_id)
+            return
         if entity_id.startswith("zone."):
             if data.get("new_state"):
                 self.zones[entity_id] = data["new_state"]

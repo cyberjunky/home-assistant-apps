@@ -42,6 +42,7 @@ On top of the Dashboard, read from your router as long as the app runs:
 - **Connected for**: since when the internet connection is up (a reconnect starts it again).
 - The **external address**, IPv4 and IPv6 (with the prefix in its tooltip), and the DNS servers.
 - The **link**: how the router reaches the internet (Ethernet, DSL, cable…) and the speed of that link. On a router behind a fibre box this is the speed of the cable between them, not of your subscription.
+- **Open to the internet**: the ports open from outside, the device each goes to and what it is for. Two lists make it: what programs on your network asked the router to open (UPnP: games, consoles, torrent clients), and the port forwards Home Assistant has a switch for (the FRITZ!Box integration makes one per forward to Home Assistant itself). Forwards you set by hand on the router to other devices are in neither, so check those on the router.
 - **Internet traffic**: live (the last 15 minutes, every 10 seconds), or the last 24 hours, 7 days or 30 days; and the **data per day** of the last 30 days.
 
 The app reads the router the way Home Assistant's UPnP integration does: over UPnP (Internet Gateway Device), with the extra figures a FRITZ!Box gives there (its own speeds, 64-bit counters, IPv6), and the firmware from its TR-064 description. It needs no password. TR-069 can't be used for this: with TR-069 the router reports to its provider, and nothing on your network can ask it anything.
@@ -63,7 +64,9 @@ Drag a device from the list on the left onto a page, or double-click it. The sha
 - **A group** takes the devices inside it along when you drag it; its corner resizes it. Give it a network and it shows its VLAN and subnet.
 - **Move to its own page** (on a group): its devices go to a new page, and a tile stays with the number of devices and how many are online. Double-click the tile to go in (one click while looking); "← back" returns. Cables that went into the group end at the tile.
 - Drag the background to move around, the wheel zooms, Shift+drag selects an area, arrows nudge, Delete removes from the page (never from Home Assistant), Ctrl+Z undoes.
-- **Export**: the page as a PNG image, an SVG drawing (for Visio, draw.io or Inkscape), or printed (and saved as PDF).
+- **Cables show their speed**: when the switch port a device hangs on says its speed (MikroTik Network, NETGEAR Plus), the line is as thick as the speed (10G thick, 100M thin) and the speed is in its label (`ether6 · 1G`), or at the device end when the line has no label.
+- **Legend**: what the lines and colours on the page mean: the kinds of connection, the speeds and the networks (VLAN and subnet), only what the page uses. The **Legend** button shows or hides it.
+- **Export**: the page as a PNG image, an SVG drawing (for Visio, draw.io or Inkscape), or printed (and saved as PDF), with the legend below the drawing or without. **To share** hides the addresses: every IP address shows only its last number (`x.x.x.20`), MAC addresses are dots, and each Wi-Fi name becomes SSID A, SSID B and so on.
 
 ## Where devices connect
 

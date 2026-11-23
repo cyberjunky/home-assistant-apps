@@ -103,6 +103,13 @@ async def test_a_fritz_box(tmp_path, session):
         assert c["external_ipv6"] == "2001:db8:1::1" and c["ipv6_prefix"] == "2001:db8:42::/56"
         assert c["dns"] == ["192.0.2.53", "192.0.2.54"]
         assert c["max_down"] == 1_000_000_000
+        # What programs had it open (UPnP), read until its "no such index"
+        mappings = state["port_mappings"]
+        assert [(m["external_port"], m["protocol"], m["internal_ip"]) for m in mappings] == [
+            (3074, "UDP", "192.168.2.61"),
+            (51413, "TCP", "192.168.2.144"),
+        ]
+        assert mappings[1]["description"] == "Transmission at 51413" and mappings[1]["enabled"]
         # Its own rates, and its 64-bit counters for the bytes per hour
         assert state["now"]["down"] > 0 and state["now"]["up"] > 0
         assert sum(history.router_hours(0)["down"]) > 0
@@ -141,6 +148,8 @@ async def test_a_plain_router_over_ssdp(tmp_path, session, monkeypatch):
         assert state["connection"]["access_type"] == "DSL" and state["connection"]["max_up"] == 40_000_000
         # It has no GetAddonInfos: asked once, then not again
         assert "WANCommonInterfaceConfig#GetAddonInfos" in r.unsupported
+        # No port mappings either: "doesn't tell", not an empty list
+        assert state["port_mappings"] is None
     finally:
         transport.close()
         await server.close()

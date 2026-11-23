@@ -168,6 +168,8 @@ class WebUI:
                 "hosts": out,
                 "kinds": {k: {"label": v[0], "mdi": v[1], "infra": v[2]} for k, v in KINDS.items()},
                 "zones": self.inventory.zone_list(),
+                # Port forwards Home Assistant has a switch for (the FRITZ!Box integration)
+                "forwards": self.inventory.port_forwards(),
                 # The ports of every switch and access point, by its MAC address
                 "ports": self.inventory.port_list(),
                 # What goes through the ports that have a traffic sensor (see /api/traffic)

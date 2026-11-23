@@ -58,6 +58,7 @@ function internetLive(state) {
     if (activeTab !== 'overview' || !document.getElementById('net-head')) return;
     if (state.found !== wasFound) return renderInternet(true);
     renderInternetHead();
+    renderOpenPorts();
     if (internet.period === 'live') drawInternetTraffic();
     // The minutes and the hours: once a minute
     if (Date.now() - internet.loadedAt > 60000) loadInternet().then(() => { drawInternetTraffic(); drawInternetDays(); renderInternetHead(); }).catch(() => {});
@@ -175,6 +176,7 @@ function renderInternet(rebuild) {
         }
         el.innerHTML = `
             <div class="panel net-panel"><div class="panel-body" id="net-head"></div></div>
+            <div id="net-open"></div>
             <div class="dash-grid net-charts">
                 ${panel('Internet traffic', chipsHtml('net-period', INTERNET_PERIODS, internet.period, 'Period'), `<div id="net-traffic" class="chart"></div><div class="legend">${legendHtml([{name: 'Down', color: DOWN_COLOR}, {name: 'Up', color: UP_COLOR}])}</div>`)}
                 ${panel('Per day', 'the last 30 days', `<div id="net-days" class="chart"></div><div class="legend">${legendHtml([{name: 'Down', color: DOWN_COLOR}, {name: 'Up', color: UP_COLOR}])}</div>`)}
@@ -187,6 +189,58 @@ function renderInternet(rebuild) {
         });
     }
     renderInternetHead();
+    renderOpenPorts();
     drawInternetTraffic();
     drawInternetDays();
+}
+
+// What is open to the internet: the router's UPnP list (what programs opened themselves) and the
+// port forwards Home Assistant has a switch for (the FRITZ!Box integration, for forwards to Home
+// Assistant itself). Forwards made by hand on the router to other devices are in neither.
+const hostByIp = ip => (ip && app.hosts.find(h => h.ip === ip)) || null;
+function openPorts() {
+    const d = internet.data || {};
+    const rows = [];
+    (app.forwards || []).forEach(f => rows.push({...f, source: 'Home Assistant', title: f.name}));
+    (d.port_mappings || []).forEach(m => rows.push({...m, source: 'UPnP', title: m.description}));
+    // One port, one row: the same forward can be in both lists
+    const seen = new Set();
+    return rows.filter(r => {
+        const key = `${r.external_port}/${r.protocol}/${r.internal_ip}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    }).sort((a, b) => (a.external_port || 0) - (b.external_port || 0));
+}
+
+function renderOpenPorts() {
+    const el = document.getElementById('net-open');
+    const d = internet.data;
+    if (!el || !d || !d.found) return;
+    const rows = openPorts();
+    const upnp = d.port_mappings;
+    const hint = upnp === null || upnp === undefined
+        ? 'the router doesn\'t list what programs opened (UPnP)'
+        : 'opened by programs (UPnP) and port forwards Home Assistant knows';
+    const body = rows.length ? `<table class="data open-ports"><thead><tr><th>Port</th><th>To</th><th>What</th><th>From</th></tr></thead><tbody>
+        ${rows.map(r => {
+            const h = hostByIp(r.internal_ip);
+            const to = h ? `<button type="button" class="link-btn" data-host="${attr(h.key)}">${escapeHtml(hostName(h))}</button>` : escapeHtml(r.internal_ip || '–');
+            const port = `${r.external_port ?? '–'}${r.internal_port && r.internal_port !== r.external_port ? ` → ${r.internal_port}` : ''}`;
+            return `<tr class="${r.enabled === false ? 'off' : ''}">
+                <td class="mono">${escapeHtml(port)} <span class="badge">${escapeHtml(r.protocol || '?')}</span></td>
+                <td>${to}${h ? ` <span class="muted mono">${escapeHtml(r.internal_ip)}</span>` : ''}</td>
+                <td class="wrap">${escapeHtml(r.title || '')}${r.enabled === false ? ' <span class="muted">(off)</span>' : ''}${r.lease ? ` <span class="muted" title="UPnP lease">for ${escapeHtml(fmtDuration(r.lease))}</span>` : ''}</td>
+                <td class="muted">${escapeHtml(r.source)}</td>
+            </tr>`;
+        }).join('')}</tbody></table>`
+        : `<div class="empty-state">${upnp === null || upnp === undefined
+            ? 'Nothing known: the router doesn\'t list what programs opened (UPnP), and Home Assistant has no port forward switches.'
+            : 'Nothing open that the router or Home Assistant knows of.'}</div>`;
+    const html = panel('Open to the internet', hint, body + '<p class="muted small-note">Port forwards made by hand on the router (to other devices than Home Assistant) are not in these lists: check them on the router.</p>');
+    if (el.innerHTML !== html) el.innerHTML = html;
+    el.onclick = (e) => {
+        const b = e.target.closest('[data-host]');
+        if (b) openHost(b.dataset.host);
+    };
 }

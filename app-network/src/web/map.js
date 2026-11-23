@@ -20,6 +20,7 @@ const GROUP_COLORS = ['#3987e5', '#199e70', '#d95926', '#c98500', '#d55181', '#7
 
 const mapState = {
     pageId: stored('map_page', ''),
+    legend: stored('map_legend', '1') !== '0',
     sel: new Set(),          // "n:id", "g:id", "l:id", "t:id"
     drag: null,
     view: {},                // per page {x, y, k}
@@ -164,6 +165,7 @@ function mapBuild() {
                         </defs>
                         <rect class="map-bg" id="map-bg" x="-50000" y="-50000" width="100000" height="100000" fill="url(#map-grid)"/>
                         <g id="map-vp"><g id="map-groups"></g><g id="map-links"></g><g id="map-nodes"></g><g id="map-texts"></g><g id="map-overlay"></g></g>
+                        <g id="map-legend"></g>
                     </svg>
                     <div class="map-empty" id="map-empty" hidden></div>
                 </div>
@@ -233,8 +235,10 @@ function mapToolbar() {
             <button type="button" class="tab zoom-text" data-act="fit" title="Fit the page">${Math.round(k * 100)}%</button>
             <button type="button" class="tab icon-tab" data-act="in" title="Zoom in">+</button>
         </div>`;
+    const legendBtn = `<button type="button" class="btn btn-small${mapState.legend ? ' on' : ''}" data-act="legend" title="What the lines and colours mean: ${mapState.legend ? 'shown' : 'hidden'}">Legend</button>`;
     if (!mapState.edit) {
         el.innerHTML = `${zoom}
+            ${legendBtn}
             <button type="button" class="btn btn-small" data-act="export" title="Save the page as an image">Export ▾</button>
             <button type="button" class="btn btn-small btn-primary edit-toggle" data-act="edit" title="Change the drawing: place devices and shapes, group and connect them">✎ Edit</button>`;
     } else el.innerHTML = `
@@ -250,6 +254,7 @@ function mapToolbar() {
             <button type="button" class="tab icon-tab" data-act="in" title="Zoom in">+</button>
         </div>
         <button type="button" class="tab icon-tab snap-btn${mapState.snap ? ' on' : ''}" data-act="snap" title="Snap to the grid: ${mapState.snap ? 'on' : 'off'}">#</button>
+        ${legendBtn}
         <button type="button" class="btn btn-small" data-act="export" title="Save the page as an image">Export ▾</button>
         <button type="button" class="btn btn-small btn-primary edit-toggle" data-act="done" title="Stop changing the drawing (it is saved as you go)">Done</button>`;
     el.onclick = (e) => {
@@ -260,6 +265,7 @@ function mapToolbar() {
             in: () => mapZoom(1.25), out: () => mapZoom(0.8),
             snap: () => { mapState.snap = !mapState.snap; store('map_snap', mapState.snap ? '1' : '0'); mapToolbar(); },
             export: () => mapExportMenu(b),
+            legend: () => { mapState.legend = !mapState.legend; store('map_legend', mapState.legend ? '1' : '0'); mapToolbar(); mapDrawLegend(); },
             edit: () => mapSetEdit(true), done: () => mapSetEdit(false),
         })[b.dataset.act]();
     };
@@ -324,13 +330,28 @@ function pageSvg(page, opts) {
         const ha = nodeHost(a), hb = nodeHost(b);
         const down = (ha && ha.up === false) || (hb && hb.up === false);
         const kind = LINK_KINDS[l.kind] ? l.kind : 'ethernet';
-        const label = [l.label, l.vlan ? `VLAN ${l.vlan}` : ''].filter(Boolean).join(' · ');
+        // Wired links: as thick as their speed. The speed goes in the link's label (port, VLAN), or
+        // without one where the cable reaches the device
+        const sp = kind === 'ethernet' || kind === 'fiber' ? linkSpeed(a, b) : null;
+        const own = [l.label, l.vlan ? `VLAN ${l.vlan}` : ''].filter(Boolean);
+        const label = [...own, own.length && sp ? speedText(sp.speed) : ''].filter(Boolean).join(' · ');
         const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
         const w = label.length * 6.4 + 12;
-        return `<g class="mlink ${kind}${down ? ' down' : ''}${sel.has('l:' + l.id) ? ' sel' : ''}" data-link="${attr(l.id)}">
+        let speedLabel = '';
+        if (sp && !own.length) {
+            const [from, to] = sp.device === 'b' ? [p, q] : [q, p];
+            const len = Math.hypot(from.x - to.x, from.y - to.y) || 1;
+            const t = Math.min(0.45, 24 / len);
+            const sx = to.x + (from.x - to.x) * t, sy = to.y + (from.y - to.y) * t;
+            const text = speedText(sp.speed);
+            const tw = text.length * 6 + 6;
+            speedLabel = `<rect class="ml-speed-bg" x="${sx - tw / 2}" y="${sy - 7}" width="${tw}" height="13" rx="3"/><text class="ml-speed" x="${sx}" y="${sy + 3.5}" text-anchor="middle">${escapeHtml(text)}</text>`;
+        }
+        return `<g class="mlink ${kind}${down ? ' down' : ''}${sel.has('l:' + l.id) ? ' sel' : ''}" data-link="${attr(l.id)}"${sp ? ` style="--w:${speedStyle(sp.speed)}"` : ''}>
             <line class="ml-hit" x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}"/>
             <line class="ml-line" x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}"${LINK_KINDS[kind].dash ? ` stroke-dasharray="${LINK_KINDS[kind].dash}"` : ''}/>
             ${label ? `<rect class="ml-label-bg" x="${mx - w / 2}" y="${my - 9}" width="${w}" height="18" rx="9"/><text class="ml-label" x="${mx}" y="${my + 4}" text-anchor="middle">${escapeHtml(label)}</text>` : ''}
+            ${speedLabel}
         </g>`;
     }).join('');
     const nodes = page.nodes.map(n => {
@@ -355,9 +376,75 @@ function pageSvg(page, opts) {
     return {groups, links, nodes, texts};
 }
 
+// =====================================================================
+// The legend: what the lines and colours on this page mean (only what the page uses)
+// =====================================================================
+const LINK_COLORS = {ethernet: '--secondary-text-color', wifi: '--series-3', fiber: '--series-2', vpn: '--series-5', virtual: '--series-4'};
+function legendItems(page) {
+    const byId = new Map(page.nodes.map(n => [n.id, n]));
+    const kinds = new Set(), speeds = new Set();
+    page.links.forEach(l => {
+        const kind = LINK_KINDS[l.kind] ? l.kind : 'ethernet';
+        kinds.add(kind);
+        if (kind === 'ethernet' || kind === 'fiber') {
+            const sp = linkSpeed(byId.get(l.from), byId.get(l.to));
+            if (sp) speeds.add((LINK_SPEEDS.find(([min]) => sp.speed >= min) || LINK_SPEEDS[LINK_SPEEDS.length - 1])[2]);
+        }
+    });
+    const networks = page.groups.map(g => g.network ? networkById(g.network) : null).filter(Boolean)
+        .filter((n, i, all) => all.findIndex(x => x.id === n.id) === i);
+    return {
+        kinds: Object.keys(LINK_KINDS).filter(k => kinds.has(k)),
+        speeds: LINK_SPEEDS.filter(([, , label]) => speeds.has(label)),
+        networks,
+    };
+}
+// The legend as SVG at (x, y), with its colours written out (so an export looks the same)
+function legendSvg(page, x, y) {
+    const items = legendItems(page);
+    if (!items.kinds.length && !items.speeds.length && !items.networks.length) return null;
+    const css = name => getComputedStyle(document.body).getPropertyValue(name).trim() || '#888';
+    const text = css('--primary-text-color'), muted = css('--secondary-text-color');
+    const font = "font-family:var(--font, 'Roboto', sans-serif)";
+    const rows = [];
+    let cy = y + 30;
+    let longest = 0;
+    const row = (draw, label, sub) => {
+        longest = Math.max(longest, label.length + (sub ? sub.length + 3 : 0));
+        rows.push(`${draw(cy)}<text x="${x + 60}" y="${cy + 4}" font-size="12" fill="${text}" style="${font}">${escapeHtml(label)}${sub ? `<tspan fill="${muted}" font-size="11"> · ${escapeHtml(sub)}</tspan>` : ''}</text>`);
+        cy += 20;
+    };
+    items.kinds.forEach(k => row(yy => `<line x1="${x + 14}" y1="${yy}" x2="${x + 50}" y2="${yy}" stroke="${css(LINK_COLORS[k])}" stroke-width="${k === 'fiber' ? 3 : 2}"${LINK_KINDS[k].dash ? ` stroke-dasharray="${LINK_KINDS[k].dash}"` : ''}/>`, LINK_KINDS[k].label));
+    if (items.speeds.length) {
+        cy += 4;
+        items.speeds.forEach(([, w, label]) => row(yy => `<line x1="${x + 14}" y1="${yy}" x2="${x + 50}" y2="${yy}" stroke="${muted}" stroke-width="${w}"/>`, label, 'link speed'));
+    }
+    if (items.networks.length) {
+        cy += 4;
+        items.networks.forEach(n => row(yy => `<rect x="${x + 14}" y="${yy - 6}" width="36" height="12" rx="3" fill="${n.color || muted}" fill-opacity="0.35" stroke="${n.color || muted}"/>`,
+            n.name || 'Network', [n.vlan ? `VLAN ${n.vlan}` : '', n.subnet].filter(Boolean).join(' · ')));
+    }
+    const h = cy - y + 4;
+    const w = Math.max(180, Math.ceil(74 + longest * 6.6));
+    const svg = `<g class="map-legend-box"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="${css('--ha-card-background')}" stroke="${css('--divider-color')}"/>
+        <text x="${x + 14}" y="${y + 18}" font-size="11" font-weight="600" letter-spacing="0.06em" fill="${muted}" style="${font}">LEGEND</text>${rows.join('')}</g>`;
+    return {svg, w, h};
+}
+function mapDrawLegend() {
+    const el = document.getElementById('map-legend');
+    const page = mapPage();
+    if (!el || !page) return;
+    const legend = mapState.legend ? legendSvg(page, 0, 0) : null;
+    if (!legend) { el.innerHTML = ''; return; }
+    const box = document.getElementById('map-svg').getBoundingClientRect();
+    el.setAttribute('transform', `translate(12 ${Math.max(12, box.height - legend.h - 12)})`);
+    el.innerHTML = legend.svg;
+}
+
 function mapDraw() {
     const page = mapPage();
     if (!page || !document.getElementById('map-vp')) return;
+    mapDrawLegend();
     const v = getView();
     document.getElementById('map-vp').setAttribute('transform', `translate(${v.x} ${v.y}) scale(${v.k})`);
     const parts = pageSvg(page, {sel: mapState.edit ? mapState.sel : new Set(), edit: mapState.edit});
@@ -375,6 +462,31 @@ function mapDraw() {
     mapOverlay();
 }
 const clip = (text, n) => text.length > n ? text.slice(0, n - 1) + '…' : text;
+
+// A link's speed, from the switch port that one end hangs on (MikroTik Network, NETGEAR): the
+// speed and which end is the device (the speed label goes there), or null when no port says
+function portBetween(sw, dev) {
+    if (!sw || !dev || !sw.mac || !dev.mac) return null;
+    return ((app.ports || {})[sw.mac] || []).find(p => p.kind === 'ethernet' && p.up && p.speed && (p.connected || []).includes(dev.mac)) || null;
+}
+function linkSpeed(a, b) {
+    const ha = nodeHost(a), hb = nodeHost(b);
+    const pb = portBetween(ha, hb);
+    if (pb) return {speed: pb.speed, device: 'b'};
+    const pa = portBetween(hb, ha);
+    if (pa) return {speed: pa.speed, device: 'a'};
+    return null;
+}
+// Line width per speed, as on the legend: 10G and more thick, 100M and less thin
+const LINK_SPEEDS = [[10e9, 6, '10G'], [2.5e9, 4.5, '2.5G'], [1e9, 3, '1G'], [100e6, 1.6, '100M'], [0, 1.1, '10M']];
+function speedStyle(bits) {
+    const [, w] = LINK_SPEEDS.find(([min]) => bits >= min) || LINK_SPEEDS[LINK_SPEEDS.length - 1];
+    return w;
+}
+function speedText(bits) {
+    if (bits >= 1e9) return `${+(bits / 1e9).toFixed(1)}G`;
+    return `${Math.round(bits / 1e6)}M`;
+}
 
 // Where a line between two nodes meets the edges of their boxes
 function linkEnds(a, b) {
@@ -1257,14 +1369,39 @@ function mapExportMenu(anchor) {
         title: `Export ${mapPage().name}`, confirmLabel: 'Export',
         body: `<div class="form-field"><label>As</label><select class="select" name="as">
             <option value="png">PNG image</option><option value="svg">SVG drawing (for Visio, draw.io, Inkscape)</option><option value="print">Print or save as PDF</option></select></div>
-            <div class="form-field"><label>Background</label><select class="select" name="bg"><option value="theme">This theme</option><option value="white">White</option></select></div>`,
-    }).then(v => { if (v) mapExport(v.as, v.bg); });
+            <div class="form-field"><label>Background</label><select class="select" name="bg"><option value="theme">This theme</option><option value="white">White</option></select></div>
+            <div class="form-field"><label>Legend</label><select class="select" name="legend"><option value="1">Below the drawing</option><option value="">Leave out</option></select></div>
+            <div class="form-field"><label>To share</label><select class="select" name="hide"><option value="">Show everything</option><option value="1">Hide addresses: IP (all but the last number), MAC and Wi-Fi names</option></select></div>`,
+    }).then(v => { if (v) mapExport(v.as, v.bg, {legend: Boolean(v.legend), hide: Boolean(v.hide)}); });
 }
 const STYLE_PROPS = ['fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-opacity', 'opacity', 'font-size', 'font-family', 'font-weight', 'letter-spacing', 'display', 'visibility'];
-function mapExportSvg(bgChoice) {
+// Text for a picture to share: IPv4 as x.x.x.20 (the last number shows which device), MACs
+// hidden, and each Wi-Fi name (SSID) the app knows as "SSID A", "SSID B", ..
+function redactText(text, ssids) {
+    let out = text
+        .replace(/\b(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(\/\d{1,2})?\b/g, (m, a, b, c, d, mask) => mask ? `x.x.x.${d}${mask}` : `x.x.x.${d}`)
+        .replace(/\b[0-9a-f]{2}(?:[:-][0-9a-f]{2}){5}\b/gi, '••:••:••:••:••:••');
+    ssids.forEach(([ssid, name]) => { out = out.split(ssid).join(name); });
+    return out;
+}
+// [[ssid, its stand-in], ..]: letters in alphabetical order, replaced longest first ("Home-5G"
+// before "Home")
+function knownSsids() {
+    const out = new Set();
+    Object.values(app.ports || {}).forEach(list => list.forEach(p => { if (p.ssid) out.add(p.ssid); }));
+    (app.hosts || []).forEach(h => { if (h.ssid) out.add(h.ssid); });
+    const named = [...out].sort().map((s, i) => [s, `SSID ${String.fromCharCode(65 + (i % 26))}${i >= 26 ? Math.floor(i / 26) : ''}`]);
+    return named.sort((a, b) => b[0].length - a[0].length);
+}
+
+function mapExportSvg(bgChoice, opts) {
+    opts = opts || {};
     const page = mapPage();
-    const b = pageBounds(page);
-    if (!b) return null;
+    const b0 = pageBounds(page);
+    if (!b0) return null;
+    // Room below the drawing for the legend
+    const legend = opts.legend ? legendSvg(page, b0.x, b0.y + b0.h + 24) : null;
+    const b = legend ? {x: b0.x, y: b0.y, w: Math.max(b0.w, legend.w), h: b0.h + 24 + legend.h} : b0;
     const svg = document.getElementById('map-svg');
     const saved = new Set(mapState.sel);
     mapState.sel.clear();
@@ -1277,8 +1414,15 @@ function mapExportSvg(bgChoice) {
     });
     mapState.sel = saved;
     mapDraw();
-    clone.querySelectorAll('.mn-port, .mg-grip, .mg-resize, #map-bg, defs, title, .ml-hit').forEach(el => el.remove());
+    clone.querySelectorAll('.mn-port, .mg-grip, .mg-resize, #map-bg, defs, title, .ml-hit, #map-legend').forEach(el => el.remove());
     clone.querySelector('#map-vp').removeAttribute('transform');
+    if (legend) clone.querySelector('#map-vp').insertAdjacentHTML('beforeend', legend.svg);
+    if (opts.hide) {
+        const ssids = knownSsids();
+        clone.querySelectorAll('text, tspan').forEach(t => {
+            t.childNodes.forEach(n => { if (n.nodeType === 3) n.textContent = redactText(n.textContent, ssids); });
+        });
+    }
     const pad = 30;
     const bg = bgChoice === 'white' ? '#ffffff' : getComputedStyle(document.body).getPropertyValue('background-color');
     clone.setAttribute('viewBox', `${b.x - pad} ${b.y - pad} ${b.w + pad * 2} ${b.h + pad * 2}`);
@@ -1300,8 +1444,8 @@ function downloadBlob(blob, name) {
     a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
-function mapExport(as, bg) {
-    const out = mapExportSvg(bg);
+function mapExport(as, bg, opts) {
+    const out = mapExportSvg(bg, opts);
     if (!out) { toast('Nothing on this page to export'); return; }
     const name = `network-${mapPage().name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
     if (as === 'svg') return downloadBlob(new Blob([out.text], {type: 'image/svg+xml'}), name + '.svg');

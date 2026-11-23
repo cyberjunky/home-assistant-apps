@@ -91,6 +91,8 @@ table.data.dev-table .meter { min-width: 120px; }
 .map-tools .tab:disabled { opacity: 0.35; cursor: default; }
 .zoom-text { min-width: 52px; font-family: var(--mono); font-size: 11.5px; }
 .snap-btn.on { color: var(--primary-color); }
+.map-tools .btn.on { color: var(--primary-color); border-color: var(--primary-color); }
+#map-legend { pointer-events: none; }
 .map-canvas { flex: 1; position: relative; min-height: 0; overflow: hidden; background: var(--ha-background); }
 #map-svg { width: 100%; height: 100%; display: block; outline: none; cursor: default; user-select: none; touch-action: none;
     font-family: 'IBM Plex Sans', sans-serif; }
@@ -140,14 +142,17 @@ table.data.dev-table .meter { min-width: 120px; }
 /* Links */
 .mlink { cursor: pointer; }
 .ml-hit { stroke: transparent; stroke-width: 12; }
-.ml-line { stroke: var(--secondary-text-color); stroke-width: 2; fill: none; }
+/* --w: the link's width from its speed (10G thick .. 100M thin), set when the switch port says */
+.ml-line { stroke: var(--secondary-text-color); stroke-width: var(--w, 2); fill: none; }
 .mlink.wifi .ml-line { stroke: var(--series-3); }
-.mlink.fiber .ml-line { stroke: var(--series-2); stroke-width: 3; }
+.mlink.fiber .ml-line { stroke: var(--series-2); stroke-width: var(--w, 3); }
 .mlink.vpn .ml-line { stroke: var(--series-5); }
 .mlink.virtual .ml-line { stroke: var(--series-4); }
 .mlink.down .ml-line { opacity: 0.35; }
-.mlink:hover .ml-line { stroke-width: 3; }
-.mlink.sel .ml-line { stroke: var(--primary-color); stroke-width: 3.2; }
+.mlink:hover .ml-line { stroke-width: calc(var(--w, 2) + 1); }
+.mlink.sel .ml-line { stroke: var(--primary-color); stroke-width: calc(var(--w, 2) + 1.2); }
+.ml-speed { font-size: 9.5px; font-family: var(--mono); fill: var(--secondary-text-color); font-weight: 600; }
+.ml-speed-bg { fill: var(--ha-card-background); }
 .ml-label-bg { fill: var(--ha-card-background); stroke: var(--divider-color); }
 .ml-label { font-size: 10.5px; font-family: var(--mono); fill: var(--secondary-text-color); }
 .connect-line { stroke: var(--primary-color); stroke-width: 2; stroke-dasharray: 5 4; pointer-events: none; }
