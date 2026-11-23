@@ -87,7 +87,7 @@ const inGroup = (n, g) => n.x + nodeW(n) / 2 >= g.x && n.x + nodeW(n) / 2 <= g.x
 // =====================================================================
 // Device cards: a router, switch or access point drawn large, as on the diagrams people post of
 // their homelab: a tab with its name and role, its logo, model, address and firmware, and its
-// ports as sockets with the device on each. A setting per device on the map (n.card).
+// ports as sockets with the device on each. A setting of the device ("Large card").
 // =====================================================================
 // Which logo (logos.js) for a device, from its maker, model and name
 const LOGO_RULES = [
@@ -105,7 +105,8 @@ function logoOf(h) {
     const hit = LOGO_RULES.find(([, re]) => re.test(text));
     return hit ? LOGOS[hit[0]] || '' : '';
 }
-const isCard = n => Boolean(n && n.card && nodeHost(n));
+// A setting of the device (its window: "Large card"), so it holds on every page it is on
+const isCard = n => Boolean(n && n.ref && nodeHost(n) && meta(n.ref).card);
 const CARD = {info: 262, portW: 34, rowH: 58, top: 16, minW: 300, minH: 92, perRow: 12};
 // The ports of a card and where they go, worked out once per drawing
 let cardCache = new Map();
@@ -1379,12 +1380,8 @@ function mapSide() {
             const open = el.querySelector('[data-act="open"]');
             if (open) open.onclick = () => mapOpenPage(n.page);
         } else if (h) {
-            const hasPorts = ((app.ports || {})[h.mac] || []).some(q => q.kind === 'ethernet');
             el.innerHTML = `<div class="side-body">${hostEditorHtml(h, {compact: true})}
-                <div class="form-field"><label class="action-check"><input type="checkbox" data-node-card${n.card ? ' checked' : ''}> Large card</label>
-                    <div class="form-hint">With its logo, model, address and firmware${hasPorts ? ', and its ports with the device on each; cables start at their port' : ''}.</div></div>
                 <div class="side-actions"><button class="btn btn-small btn-danger" data-act="del">Remove from the page</button></div></div>`;
-            el.querySelector('[data-node-card]').addEventListener('change', (e) => mapEdit(() => { if (e.target.checked) n.card = true; else delete n.card; }));
             bindHostEditor(el, h.key, {onChange: () => { mapRender(); mapPalette(); }, onRenamed: () => { mapSide(); mapRender(); mapPalette(); }});
         } else {
             el.innerHTML = `<div class="side-body">

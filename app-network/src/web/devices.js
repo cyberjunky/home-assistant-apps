@@ -276,6 +276,8 @@ function hostEditorHtml(h, opts) {
             <div class="form-field"><label>Connected to</label><select class="select" data-f="uplink">${uplinkOptions(h)}</select></div>
             <div class="form-field"><label>Port or socket</label><input class="input" data-f="port" value="${attr(m.port || '')}" placeholder="${attr(h.sw_port ? portText(h.sw_port) : 'e.g. port 7, wall socket B2')}"></div>
             <div class="form-field"><label>Label on the map</label><input class="input" data-f="label" value="${attr(m.label || '')}" placeholder="${attr(h.name)}"></div>
+            <div class="form-field"><label>On the map</label><label class="check-row"><input type="checkbox" data-f="card"${m.card ? ' checked' : ''}> Large card</label>
+                <div class="form-hint">With its logo, model, address and firmware${((app.ports || {})[h.mac] || []).some(p => p.kind === 'ethernet') ? ', and its ports with the device on each' : ''}. For a router, switch or access point; it takes more room on the map.</div></div>
             <div class="form-field full"><label>Notes</label><textarea class="input textarea" data-f="notes" rows="3" placeholder="Serial number, where it is, who it belongs to…">${escapeHtml(m.notes || '')}</textarea></div>
         </div>
         <div class="section-title he-sub">Home Assistant</div>
@@ -296,11 +298,12 @@ function bindHostEditor(root, key, opts) {
     ed.querySelectorAll('[data-f]').forEach(input => {
         const field = input.dataset.f;
         if (field === 'ha-name' || field === 'rename-device') return;
+        const box = input.type === 'checkbox';
         const handler = () => {
-            setMeta(key, field, input.value.trim ? (field === 'notes' ? input.value : input.value.trim()) : input.value);
+            setMeta(key, field, box ? input.checked : input.value.trim ? (field === 'notes' ? input.value : input.value.trim()) : input.value);
             if (opts.onChange) opts.onChange(field);
         };
-        input.addEventListener(input.tagName === 'SELECT' ? 'change' : 'input', handler);
+        input.addEventListener(input.tagName === 'SELECT' || box ? 'change' : 'input', handler);
     });
     const nameInput = ed.querySelector('[data-f="ha-name"]');
     const renameBtn = ed.querySelector('[data-act="rename"]');
