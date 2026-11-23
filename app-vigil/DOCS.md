@@ -448,7 +448,10 @@ MikroTik interfaces and CPU, when those are collected).
 ### Alerts
 
 Rules, with their state: *ok*, *pending* (the condition holds, waiting for *For at least*),
-*firing*. Every 30 seconds each rule is evaluated:
+*firing*. Click a rule to see what it counts now, and a row of the history to see the moment it
+fired: a log rule opens Logs with its search over its window (with the host of every line), a
+metric rule its chart, a *New log patterns* rule the Patterns page. **‹ Back** returns to the time
+range you had. Every 30 seconds each rule is evaluated:
 
 | Kind | Value |
 |---|---|
