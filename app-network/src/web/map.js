@@ -87,7 +87,7 @@ const inGroup = (n, g) => n.x + nodeW(n) / 2 >= g.x && n.x + nodeW(n) / 2 <= g.x
 // =====================================================================
 // Device cards: a router, switch or access point drawn large, as on the diagrams people post of
 // their homelab: a tab with its name and role, its logo, model, address and firmware, and its
-// ports as sockets with the device on each. A setting per device on the map (n.card).
+// ports as sockets with the device on each. A setting of the device ("Large card").
 // =====================================================================
 // Which logo (logos.js) for a device, from its maker, model and name
 const LOGO_RULES = [
@@ -105,7 +105,8 @@ function logoOf(h) {
     const hit = LOGO_RULES.find(([, re]) => re.test(text));
     return hit ? LOGOS[hit[0]] || '' : '';
 }
-const isCard = n => Boolean(n && n.card && nodeHost(n));
+// A setting of the device (its window: "Large card"), so it holds on every page it is on
+const isCard = n => Boolean(n && n.ref && nodeHost(n) && meta(n.ref).card);
 const CARD = {info: 262, portW: 34, rowH: 58, top: 16, minW: 300, minH: 92, perRow: 12};
 // The ports of a card and where they go, worked out once per drawing
 let cardCache = new Map();
@@ -147,11 +148,32 @@ function portWhat(p) {
     const rest = String(p.port).replace(/^[a-z]*-?\d+-?/i, '') || p.comment || '';
     return rest || (p.up ? '' : 'free');
 }
+// The socket of a card a device is on: the port that lists it, else the switch port its own tracker
+// names (sw_mac + sw_port: a device behind the uplink), else the port you set on the device
+function portOfDevice(n, ho) {
+    const h = nodeHost(n);
+    const ports = cardLayout(n).ports;
+    const listed = ports.find(q => (q.connected || []).includes(ho.mac));
+    if (listed) return listed;
+    if (ho.sw_port && h && h.mac && normMac(ho.sw_mac) === normMac(h.mac)) {
+        const named = ports.find(q => q.port === ho.sw_port);
+        if (named) return named;
+    }
+    // "Connected to" this switch, "Port or socket" 7, port 7 or ether7
+    const m = meta(ho.key);
+    const mine = String(m.port || '').trim().toLowerCase();
+    if (mine && h && m.uplink === h.key) {
+        const number = mine.replace(/^(port|ether)\s*/, '');
+        return ports.find(q => q.port.toLowerCase() === mine || portNumber(q.port).toLowerCase() === number) || null;
+    }
+    return null;
+}
+const normMac = mac => String(mac || '').toLowerCase();
 // Where a cable from this card to a device starts: the socket the device is on
 function portAnchor(n, other) {
     const ho = nodeHost(other);
     if (!isCard(n) || !ho || !ho.mac) return null;
-    const p = cardLayout(n).ports.find(q => (q.connected || []).includes(ho.mac));
+    const p = portOfDevice(n, ho);
     if (!p) return null;
     // Out of the card's edge straight under (or over) its socket, as cables leave a switch
     const below = other.y + nodeH(other) / 2 > n.y + nodeH(n) / 2;
@@ -1379,12 +1401,8 @@ function mapSide() {
             const open = el.querySelector('[data-act="open"]');
             if (open) open.onclick = () => mapOpenPage(n.page);
         } else if (h) {
-            const hasPorts = ((app.ports || {})[h.mac] || []).some(q => q.kind === 'ethernet');
             el.innerHTML = `<div class="side-body">${hostEditorHtml(h, {compact: true})}
-                <div class="form-field"><label class="action-check"><input type="checkbox" data-node-card${n.card ? ' checked' : ''}> Large card</label>
-                    <div class="form-hint">With its logo, model, address and firmware${hasPorts ? ', and its ports with the device on each; cables start at their port' : ''}.</div></div>
                 <div class="side-actions"><button class="btn btn-small btn-danger" data-act="del">Remove from the page</button></div></div>`;
-            el.querySelector('[data-node-card]').addEventListener('change', (e) => mapEdit(() => { if (e.target.checked) n.card = true; else delete n.card; }));
             bindHostEditor(el, h.key, {onChange: () => { mapRender(); mapPalette(); }, onRenamed: () => { mapSide(); mapRender(); mapPalette(); }});
         } else {
             el.innerHTML = `<div class="side-body">

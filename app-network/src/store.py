@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 
 MAX_BYTES = 4 * 1024 * 1024
-DEVICE_FIELDS = {"kind", "label", "notes", "network", "connection", "port", "uplink", "icon", "same_as"}
+DEVICE_FIELDS = {"kind", "label", "notes", "network", "connection", "port", "uplink", "icon", "same_as", "card"}
 
 
 class Conflict(Exception):

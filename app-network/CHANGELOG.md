@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.16
+
+**After updating:** a card you turned on in the map's side panel in 0.1.15 is a small device again: tick **Large card** in the device's window once.
+
+- **Large card in the device's window:** the tickbox is now under *Label on the map* in every device window (the Devices list, a click on the map), and it is a setting of the device, so the card shows on every page the device is on.
+- **Cables start at their port, also behind the uplink:** a cable to a device behind a switch port (such as everything behind the uplink) now starts at that port's socket too, from the port the device's own tracker names, or the port you set under *Port or socket*.
+
 ## 0.1.15
 
 - **Device cards on the map:** a device can be drawn as a large card, as on the network diagrams people post of their homelab: a tab with its name and role, the maker's logo (FRITZ!Box, MikroTik, UniFi, NETGEAR, TP-Link, Synology, Proxmox and more), its model, address, hostname and firmware. A switch whose ports the app knows (MikroTik Network, NETGEAR) shows its ports as sockets, with the number above, the device on it below, a bar in the colour of its network, the uplink in red and empty ports as "free"; cables start at their port. Turn it on per device while editing the map: click the device and tick **Large card**.
