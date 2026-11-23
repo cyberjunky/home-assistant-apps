@@ -93,6 +93,41 @@ def upnp_error() -> web.Response:
     return web.Response(status=500, text=body, content_type="text/xml")
 
 
+# What programs on the network asked the FRITZ!Box to open (UPnP); the plain router tells nothing
+MAPPINGS = [
+    {
+        "NewRemoteHost": "",
+        "NewExternalPort": 3074,
+        "NewProtocol": "UDP",
+        "NewInternalPort": 3074,
+        "NewInternalClient": "192.168.2.61",
+        "NewEnabled": 1,
+        "NewPortMappingDescription": "Xbox (3074) UDP",
+        "NewLeaseDuration": 0,
+    },
+    {
+        "NewRemoteHost": "",
+        "NewExternalPort": 51413,
+        "NewProtocol": "TCP",
+        "NewInternalPort": 51413,
+        "NewInternalClient": "192.168.2.144",
+        "NewEnabled": 1,
+        "NewPortMappingDescription": "Transmission at 51413",
+        "NewLeaseDuration": 3600,
+    },
+]
+
+
+def index_error() -> web.Response:
+    body = (
+        '<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body>'
+        "<s:Fault><faultcode>s:Client</faultcode><faultstring>UPnPError</faultstring><detail>"
+        '<UPnPError xmlns="urn:schemas-upnp-org:control-1-0"><errorCode>713</errorCode>'
+        "<errorDescription>SpecifiedArrayIndexInvalid</errorDescription></UPnPError></detail></s:Fault></s:Body></s:Envelope>"
+    )
+    return web.Response(status=500, text=body, content_type="text/xml")
+
+
 def make_app(generic: bool = False, connected: bool = True) -> web.Application:
     traffic = Traffic(wide=not generic)
     state = {"connected": connected}
@@ -158,6 +193,10 @@ def make_app(generic: bool = False, connected: bool = True) -> web.Application:
             )
         if action == "X_AVM_DE_GetIPv6Prefix" and not generic:
             return soap(action, service, {"NewIPv6Prefix": "2001:db8:42::", "NewPrefixLength": 56})
+        if action == "GetGenericPortMappingEntry" and not generic:
+            text = await request.text()
+            index = int(text.split("<NewPortMappingIndex>")[1].split("<")[0])
+            return soap(action, service, MAPPINGS[index]) if index < len(MAPPINGS) else index_error()
         return upnp_error()
 
     async def toggle(request):

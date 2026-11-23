@@ -537,6 +537,7 @@ async function loadHosts() {
     app.ports = data.ports || {};
     app.traffic = data.traffic || [];
     app.zones = data.zones || [];
+    app.forwards = data.forwards || [];
     hostIndex = new Map(app.hosts.map(h => [h.key, h]));
 }
 async function loadStats(days) {

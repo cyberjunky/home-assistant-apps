@@ -1168,3 +1168,35 @@ def test_battery_history():
         {"state": "30", "last_changed": "2026-11-16T10:10:00+00:00"},
     ]
     assert [v for _, v in battery_history(rows)] == [31.0, 30.0]
+
+
+def test_port_forwards_from_home_assistant():
+    from src.inventory import is_port_forward, port_forward
+
+    fritz = {
+        "entity_id": "switch.fritz_box_port_forward_https",
+        "state": "on",
+        "attributes": {
+            "friendly_name": "FRITZ!Box Port forward HTTPS",
+            "internal_ip": "192.168.2.10",
+            "internal_port": 443,
+            "external_port": "8443",
+            "protocol": "tcp",
+            "description": "HTTPS",
+        },
+    }
+    assert is_port_forward(fritz)
+    assert port_forward(fritz) == {
+        "entity_id": "switch.fritz_box_port_forward_https",
+        "name": "FRITZ!Box Port forward HTTPS",
+        "enabled": True,
+        "external_port": 8443,
+        "protocol": "TCP",
+        "internal_ip": "192.168.2.10",
+        "internal_port": 443,
+        "description": "HTTPS",
+    }
+    # Not a forward: another switch, or a sensor with the same attributes
+    assert not is_port_forward({"entity_id": "switch.lamp", "state": "on", "attributes": {}})
+    assert not is_port_forward({**fritz, "entity_id": "sensor.x"})
+    assert not is_port_forward(None)

@@ -20,6 +20,7 @@ import xml.etree.ElementTree as ET
 from collections import deque
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlsplit
+from xml.sax.saxutils import escape as xml_escape
 
 import aiohttp
 
@@ -53,8 +54,10 @@ ENVELOPE = (
     '<?xml version="1.0"?>'
     '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" '
     's:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">'
-    '<s:Body><u:{action} xmlns:u="{service}"/></s:Body></s:Envelope>'
+    '<s:Body><u:{action} xmlns:u="{service}">{args}</u:{action}></s:Body></s:Envelope>'
 )
+# Port mappings read at most (a router lists them by index until error 713)
+MAX_MAPPINGS = 128
 
 
 class Unsupported(Exception):
@@ -157,6 +160,8 @@ class Router:
         self.connection: dict = {}
         self.now: dict = {}
         self.error = ""
+        # UPnP port mappings: a list, or None when the router doesn't give them
+        self.port_mappings: list[dict] | None = None
         self.tried: list[str] = []
         self.checked_at: float | None = None
         self.failures = 0
@@ -297,7 +302,7 @@ class Router:
     # ------------------------------------------------------------------
     # Reading it
     # ------------------------------------------------------------------
-    async def call(self, short: str, action: str) -> dict[str, str]:
+    async def call(self, short: str, action: str, args: dict | None = None) -> dict[str, str]:
         service = self.services.get(short)
         key = f"{short}#{action}"
         if not service or key in self.unsupported:
@@ -306,15 +311,53 @@ class Router:
             "Content-Type": 'text/xml; charset="utf-8"',
             "SOAPAction": f'"{service.service_type}#{action}"',
         }
-        body = ENVELOPE.format(action=action, service=service.service_type)
+        body = ENVELOPE.format(
+            action=action,
+            service=service.service_type,
+            args="".join(f"<{k}>{xml_escape(str(v))}</{k}>" for k, v in (args or {}).items()),
+        )
         async with self.session.post(service.control_url, data=body, headers=headers) as r:
             text = await r.text()
+            # The end of a list asked by index (GetGenericPortMappingEntry): not "unsupported"
+            if r.status == 500 and args and "<errorCode>713</errorCode>" in text:
+                raise IndexError(key)
             # An action it doesn't have (a UPnP error), or one that wants a password
             if r.status in (401, 403, 404, 405, 501) or (r.status == 500 and "UPnPError" in text):
                 self.unsupported.add(key)
                 raise Unsupported(key)
             r.raise_for_status()
         return parse_soap(text, action)
+
+    async def _read_port_mappings(self) -> None:
+        """The ports the router opened on request of programs on the network (UPnP: games,
+        consoles, torrent clients). Forwards set by hand on the router are not in this list."""
+        conn = self.connection_service()
+        if not conn:
+            return
+        mappings = []
+        for index in range(MAX_MAPPINGS):
+            try:
+                m = await self.call(conn, "GetGenericPortMappingEntry", {"NewPortMappingIndex": index})
+            except IndexError:
+                break
+            except Unsupported:
+                if index == 0:
+                    self.port_mappings = None  # the router doesn't tell (or not without a password)
+                    return
+                break
+            mappings.append(
+                {
+                    "external_port": as_int(m.get("NewExternalPort")),
+                    "protocol": (m.get("NewProtocol") or "").upper(),
+                    "internal_ip": m.get("NewInternalClient") or "",
+                    "internal_port": as_int(m.get("NewInternalPort")),
+                    "description": m.get("NewPortMappingDescription") or "",
+                    "enabled": (m.get("NewEnabled") or "1") not in ("0", "false"),
+                    "remote_host": m.get("NewRemoteHost") or "",
+                    "lease": as_int(m.get("NewLeaseDuration")),
+                }
+            )
+        self.port_mappings = mappings
 
     async def optional(self, short: str, action: str) -> dict[str, str] | None:
         with contextlib.suppress(Unsupported):
@@ -333,6 +376,7 @@ class Router:
                 self._last_status = now
                 if force or now - self._last_address >= ADDRESS_EVERY:
                     self._last_address = now
+                    await self._read_port_mappings()
             self.failures = 0
             self.error = ""
         except (aiohttp.ClientError, TimeoutError, OSError, ET.ParseError, ValueError) as e:
@@ -452,6 +496,7 @@ class Router:
             "checked_at": self.checked_at,
             "override": self.override,
             "version": self.version,
+            "port_mappings": self.port_mappings if self.services else None,
         }
 
     def recent_series(self) -> dict:
