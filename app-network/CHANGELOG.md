@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.15
+
+- **Device cards on the map:** a device can be drawn as a large card, as on the network diagrams people post of their homelab: a tab with its name and role, the maker's logo (FRITZ!Box, MikroTik, UniFi, NETGEAR, TP-Link, Synology, Proxmox and more), its model, address, hostname and firmware. A switch whose ports the app knows (MikroTik Network, NETGEAR) shows its ports as sockets, with the number above, the device on it below, a bar in the colour of its network, the uplink in red and empty ports as "free"; cables start at their port. Turn it on per device while editing the map: click the device and tick **Large card**.
+- **The traffic hint names the right sensors:** for a MikroTik without traffic, the Traffic page now says to turn on its *Port … in* and *Port … out* sensors, as MikroTik Network calls them (on by default from MikroTik Network 0.1.5).
+
 ## 0.1.14
 
 - **Cables show their speed:** when the switch port a device hangs on reports its speed (MikroTik Network, NETGEAR), the line on the map is as thick as the speed (10G thick, 100M thin) and the speed is in its label (`ether6 · 1G`).
