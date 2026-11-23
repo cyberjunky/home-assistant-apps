@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.14
+
+- **Cables show their speed:** when the switch port a device hangs on reports its speed (MikroTik Network, NETGEAR), the line on the map is as thick as the speed (10G thick, 100M thin) and the speed is in its label (`ether6 · 1G`).
+- **A legend on the map:** what the lines and colours on the page mean: the kinds of connection, the speeds and the networks with their VLAN and subnet, only what the page uses. The **Legend** button shows or hides it.
+- **Open to the internet:** on the Dashboard, the ports open from outside, the device each goes to and what it is for: what programs asked the router to open (UPnP: games, consoles, torrent clients) and the port forwards Home Assistant has a switch for (the FRITZ!Box integration). Forwards you set by hand on the router to other devices are in neither list.
+- **Export to share:** the legend below the drawing, and **To share** hides the addresses: IP addresses show only their last number, MAC addresses are dots, and each Wi-Fi name becomes SSID A, SSID B and so on.
+
 ## 0.1.13
 
 - **NETGEAR Switch integration:** the app also reads NETGEAR Plus switches through the new [NETGEAR Switch](https://github.com/cyberjunky/home-assistant-netgear) integration: the ports of the switch in its details, with link and speed, and the traffic per port on the Traffic page. The NETGEAR Plus integration keeps working. As with that one, the switch needs a tracker of its own with the address you added it by, and it can't say which device is on a port.
