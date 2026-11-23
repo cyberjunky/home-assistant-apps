@@ -197,7 +197,7 @@ function renderTraffic() {
     const busiest = m.measured.filter(n => !n.alone && n.id !== 'internet').sort((a, b) => ((b.down || 0) + (b.up || 0)) - ((a.down || 0) + (a.up || 0)))[0];
     const missing = trafficMissing();
     const sources = `<div class="tf-notes">The <b>internet connection</b> comes from your router, over UPnP or TR-064 (see the Dashboard). A <b>switch port</b> is measured when its integration has a traffic sensor for it in Home Assistant:
-        <a href="https://github.com/cyberjunky/home-assistant-mikrotik" target="_blank" rel="noopener">MikroTik Network</a> has two per port, off by default (turn on <i>received</i> and <i>sent</i> of the ports you want, under the MikroTik's entities), and
+        <a href="https://github.com/cyberjunky/home-assistant-mikrotik" target="_blank" rel="noopener">MikroTik Network</a> has two per port, <i>Port … in</i> and <i>Port … out</i> (on by default from version 0.1.5; before that, turn them on under the MikroTik's entities), and
         <a href="https://github.com/cyberjunky/home-assistant-netgear" target="_blank" rel="noopener">NETGEAR Switch</a> and
         <a href="https://github.com/ckarrie/ha-netgear-plus" target="_blank" rel="noopener">NETGEAR Plus</a> have them for every port of a NETGEAR Plus switch. A FRITZ!Box tells its internet traffic, not the traffic per device.
         A line is what goes through one cable, to and from everything behind it; no integration tells which device talks to which.</div>`;
@@ -208,7 +208,7 @@ function renderTraffic() {
             ${tile('Links measured', num(m.measured.filter(n => !n.alone).length), m.left ? `${num(m.left)} devices without a measurement` : 'every device')}
             ${tile('Busiest now', busiest ? escapeHtml(busiest.name) : '–', busiest ? `↓ ${fmtRate(busiest.down)} ↑ ${fmtRate(busiest.up)}` : '&nbsp;')}
         </div>
-        ${missing.length ? setupHint(`No traffic sensors for ${missing.map(hostLink).join(', ')}: its ports are known, what goes through them is not. With MikroTik Network, turn on the <i>received</i> and <i>sent</i> sensors of its ports in Home Assistant.`, 'info') : ''}
+        ${missing.length ? setupHint(`No traffic sensors for ${missing.map(hostLink).join(', ')}: its ports are known, what goes through them is not. With MikroTik Network, turn on its <i>Port … in</i> and <i>Port … out</i> sensors in Home Assistant (Settings → Entities, search for "port", select, Enable).`, 'info') : ''}
         ${m.nodes.length
             ? panel('Traffic now', `<span id="tf-age">every ${TRAFFIC_EVERY / 1000} seconds</span>`, trafficDiagram(m)) + panel('Busiest links', 'now', trafficTable(m), {cls: 'flush'})
             : '<div class="empty-state">Nothing is measured yet: no router is read and no switch port has a traffic sensor.</div>'}
