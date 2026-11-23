@@ -107,6 +107,7 @@ function logoOf(h) {
 }
 // A setting of the device (its window: "Large card"), so it holds on every page it is on
 const isCard = n => Boolean(n && n.ref && nodeHost(n) && meta(n.ref).card);
+const CABLE_DROP = 18;
 const CARD = {info: 262, portW: 34, rowH: 58, top: 16, minW: 300, minH: 92, perRow: 12};
 // The ports of a card and where they go, worked out once per drawing
 let cardCache = new Map();
@@ -175,17 +176,24 @@ function portAnchor(n, other) {
     if (!isCard(n) || !ho || !ho.mac) return null;
     const p = portOfDevice(n, ho);
     if (!p) return null;
-    // Out of the card's edge straight under (or over) its socket, as cables leave a switch
+    // Out of the card's edge straight under (or over) its socket, as cables leave a switch, and a
+    // short drop straight down (or up) before it bends to the device: so it is clear which port
     const below = other.y + nodeH(other) / 2 > n.y + nodeH(n) / 2;
-    return {x: n.x + p.x + CARD.portW / 2, y: below ? n.y + nodeH(n) : n.y};
+    const x = n.x + p.x + CARD.portW / 2, y = below ? n.y + nodeH(n) : n.y;
+    // Neighbouring ports drop a different length, so their cables don't run on top of each other
+    const drop = CABLE_DROP + (Math.round(p.x / CARD.portW) % 4) * 9;
+    return {x, y, out: {x, y: y + (below ? drop : -drop)}};
 }
 function cardSvg(n, h, name, kind) {
     const lay = cardLayout(n);
     const role = kindLabel(kind).toLowerCase();
     const tabW = Math.ceil(name.length * 7.6 + role.length * 6.4 + 34);
     const logo = logoOf(h);
-    const maker = h.manufacturer || h.vendor || '';
-    const model = h.model ? (maker && !h.model.toLowerCase().startsWith(maker.toLowerCase().split(' ')[0]) ? `${maker} ${h.model}` : h.model) : maker || kindLabel(kind);
+    // "Unknown" is what an integration says when it doesn't know (the FRITZ!Box one does)
+    const known = v => (v && !/^(unknown|none|n\/a|-)$/i.test(String(v).trim()) ? String(v).trim() : '');
+    const maker = known(h.manufacturer) || known(h.vendor);
+    const mdl = known(h.model);
+    const model = mdl ? (maker && !mdl.toLowerCase().startsWith(maker.toLowerCase().split(' ')[0]) ? `${maker} ${mdl}` : mdl) : maker || hostName(h);
     const host = h.host_name && h.host_name !== h.ip ? h.host_name : '';
     const ports = lay.ports.map(p => {
         const net = p.devices.length ? networkOf(p.devices[0]).net : null;
@@ -200,9 +208,11 @@ function cardSvg(n, h, name, kind) {
             <text class="mc-dev" x="${CARD.portW / 2}" y="51" text-anchor="middle">${escapeHtml(clip(what, 7))}</text>
         </g>`;
     }).join('');
-    return `<path class="mc-tab" d="M0.75 0.75V-10a12 12 0 0 1 12-12H${tabW - 12}a12 12 0 0 1 12 12V0.75"/>
+    // One outline round the tab and the card, as a folder: no line between them
+    const w = lay.w - 0.75, hh = lay.h - 0.75, tw = Math.min(tabW, lay.w - 24);
+    const shape = `M0.75 ${hh - 12}V-12a10 10 0 0 1 10-10H${tw - 10}a10 10 0 0 1 10 10V0.75H${w - 12}a12 12 0 0 1 12 12V${hh - 12}a12 12 0 0 1-12 12H12.75a12 12 0 0 1-12-12Z`;
+    return `<path class="mn-bg" d="${shape}"/>
         <text class="mc-tab-text" x="14" y="-5"><tspan class="mc-tab-name">${escapeHtml(name)}</tspan><tspan class="mc-tab-role" dx="6">· ${escapeHtml(role)}</tspan></text>
-        <rect class="mn-bg" x="0.75" y="0.75" width="${lay.w - 1.5}" height="${lay.h - 1.5}" rx="12"/>
         ${logo ? `<image class="mc-logo" href="${logo}" x="16" y="20" width="44" height="44" preserveAspectRatio="xMidYMid meet"/>`
             : `<svg class="mn-glyph" x="18" y="22" width="40" height="40" viewBox="0 0 24 24">${mdiSvg(nodeIcon(n))}</svg>`}
         <circle class="mn-dot" cx="58" cy="62" r="5"/>
@@ -464,11 +474,15 @@ function pageSvg(page, opts) {
         const sp = kind === 'ethernet' || kind === 'fiber' ? linkSpeed(a, b) : null;
         const own = [l.label, l.vlan ? `VLAN ${l.vlan}` : ''].filter(Boolean);
         const label = [...own, own.length && sp ? speedText(sp.speed) : ''].filter(Boolean).join(' · ');
-        const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
+        // From a card's socket: down out of the port first, then on to the device
+        const pts = [p, p.out, q.out, q].filter(Boolean);
+        const inner = [p.out || p, q.out || q];
+        const mx = (inner[0].x + inner[1].x) / 2, my = (inner[0].y + inner[1].y) / 2;
         const w = label.length * 6.4 + 12;
+        const route = pts.map(pt => `${pt.x},${pt.y}`).join(' ');
         let speedLabel = '';
         if (sp && !own.length) {
-            const [from, to] = sp.device === 'b' ? [p, q] : [q, p];
+            const [from, to] = sp.device === 'b' ? [p.out || p, q] : [q.out || q, p];
             const len = Math.hypot(from.x - to.x, from.y - to.y) || 1;
             const t = Math.min(0.45, 24 / len);
             const sx = to.x + (from.x - to.x) * t, sy = to.y + (from.y - to.y) * t;
@@ -477,8 +491,8 @@ function pageSvg(page, opts) {
             speedLabel = `<rect class="ml-speed-bg" x="${sx - tw / 2}" y="${sy - 7}" width="${tw}" height="13" rx="3"/><text class="ml-speed" x="${sx}" y="${sy + 3.5}" text-anchor="middle">${escapeHtml(text)}</text>`;
         }
         return `<g class="mlink ${kind}${down ? ' down' : ''}${sel.has('l:' + l.id) ? ' sel' : ''}" data-link="${attr(l.id)}"${sp ? ` style="--w:${speedStyle(sp.speed)}"` : ''}>
-            <line class="ml-hit" x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}"/>
-            <line class="ml-line" x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}"${LINK_KINDS[kind].dash ? ` stroke-dasharray="${LINK_KINDS[kind].dash}"` : ''}/>
+            <polyline class="ml-hit" points="${route}"/>
+            <polyline class="ml-line" points="${route}"${LINK_KINDS[kind].dash ? ` stroke-dasharray="${LINK_KINDS[kind].dash}"` : ''}/>
             ${label ? `<rect class="ml-label-bg" x="${mx - w / 2}" y="${my - 9}" width="${w}" height="18" rx="9"/><text class="ml-label" x="${mx}" y="${my + 4}" text-anchor="middle">${escapeHtml(label)}</text>` : ''}
             ${speedLabel}
         </g>`;
@@ -635,7 +649,8 @@ function linkEnds(a, b) {
         const s = Math.min(sx, sy);
         return {x: c.x + dx * s, y: c.y + dy * s};
     };
-    return [pa || edge(ca, pb || cb, a), pb || edge(cb, pa || ca, b)];
+    const toward = q => (q && (q.out || q));
+    return [pa || edge(ca, toward(pb) || cb, a), pb || edge(cb, toward(pa) || ca, b)];
 }
 
 function mapOverlay() {

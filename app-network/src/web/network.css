@@ -128,10 +128,6 @@ table.data.dev-table .meter { min-width: 120px; }
 .mnode.shape .mn-bg { stroke-dasharray: none; }
 /* A device card: a tab with name and role, logo, model, address, firmware, its ports */
 .mcard .mn-bg { stroke-width: 1.8; }
-.mc-tab { fill: color-mix(in srgb, var(--fam) 16%, var(--ha-background)); stroke: color-mix(in srgb, var(--fam) 55%, transparent); stroke-width: 1.5; }
-.mcard:hover .mc-tab { stroke: var(--fam); }
-.mcard.sel .mc-tab { stroke: var(--primary-color); stroke-width: 2; }
-.mcard.down .mc-tab { stroke: var(--idle); stroke-dasharray: 5 4; }
 .mc-tab-name { font-size: 13.5px; font-weight: 700; fill: var(--primary-text-color); }
 .mc-tab-role { font-size: 11.5px; fill: var(--secondary-text-color); }
 .mc-model { font-size: 13px; font-weight: 600; fill: var(--primary-text-color); }
@@ -163,7 +159,7 @@ table.data.dev-table .meter { min-width: 120px; }
 
 /* Links */
 .mlink { cursor: pointer; }
-.ml-hit { stroke: transparent; stroke-width: 12; }
+.ml-hit { stroke: transparent; stroke-width: 12; fill: none; }
 /* --w: the link's width from its speed (10G thick .. 100M thin), set when the switch port says */
 .ml-line { stroke: var(--secondary-text-color); stroke-width: var(--w, 2); fill: none; }
 .mlink.wifi .ml-line { stroke: var(--series-3); }
