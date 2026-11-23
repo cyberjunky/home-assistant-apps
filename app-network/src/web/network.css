@@ -159,7 +159,7 @@ table.data.dev-table .meter { min-width: 120px; }
 
 /* Links */
 .mlink { cursor: pointer; }
-.ml-hit { stroke: transparent; stroke-width: 12; }
+.ml-hit { stroke: transparent; stroke-width: 12; fill: none; }
 /* --w: the link's width from its speed (10G thick .. 100M thin), set when the switch port says */
 .ml-line { stroke: var(--secondary-text-color); stroke-width: var(--w, 2); fill: none; }
 .mlink.wifi .ml-line { stroke: var(--series-3); }

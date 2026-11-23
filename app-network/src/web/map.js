@@ -107,6 +107,7 @@ function logoOf(h) {
 }
 // A setting of the device (its window: "Large card"), so it holds on every page it is on
 const isCard = n => Boolean(n && n.ref && nodeHost(n) && meta(n.ref).card);
+const CABLE_DROP = 18;
 const CARD = {info: 262, portW: 34, rowH: 58, top: 16, minW: 300, minH: 92, perRow: 12};
 // The ports of a card and where they go, worked out once per drawing
 let cardCache = new Map();
@@ -175,9 +176,13 @@ function portAnchor(n, other) {
     if (!isCard(n) || !ho || !ho.mac) return null;
     const p = portOfDevice(n, ho);
     if (!p) return null;
-    // Out of the card's edge straight under (or over) its socket, as cables leave a switch
+    // Out of the card's edge straight under (or over) its socket, as cables leave a switch, and a
+    // short drop straight down (or up) before it bends to the device: so it is clear which port
     const below = other.y + nodeH(other) / 2 > n.y + nodeH(n) / 2;
-    return {x: n.x + p.x + CARD.portW / 2, y: below ? n.y + nodeH(n) : n.y};
+    const x = n.x + p.x + CARD.portW / 2, y = below ? n.y + nodeH(n) : n.y;
+    // Neighbouring ports drop a different length, so their cables don't run on top of each other
+    const drop = CABLE_DROP + (Math.round(p.x / CARD.portW) % 4) * 9;
+    return {x, y, out: {x, y: y + (below ? drop : -drop)}};
 }
 function cardSvg(n, h, name, kind) {
     const lay = cardLayout(n);
@@ -469,11 +474,15 @@ function pageSvg(page, opts) {
         const sp = kind === 'ethernet' || kind === 'fiber' ? linkSpeed(a, b) : null;
         const own = [l.label, l.vlan ? `VLAN ${l.vlan}` : ''].filter(Boolean);
         const label = [...own, own.length && sp ? speedText(sp.speed) : ''].filter(Boolean).join(' · ');
-        const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
+        // From a card's socket: down out of the port first, then on to the device
+        const pts = [p, p.out, q.out, q].filter(Boolean);
+        const inner = [p.out || p, q.out || q];
+        const mx = (inner[0].x + inner[1].x) / 2, my = (inner[0].y + inner[1].y) / 2;
         const w = label.length * 6.4 + 12;
+        const route = pts.map(pt => `${pt.x},${pt.y}`).join(' ');
         let speedLabel = '';
         if (sp && !own.length) {
-            const [from, to] = sp.device === 'b' ? [p, q] : [q, p];
+            const [from, to] = sp.device === 'b' ? [p.out || p, q] : [q.out || q, p];
             const len = Math.hypot(from.x - to.x, from.y - to.y) || 1;
             const t = Math.min(0.45, 24 / len);
             const sx = to.x + (from.x - to.x) * t, sy = to.y + (from.y - to.y) * t;
@@ -482,8 +491,8 @@ function pageSvg(page, opts) {
             speedLabel = `<rect class="ml-speed-bg" x="${sx - tw / 2}" y="${sy - 7}" width="${tw}" height="13" rx="3"/><text class="ml-speed" x="${sx}" y="${sy + 3.5}" text-anchor="middle">${escapeHtml(text)}</text>`;
         }
         return `<g class="mlink ${kind}${down ? ' down' : ''}${sel.has('l:' + l.id) ? ' sel' : ''}" data-link="${attr(l.id)}"${sp ? ` style="--w:${speedStyle(sp.speed)}"` : ''}>
-            <line class="ml-hit" x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}"/>
-            <line class="ml-line" x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}"${LINK_KINDS[kind].dash ? ` stroke-dasharray="${LINK_KINDS[kind].dash}"` : ''}/>
+            <polyline class="ml-hit" points="${route}"/>
+            <polyline class="ml-line" points="${route}"${LINK_KINDS[kind].dash ? ` stroke-dasharray="${LINK_KINDS[kind].dash}"` : ''}/>
             ${label ? `<rect class="ml-label-bg" x="${mx - w / 2}" y="${my - 9}" width="${w}" height="18" rx="9"/><text class="ml-label" x="${mx}" y="${my + 4}" text-anchor="middle">${escapeHtml(label)}</text>` : ''}
             ${speedLabel}
         </g>`;
@@ -640,7 +649,8 @@ function linkEnds(a, b) {
         const s = Math.min(sx, sy);
         return {x: c.x + dx * s, y: c.y + dy * s};
     };
-    return [pa || edge(ca, pb || cb, a), pb || edge(cb, pa || ca, b)];
+    const toward = q => (q && (q.out || q));
+    return [pa || edge(ca, toward(pb) || cb, a), pb || edge(cb, toward(pa) || ca, b)];
 }
 
 function mapOverlay() {
