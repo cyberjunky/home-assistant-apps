@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.10
+
+- **Open an alert to see what is behind it:** click a rule to see what it counts now, or a row of the alert history to see the moment it fired. A log rule opens the Logs page with its search over its window, with the host and app of every line; a metric rule opens its chart; a *New log patterns* rule the Patterns page. **‹ Back** returns to the time range you had.
+
 ## 0.1.9
 
 **After updating:** nothing to do.
