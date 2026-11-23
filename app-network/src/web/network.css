@@ -126,6 +126,28 @@ table.data.dev-table .meter { min-width: 120px; }
 .mnode.down .mn-glyph { fill: var(--idle); }
 .mnode.down .mn-name { fill: var(--secondary-text-color); }
 .mnode.shape .mn-bg { stroke-dasharray: none; }
+/* A device card: a tab with name and role, logo, model, address, firmware, its ports */
+.mcard .mn-bg { stroke-width: 1.8; }
+.mc-tab { fill: color-mix(in srgb, var(--fam) 16%, var(--ha-background)); stroke: color-mix(in srgb, var(--fam) 55%, transparent); stroke-width: 1.5; }
+.mcard:hover .mc-tab { stroke: var(--fam); }
+.mcard.sel .mc-tab { stroke: var(--primary-color); stroke-width: 2; }
+.mcard.down .mc-tab { stroke: var(--idle); stroke-dasharray: 5 4; }
+.mc-tab-name { font-size: 13.5px; font-weight: 700; fill: var(--primary-text-color); }
+.mc-tab-role { font-size: 11.5px; fill: var(--secondary-text-color); }
+.mc-model { font-size: 13px; font-weight: 600; fill: var(--primary-text-color); }
+.mc-addr { font-size: 11px; font-family: var(--mono); }
+.mc-ip { fill: var(--fam); }
+.mc-host { fill: var(--secondary-text-color); }
+.mc-fw { font-size: 10.5px; fill: var(--secondary-text-color); }
+.mc-num { font-size: 9px; font-family: var(--mono); fill: var(--secondary-text-color); }
+.mc-dev { font-size: 9px; fill: var(--secondary-text-color); }
+.mc-sock { fill: color-mix(in srgb, var(--ha-card-background) 70%, var(--idle)); stroke: color-mix(in srgb, var(--idle) 70%, transparent); stroke-width: 1.2; }
+.mc-jack { fill: color-mix(in srgb, var(--idle) 45%, var(--ha-background)); }
+.mc-port.up .mc-sock { fill: color-mix(in srgb, var(--fam) 20%, var(--ha-card-background)); stroke: var(--fam); }
+.mc-port.up .mc-jack { fill: var(--fam); }
+.mc-port.up .mc-dev { fill: var(--primary-text-color); }
+.mc-port.uplink .mc-sock { stroke: var(--danger-color); stroke-width: 1.6; }
+.mc-port.off { opacity: 0.45; }
 .mn-port { fill: var(--primary-color); stroke: var(--ha-card-background); stroke-width: 2; opacity: 0; cursor: crosshair; transition: opacity 0.1s; }
 .mnode:hover .mn-port, .mnode.sel .mn-port { opacity: 1; }
 

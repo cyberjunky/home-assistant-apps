@@ -113,6 +113,8 @@ Every contribution, no matter the size, makes a difference and is greatly apprec
 This project is licensed under the MIT License - see the [LICENSE](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-network/LICENSE) file for
 details.
 
+The brand logos on the device cards come from [homarr-labs/dashboard-icons](https://github.com/homarr-labs/dashboard-icons) (Apache License 2.0, in `src/web/vendor/dashboard-icons-LICENSE.txt`); the logos belong to their makers.
+
 ---
 
 [version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-network%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge

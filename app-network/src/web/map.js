@@ -82,7 +82,113 @@ function nodeSub(n, page) {
 // Whether this page has a group for the network already (then the node needn't say it)
 const groupOfNetwork = (id, page) => (page || mapPage()).groups.find(g => g.network === id) || null;
 const snap = v => mapState.snap ? Math.round(v / GRID) * GRID : Math.round(v);
-const inGroup = (n, g) => n.x + NODE_W / 2 >= g.x && n.x + NODE_W / 2 <= g.x + g.w && n.y + NODE_H / 2 >= g.y && n.y + NODE_H / 2 <= g.y + g.h;
+const inGroup = (n, g) => n.x + nodeW(n) / 2 >= g.x && n.x + nodeW(n) / 2 <= g.x + g.w && n.y + nodeH(n) / 2 >= g.y && n.y + nodeH(n) / 2 <= g.y + g.h;
+
+// =====================================================================
+// Device cards: a router, switch or access point drawn large, as on the diagrams people post of
+// their homelab: a tab with its name and role, its logo, model, address and firmware, and its
+// ports as sockets with the device on each. A setting per device on the map (n.card).
+// =====================================================================
+// Which logo (logos.js) for a device, from its maker, model and name
+const LOGO_RULES = [
+    ['fritzbox', /fritz|\bavm\b/], ['mikrotik', /mikrotik|routerboard|\bcrs\d|\bcss\d|\bhap\b|\bcap ax|\bhex\b/],
+    ['unifi', /ubiquiti|unifi|\busw\b|\bu6\b|\bu7\b|dream machine|\budm\b/], ['netgear', /netgear/], ['tp-link', /tp-?link|omada/],
+    ['synology', /synology|diskstation/], ['qnap', /qnap/], ['proxmox', /proxmox|\bpve\d*\b/], ['raspberry-pi', /raspberry/],
+    ['home-assistant', /home ?assistant|homeassistant|nabu casa/], ['opnsense', /opnsense/], ['pfsense', /pfsense|netgate/],
+    ['truenas', /truenas|ixsystems/], ['asus', /\basus/], ['linksys', /linksys/], ['cisco', /cisco|meraki/], ['openwrt', /openwrt/],
+    ['sonos', /sonos/], ['shelly', /shelly/], ['esphome', /espressif|esphome/], ['google-home', /google|chromecast|\bnest\b/],
+    ['apple', /\bapple\b|iphone|ipad|macbook|\bimac\b/],
+];
+function logoOf(h) {
+    if (typeof LOGOS === 'undefined' || !h) return '';
+    const text = [h.manufacturer, h.vendor, h.model, hostName(h), h.host_name].filter(Boolean).join(' ').toLowerCase();
+    const hit = LOGO_RULES.find(([, re]) => re.test(text));
+    return hit ? LOGOS[hit[0]] || '' : '';
+}
+const isCard = n => Boolean(n && n.card && nodeHost(n));
+const CARD = {info: 262, portW: 34, rowH: 58, top: 16, minW: 300, minH: 92, perRow: 12};
+// The ports of a card and where they go, worked out once per drawing
+let cardCache = new Map();
+function cardLayout(n) {
+    if (cardCache.has(n.id)) return cardCache.get(n.id);
+    const h = nodeHost(n);
+    const ports = ((app.ports || {})[h && h.mac] || []).filter(p => p.kind === 'ethernet');
+    const rows = ports.length > CARD.perRow ? 2 : ports.length ? 1 : 0;
+    const perRow = rows === 2 ? Math.ceil(ports.length / 2) : ports.length;
+    const w = Math.max(CARD.minW, CARD.info + (perRow ? perRow * CARD.portW + 14 : 0));
+    const hgt = Math.max(CARD.minH, CARD.top + rows * CARD.rowH + 4);
+    const up = h ? uplinkOf(h) : '';
+    const placed = ports.map((p, i) => {
+        const row = rows === 2 && i >= perRow ? 1 : 0;
+        const col = row ? i - perRow : i;
+        const devices = (p.connected || []).map(hostByMac).filter(Boolean);
+        devices.sort((a, b) => Number(isInfra(b)) - Number(isInfra(a)));
+        return {
+            ...p, row, devices,
+            x: CARD.info + col * CARD.portW, y: CARD.top + row * CARD.rowH,
+            uplink: devices.some(d => d.key === up) || /uplink|wan/i.test(p.port) || /uplink|wan/i.test(p.comment || ''),
+        };
+    });
+    const out = {w, h: hgt, ports: placed};
+    cardCache.set(n.id, out);
+    return out;
+}
+const nodeW = n => isCard(n) ? cardLayout(n).w : NODE_W;
+const nodeH = n => isCard(n) ? cardLayout(n).h : NODE_H;
+// "ether15-skull-nuc" -> 15, "sfp1" -> SFP1; the rest of the name says what is on it
+function portNumber(name) {
+    const m = String(name).match(/^([a-z]*?)-?(\d+)/i);
+    if (!m) return clip(String(name), 5);
+    return /^sfp/i.test(m[1]) ? `SFP${m[2]}` : m[2];
+}
+function portWhat(p) {
+    if (p.devices.length) return hostName(p.devices[0]) + (p.devices.length > 1 ? ` +${p.devices.length - 1}` : '');
+    if (p.neighbor) return p.neighbor;
+    const rest = String(p.port).replace(/^[a-z]*-?\d+-?/i, '') || p.comment || '';
+    return rest || (p.up ? '' : 'free');
+}
+// Where a cable from this card to a device starts: the socket the device is on
+function portAnchor(n, other) {
+    const ho = nodeHost(other);
+    if (!isCard(n) || !ho || !ho.mac) return null;
+    const p = cardLayout(n).ports.find(q => (q.connected || []).includes(ho.mac));
+    if (!p) return null;
+    // Out of the card's edge straight under (or over) its socket, as cables leave a switch
+    const below = other.y + nodeH(other) / 2 > n.y + nodeH(n) / 2;
+    return {x: n.x + p.x + CARD.portW / 2, y: below ? n.y + nodeH(n) : n.y};
+}
+function cardSvg(n, h, name, kind) {
+    const lay = cardLayout(n);
+    const role = kindLabel(kind).toLowerCase();
+    const tabW = Math.ceil(name.length * 7.6 + role.length * 6.4 + 34);
+    const logo = logoOf(h);
+    const maker = h.manufacturer || h.vendor || '';
+    const model = h.model ? (maker && !h.model.toLowerCase().startsWith(maker.toLowerCase().split(' ')[0]) ? `${maker} ${h.model}` : h.model) : maker || kindLabel(kind);
+    const host = h.host_name && h.host_name !== h.ip ? h.host_name : '';
+    const ports = lay.ports.map(p => {
+        const net = p.devices.length ? networkOf(p.devices[0]).net : null;
+        const what = portWhat(p);
+        const tip = [`${p.port}${p.comment ? ' · ' + p.comment : ''}`, p.up ? `link up${p.speed ? ' · ' + speedText(p.speed) : ''}` : p.disabled ? 'off' : 'free',
+            ...p.devices.map(hostName)].join('\n');
+        return `<g class="mc-port${p.up ? ' up' : ''}${p.uplink ? ' uplink' : ''}${p.disabled ? ' off' : ''}" transform="translate(${p.x} ${p.y})"><title>${escapeHtml(tip)}</title>
+            <text class="mc-num" x="${CARD.portW / 2}" y="8" text-anchor="middle">${escapeHtml(portNumber(p.port))}</text>
+            ${net && net.color ? `<rect class="mc-bar" x="5" y="11" width="${CARD.portW - 10}" height="3" rx="1.5" fill="${attr(net.color)}"/>` : ''}
+            <rect class="mc-sock" x="4" y="16" width="${CARD.portW - 8}" height="22" rx="3"/>
+            <path class="mc-jack" d="M${CARD.portW / 2 - 7} 34v-9h3v-3h8v3h3v9z"/>
+            <text class="mc-dev" x="${CARD.portW / 2}" y="51" text-anchor="middle">${escapeHtml(clip(what, 7))}</text>
+        </g>`;
+    }).join('');
+    return `<path class="mc-tab" d="M0.75 0.75V-10a12 12 0 0 1 12-12H${tabW - 12}a12 12 0 0 1 12 12V0.75"/>
+        <text class="mc-tab-text" x="14" y="-5"><tspan class="mc-tab-name">${escapeHtml(name)}</tspan><tspan class="mc-tab-role" dx="6">· ${escapeHtml(role)}</tspan></text>
+        <rect class="mn-bg" x="0.75" y="0.75" width="${lay.w - 1.5}" height="${lay.h - 1.5}" rx="12"/>
+        ${logo ? `<image class="mc-logo" href="${logo}" x="16" y="20" width="44" height="44" preserveAspectRatio="xMidYMid meet"/>`
+            : `<svg class="mn-glyph" x="18" y="22" width="40" height="40" viewBox="0 0 24 24">${mdiSvg(nodeIcon(n))}</svg>`}
+        <circle class="mn-dot" cx="58" cy="62" r="5"/>
+        <text class="mc-model" x="74" y="34">${escapeHtml(clip(model, 26))}</text>
+        <text class="mc-addr" x="74" y="52"><tspan class="mc-ip">${escapeHtml(h.ip || 'no address')}</tspan>${host ? `<tspan class="mc-host"> · ${escapeHtml(clip(host, 20))}</tspan>` : ''}</text>
+        ${h.sw_version ? `<text class="mc-fw" x="74" y="69">${escapeHtml(clip(h.sw_version, 30))}</text>` : ''}
+        ${ports}`;
+}
 
 function getView() {
     const p = mapPage();
@@ -307,6 +413,7 @@ function mapRender() {
 // A page as SVG: its groups, links, nodes and texts. While editing with what is selected, the resize
 // corners and the dots to connect with; while looking without
 function pageSvg(page, opts) {
+    cardCache = new Map();
     const sel = opts.sel || new Set();
     const edit = Boolean(opts.edit);
     const groups = page.groups.map(g => {
@@ -361,6 +468,12 @@ function pageSvg(page, opts) {
         const kind = nodeKind(n);
         const name = nodeLabel(n);
         const sub = nodeSub(n, page);
+        if (isCard(n)) {
+            return `<g class="mnode mcard ${state} fam-${kindFamily(kind)}${sel.has('n:' + n.id) ? ' sel' : ''}" data-node="${attr(n.id)}" transform="translate(${n.x} ${n.y})">
+                ${cardSvg(n, h, name, kind)}
+                ${edit ? `<circle class="mn-port" data-port="${attr(n.id)}" cx="${nodeW(n)}" cy="${nodeH(n) / 2}" r="6"><title>Drag to another device to connect them</title></circle>` : ''}
+            </g>`;
+        }
         return `<g class="mnode ${state} fam-${kindFamily(kind)}${sel.has('n:' + n.id) ? ' sel' : ''}" data-node="${attr(n.id)}" transform="translate(${n.x} ${n.y})">
             <title>${escapeHtml([name, h ? `${h.ip || ''} ${h.mac || ''}`.trim() : '', h ? (h.up ? 'online' : h.up === false ? 'away ' + fmtAgo(h.last_changed) : 'unknown') : ''].filter(Boolean).join('\n'))}</title>
             <rect class="mn-bg" x="0.75" y="0.75" width="${NODE_W - 1.5}" height="${NODE_H - 1.5}" rx="12"/>
@@ -490,15 +603,17 @@ function speedText(bits) {
 
 // Where a line between two nodes meets the edges of their boxes
 function linkEnds(a, b) {
-    const ca = {x: a.x + NODE_W / 2, y: a.y + NODE_H / 2}, cb = {x: b.x + NODE_W / 2, y: b.y + NODE_H / 2};
-    const edge = (c, toward) => {
+    const ca = {x: a.x + nodeW(a) / 2, y: a.y + nodeH(a) / 2}, cb = {x: b.x + nodeW(b) / 2, y: b.y + nodeH(b) / 2};
+    // A card: the cable starts at the socket the other device is on
+    const pa = portAnchor(a, b), pb = portAnchor(b, a);
+    const edge = (c, toward, n) => {
         const dx = toward.x - c.x, dy = toward.y - c.y;
         if (!dx && !dy) return c;
-        const sx = (NODE_W / 2) / Math.abs(dx || 1e-9), sy = (NODE_H / 2) / Math.abs(dy || 1e-9);
+        const sx = (nodeW(n) / 2) / Math.abs(dx || 1e-9), sy = (nodeH(n) / 2) / Math.abs(dy || 1e-9);
         const s = Math.min(sx, sy);
         return {x: c.x + dx * s, y: c.y + dy * s};
     };
-    return [edge(ca, cb), edge(cb, ca)];
+    return [pa || edge(ca, pb || cb, a), pb || edge(cb, pa || ca, b)];
 }
 
 function mapOverlay() {
@@ -507,7 +622,7 @@ function mapOverlay() {
     if (!d) { el.innerHTML = ''; return; }
     if (d.type === 'connect') {
         const n = nodeById(d.from);
-        el.innerHTML = `<line class="connect-line" x1="${n.x + NODE_W}" y1="${n.y + NODE_H / 2}" x2="${d.x}" y2="${d.y}"/>`;
+        el.innerHTML = `<line class="connect-line" x1="${n.x + nodeW(n)}" y1="${n.y + nodeH(n) / 2}" x2="${d.x}" y2="${d.y}"/>`;
     } else if (d.type === 'marquee') {
         const x = Math.min(d.x0, d.x), y = Math.min(d.y0, d.y);
         el.innerHTML = `<rect class="marquee" x="${x}" y="${y}" width="${Math.abs(d.x - d.x0)}" height="${Math.abs(d.y - d.y0)}"/>`;
@@ -668,7 +783,7 @@ function mapUp(e) {
         const x0 = Math.min(d.x0, d.x), x1 = Math.max(d.x0, d.x), y0 = Math.min(d.y0, d.y), y1 = Math.max(d.y0, d.y);
         if (!d.add) mapState.sel.clear();
         const page = mapPage();
-        page.nodes.filter(n => n.x + NODE_W > x0 && n.x < x1 && n.y + NODE_H > y0 && n.y < y1).forEach(n => mapState.sel.add('n:' + n.id));
+        page.nodes.filter(n => n.x + nodeW(n) > x0 && n.x < x1 && n.y + nodeH(n) > y0 && n.y < y1).forEach(n => mapState.sel.add('n:' + n.id));
         page.groups.filter(g => g.x >= x0 && g.x + g.w <= x1 && g.y >= y0 && g.y + g.h <= y1).forEach(g => mapState.sel.add('g:' + g.id));
         page.texts.filter(t => t.x >= x0 && t.x <= x1 && t.y >= y0 && t.y <= y1).forEach(t => mapState.sel.add('t:' + t.id));
         mapSide();
@@ -749,7 +864,8 @@ function mapZoom(factor, e) {
 
 function pageBounds(page) {
     const xs = [], ys = [];
-    page.nodes.forEach(n => { xs.push(n.x, n.x + NODE_W); ys.push(n.y, n.y + NODE_H); });
+    // A card's tab sits above it
+    page.nodes.forEach(n => { xs.push(n.x, n.x + nodeW(n)); ys.push(n.y - (isCard(n) ? 24 : 0), n.y + nodeH(n)); });
     page.groups.forEach(g => { xs.push(g.x, g.x + g.w); ys.push(g.y, g.y + g.h); });
     page.texts.forEach(t => { xs.push(t.x, t.x + 200); ys.push(t.y - 20, t.y + 10); });
     if (!xs.length) return null;
@@ -777,8 +893,8 @@ function mapFocusHost(key) {
     const svg = document.getElementById('map-svg');
     const box = svg.getBoundingClientRect();
     const v = getView();
-    v.x = box.width / 2 - (n.x + NODE_W / 2) * v.k;
-    v.y = box.height / 2 - (n.y + NODE_H / 2) * v.k;
+    v.x = box.width / 2 - (n.x + nodeW(n) / 2) * v.k;
+    v.y = box.height / 2 - (n.y + nodeH(n) / 2) * v.k;
     v.fresh = false;
     keepView();
     mapState.sel = new Set(['n:' + n.id]);
@@ -1263,8 +1379,12 @@ function mapSide() {
             const open = el.querySelector('[data-act="open"]');
             if (open) open.onclick = () => mapOpenPage(n.page);
         } else if (h) {
+            const hasPorts = ((app.ports || {})[h.mac] || []).some(q => q.kind === 'ethernet');
             el.innerHTML = `<div class="side-body">${hostEditorHtml(h, {compact: true})}
+                <div class="form-field"><label class="action-check"><input type="checkbox" data-node-card${n.card ? ' checked' : ''}> Large card</label>
+                    <div class="form-hint">With its logo, model, address and firmware${hasPorts ? ', and its ports with the device on each; cables start at their port' : ''}.</div></div>
                 <div class="side-actions"><button class="btn btn-small btn-danger" data-act="del">Remove from the page</button></div></div>`;
+            el.querySelector('[data-node-card]').addEventListener('change', (e) => mapEdit(() => { if (e.target.checked) n.card = true; else delete n.card; }));
             bindHostEditor(el, h.key, {onChange: () => { mapRender(); mapPalette(); }, onRenamed: () => { mapSide(); mapRender(); mapPalette(); }});
         } else {
             el.innerHTML = `<div class="side-body">
