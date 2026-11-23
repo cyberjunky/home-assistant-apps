@@ -184,8 +184,11 @@ function cardSvg(n, h, name, kind) {
     const role = kindLabel(kind).toLowerCase();
     const tabW = Math.ceil(name.length * 7.6 + role.length * 6.4 + 34);
     const logo = logoOf(h);
-    const maker = h.manufacturer || h.vendor || '';
-    const model = h.model ? (maker && !h.model.toLowerCase().startsWith(maker.toLowerCase().split(' ')[0]) ? `${maker} ${h.model}` : h.model) : maker || kindLabel(kind);
+    // "Unknown" is what an integration says when it doesn't know (the FRITZ!Box one does)
+    const known = v => (v && !/^(unknown|none|n\/a|-)$/i.test(String(v).trim()) ? String(v).trim() : '');
+    const maker = known(h.manufacturer) || known(h.vendor);
+    const mdl = known(h.model);
+    const model = mdl ? (maker && !mdl.toLowerCase().startsWith(maker.toLowerCase().split(' ')[0]) ? `${maker} ${mdl}` : mdl) : maker || hostName(h);
     const host = h.host_name && h.host_name !== h.ip ? h.host_name : '';
     const ports = lay.ports.map(p => {
         const net = p.devices.length ? networkOf(p.devices[0]).net : null;
@@ -200,9 +203,11 @@ function cardSvg(n, h, name, kind) {
             <text class="mc-dev" x="${CARD.portW / 2}" y="51" text-anchor="middle">${escapeHtml(clip(what, 7))}</text>
         </g>`;
     }).join('');
-    return `<path class="mc-tab" d="M0.75 0.75V-10a12 12 0 0 1 12-12H${tabW - 12}a12 12 0 0 1 12 12V0.75"/>
+    // One outline round the tab and the card, as a folder: no line between them
+    const w = lay.w - 0.75, hh = lay.h - 0.75, tw = Math.min(tabW, lay.w - 24);
+    const shape = `M0.75 ${hh - 12}V-12a10 10 0 0 1 10-10H${tw - 10}a10 10 0 0 1 10 10V0.75H${w - 12}a12 12 0 0 1 12 12V${hh - 12}a12 12 0 0 1-12 12H12.75a12 12 0 0 1-12-12Z`;
+    return `<path class="mn-bg" d="${shape}"/>
         <text class="mc-tab-text" x="14" y="-5"><tspan class="mc-tab-name">${escapeHtml(name)}</tspan><tspan class="mc-tab-role" dx="6">· ${escapeHtml(role)}</tspan></text>
-        <rect class="mn-bg" x="0.75" y="0.75" width="${lay.w - 1.5}" height="${lay.h - 1.5}" rx="12"/>
         ${logo ? `<image class="mc-logo" href="${logo}" x="16" y="20" width="44" height="44" preserveAspectRatio="xMidYMid meet"/>`
             : `<svg class="mn-glyph" x="18" y="22" width="40" height="40" viewBox="0 0 24 24">${mdiSvg(nodeIcon(n))}</svg>`}
         <circle class="mn-dot" cx="58" cy="62" r="5"/>
