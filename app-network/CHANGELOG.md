@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.17
+
+- **Cables come out of their port:** a cable from a device card drops straight out of its socket before it bends to the device, each port a little further than its neighbour, so you can see which port every cable is on, also to devices beside the switch.
+- **A device card is one shape:** the tab and the card have one outline, like a folder, instead of two boxes stacked.
+- **No "Unknown" on a card:** a maker or model an integration reports as "Unknown" (the FRITZ!Box one) is left out; the card shows the device's name instead.
+
 ## 0.1.16
 
 **After updating:** a card you turned on in the map's side panel in 0.1.15 is a small device again: tick **Large card** in the device's window once.
