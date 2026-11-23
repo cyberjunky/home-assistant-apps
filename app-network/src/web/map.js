@@ -148,11 +148,32 @@ function portWhat(p) {
     const rest = String(p.port).replace(/^[a-z]*-?\d+-?/i, '') || p.comment || '';
     return rest || (p.up ? '' : 'free');
 }
+// The socket of a card a device is on: the port that lists it, else the switch port its own tracker
+// names (sw_mac + sw_port: a device behind the uplink), else the port you set on the device
+function portOfDevice(n, ho) {
+    const h = nodeHost(n);
+    const ports = cardLayout(n).ports;
+    const listed = ports.find(q => (q.connected || []).includes(ho.mac));
+    if (listed) return listed;
+    if (ho.sw_port && h && h.mac && normMac(ho.sw_mac) === normMac(h.mac)) {
+        const named = ports.find(q => q.port === ho.sw_port);
+        if (named) return named;
+    }
+    // "Connected to" this switch, "Port or socket" 7, port 7 or ether7
+    const m = meta(ho.key);
+    const mine = String(m.port || '').trim().toLowerCase();
+    if (mine && h && m.uplink === h.key) {
+        const number = mine.replace(/^(port|ether)\s*/, '');
+        return ports.find(q => q.port.toLowerCase() === mine || portNumber(q.port).toLowerCase() === number) || null;
+    }
+    return null;
+}
+const normMac = mac => String(mac || '').toLowerCase();
 // Where a cable from this card to a device starts: the socket the device is on
 function portAnchor(n, other) {
     const ho = nodeHost(other);
     if (!isCard(n) || !ho || !ho.mac) return null;
-    const p = cardLayout(n).ports.find(q => (q.connected || []).includes(ho.mac));
+    const p = portOfDevice(n, ho);
     if (!p) return null;
     // Out of the card's edge straight under (or over) its socket, as cables leave a switch
     const below = other.y + nodeH(other) / 2 > n.y + nodeH(n) / 2;
