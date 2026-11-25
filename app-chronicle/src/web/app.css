@@ -510,3 +510,9 @@ label.btn { display: inline-flex; align-items: center; }
     .db-layout { grid-template-columns: minmax(0, 1fr); }
     .db-tree-panel { position: static; max-height: 360px; }
 }
+
+/* Storage: what fills the attributes table */
+.attribute-note { font-size: 12.5px; color: var(--secondary-text-color); line-height: 1.5; margin-bottom: 10px; max-width: 110ch; }
+.attribute-note b { color: var(--primary-text-color); }
+a.plain-link { color: inherit; text-decoration: none; }
+a.plain-link:hover { color: var(--primary-color); text-decoration: underline; }

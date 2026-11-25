@@ -122,6 +122,7 @@ class WebUI:
         get("/api/entities", self._handle_entities)
         get("/api/entity", self._handle_entity)
         get("/api/storage", self._handle_storage)
+        get("/api/storage/attributes", self._handle_attribute_use)
         get("/api/recorder", self._handle_recorder)
         self.app.router.add_post("/api/exclude", self._handle_exclude)
         self.app.router.add_post("/api/purge", self._handle_purge)
@@ -259,6 +260,14 @@ class WebUI:
         if not await self._require_schema():
             return _error("The Chronicle tables are not in this database", 409)
         return _json(await self.database.storage())
+
+    async def _handle_attribute_use(self, _request: web.Request) -> web.Response:
+        if not await self._require_schema():
+            return _error("The Chronicle tables are not in this database", 409)
+        try:
+            return _json(await self.database.attribute_use())
+        except asyncpg.QueryCanceledError:
+            return _error("Counting the attribute sets took longer than the database allows", 504)
 
     # ------------------------------------------------------------------ the integration's own state
 

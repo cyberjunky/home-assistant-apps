@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.1
+
+**After updating:** nothing to do.
+
+- **Which entities fill the attributes table:** Storage has a new Attribute sets panel. The attributes table is never compressed, and it can outgrow the history when an entity carries an attribute that changes with nearly every state (a timestamp, a position, a counter). The panel lists the 25 entities whose attribute sets took the most room in the last 7 days: their different sets against their rows, how often a row brings a new set, the size and share, and the names of the attributes that change. Click an entity to open it. Exclude such an entity in the Chronicle integration, or switch off storing attributes there.
+- The count is made after the rest of the page shows and is kept for 5 minutes; on a large history it can take some seconds.
+- The Attribute sets tile also gives the table's size.
+
 ## 0.3.0
 
 **After updating:** nothing to do.

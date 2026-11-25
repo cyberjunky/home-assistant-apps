@@ -5,7 +5,7 @@ from datetime import timedelta
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
-from src.database import Database, bucket_seconds, resolution
+from src.database import Database, bucket_seconds, changing_keys, resolution
 from src.webui import WebUI
 
 # The page's own scripts send this header with every POST
@@ -87,6 +87,60 @@ async def test_storage(client):
     data = await (await client.get("/api/storage")).json()
     assert data["chunks"]
     assert {t["name"] for t in data["tables"]} >= {"chronicle.states", "chronicle.entities", "chronicle.attributes"}
+
+
+def test_changing_keys_names_what_differs_between_sets():
+    sets = [
+        {"friendly_name": "Car", "last_seen": "10:00", "battery": 80},
+        {"friendly_name": "Car", "last_seen": "10:01", "battery": 80},
+        {"friendly_name": "Car", "last_seen": "10:02", "battery": 80, "charging": True},
+    ]
+    # An attribute that is only there now and then changes too
+    assert changing_keys(sets) == ["charging", "last_seen"]
+    assert changing_keys(sets[:1]) == []
+    assert changing_keys([]) == []
+    # A missing attribute is not the same as one that is null
+    assert changing_keys([{"a": None}, {}]) == ["a"]
+
+
+async def test_attribute_use_names_the_entities_and_what_changes(client, config):
+    """An entity that writes a new attribute set with every row is on top, with the attribute that changes."""
+    import asyncpg
+
+    conn = await asyncpg.connect(
+        host=config.host, port=config.port, user=config.username, password=config.password, database=config.database
+    )
+    try:
+        await conn.execute(
+            """INSERT INTO chronicle.attributes (hash, data)
+               SELECT 100 + i, jsonb_build_object('unit_of_measurement', '°C', 'last_seen', 'minute ' || i)
+               FROM generate_series(1, 40) AS i"""
+        )
+        await conn.execute(
+            """INSERT INTO chronicle.states (time, entity, value, attributes)
+               SELECT now() - make_interval(mins => i), 1, 20, (SELECT id FROM chronicle.attributes WHERE hash = 100 + i)
+               FROM generate_series(1, 40) AS i"""
+        )
+        # Older than the period that is looked at
+        await conn.execute("""INSERT INTO chronicle.attributes (hash, data) VALUES (999, '{"old": true}')""")
+        await conn.execute(
+            """INSERT INTO chronicle.states (time, entity, value, attributes)
+               VALUES (now() - interval '30 days', 2, 1, (SELECT id FROM chronicle.attributes WHERE hash = 999))"""
+        )
+    finally:
+        await conn.close()
+
+    use = await (await client.get("/api/storage/attributes")).json()
+    assert use["days"] == 7
+    assert use["sets"] == 41 and use["entity_count"] == 2
+    assert use["table_bytes"] > 0
+    first, second = use["entities"]
+    assert (first["entity_id"], first["sets"], first["rows"]) == ("sensor.temperature", 40, 40)
+    assert first["changing"] == ["last_seen"]
+    assert first["bytes"] > second["bytes"]
+    # The same set for every row: nothing changes
+    assert (second["entity_id"], second["sets"], second["rows"], second["changing"]) == ("light.desk", 1, 48, [])
+    assert use["bytes"] == first["bytes"] + second["bytes"]
 
 
 async def test_sql_endpoint(client):

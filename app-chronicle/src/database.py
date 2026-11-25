@@ -24,6 +24,13 @@ logger = logging.getLogger(__name__)
 
 SCHEMA = "chronicle"
 STATEMENT_TIMEOUT = "30s"
+# Which entities fill the attributes table: looked at over this many days, this many entities shown
+ATTRIBUTE_USE_DAYS = 7
+ATTRIBUTE_USE_ENTITIES = 25
+# How many of an entity's latest attribute sets are compared to name the attributes that change
+ATTRIBUTE_USE_COMPARED = 6
+# Counting them reads a week of rows: not again within this many seconds
+ATTRIBUTE_USE_CACHE = 300
 # Cache of the per-entity row counts of the last 24 hours (shared by Overview and Entities)
 ACTIVITY_TTL = 60
 
@@ -89,6 +96,8 @@ class Database:
     def __init__(self, config: Config):
         self.config = config
         self._pool: asyncpg.Pool | None = None
+        # (when, result) of the last count of the attribute sets per entity
+        self._attribute_use: tuple[float, dict] | None = None
         self._lock = asyncio.Lock()
         self.last_error: str | None = None
         self._activity: tuple[float, dict[int, int]] | None = None
@@ -495,6 +504,78 @@ class Database:
 
     # ------------------------------------------------------------------ storage
 
+    async def attribute_use(self) -> dict:
+        """The entities whose attribute sets take the most room, over the last days, and what changes in them."""
+        cached = self._attribute_use
+        if cached and time.monotonic() - cached[0] < ATTRIBUTE_USE_CACHE:
+            return cached[1]
+        rows = await self.fetch(
+            f"""WITH used AS (
+                    SELECT entity, attributes, count(*) AS rows
+                    FROM {SCHEMA}.states
+                    WHERE time > now() - make_interval(days => $1) AND attributes IS NOT NULL
+                    GROUP BY entity, attributes
+                ), per AS (
+                    SELECT u.entity, count(*) AS sets, sum(u.rows)::bigint AS rows,
+                           sum(pg_column_size(a.data))::bigint AS bytes
+                    FROM used u JOIN {SCHEMA}.attributes a ON a.id = u.attributes
+                    GROUP BY u.entity
+                )
+                SELECT e.id, e.entity_id, e.name, p.sets, p.rows, p.bytes,
+                       (sum(p.sets) OVER ())::bigint AS all_sets, (sum(p.bytes) OVER ())::bigint AS all_bytes,
+                       count(*) OVER () AS all_entities
+                FROM per p JOIN {SCHEMA}.entities e ON e.id = p.entity
+                ORDER BY p.bytes DESC, e.entity_id
+                LIMIT $2""",
+            ATTRIBUTE_USE_DAYS,
+            ATTRIBUTE_USE_ENTITIES,
+        )
+        # Only an entity with more than one set has something that changes
+        compare = [r["id"] for r in rows if r["sets"] > 1]
+        documents: dict[int, list[dict]] = {}
+        if compare:
+            latest = await self.fetch(
+                f"""SELECT x.entity, a.data
+                    FROM unnest($1::int[]) AS x(entity)
+                    CROSS JOIN LATERAL (
+                        SELECT DISTINCT recent.attributes FROM (
+                            SELECT s.attributes FROM {SCHEMA}.states s
+                            WHERE s.entity = x.entity AND s.attributes IS NOT NULL
+                              AND s.time > now() - make_interval(days => $2)
+                            ORDER BY s.time DESC LIMIT 60
+                        ) recent
+                        LIMIT $3
+                    ) r
+                    JOIN {SCHEMA}.attributes a ON a.id = r.attributes""",
+                compare,
+                ATTRIBUTE_USE_DAYS,
+                ATTRIBUTE_USE_COMPARED,
+            )
+            for r in latest:
+                data = json.loads(r["data"]) if isinstance(r["data"], str) else r["data"]
+                if isinstance(data, dict):
+                    documents.setdefault(r["entity"], []).append(data)
+        result = {
+            "days": ATTRIBUTE_USE_DAYS,
+            "sets": rows[0]["all_sets"] if rows else 0,
+            "bytes": rows[0]["all_bytes"] if rows else 0,
+            "entity_count": rows[0]["all_entities"] if rows else 0,
+            "table_bytes": await self.fetchval("SELECT pg_total_relation_size($1::regclass)", f"{SCHEMA}.attributes"),
+            "entities": [
+                {
+                    "entity_id": r["entity_id"],
+                    "name": r["name"],
+                    "sets": r["sets"],
+                    "rows": r["rows"],
+                    "bytes": r["bytes"],
+                    "changing": changing_keys(documents.get(r["id"], [])),
+                }
+                for r in rows
+            ],
+        }
+        self._attribute_use = (time.monotonic(), result)
+        return result
+
     async def storage(self) -> dict:
         chunks = await self.fetch(
             f"""SELECT c.chunk_schema, c.chunk_name, c.range_start, c.range_end, c.is_compressed,
@@ -614,6 +695,19 @@ class Database:
             "attribute_sets": attribute_sets,
             "aggregates": [{"name": a["view_name"], "realtime": not a["materialized_only"]} for a in aggregates],
         }
+
+
+def changing_keys(documents: list[dict]) -> list[str]:
+    """The attributes that differ between sets of one entity: the ones that make every set a new one."""
+    keys: set[str] = set()
+    for document in documents:
+        keys.update(document)
+    missing = object()
+    return sorted(
+        key
+        for key in keys
+        if len({json.dumps(d.get(key, missing), sort_keys=True, default=str) for d in documents}) > 1
+    )
 
 
 def _cell(value):

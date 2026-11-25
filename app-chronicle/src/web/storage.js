@@ -4,7 +4,7 @@ async function showStorage() {
     if (!ready()) {
         document.getElementById('storage-tiles').innerHTML = '';
         emptyChart(document.getElementById('chart-chunks'), 'Nothing recorded yet');
-        ['chunks', 'jobs', 'tables'].forEach(id => { document.getElementById(id).innerHTML = ''; });
+        ['chunks', 'jobs', 'tables', 'attribute-use', 'attribute-use-note'].forEach(id => { document.getElementById(id).innerHTML = ''; });
         return;
     }
     let data;
@@ -14,6 +14,56 @@ async function showStorage() {
         return handleError(e);
     }
     renderStorage(data);
+    loadAttributeUse();
+}
+
+// Counting the sets per entity reads a week of rows, so it comes after the rest of the page
+async function loadAttributeUse() {
+    const el = document.getElementById('attribute-use');
+    if (!el.innerHTML) el.innerHTML = '<div class="empty-state">Counting the attribute sets per entity…</div>';
+    let use;
+    try {
+        use = await api('storage/attributes');
+    } catch (e) {
+        document.getElementById('attribute-use-note').innerHTML = '';
+        el.innerHTML = `<div class="empty-state">${escapeHtml(e.message)}</div>`;
+        return;
+    }
+    renderAttributeUse(use);
+}
+
+// "every row" for an entity that never repeats a set, "1 in 12 rows" for one that mostly does
+function newSetText(e) {
+    const each = e.rows / e.sets;
+    return each < 1.5 ? 'every row' : `1 in ${num(each, each < 10 ? 1 : 0)} rows`;
+}
+
+function renderAttributeUse(use) {
+    const period = `the last ${use.days} days`;
+    document.getElementById('attribute-use-hint').textContent = `which entities fill chronicle.attributes · ${period}`;
+    const el = document.getElementById('attribute-use');
+    const note = document.getElementById('attribute-use-note');
+    if (!use.entities.length) {
+        note.innerHTML = '';
+        el.innerHTML = `<div class="empty-state">No attributes recorded in ${period}</div>`;
+        return;
+    }
+    note.innerHTML = `The table is <b>${escapeHtml(fmtBytes(use.table_bytes))}</b> and is never compressed.
+        In ${period}, ${fmtCount(use.entity_count)} entities used ${fmtCount(use.sets)} different sets.
+        An entity that writes a new set with nearly every row has an attribute that keeps changing, named in the last column:
+        exclude that entity in the Chronicle integration, or switch off storing attributes there.`;
+    el.innerHTML = `<table class="data"><thead><tr>
+            <th>Entity</th><th class="n">Sets</th><th class="n">Rows</th><th>A new set</th><th class="n">Size</th><th class="n">Share</th><th>Attributes that change</th>
+        </tr></thead><tbody>${use.entities.map(e => `<tr>
+            <td><a class="plain-link" href="#entities/${encodeURIComponent(e.entity_id)}">${escapeHtml(e.name || e.entity_id)}</a>
+                ${e.name ? `<div class="mono muted">${escapeHtml(e.entity_id)}</div>` : ''}</td>
+            <td class="n">${fmtCount(e.sets)}</td>
+            <td class="n muted">${fmtCount(e.rows)}</td>
+            <td>${e.sets > 1 && e.rows / e.sets < 1.5 ? stateLabel('warn', newSetText(e)) : `<span class="muted">${e.sets > 1 ? escapeHtml(newSetText(e)) : 'never'}</span>`}</td>
+            <td class="n">${escapeHtml(fmtBytes(e.bytes))}</td>
+            <td class="n">${use.bytes ? num(e.bytes / use.bytes * 100, 1) + '%' : '–'}</td>
+            <td class="mono wrap">${e.changing.length ? escapeHtml(e.changing.slice(0, 6).join(', ')) + (e.changing.length > 6 ? ` <span class="muted">+${e.changing.length - 6}</span>` : '') : '<span class="muted">–</span>'}</td>
+        </tr>`).join('')}</tbody></table>`;
 }
 
 function jobConfig(job) {
@@ -48,7 +98,8 @@ function renderStorage(d) {
             after ? `saves ${fmtBytes(before - after)}` : 'no chunk compressed yet'),
         tile('Averages', d.aggregates.length ? bytesUnit(aggregateBytes) : '–',
             d.aggregates.length ? 'hourly and daily' : 'switched off in Chronicle'),
-        tile('Attribute sets', fmtCount(d.attribute_sets), 'each stored once'),
+        tile('Attribute sets', fmtCount(d.attribute_sets),
+            `${fmtBytes((d.tables.find(t => t.name === 'chronicle.attributes') || {}).bytes)} · each stored once`),
         tile('Kept', retention ? jobConfig(retention).replace('older than ', '') : 'for ever',
             compression ? 'compressed ' + jobConfig(compression) : ''),
     ].join('');
