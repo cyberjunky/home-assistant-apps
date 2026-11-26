@@ -52,6 +52,9 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE TABLE IF NOT EXISTS snapshots (
     name TEXT PRIMARY KEY, fetched_at INTEGER NOT NULL, body BLOB NOT NULL
 );
+CREATE TABLE IF NOT EXISTS coverage (
+    dataset TEXT PRIMARY KEY, newest TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS progress (
     dataset TEXT PRIMARY KEY, oldest TEXT, done INTEGER NOT NULL DEFAULT 0, last_fetch INTEGER,
     last_error TEXT, rows INTEGER NOT NULL DEFAULT 0
@@ -261,8 +264,19 @@ class Database:
             "rows": 0,
         }
 
+    def newest(self, dataset: str) -> str | None:
+        """The day up to which a data set is complete, without gaps after it."""
+        row = self._db.execute("SELECT newest FROM coverage WHERE dataset = ?", (dataset,)).fetchone()
+        return row[0] if row else None
+
+    def set_newest(self, dataset: str, day: str) -> None:
+        self._db.execute("INSERT OR REPLACE INTO coverage VALUES (?, ?)", (dataset, day))
+
     def all_progress(self) -> dict[str, dict]:
-        return {row["dataset"]: row for row in self.query("SELECT * FROM progress")}
+        return {
+            row["dataset"]: row
+            for row in self.query("SELECT p.*, c.newest FROM progress p LEFT JOIN coverage c ON c.dataset = p.dataset")
+        }
 
     def set_progress(self, dataset: str, **fields: Any) -> None:
         current = self.progress(dataset)
@@ -312,6 +326,7 @@ class Database:
             "events",
             "snapshots",
             "progress",
+            "coverage",
         ):
             self._db.execute(f"DELETE FROM {table}")
         self._changed()

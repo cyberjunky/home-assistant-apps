@@ -104,3 +104,61 @@ async def test_optional_new_sets(db, signed_in, monkeypatch):
     assert len(db.intraday("sleep", "2000-01-01", "2100-01-01")) >= 6
     assert len(db.intraday("steps", "2000-01-01", "2100-01-01")) >= 6
     assert db.snapshot("training_plans")[0]
+
+
+async def test_gap_after_being_off_is_filled(collector, db, monkeypatch):
+    """The app runs, is off for two weeks, and starts again: nothing in between may be missing."""
+    from datetime import timedelta
+
+    from src import collector as collector_module
+
+    real_today = date.today()
+    off_since = real_today - timedelta(days=15)
+
+    class Then(date):
+        @classmethod
+        def today(cls):
+            return off_since
+
+    monkeypatch.setattr(collector_module, "date", Then)
+    await collector.update()
+    await run_history(collector)
+    assert db.newest("summaries") == off_since.isoformat()
+
+    # Two weeks later
+    monkeypatch.setattr(collector_module, "date", date)
+    await collector.update()
+    await run_history(collector)
+    # The next update joins the last days on
+    await collector.update()
+    span = [(off_since + timedelta(days=i)).isoformat() for i in range(16)]
+    steps = db.series(["steps"], span[0], span[-1])["steps"]
+    assert sorted(steps) == span
+    curves = {day for day, _ in db.intraday("hr", span[0], span[-1])}
+    assert curves == set(span)
+    for key in ("summaries", "sleep", "day_curves", "activities"):
+        assert db.newest(key) == real_today.isoformat(), key
+
+
+async def test_refused_stretch_is_not_asked_for_again(collector, db, monkeypatch):
+    from datetime import timedelta
+
+    from garminconnect import GarminConnectConnectionError
+
+    await collector.update()
+    stale = (date.today() - timedelta(days=40)).isoformat()
+    db.set_newest("summaries", stale)
+    asked = []
+
+    async def refuse(account, start, end):
+        asked.append(start)
+        raise GarminConnectConnectionError("API call client error (400): no")
+
+    summaries = dataclasses.replace(DATASET_BY_KEY["summaries"], fetch=refuse)
+    monkeypatch.setattr(collector, "enabled", lambda: [summaries])
+    await collector.update()
+    assert db.newest("summaries") == date.today().isoformat()
+    asked.clear()
+    await collector.update()
+    # Only the last days again, not the refused stretch
+    assert asked and min(asked) >= date.today() - timedelta(days=summaries.recent_days * 2)

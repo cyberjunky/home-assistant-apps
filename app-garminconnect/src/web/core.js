@@ -429,7 +429,7 @@ function renderStatusbar() {
         parts.push('<span class="sb-warn">● not signed in to Garmin</span>');
     } else {
         const cls = c.error ? 'sb-warn' : 'sb-ok';
-        const what = c.phase === 'importing history' ? `importing history · ${escapeHtml(c.current)}`
+        const what = c.phase === 'importing history' || c.phase === 'catching up' ? `${c.phase} · ${escapeHtml(c.current)}`
             : c.phase === 'updating' ? `updating · ${escapeHtml(c.current)}` : escapeHtml(c.phase || 'idle');
         parts.push(`<span><span class="${cls}">●</span> ${what}</span>`);
         if (c.last_update_at) parts.push(`<span>updated <b>${fmtAgo(c.last_update_at)}</b></span>`);
