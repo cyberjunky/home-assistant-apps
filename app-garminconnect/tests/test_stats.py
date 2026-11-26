@@ -124,3 +124,20 @@ async def test_earlier_tracks_get_mapped(collector, db):
     db.put_track(9, [[52.0, 5.0], [52.001, 5.0]])
     assert await collector.map_missing_cells() == 1
     assert db.query_one("SELECT cells FROM mapped_tracks WHERE activity_id = 9")["cells"] >= 2
+
+
+async def test_heat_tracks_in_view(db):
+    db.put_activities(
+        [
+            {"id": 1, "start_ts": 1, "start_local": "2026-01-01 10:00:00", "day": "2026-01-01", "type": "walking"},
+            {"id": 2, "start_ts": 2, "start_local": "2026-01-02 10:00:00", "day": "2026-01-02", "type": "walking"},
+        ]
+    )
+    # One track through the view and out of it again, one far away
+    db.put_track(1, [[51.90, 4.40], [51.901, 4.401], [51.95, 4.50], [51.902, 4.402], [51.903, 4.403]])
+    db.put_track(2, [[52.30, 4.90], [52.301, 4.901]])
+    for activity_id in (1, 2):
+        db.map_track_cells(activity_id)
+    result = stats.heat_tracks(db, "2026-01-01", "2026-01-31", (51.899, 4.399, 51.904, 4.404))
+    assert result == {"lines": [[[51.9, 4.4], [51.901, 4.401]], [[51.902, 4.402], [51.903, 4.403]]], "more": False}
+    assert stats.heat_tracks(db, "2026-01-01", "2026-01-31", (51.899, 4.399, 51.904, 4.404), "running")["lines"] == []

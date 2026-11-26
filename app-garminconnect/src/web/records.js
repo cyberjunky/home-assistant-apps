@@ -3,7 +3,7 @@
 
 const recordsPeriod = periodPicker('records', 'all', () => loadRecords());
 let recordsBucket = localStorage.getItem(LS + 'records_bucket') || 'month';
-let heatMap = null, heatLayer = null;
+let heatMap = null;
 let recordsLoadedAt = 0;
 
 function renderSportTiles(s) {
@@ -48,24 +48,20 @@ function renderEddington(e) {
 }
 
 let heatRetry = null;
+let recordsHeat = null;
 async function renderHeatMap(range, retry) {
     clearTimeout(heatRetry);
     if (!heatMap) {
         heatMap = L.map('heat-map', {zoomControl: true, scrollWheelZoom: false}).setView([52.2, 5.3], 8);
         tileLayer().addTo(heatMap);
-    }
-    if (!heatMap._resizeHooked) {
-        heatMap.on('resize', () => { if (heatLayer) heatLayer._reset(); });
-        heatMap._resizeHooked = true;
+        recordsHeat = heatOn(heatMap);
     }
     requestAnimationFrame(() => heatMap.invalidateSize());
-    const data = await api(`activities/heat?start=${range.start}&end=${range.end}`);
+    const data = await recordsHeat.show({start: range.start, end: range.end, family: ''});
     const points = data.points || [];
     document.getElementById('heat-hint').textContent = data.pending ? `mapping ${num(data.pending)} tracks…`
-        : points.length ? `${num(points.length)} places of about 100 m` : 'tracks appear as they are fetched';
+        : points.length ? `${num(points.length)} places of about 100 m · zoom in for the tracks` : 'tracks appear as they are fetched';
     if (data.pending) heatRetry = setTimeout(() => renderHeatMap(range, true), 5000);
-    if (heatLayer) heatMap.removeLayer(heatLayer);
-    heatLayer = L.heatLayer(heatLatLngs(points), HEAT_OPTIONS).addTo(heatMap);
     // A new period is shown whole; the refreshes while tracks are mapped leave the view alone
     if (points.length && !retry) {
         // Centre on where most of it happened, not on the one holiday far away

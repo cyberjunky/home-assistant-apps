@@ -119,6 +119,7 @@ class WebUI:
         get("/api/activities", self._activities)
         get("/api/activities/summary", self._activity_summary)
         get("/api/activities/heat", self._heat)
+        get("/api/activities/heat-tracks", self._heat_tracks)
         get("/api/activities/{id:[0-9]+}", self._activity)
         get("/api/records", self._records)
         get("/api/events/{kind:[a-z_]+}", self._events)
@@ -368,6 +369,20 @@ class WebUI:
         points = await self._compute(key, lambda: stats.heat_cells(self.db, start, end, kind))
         # Right after an update from 0.1.1 the earlier tracks are still being mapped
         return web.json_response({"points": points, "pending": len(self.db.unmapped_tracks())})
+
+    async def _heat_tracks(self, request: web.Request) -> web.Response:
+        """The tracks through the part of the map in view (the heat map up close)."""
+        start, end = _span(request, 365)
+        try:
+            bounds = tuple(float(request.query[k]) for k in ("south", "west", "north", "east"))
+        except (KeyError, ValueError):
+            return _error("south, west, north and east are needed")
+        south, west, north, east = bounds
+        # Up close only: a larger area is what the cell heat map is for
+        if not (south < north and west < east) or north - south > 1 or east - west > 2:
+            return _error("The area is too large for tracks")
+        kind = request.query.get("family", "")
+        return web.json_response(stats.heat_tracks(self.db, start, end, bounds, kind))
 
     async def _records(self, request: web.Request) -> web.Response:
         result = {}

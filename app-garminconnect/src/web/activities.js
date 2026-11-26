@@ -21,11 +21,12 @@ function tileLayer() {
 }
 tileLayer().addTo(map);
 const trackLayer = L.layerGroup().addTo(map);
-// leaflet.heat sizes its canvas when the map moves, not when the map itself changes size (a splitter,
-// the view becoming visible): redraw it then too, or the heat stops at the old edge
-map.on('resize', () => { if (mapHeat) mapHeat._reset(); });
 
-// ----- Heat maps: where you've been, from the ~100 m cells the server keeps per activity -----
+// ----- Heat maps: where you've been -----
+// Zoomed out: the ~100 m cells the server keeps per activity, as a heat map. Up close those cells
+// would show as a grid of dots, so from CLOSE_ZOOM on the tracks in view are drawn instead, thin and
+// see-through, so the roads taken most often come out darkest.
+const CLOSE_ZOOM = 14;
 const HEAT_OPTIONS = {
     radius: 7, blur: 6, minOpacity: 0.5, maxZoom: 12,
     // One hue, light to dark with how often you passed (as on the Tesla app's map)
@@ -35,10 +36,62 @@ function heatLatLngs(points) {
     const max = Math.max(1, ...points.map(p => p[2]));
     return points.map(p => [p[0], p[1], Math.min(1, 0.35 + p[2] / max)]);
 }
-// leaflet.heat always draws into the overlay pane, after (so over) the tracks: move it underneath
-function heatBelowTracks(layer) {
-    const canvas = layer._canvas;
-    if (canvas && canvas.parentNode) canvas.parentNode.insertBefore(canvas, canvas.parentNode.firstChild);
+
+// The heat of one map. show({start, end, family}) shows a period; show(null) hides it.
+function heatOn(target) {
+    // The tracks up close get a pane under the selected activity's track
+    const pane = target.createPane('heat-lines');
+    pane.style.zIndex = 350;
+    const renderer = L.canvas({pane});
+    const lines = L.layerGroup();
+    let cells = null, query = null, points = [], timer = null, request = 0;
+    const cellsQuery = () => `start=${query.start}&end=${query.end}${query.family ? '&family=' + query.family : ''}`;
+
+    const drawCells = () => {
+        target.removeLayer(lines);
+        if (!cells) {
+            cells = L.heatLayer(heatLatLngs(points), HEAT_OPTIONS).addTo(target);
+            // leaflet.heat always draws into the overlay pane, over the tracks: move it underneath
+            const canvas = cells._canvas;
+            if (canvas && canvas.parentNode) canvas.parentNode.insertBefore(canvas, canvas.parentNode.firstChild);
+        }
+    };
+    const drawLines = async () => {
+        if (cells) { target.removeLayer(cells); cells = null; }
+        const b = target.getBounds();
+        const mine = ++request;
+        try {
+            const data = await api(`activities/heat-tracks?${cellsQuery()}&south=${b.getSouth()}&west=${b.getWest()}&north=${b.getNorth()}&east=${b.getEast()}`);
+            if (mine !== request || !query) return;
+            const color = getComputedStyle(document.documentElement).getPropertyValue('--series-1').trim() || '#2a78d6';
+            lines.clearLayers();
+            data.lines.forEach(line => L.polyline(line, {renderer, color, weight: 3, opacity: 0.28, interactive: false}).addTo(lines));
+            lines.addTo(target);
+        } catch (e) { /* the map stays as it was */ }
+    };
+    const redraw = () => {
+        if (!query) return;
+        if (target.getZoom() >= CLOSE_ZOOM) drawLines(); else drawCells();
+    };
+    target.on('moveend', () => { clearTimeout(timer); timer = setTimeout(redraw, 200); });
+    // leaflet.heat sizes its canvas when the map moves, not when the map changes size: redraw it then too
+    target.on('resize', () => { if (cells) cells._reset(); });
+
+    return {
+        async show(next) {
+            query = next;
+            request++;
+            if (cells) { target.removeLayer(cells); cells = null; }
+            target.removeLayer(lines);
+            lines.clearLayers();
+            if (!query) return {points: [], pending: 0};
+            const data = await api(`activities/heat?${cellsQuery()}`);
+            if (query !== next) return data;
+            points = data.points || [];
+            redraw();
+            return data;
+        },
+    };
 }
 
 let mapHeat = null;
@@ -47,23 +100,20 @@ async function loadMapHeat() {
     const select = document.getElementById('map-heat');
     clearTimeout(mapHeatRetry);
     try { localStorage.setItem(LS + 'map_heat', select.value); } catch (e) { /* private window */ }
+    if (!mapHeat) mapHeat = heatOn(map);
     if (select.value === '') {
-        if (mapHeat) { map.removeLayer(mapHeat); mapHeat = null; }
+        mapHeat.show(null);
         return;
     }
     const days = Number(select.value);
     const end = app.today || isoDay(new Date());
     const start = days ? addDays(end, -(days - 1)) : firstDay();
-    const family = document.getElementById('acts-family').value;
     select.disabled = true;
     map.invalidateSize();
     try {
-        const data = await api(`activities/heat?start=${start}&end=${end}${family ? '&family=' + family : ''}`);
-        if (mapHeat) map.removeLayer(mapHeat);
-        mapHeat = L.heatLayer(heatLatLngs(data.points || []), HEAT_OPTIONS).addTo(map);
-        heatBelowTracks(mapHeat);
+        const data = await mapHeat.show({start, end, family: document.getElementById('acts-family').value});
         if (!(data.points || []).length && !data.pending) toast('No tracks in this period');
-        // Tracks fetched before this version are still being mapped: fill in as they come
+        // Tracks fetched before 0.1.2 are still being mapped: fill in as they come
         if (data.pending) mapHeatRetry = setTimeout(loadMapHeat, 5000);
     } catch (e) {
         toast(e.message, 'error');

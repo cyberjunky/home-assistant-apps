@@ -671,3 +671,40 @@ def heat_cells(db: Database, start: str, end: str, activity_family: str = "", li
         (start, end, *([activity_family] if activity_family else []), limit),
     )
     return [[row["lat"], row["lon"], row["weight"]] for row in rows]
+
+
+def heat_tracks(
+    db: Database,
+    start: str,
+    end: str,
+    bounds: tuple[float, float, float, float],
+    activity_family: str = "",
+    limit: int = 400,
+) -> dict:
+    """The tracks through a part of the map, for the heat map up close, where ~100 m cells would show
+    as dots. Only the parts inside the area (with a margin) are returned. The cells find the activities,
+    so no track outside the area is read."""
+    south, west, north, east = bounds
+    margin_lat, margin_lon = (north - south) * 0.2, (east - west) * 0.2
+    south, north, west, east = south - margin_lat, north + margin_lat, west - margin_lon, east + margin_lon
+    sport = " AND family = ?" if activity_family else ""
+    ids = [
+        row["activity_id"]
+        for row in db.query(
+            "SELECT DISTINCT activity_id FROM visited_cells INDEXED BY visited_cells_cell"
+            f" WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ? AND day >= ? AND day <= ?{sport} LIMIT ?",
+            (south, north, west, east, start, end, *([activity_family] if activity_family else []), limit + 1),
+        )
+    ]
+    lines = []
+    for activity_id in ids[:limit]:
+        run: list = []
+        for lat, lon in db.track(activity_id) or []:
+            if south <= lat <= north and west <= lon <= east:
+                run.append([lat, lon])
+            elif run:
+                lines.append(run)
+                run = []
+        if len(run) > 1:
+            lines.append(run)
+    return {"lines": [line for line in lines if len(line) > 1], "more": len(ids) > limit}
