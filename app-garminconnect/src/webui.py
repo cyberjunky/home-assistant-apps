@@ -365,9 +365,9 @@ class WebUI:
         start, end = _span(request, 365)
         kind = request.query.get("family", "")
         key = ("heat", start, end, kind)
-        return web.json_response(
-            {"points": await self._compute(key, lambda: stats.heat_points(self.db, start, end, kind))}
-        )
+        points = await self._compute(key, lambda: stats.heat_cells(self.db, start, end, kind))
+        # Right after an update from 0.1.1 the earlier tracks are still being mapped
+        return web.json_response({"points": points, "pending": len(self.db.unmapped_tracks())})
 
     async def _records(self, request: web.Request) -> web.Response:
         result = {}

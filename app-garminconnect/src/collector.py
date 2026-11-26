@@ -126,7 +126,23 @@ class Collector:
     # ------------------------------------------------------------------
     # The loop
     # ------------------------------------------------------------------
+    async def map_missing_cells(self, chunk: int = 25) -> int:
+        """Tracks fetched before the heat map kept cells (up to 0.1.1) get theirs, a few at a time,
+        so the rest of the app keeps getting at the database in between."""
+        mapped = 0
+        while ids := self.db.unmapped_tracks(chunk):
+            for activity_id in ids:
+                self.db.map_track_cells(activity_id)
+            self.db.commit()
+            mapped += len(ids)
+            await asyncio.sleep(0.05)
+        if mapped:
+            logger.info(f"Mapped {mapped} activity tracks for the heat maps")
+        return mapped
+
     async def run(self) -> None:
+        mapping = asyncio.create_task(self.map_missing_cells(), name="map-cells")
+        mapping.add_done_callback(lambda task: task.exception() if not task.cancelled() else None)
         if self.account.has_tokens:
             await self.account.resume()
         while True:
@@ -361,6 +377,7 @@ class Collector:
             points = decode_polyline(encoded) if encoded else []
             # Stored even when empty, so an activity without a usable track isn't asked for again
             self.db.put_track(activity_id, thin(points, MAX_TRACK_POINTS))
+            self.db.map_track_cells(activity_id)
             self.db.commit()
             if pause:
                 await asyncio.sleep(PAUSE_BETWEEN_REQUESTS)

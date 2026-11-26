@@ -47,22 +47,31 @@ function renderEddington(e) {
         <p class="panel-sub" style="margin-top:10px">An Eddington number of ${num(Math.max(...families.map(f => e[f])))} means that many days of at least that many kilometres. The next one up needs ${num(Math.max(...families.map(f => e[f])) + 1)} days of ${num(Math.max(...families.map(f => e[f])) + 1)} km: each step is harder than the last. Counted in kilometres, also with imperial units.</p>`;
 }
 
-async function renderHeatMap(range) {
+let heatRetry = null;
+async function renderHeatMap(range, retry) {
+    clearTimeout(heatRetry);
     if (!heatMap) {
         heatMap = L.map('heat-map', {zoomControl: true, scrollWheelZoom: false}).setView([52.2, 5.3], 8);
         tileLayer().addTo(heatMap);
     }
+    if (!heatMap._resizeHooked) {
+        heatMap.on('resize', () => { if (heatLayer) heatLayer._reset(); });
+        heatMap._resizeHooked = true;
+    }
     requestAnimationFrame(() => heatMap.invalidateSize());
     const data = await api(`activities/heat?start=${range.start}&end=${range.end}`);
     const points = data.points || [];
-    document.getElementById('heat-hint').textContent = points.length ? `${num(points.length)} track points` : 'tracks appear as they are fetched';
+    document.getElementById('heat-hint').textContent = data.pending ? `mapping ${num(data.pending)} tracks…`
+        : points.length ? `${num(points.length)} places of about 100 m` : 'tracks appear as they are fetched';
+    if (data.pending) heatRetry = setTimeout(() => renderHeatMap(range, true), 5000);
     if (heatLayer) heatMap.removeLayer(heatLayer);
-    heatLayer = L.heatLayer(points, {radius: 6, blur: 8, maxZoom: 14, minOpacity: 0.35}).addTo(heatMap);
-    if (points.length) {
+    heatLayer = L.heatLayer(heatLatLngs(points), HEAT_OPTIONS).addTo(heatMap);
+    // A new period is shown whole; the refreshes while tracks are mapped leave the view alone
+    if (points.length && !retry) {
         // Centre on where most of it happened, not on the one holiday far away
         const lats = points.map(p => p[0]).sort((a, b) => a - b), lons = points.map(p => p[1]).sort((a, b) => a - b);
         const at = q => Math.floor(q * (points.length - 1));
-        heatMap.fitBounds([[lats[at(0.03)], lons[at(0.03)]], [lats[at(0.97)], lons[at(0.97)]]], {padding: [20, 20]});
+        heatMap.fitBounds([[lats[at(0.03)], lons[at(0.03)]], [lats[at(0.97)], lons[at(0.97)]]], {padding: [20, 20], maxZoom: 13});
     }
 }
 

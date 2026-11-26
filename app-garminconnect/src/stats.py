@@ -5,14 +5,13 @@ Most of this is what the Garmin site doesn't show: streaks, what moves your slee
 nights are, days your body looked off, Eddington numbers and how far all those steps took you.
 """
 
-import json
-import math
 import statistics
 from collections import defaultdict
 from datetime import date, timedelta
 from typing import Any
 
 from .database import Database, unpack
+from .sports import FAMILIES, family
 
 # Metrics that add up over a week or month; everything else is averaged
 SUM_METRICS = {
@@ -570,23 +569,6 @@ def insights(db: Database, start: str, end: str) -> dict:
 # ----------------------------------------------------------------------
 # Activities
 # ----------------------------------------------------------------------
-FAMILIES = (
-    ("running", ("running", "run")),
-    ("cycling", ("cycling", "biking", "ride", "bmx", "gravel", "mountain")),
-    ("walking", ("walking", "hiking", "walk", "hike")),
-    ("swimming", ("swim",)),
-    ("strength", ("strength", "hiit", "fitness_equipment", "cardio", "yoga", "pilates", "training")),
-)
-
-
-def family(activity_type: str) -> str:
-    key = (activity_type or "").lower()
-    for name, words in FAMILIES:
-        if any(word in key for word in words):
-            return name
-    return "other"
-
-
 def eddington(daily_km: list[float]) -> int:
     """The largest E with E days of at least E km."""
     ranked = sorted(daily_km, reverse=True)
@@ -673,14 +655,19 @@ def activity_summary(db: Database, start: str, end: str, bucket: str = "month") 
     }
 
 
-def heat_points(db: Database, start: str, end: str, activity_type: str = "", limit: int = 60000) -> list[list[float]]:
-    sql = (
-        "SELECT a.type, t.points FROM tracks t JOIN activities a ON a.id = t.activity_id"
-        " WHERE a.day >= ? AND a.day <= ? AND t.points != '[]' ORDER BY a.start_ts DESC"
+# Over a long period nearly every cell is in play: walking the cells in order and counting beats
+# collecting the period's rows by day and sorting them (as in the Tesla app)
+LONG_PERIOD_DAYS = 120
+
+
+def heat_cells(db: Database, start: str, end: str, activity_family: str = "", limit: int = 40000) -> list[list[float]]:
+    """Where you've been, as [lat, lon, activities through it] per ~100 m cell, busiest first."""
+    days = (date.fromisoformat(end) - date.fromisoformat(start)).days
+    index = "visited_cells_cell" if days > LONG_PERIOD_DAYS else "visited_cells_day"
+    sport = " AND family = ?" if activity_family else ""
+    rows = db.query(
+        f"SELECT lat, lon, COUNT(*) AS weight FROM visited_cells INDEXED BY {index}"
+        f" WHERE day >= ? AND day <= ?{sport} GROUP BY lat, lon ORDER BY weight DESC LIMIT ?",
+        (start, end, *([activity_family] if activity_family else []), limit),
     )
-    tracks = [(row["type"], json.loads(row["points"])) for row in db.query(sql, (start, end))]
-    if activity_type:
-        tracks = [t for t in tracks if family(t[0]) == activity_type]
-    total = sum(len(points) for _, points in tracks) or 1
-    keep = max(1, math.ceil(total / limit))
-    return [p for _, points in tracks for p in points[::keep]]
+    return [[row["lat"], row["lon"], row["weight"]] for row in rows]

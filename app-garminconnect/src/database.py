@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import DATA_DIR
+from .sports import family
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,15 @@ CREATE INDEX IF NOT EXISTS activities_start ON activities (start_ts);
 CREATE TABLE IF NOT EXISTS tracks (
     activity_id INTEGER PRIMARY KEY, fetched_at INTEGER NOT NULL, points TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS visited_cells (
+    activity_id INTEGER NOT NULL, day TEXT NOT NULL, family TEXT NOT NULL, lat REAL NOT NULL, lon REAL NOT NULL,
+    PRIMARY KEY (activity_id, lat, lon)
+) WITHOUT ROWID;
+CREATE INDEX IF NOT EXISTS visited_cells_day ON visited_cells (day);
+CREATE INDEX IF NOT EXISTS visited_cells_cell ON visited_cells (lat, lon, day);
+CREATE TABLE IF NOT EXISTS mapped_tracks (
+    activity_id INTEGER PRIMARY KEY, cells INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS activity_details (
     activity_id INTEGER PRIMARY KEY, fetched_at INTEGER NOT NULL, body BLOB NOT NULL
 );
@@ -60,6 +70,35 @@ CREATE TABLE IF NOT EXISTS progress (
     last_error TEXT, rows INTEGER NOT NULL DEFAULT 0
 );
 """
+
+
+# A cell is a position rounded to 3 decimals: about 110 m north-south, 70 m east-west here
+CELL_DIGITS = 3
+# Between two track points further apart than this (degrees), cells are filled in along the line
+CELL_STEP = 0.0005
+
+
+def track_cells(points: list) -> set[tuple[float, float]]:
+    """The cells a track passes through, also between points that lie far apart."""
+    cells: set[tuple[float, float]] = set()
+    previous = None
+    for point in points:
+        lat, lon = float(point[0]), float(point[1])
+        if previous is not None:
+            steps = int(max(abs(lat - previous[0]), abs(lon - previous[1])) / CELL_STEP)
+            # A jump of more than a few km is a gap in the recording, not a road
+            if 0 < steps < 200:
+                for i in range(1, steps):
+                    f = i / steps
+                    cells.add(
+                        (
+                            round(previous[0] + (lat - previous[0]) * f, CELL_DIGITS),
+                            round(previous[1] + (lon - previous[1]) * f, CELL_DIGITS),
+                        )
+                    )
+        cells.add((round(lat, CELL_DIGITS), round(lon, CELL_DIGITS)))
+        previous = (lat, lon)
+    return cells
 
 
 def pack(value: Any) -> bytes:
@@ -181,6 +220,31 @@ class Database:
             "INSERT OR REPLACE INTO tracks VALUES (?, ?, ?)",
             (activity_id, int(time.time()), json.dumps(points, separators=(",", ":"))),
         )
+
+    # Where you've been: the ~100 m cells every track passed through, for the heat maps. Reading
+    # these instead of the tracks keeps a heat map of years quick.
+
+    def map_track_cells(self, activity_id: int) -> int:
+        """Record the cells an activity's track passed through. Returns how many."""
+        activity = self.query_one("SELECT day, type FROM activities WHERE id = ?", (activity_id,))
+        points = self.track(activity_id) or []
+        cells = track_cells(points) if activity else set()
+        if cells:
+            kind = family(activity["type"])
+            self._db.executemany(
+                "INSERT OR IGNORE INTO visited_cells VALUES (?, ?, ?, ?, ?)",
+                [(activity_id, activity["day"], kind, lat, lon) for lat, lon in cells],
+            )
+        self._db.execute("INSERT OR REPLACE INTO mapped_tracks VALUES (?, ?)", (activity_id, len(cells)))
+        return len(cells)
+
+    def unmapped_tracks(self, limit: int = 1000000) -> list[int]:
+        rows = self._db.execute(
+            "SELECT t.activity_id FROM tracks t LEFT JOIN mapped_tracks m ON m.activity_id = t.activity_id"
+            " WHERE m.activity_id IS NULL ORDER BY t.activity_id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [row[0] for row in rows]
 
     def activities_without_details(self, limit: int) -> list[int]:
         rows = self._db.execute(
@@ -322,6 +386,8 @@ class Database:
             "activities",
             "tracks",
             "activity_details",
+            "visited_cells",
+            "mapped_tracks",
             "intraday",
             "events",
             "snapshots",

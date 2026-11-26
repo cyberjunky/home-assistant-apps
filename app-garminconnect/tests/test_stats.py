@@ -80,5 +80,47 @@ async def test_insights_on_imported_history(collector, db):
     assert len(result["bests"]) >= 8
     summary = stats.activity_summary(db, start, end)
     assert summary["count"] > 0
-    assert stats.heat_points(db, start, end)
+    cells = stats.heat_cells(db, start, end)
+    assert cells and all(len(c) == 3 for c in cells)
+    assert stats.heat_cells(db, start, end, "swimming") == []
     assert stats.day_view(db, end)["values"]["steps"]
+
+
+def test_track_cells_fill_in_between_points():
+    from src.database import track_cells
+
+    # Two points 1 km apart east-west: the cells in between are there too
+    cells = track_cells([[52.0, 5.0], [52.0, 5.0146]])
+    assert (52.0, 5.0) in cells and (52.0, 5.015) in cells
+    assert len(cells) >= 14
+    # A jump of tens of km is a gap in the recording, not a road
+    assert len(track_cells([[52.0, 5.0], [52.5, 5.5]])) == 2
+
+
+async def test_cells_count_activities_per_cell(db):
+    db.put_activities(
+        [
+            {"id": 1, "start_ts": 1, "start_local": "2026-01-01 10:00:00", "day": "2026-01-01", "type": "running"},
+            {"id": 2, "start_ts": 2, "start_local": "2026-01-02 10:00:00", "day": "2026-01-02", "type": "road_biking"},
+        ]
+    )
+    for activity_id in (1, 2):
+        db.put_track(activity_id, [[52.0, 5.0], [52.0, 5.0004]])
+    assert db.unmapped_tracks() == [2, 1]
+    for activity_id in db.unmapped_tracks():
+        db.map_track_cells(activity_id)
+    assert db.unmapped_tracks() == []
+    cells = stats.heat_cells(db, "2026-01-01", "2026-01-31")
+    assert [52.0, 5.0, 2] in cells
+    assert stats.heat_cells(db, "2026-01-01", "2026-01-31", "running") == [[52.0, 5.0, 1]]
+    # A long period uses the other index, with the same answer
+    assert stats.heat_cells(db, "2025-01-01", "2026-12-31", "running") == [[52.0, 5.0, 1]]
+
+
+async def test_earlier_tracks_get_mapped(collector, db):
+    db.put_activities(
+        [{"id": 9, "start_ts": 1, "start_local": "2026-01-01 10:00:00", "day": "2026-01-01", "type": "hiking"}]
+    )
+    db.put_track(9, [[52.0, 5.0], [52.001, 5.0]])
+    assert await collector.map_missing_cells() == 1
+    assert db.query_one("SELECT cells FROM mapped_tracks WHERE activity_id = 9")["cells"] >= 2
