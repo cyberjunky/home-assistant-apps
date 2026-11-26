@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.6
 
 **After updating:** nothing to do. For the new Pool page, set up the small status service on the node and `pool.url`: see the documentation, "Mining pool (ckpool)".
 
