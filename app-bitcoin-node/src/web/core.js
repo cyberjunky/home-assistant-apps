@@ -203,7 +203,7 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', app
 // Views. Each page gives a function that draws it; it runs when the page
 // opens and again after every poll while the page is open
 // =====================================================================
-const TABS = ['overview', 'node', 'mempool', 'peers', 'lightning', 'tor', 'info'];
+const TABS = ['overview', 'node', 'mempool', 'peers', 'lightning', 'tor', 'pool', 'info'];
 const pageHooks = {};
 let activeTab = null;
 
@@ -368,7 +368,7 @@ async function loadStatus() {
 }
 
 function renderNotices() {
-    const s = app.status, n = s.node, ln = s.lightning, t = s.tor;
+    const s = app.status, n = s.node, ln = s.lightning, t = s.tor, p = s.pool;
     const parts = [];
     const hint = (kind, html) => parts.push(`<div class="setup-hint ${kind}"><span>${html}</span></div>`);
     if (!n.configured) hint('', '<b>No node set up yet.</b> Enter the address, user and password of Bitcoin Core under <b>bitcoin</b> in this app\'s configuration in Home Assistant, then restart the app.');
@@ -376,9 +376,12 @@ function renderNotices() {
     else if (!n.synced) hint('', `<b>Bitcoin Core is still syncing:</b> ${escapeHtml(plainPct(n.progress, 2))} done. The pages fill in as it catches up.`);
     if (ln.configured && !ln.connected) hint('bad', `<b>LND does not answer.</b> ${escapeHtml(ln.error || 'Waiting for its first answer.')}`);
     if (t.configured && !t.connected && t.error) hint('bad', `<b>Tor's control port:</b> ${escapeHtml(t.error)}`);
+    if (p.configured && !p.connected && p.error) hint('bad', `<b>The pool's status can't be read.</b> ${escapeHtml(p.error)}`);
+    else if (p.configured && p.stale) hint('bad', '<b>ckpool stopped writing its status.</b> Check that it runs: <span class="mono">systemctl status ckpool</span> on the node.');
     fill('notices', parts.join(''));
     fill('nodata', `<div class="panel-body"><div class="empty-state">${n.configured ? 'Waiting for the first answer from Bitcoin Core…' : 'Nothing to show until a node is set up.'}</div></div>`);
     document.querySelectorAll('.tab[data-tab="lightning"]').forEach(tab => { tab.hidden = !ln.configured; });
+    document.querySelectorAll('.tab[data-tab="pool"]').forEach(tab => { tab.hidden = !p.configured; });
 }
 
 function renderStatusbar() {
@@ -392,6 +395,7 @@ function renderStatusbar() {
     }
     if (s.lightning.configured) parts.push(`<span class="sb-extra">${dot(s.lightning.connected)} LND <b>${escapeHtml(s.lightning.version || '')}</b></span>`);
     if (s.tor.configured) parts.push(`<span class="sb-extra">${dot(s.tor.connected && s.tor.bootstrap === 100)} Tor <b>${escapeHtml(s.tor.version || '')}</b></span>`);
+    if (s.pool.configured) parts.push(`<span class="sb-extra">${dot(s.pool.connected && !s.pool.stale)} Pool <b>${num(s.pool.active_workers)}</b> mining</span>`);
     if (s.mqtt.broker) parts.push(`<span class="sb-extra">MQTT <b class="${s.mqtt.connected ? 'sb-ok' : 'sb-bad'}">${s.mqtt.connected ? 'connected' : 'offline'}</b></span>`);
     parts.push('<span class="sb-extra">read-only</span>');
     parts.push(`<span class="spacer"></span><span class="sb-extra">Bitcoin Node app ${escapeHtml(s.version)} · unofficial</span>`);

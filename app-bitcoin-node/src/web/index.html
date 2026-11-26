@@ -24,6 +24,7 @@
             <button type="button" class="tab" data-tab="peers" onclick="switchTab('peers')">Peers</button>
             <button type="button" class="tab" data-tab="lightning" onclick="switchTab('lightning')">Lightning</button>
             <button type="button" class="tab" data-tab="tor" onclick="switchTab('tor')">Tor</button>
+            <button type="button" class="tab" data-tab="pool" onclick="switchTab('pool')" hidden>Pool</button>
             <span class="tab-sep" aria-hidden="true"></span>
             <button type="button" class="tab" data-tab="info" onclick="switchTab('info')" title="Info"><span class="tab-label">Info</span><span class="tab-icon" aria-hidden="true">ⓘ</span></button>
         </nav>
@@ -45,6 +46,7 @@
                 <div id="tab-peers" class="tab-content"></div>
                 <div id="tab-lightning" class="tab-content"></div>
                 <div id="tab-tor" class="tab-content"></div>
+                <div id="tab-pool" class="tab-content"></div>
                 <div id="tab-info" class="tab-content"></div>
             </div>
         </div>
@@ -58,6 +60,7 @@
     <script src="static/charts.js?v=__VERSION__"></script>
     <script src="static/node.js?v=__VERSION__"></script>
     <script src="static/lightning.js?v=__VERSION__"></script>
+    <script src="static/pool.js?v=__VERSION__"></script>
     <script src="static/main.js?v=__VERSION__"></script>
     <script src="static/donate.js?v=__VERSION__" data-app="Bitcoin Node" data-api="api/donate"></script>
 </body>

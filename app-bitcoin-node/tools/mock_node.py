@@ -63,6 +63,9 @@ RELAYS = [
     "ForPrivacyNET",
     "TorNodeNL",
 ]
+# The mining pool: a payout address and two small miners on it
+POOL_ADDRESS = "bc1qmockpooladdress0000000000000000000000solo"
+POOL_WORKERS = (("bitaxe", 1.15e12), ("lv08", 4.4e12))
 PURPOSES = (
     ["GENERAL"] * 4 + ["HS_SERVICE_INTRO"] * 6 + ["HS_SERVICE_REND"] * 5 + ["HS_CLIENT_REND"] * 4 + ["HS_VANGUARDS"] * 3
 )
@@ -596,6 +599,82 @@ class MockNode:
             return {"node": {"alias": self.graph.get(path.rsplit("/", 1)[1], "")}}
         raise KeyError(path)
 
+    # ------------------------------------------------------------------ ckpool's status files
+    def pool_rate(self, rate: float, t: float, key: str) -> float:
+        """A miner's hashrate wobbles a few percent from minute to minute."""
+        return rate * (1 + 0.04 * math.sin(t / 97 + len(key)) + 0.02 * math.sin(t / 13))
+
+    def pool_files(self) -> dict[str, str]:
+        now = time.time()
+        started = self.started + 20 * 86400
+
+        def text(h: float) -> str:
+            # ckpool's suffix_string: three significant digits and a letter
+            for letter, size in (("E", 1e18), ("P", 1e15), ("T", 1e12), ("G", 1e9), ("M", 1e6), ("K", 1e3)):
+                if h >= size:
+                    return f"{h / size:.3g}{letter}"
+            return str(int(h))
+
+        def rates(h: float) -> dict:
+            return {
+                f"hashrate{k}": text(h * f)
+                for k, f in (("1m", 1.01), ("5m", 1.0), ("1hr", 0.99), ("1d", 0.98), ("7d", 0.97))
+            }
+
+        workers = []
+        for index, (name, rate) in enumerate(POOL_WORKERS):
+            h = self.pool_rate(rate, now, name)
+            workers.append(
+                {
+                    "workername": f"{POOL_ADDRESS}.{name}",
+                    **rates(h),
+                    "lastshare": int(now - 4 - index * 7),
+                    "shares": int((now - started) * rate / 2**32 / 1000),
+                    "bestshare": 2.4e7 * (index + 1),
+                    "bestever": int(8.9e10 / (index + 1.5)),
+                }
+            )
+        total = sum(self.pool_rate(rate, now, name) for name, rate in POOL_WORKERS)
+        user = {
+            **{k: v for k, v in rates(total).items() if k != "hashrate15m"},
+            "lastshare": int(now - 4),
+            "workers": len(workers),
+            "shares": sum(w["shares"] for w in workers),
+            "bestshare": max(w["bestshare"] for w in workers),
+            "bestever": max(w["bestever"] for w in workers),
+            "authorised": int(started),
+            "worker": workers,
+        }
+        status = (
+            "\n".join(
+                json.dumps(line)
+                for line in (
+                    {
+                        "runtime": int(now - started),
+                        "lastupdate": int(now - (now - started) % 60),
+                        "Users": 1,
+                        "Workers": len(workers),
+                        "Idle": 0,
+                        "Disconnected": 0,
+                    },
+                    {**rates(total), "hashrate15m": text(total), "hashrate6hr": text(total * 0.99)},
+                    {
+                        "diff": 0.3,
+                        "accepted": user["shares"] * 1000,
+                        "rejected": 1200,
+                        "bestshare": user["bestshare"],
+                        "SPS1m": 0.42,
+                        "SPS5m": 0.4,
+                        "SPS15m": 0.41,
+                        "SPS1h": 0.4,
+                    },
+                )
+            )
+            + "\n"
+        )
+        listing = f'<html><body><ul><li><a href="{POOL_ADDRESS}">{POOL_ADDRESS}</a></li></ul></body></html>'
+        return {"pool/pool.status": status, "users/": listing, f"users/{POOL_ADDRESS}": json.dumps(user, indent=1)}
+
     # ------------------------------------------------------------------ Tor's control port
     def tor_info(self, key: str) -> str:
         if key == "version":
@@ -644,6 +723,21 @@ def rpc_app(node: MockNode) -> web.Application:
 
     app = web.Application(client_max_size=4 * 1024 * 1024)
     app.router.add_post("/", handle)
+    return app
+
+
+def pool_app(node: MockNode) -> web.Application:
+    """ckpool's logs folder as Python's http.server would serve it."""
+
+    async def handle(request: web.Request) -> web.Response:
+        files = node.pool_files()
+        path = request.path.lstrip("/")
+        if path not in files:
+            raise web.HTTPNotFound()
+        return web.Response(text=files[path], content_type="text/html" if path.endswith("/") else "text/plain")
+
+    app = web.Application()
+    app.router.add_get("/{tail:.*}", handle)
     return app
 
 
@@ -705,17 +799,29 @@ async def tor_server(node: MockNode, host: str, port: int) -> asyncio.Server:
 def seed_database(node: MockNode, path: Path) -> None:
     """Thirty days of samples and a few events in the app's own database, so the charts aren't empty."""
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from src.database import SERIES, Database
+    from src.database import POOL_SERIES, SERIES, Database
 
     path.parent.mkdir(parents=True, exist_ok=True)
     database = Database(path)
     with database._lock:
         database._db.execute("DELETE FROM samples")
+        database._db.execute("DELETE FROM pool_samples")
         database._db.execute("DELETE FROM events")
         for index, (ts, s) in enumerate(zip(node.ts, node.samples, strict=True)):
             values = {**s, "size_on_disk": 792.4e9 - (len(node.ts) - index) * STEP * 2700}
             row = (ts, *(values.get(name) for name in SERIES))
             database._db.execute(f"INSERT OR REPLACE INTO samples VALUES ({', '.join('?' * len(row))})", row)
+            # The pool started ten days ago
+            if ts > node.ts[-1] - 10 * 86400:
+                rate = sum(node.pool_rate(r, ts, name) for name, r in POOL_WORKERS)
+                rate *= 0 if (ts // 3600) % 97 == 0 else 1  # now and then an hour with both miners off
+                pool = {
+                    "pool_hashrate": rate,
+                    "pool_hashrate_hour": sum(r for _, r in POOL_WORKERS),
+                    "pool_workers": 2 if rate else 0,
+                }
+                row = (ts, *(pool[name] for name in POOL_SERIES))
+                database._db.execute(f"INSERT OR REPLACE INTO pool_samples VALUES ({', '.join('?' * len(row))})", row)
         database._db.commit()
     for height in sorted(node.blocks)[-6:]:
         b = node.blocks[height]
@@ -734,13 +840,13 @@ async def serve(args) -> None:
     node = MockNode(args.seed, args.fast, args.syncing)
     if args.seed_db:
         seed_database(node, Path(args.seed_db))
-    for app, port in ((rpc_app(node), args.rpc_port), (lnd_app(node), args.lnd_port)):
+    for app, port in ((rpc_app(node), args.rpc_port), (lnd_app(node), args.lnd_port), (pool_app(node), args.pool_port)):
         runner = web.AppRunner(app, access_log=None)
         await runner.setup()
         await web.TCPSite(runner, args.host, port).start()
     await tor_server(node, args.host, args.tor_port)
     print(
-        f"Mock node: Bitcoin Core RPC on {args.host}:{args.rpc_port}, LND REST on {args.lnd_port}, Tor control on {args.tor_port}"
+        f"Mock node: Bitcoin Core RPC on {args.host}:{args.rpc_port}, LND REST on {args.lnd_port}, Tor control on {args.tor_port}, ckpool status on {args.pool_port}"
     )
     await asyncio.Event().wait()
 
@@ -751,6 +857,7 @@ def main() -> None:
     parser.add_argument("--rpc-port", type=int, default=18443)
     parser.add_argument("--lnd-port", type=int, default=18080)
     parser.add_argument("--tor-port", type=int, default=19051)
+    parser.add_argument("--pool-port", type=int, default=13380)
     parser.add_argument("--seed", type=int, default=21)
     parser.add_argument(
         "--fast", action="store_true", help="a new block every 40 seconds or so instead of every 10 minutes"

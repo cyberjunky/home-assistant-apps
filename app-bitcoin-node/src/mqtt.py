@@ -1,7 +1,7 @@
 """MQTT publishing with Home Assistant discovery.
 
-Bitcoin Core, LND and Tor each become a device in Home Assistant, the last two only when they are
-set up. A device's state is one retained JSON message on "<base_topic>/<device>/state", published
+Bitcoin Core, LND, Tor and the mining pool each become a device in Home Assistant, the last three
+only when they are set up. A device's state is one retained JSON message on "<base_topic>/<device>/state", published
 when it changed, at most once per PUBLISH_INTERVAL; the sensors pick their value from it. They
 become unavailable while the service can't be reached, except "Connected", which tells you so.
 
@@ -76,6 +76,14 @@ TOR_SENSORS = (
     ("sent", "Sent", "GB", "mdi:upload", "data_size", "total_increasing", False),
     ("version", "Tor version", None, "mdi:information-outline", None, None, True),
 )
+POOL_SENSORS = (
+    ("hashrate", "Pool hashrate", "TH/s", "mdi:pickaxe", None, "measurement", False),
+    ("hashrate_hour", "Pool hashrate 1 hour", "TH/s", "mdi:pickaxe", None, "measurement", False),
+    ("workers_mining", "Workers mining", None, "mdi:server-network", None, "measurement", False),
+    ("best_share", "Best share ever", None, "mdi:trophy-outline", None, "measurement", False),
+    ("chance_day", "Chance of a block per day", "%", "mdi:dice-multiple", None, "measurement", False),
+    ("chance_year", "Chance of a block per year", "%", "mdi:dice-multiple", None, "measurement", False),
+)
 # key, name, device_class, icon: on/off values in the same state message
 BITCOIN_BINARY = (
     ("synced", "In sync", None, "mdi:check-network-outline"),
@@ -87,6 +95,7 @@ LIGHTNING_BINARY = (
     ("channels_problem", "Channel offline", "problem", None),
     ("backup_problem", "Channel backup incomplete", "problem", None),
 )
+POOL_BINARY = (("worker_problem", "Worker offline", "problem", None),)
 EVENT_TYPES = {
     "bitcoin": ("block", "synced", "node"),
     "lightning": (
@@ -100,11 +109,13 @@ EVENT_TYPES = {
         "backup",
         "node",
     ),
+    "pool": ("block_found", "worker_offline", "worker_online", "pool"),
 }
 DEVICES = {
     "bitcoin": ("Bitcoin Core", "Bitcoin Core", BITCOIN_SENSORS, BITCOIN_BINARY, "Node events"),
     "lightning": ("Lightning", "LND", LIGHTNING_SENSORS, LIGHTNING_BINARY, "Lightning events"),
     "tor": ("Tor", "Tor", TOR_SENSORS, (), None),
+    "pool": ("Mining pool", "ckpool", POOL_SENSORS, POOL_BINARY, "Pool events"),
 }
 
 
@@ -190,7 +201,26 @@ def tor_payload(node: Node, now: float) -> dict:
     return {key: value for key, value in values.items() if value is not None}
 
 
-PAYLOADS = {"bitcoin": bitcoin_payload, "lightning": lightning_payload, "tor": tor_payload}
+def pool_payload(node: Node, now: float) -> dict:
+    pool = node.pool
+    if not pool.updated:
+        return {}
+    status = pool.status(node.bitcoin.hashrate)
+    workers = pool.workers()
+    odds = status["odds"]
+    values = {
+        "hashrate": _round(status["hashrate"].get("5m"), 3, 1e12),
+        "hashrate_hour": _round(status["hashrate"].get("1hr"), 3, 1e12),
+        "workers_mining": status["active_workers"],
+        "best_share": _round(status["best_ever"], 0),
+        "chance_day": _round(odds.get("day", 0) * 100, 6) if odds else None,
+        "chance_year": _round(odds.get("year", 0) * 100, 4) if odds else None,
+        "worker_problem": bool(workers) and status["active_workers"] < len(workers),
+    }
+    return {key: value for key, value in values.items() if value is not None}
+
+
+PAYLOADS = {"bitcoin": bitcoin_payload, "lightning": lightning_payload, "tor": tor_payload, "pool": pool_payload}
 
 
 def device_info(node: Node, key: str) -> dict:
@@ -201,11 +231,13 @@ def device_info(node: Node, key: str) -> dict:
         "bitcoin": node.bitcoin.chain.get("chain", ""),
         "lightning": node.lightning.info.get("alias", ""),
         "tor": "",
+        "pool": "solo",
     }[key]
     host = {
         "bitcoin": host_of(node.config.bitcoin_url),
         "lightning": host_of(node.config.lnd_url),
         "tor": node.config.tor_control,
+        "pool": host_of(node.config.pool_url),
     }[key]
     return {
         "identifiers": [f"bitcoin_node_{key}"],

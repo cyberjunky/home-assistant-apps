@@ -37,11 +37,17 @@ SERIES = (
     "tor_written_rate",
     "size_on_disk",
 )
+# The mining pool's series, in a table of their own beside samples, with the same ts
+POOL_SERIES = ("pool_hashrate", "pool_hashrate_hour", "pool_workers")
 
 SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS samples (
     ts INTEGER PRIMARY KEY,
     {", ".join(f"{name} REAL" for name in SERIES)}
+);
+CREATE TABLE IF NOT EXISTS pool_samples (
+    ts INTEGER PRIMARY KEY,
+    {", ".join(f"{name} REAL" for name in POOL_SERIES)}
 );
 CREATE TABLE IF NOT EXISTS blocks (
     height INTEGER PRIMARY KEY,
@@ -89,8 +95,12 @@ class Database:
         row = (int(now), *(values.get(name) for name in SERIES))
         with self._lock:
             self._db.execute(f"INSERT OR REPLACE INTO samples VALUES ({', '.join('?' * len(row))})", row)
+            if any(values.get(name) is not None for name in POOL_SERIES):
+                pool = (int(now), *(values.get(name) for name in POOL_SERIES))
+                self._db.execute(f"INSERT OR REPLACE INTO pool_samples VALUES ({', '.join('?' * len(pool))})", pool)
             if now - self._pruned > 86400:
                 self._db.execute("DELETE FROM samples WHERE ts < ?", (now - self.history_days * 86400,))
+                self._db.execute("DELETE FROM pool_samples WHERE ts < ?", (now - self.history_days * 86400,))
                 self._db.execute("DELETE FROM events WHERE ts < ?", (now - EVENT_DAYS * 86400,))
                 self._pruned = now
             self._db.commit()
@@ -106,9 +116,20 @@ class Database:
                 f"SELECT (ts / ?) * ? AS t, {columns} FROM samples WHERE ts >= ? AND ts <= ? GROUP BY t ORDER BY t",
                 (step, step, start, end),
             ).fetchall()
+            pool_columns = ", ".join(f"AVG({name})" for name in POOL_SERIES)
+            pool_rows = self._db.execute(
+                f"SELECT (ts / ?) * ? AS t, {pool_columns} FROM pool_samples WHERE ts >= ? AND ts <= ? GROUP BY t",
+                (step, step, start, end),
+            ).fetchall()
         out: dict = {"start": start, "end": end, "step": step, "ts": [row[0] for row in rows]}
         for index, name in enumerate(SERIES, 1):
             out[name] = [None if row[index] is None else round(row[index], 2) for row in rows]
+        pool = {row[0]: row[1:] for row in pool_rows}
+        for index, name in enumerate(POOL_SERIES):
+            out[name] = [
+                None if pool.get(row[0]) is None or pool[row[0]][index] is None else round(pool[row[0]][index], 2)
+                for row in rows
+            ]
         return out
 
     def growth(self, days: int = 30, now: float | None = None) -> dict | None:
@@ -196,6 +217,7 @@ class Database:
         with self._lock:
             removed = {
                 "samples": self._db.execute("DELETE FROM samples").rowcount,
+                "pool_samples": self._db.execute("DELETE FROM pool_samples").rowcount,
                 "events": self._db.execute("DELETE FROM events").rowcount,
             }
             self._db.commit()

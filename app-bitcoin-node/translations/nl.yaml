@@ -48,6 +48,15 @@ configuration:
       password:
         name: Wachtwoord
         description: Het wachtwoord achter HashedControlPassword in torrc.
+  pool:
+    name: Miningpool (ckpool)
+    description: >-
+      Optioneel. De logs-map van ckpool, alleen-lezen via HTTP gedeeld op de
+      node, voor de Pool-pagina. Zie de documentatie.
+    fields:
+      url:
+        name: Adres
+        description: Adres van die map, bijvoorbeeld http://192.168.1.50:3380.
   poll_seconds:
     name: Lezen elke (seconden)
     description: Hoe vaak de node wordt gelezen.

@@ -507,3 +507,9 @@ td.liq-cell.pending .liq { opacity: 0.45; }
 #nodata { margin-bottom: 14px; }
 .tab[hidden] { display: none; }
 .warn-text { color: var(--warning-color); }
+
+/* Pool: how close each worker's best share came to a block */
+.close-row + .close-row { margin-top: 12px; }
+.close-name { font-size: 13px; font-weight: 500; }
+.close-row .share-bar { margin-top: 6px; }
+.share-bar.pos i { background: var(--success-color); }
