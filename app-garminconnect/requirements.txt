@@ -1,0 +1,5 @@
+# Python dependencies for the Garmin Connect app (installed in the Dockerfile).
+# aiohttp        - web server and ingress
+# garminconnect  - Garmin Connect sign-in (MFA) and every request to it
+aiohttp>=3.14.5,<4
+garminconnect>=0.3.20,<0.4

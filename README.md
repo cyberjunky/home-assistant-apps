@@ -132,6 +132,19 @@ bot appears in Home Assistant over MQTT, with an event for every trade.
 
 [:books: Documentation](app-freqtrade/DOCS.md) · [:memo: Changelog](app-freqtrade/CHANGELOG.md) · [:lock: Security](app-freqtrade/SECURITY.md)
 
+### <img src="app-garminconnect/icon.png" alt="" width="36" align="absmiddle"> [Garmin Connect](app-garminconnect/)
+
+![Version][garminconnect-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+Unofficial Garmin Connect history and statistics, opened from the sidebar. Fetches your whole
+history and shows what the Garmin site doesn't: what goes with a good night, social jetlag,
+streaks, days your body looked off, Eddington numbers and a heat map of every track. Standalone;
+no cloud, no telemetry.
+
+[:books: Documentation](app-garminconnect/DOCS.md) · [:memo: Changelog](app-garminconnect/CHANGELOG.md) · [:lock: Security](app-garminconnect/SECURITY.md)
+
 ### <img src="app-goodwe/icon.png" alt="" width="36" align="absmiddle"> [GoodWe](app-goodwe/)
 
 ![Version][goodwe-version-shield]
@@ -433,6 +446,7 @@ software each app packages keeps its own license, noted in the app's README.
 [meldkamer-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-meldkamer%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [marshal-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-marshal%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [mqtt-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-mqtt%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[garminconnect-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-garminconnect%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [tesla-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-tesla%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [toon-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-toon%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [arcade-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-arcade%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge

@@ -1,0 +1,115 @@
+/* Garmin Connect dashboard: what app.css (shared with the Tesla app) doesn't have. */
+.muted { color: var(--muted-text-color); }
+.good { color: var(--success-color); }
+.bad { color: var(--danger-color); }
+.setup-hint { flex-shrink: 0; }
+.sport-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; flex-shrink: 0; vertical-align: 0; }
+.badge.off { background: var(--hover-bg); color: var(--muted-text-color); }
+
+/* Today */
+.today-tiles .tile .v { display: flex; align-items: center; gap: 10px; }
+.ring { width: 34px; height: 34px; transform: rotate(-90deg); flex-shrink: 0; }
+.ring circle { fill: none; stroke-width: 4; }
+.ring-track { opacity: 0.18; }
+.ring-fill { stroke-linecap: round; transition: stroke-dasharray 0.6s; }
+.fun-one p { font-size: 15px; line-height: 1.6; }
+.fun-one b { font-family: var(--mono); }
+.panel .activity-row { padding: 8px 4px; }
+.panel .activity-row .ico { align-items: center; }
+
+/* Activities list */
+.acts .feed-head, .acts .feed-row { grid-template-columns: 96px minmax(140px, 1fr) 76px 64px 76px 40px 44px; }
+.acts .feed-row .route { display: flex; align-items: center; }
+@media (max-width: 1300px) {
+    .acts .feed-head, .acts .feed-row { grid-template-columns: 96px minmax(120px, 1fr) 76px 64px 76px; }
+    .acts .col-hr, .acts .col-load { display: none; }
+}
+@media (max-width: 700px) {
+    .acts .feed-head, .acts .feed-row { grid-template-columns: 90px minmax(0, 1fr) 76px; }
+    .acts .col-dur, .acts .col-pace { display: none; }
+}
+.detail-head .sport-dot { width: 11px; height: 11px; margin-right: 0; }
+
+/* Insights: the fun totals */
+.fun-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1px; background: var(--divider-color); border: var(--card-border); border-radius: 6px; overflow: hidden; margin-bottom: 14px; }
+.fun-grid:empty { display: none; }
+.fun-card { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--ha-card-background); }
+.fun-icon { font-size: 26px; line-height: 1; }
+.fun-card .v { font-family: var(--mono); font-size: 20px; font-weight: 600; line-height: 1.2; }
+.fun-card .l { font-size: 12px; color: var(--secondary-text-color); }
+
+/* What goes with a good night */
+.effects { display: flex; flex-direction: column; gap: 6px; }
+.effect { display: grid; grid-template-columns: minmax(0, 1fr) 160px 72px; align-items: center; gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--divider-color); font-size: 13px; }
+.effect:last-child { border-bottom: none; }
+.effect-text b { font-family: var(--mono); }
+.effect-bar { height: 8px; border-radius: 4px; background: var(--hover-bg); overflow: hidden; }
+.effect-bar i { display: block; height: 100%; border-radius: 4px; }
+.effect-bar i.good { background: var(--success-color); }
+.effect-bar i.bad { background: var(--danger-color); }
+.effect-diff { font-family: var(--mono); font-size: 12.5px; text-align: right; white-space: nowrap; }
+@media (max-width: 700px) { .effect { grid-template-columns: minmax(0, 1fr) 64px; } .effect-bar { display: none; } }
+
+/* Days the body looked off */
+.alert-row { width: 100%; display: grid; grid-template-columns: 92px minmax(0, 1fr) 44px; gap: 10px; align-items: center; padding: 7px 2px; border: 0; border-bottom: 1px solid var(--divider-color); background: transparent; color: inherit; font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
+.alert-row:hover { background: var(--hover-bg); }
+.alert-day { font-family: var(--mono); color: var(--secondary-text-color); }
+.alert-rise { font-family: var(--mono); color: var(--warning-color); text-align: right; }
+
+/* Your week */
+.week-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); align-items: end; gap: 12px; padding: 6px 0; }
+.week-label { font-size: 12px; color: var(--secondary-text-color); align-self: center; }
+.week-bars { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; height: 52px; }
+.week-day { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 2px; height: 100%; }
+.week-day i { display: block; width: 100%; max-width: 26px; border-radius: 3px 3px 0 0; background: var(--seq-2); }
+.week-day.best i { background: var(--series-2); }
+.week-day span { font-size: 10px; font-family: var(--mono); color: var(--muted-text-color); }
+
+/* The calendar of days */
+.calendar { overflow-x: auto; padding-bottom: 4px; }
+.cal-months { display: grid; font-size: 10px; color: var(--muted-text-color); font-family: var(--mono); margin-bottom: 3px; height: 13px; }
+.cal-months span { white-space: nowrap; }
+.cal { display: flex; gap: 3px; }
+.cal-week { display: grid; grid-template-rows: repeat(7, 10px); gap: 3px; }
+.cal i, .cal-key { display: block; width: 10px; height: 10px; border-radius: 2px; background: var(--grid-color); }
+.cal i.out { background: transparent; }
+.cal i[data-day] { cursor: pointer; }
+.cal i[data-day]:hover { outline: 1px solid var(--primary-text-color); }
+/* The one-hue ramp runs from faint (1) to strong (5) in both themes */
+.cal .l1, .cal-key.l1 { background: var(--seq-1); }
+.cal .l2, .cal-key.l2 { background: var(--seq-2); }
+.cal .l3, .cal-key.l3 { background: var(--seq-3); }
+.cal .l4, .cal-key.l4 { background: var(--seq-4); }
+.cal .l5, .cal-key.l5 { background: var(--seq-5); }
+.cal-legend { align-items: center; gap: 4px; }
+.cal-legend span { margin: 0 4px; }
+
+/* Settings: the data sets and how far back each one is */
+.settings-grid .wide-panel { grid-column: 1 / -1; }
+.datasets { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 10px 24px; }
+.ds-group { border: var(--card-border); border-radius: 6px; padding: 6px 12px 8px; }
+.ds-head { display: flex; justify-content: space-between; align-items: center; padding: 4px 0 6px; font-weight: 600; font-size: 12.5px; }
+.ds-row { display: grid; grid-template-columns: minmax(0, 1fr) 90px 130px; gap: 10px; align-items: center; padding: 3px 0; font-size: 12.5px; }
+.ds-row.off { color: var(--muted-text-color); }
+.ds-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-bar .track { display: block; height: 6px; border-radius: 3px; background: var(--series-wash); overflow: hidden; }
+.ds-bar .track i { display: block; height: 100%; background: var(--series-1); border-radius: 3px; transition: width 0.6s; }
+.ds-state { font-family: var(--mono); font-size: 11.5px; text-align: right; white-space: nowrap; color: var(--secondary-text-color); }
+
+/* Tiles: a part-filled last row stays white instead of showing the divider colour */
+.tiles, .fun-grid { background: var(--ha-card-background); gap: 0; }
+.tiles .tile, .fun-grid .fun-card { box-shadow: 1px 0 0 var(--divider-color), 0 1px 0 var(--divider-color); }
+.datasets { align-items: start; }
+#sport-types .bar-row, #gear .bar-row { grid-template-columns: minmax(0, 1fr) minmax(60px, 1fr) minmax(0, 1.4fr); }
+
+/* The night: one row per stage, deep at the bottom */
+.hypno { position: relative; height: 64px; margin-top: 12px; border-radius: 4px; background: var(--hover-bg); overflow: hidden; }
+.hypno i { position: absolute; height: 25%; border-radius: 2px; }
+.hypno-axis { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10px; color: var(--muted-text-color); margin-top: 3px; }
+
+/* Laps and strength sets */
+.laps { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.laps th { text-align: right; font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--secondary-text-color); padding: 4px 6px; border-bottom: 1px solid var(--divider-color); }
+.laps td { text-align: right; font-family: var(--mono); padding: 4px 6px; border-bottom: 1px solid var(--divider-color); }
+.laps th:nth-child(2), .laps td:nth-child(2) { text-align: left; }
+.laps th:first-child, .laps td:first-child { text-align: left; color: var(--muted-text-color); width: 28px; }
