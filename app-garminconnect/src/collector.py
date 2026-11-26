@@ -30,6 +30,8 @@ RETRY_AFTER = 5 * 60
 TRACKS_PER_TURN = 5
 # Activity details: three or four requests per activity, so fewer per turn
 DETAILS_PER_TURN = 2
+# The order in which the kinds of history take their turns (see history_turn)
+ROTATION = ("quick", "day", "quick", "backlog")
 MAX_TRACK_POINTS = 800
 
 
@@ -51,6 +53,7 @@ class Collector:
         self.last_error = ""
         self._wake = asyncio.Event()
         self._turn = 0
+        self._next = {"quick": 0, "day": 0, "backlog": 0}
 
     # ------------------------------------------------------------------
     # Which data sets, and from when
@@ -314,28 +317,39 @@ class Collector:
             await asyncio.sleep(PAUSE_BETWEEN_REQUESTS)
             return True
         pending = self._history_pending()
-        tracks_due = self.config.enabled("activity_tracks") and bool(self.db.activities_without_track(1))
-        details_due = self.config.enabled("activity_details") and bool(self.db.activities_without_details(1))
-        if not pending and not tracks_due and not details_due:
+        quick = [d for d in pending if d.kind != "day"]
+        daily = [d for d in pending if d.kind == "day"]
+        backlog = []
+        if self.config.enabled("activity_tracks") and self.db.activities_without_track(1):
+            backlog.append("tracks")
+        if self.config.enabled("activity_details") and self.db.activities_without_details(1):
+            backlog.append("details")
+        work = {"quick": quick, "day": daily, "backlog": backlog}
+        if not any(work.values()):
             return False
         self.phase = "importing history"
+        # A fixed rotation, so every kind of history makes progress at the same time: the sets that
+        # take months per request, those that take a request per day, and the activities' tracks
+        # and details. A kind with nothing left gives its turn to the next one.
+        slot = self._turn % len(ROTATION)
+        kind = next(
+            ROTATION[(slot + i) % len(ROTATION)]
+            for i in range(len(ROTATION))
+            if work[ROTATION[(slot + i) % len(ROTATION)]]
+        )
         self._turn += 1
-        # Every few turns the activities get their tracks and details, newest first
-        backlog_turn = not pending or self._turn % 4 in (0, 2)
-        if backlog_turn and tracks_due and (self._turn % 4 == 0 or not details_due):
+        choices = work[kind]
+        pick = choices[self._next[kind] % len(choices)]
+        self._next[kind] += 1
+        if pick == "tracks":
             self.current = "Activity tracks"
             await self._fetch_tracks(TRACKS_PER_TURN, pause=True)
-            return True
-        if backlog_turn and details_due:
+        elif pick == "details":
             self.current = "Activity details"
             await self._fetch_details(DETAILS_PER_TURN, pause=True)
-            return True
-        # The day curves need a request per day: they get a turn only every other round
-        quick = [d for d in pending if d.kind != "day"]
-        candidates = quick if quick and self._turn % 2 else pending
-        dataset = candidates[self._turn // 2 % len(candidates)]
-        await self._history_piece(dataset)
-        await asyncio.sleep(PAUSE_BETWEEN_REQUESTS)
+        else:
+            await self._history_piece(pick)
+            await asyncio.sleep(PAUSE_BETWEEN_REQUESTS)
         return True
 
     async def _history_piece(self, dataset: Dataset) -> None:
