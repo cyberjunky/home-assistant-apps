@@ -162,3 +162,15 @@ async def test_refused_stretch_is_not_asked_for_again(collector, db, monkeypatch
     await collector.update()
     # Only the last days again, not the refused stretch
     assert asked and min(asked) >= date.today() - timedelta(days=summaries.recent_days * 2)
+
+
+async def test_every_kind_of_history_gets_turns(collector, db):
+    """The day curves don't wait for every activity's details: within a round each kind moves."""
+    await collector.update()
+    seen = []
+    for _ in range(8):
+        await collector.history_turn()
+        seen.append(collector.current)
+    assert "Heart rate, stress and Body Battery through the day" in seen
+    assert {"Activity tracks", "Activity details"} & set(seen)
+    assert len(set(seen)) >= 5

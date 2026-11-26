@@ -21,6 +21,56 @@ function tileLayer() {
 }
 tileLayer().addTo(map);
 const trackLayer = L.layerGroup().addTo(map);
+// leaflet.heat sizes its canvas when the map moves, not when the map itself changes size (a splitter,
+// the view becoming visible): redraw it then too, or the heat stops at the old edge
+map.on('resize', () => { if (mapHeat) mapHeat._reset(); });
+
+// ----- Heat maps: where you've been, from the ~100 m cells the server keeps per activity -----
+const HEAT_OPTIONS = {
+    radius: 7, blur: 6, minOpacity: 0.5, maxZoom: 12,
+    // One hue, light to dark with how often you passed (as on the Tesla app's map)
+    gradient: {0.3: '#86b6ef', 0.6: '#3987e5', 1.0: '#184f95'},
+};
+function heatLatLngs(points) {
+    const max = Math.max(1, ...points.map(p => p[2]));
+    return points.map(p => [p[0], p[1], Math.min(1, 0.35 + p[2] / max)]);
+}
+// leaflet.heat always draws into the overlay pane, after (so over) the tracks: move it underneath
+function heatBelowTracks(layer) {
+    const canvas = layer._canvas;
+    if (canvas && canvas.parentNode) canvas.parentNode.insertBefore(canvas, canvas.parentNode.firstChild);
+}
+
+let mapHeat = null;
+let mapHeatRetry = null;
+async function loadMapHeat() {
+    const select = document.getElementById('map-heat');
+    clearTimeout(mapHeatRetry);
+    try { localStorage.setItem(LS + 'map_heat', select.value); } catch (e) { /* private window */ }
+    if (select.value === '') {
+        if (mapHeat) { map.removeLayer(mapHeat); mapHeat = null; }
+        return;
+    }
+    const days = Number(select.value);
+    const end = app.today || isoDay(new Date());
+    const start = days ? addDays(end, -(days - 1)) : firstDay();
+    const family = document.getElementById('acts-family').value;
+    select.disabled = true;
+    map.invalidateSize();
+    try {
+        const data = await api(`activities/heat?start=${start}&end=${end}${family ? '&family=' + family : ''}`);
+        if (mapHeat) map.removeLayer(mapHeat);
+        mapHeat = L.heatLayer(heatLatLngs(data.points || []), HEAT_OPTIONS).addTo(map);
+        heatBelowTracks(mapHeat);
+        if (!(data.points || []).length && !data.pending) toast('No tracks in this period');
+        // Tracks fetched before this version are still being mapped: fill in as they come
+        if (data.pending) mapHeatRetry = setTimeout(loadMapHeat, 5000);
+    } catch (e) {
+        toast(e.message, 'error');
+    } finally {
+        select.disabled = false;
+    }
+}
 
 function pinIcon(label, kind) {
     return L.divIcon({className: '', html: `<div class="pin ${kind || ''}">${escapeHtml(label)}</div>`, iconSize: [22, 22], iconAnchor: [11, 11]});
@@ -212,4 +262,8 @@ function openActivity(id) {
 onTab('activities', () => {
     requestAnimationFrame(() => map.invalidateSize());
     loadActivities();
+    const heat = document.getElementById('map-heat');
+    let saved = '';
+    try { saved = localStorage.getItem(LS + 'map_heat') || ''; } catch (e) { /* private window */ }
+    if (heat.value !== saved || (saved && !mapHeat)) { heat.value = saved; loadMapHeat(); }
 });
