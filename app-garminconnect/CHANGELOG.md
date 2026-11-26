@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3
+
+**After updating:** nothing to do.
+
+- **Tracks instead of dots up close:** zoomed in to street level (zoom 14 and up), the heat maps on Activities and Records draw your actual tracks in view as thin, see-through lines, so the streets you take most come out darkest. Before, the places of about 100 m the heat map is built from showed as a grid of dots there. Zoomed out, the heat map is as before.
+
 ## 0.1.2
 
 **After updating:** nothing to do. Tracks fetched before are mapped for the heat maps in the background right after the start; the maps say "mapping … tracks" until that's done.
