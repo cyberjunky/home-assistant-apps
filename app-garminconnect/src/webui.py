@@ -20,7 +20,7 @@ from .account import GarminAccount, SignInError
 from .collector import Collector
 from .config import ADDON_VERSION, DATA_DIR, Config
 from .database import Database, backup_copy
-from .datasets import GROUP_TITLES
+from .datasets import GROUP_TITLES, activity_curves, activity_laps, activity_sets
 from .donate import DonatePrompt
 from .ha_client import HAClient, HAClientError
 
@@ -331,6 +331,24 @@ class WebUI:
             if body.get(k) is not None
         }
         row["track"] = self.db.track(activity_id) or []
+        details = self.db.activity_details(activity_id) or {}
+        row["details_fetched"] = bool(details)
+        row["laps"] = activity_laps(details.get("splits"))
+        row["curves"] = activity_curves(details.get("details"))
+        row["sets"] = activity_sets(details.get("sets"))
+        weather = details.get("weather") if isinstance(details.get("weather"), dict) else {}
+        row["weather"] = (
+            {
+                "temp": weather.get("temp"),
+                "apparent_temp": weather.get("apparentTemp"),
+                "humidity": weather.get("relativeHumidity"),
+                "wind_speed": weather.get("windSpeed"),
+                "wind_from": weather.get("windDirectionCompassPoint"),
+                "description": (weather.get("weatherTypeDTO") or {}).get("desc"),
+            }
+            if weather
+            else None
+        )
         # What the day looked like around it: the Body Battery and stress curves of that day
         row["day_bb"] = (self.db.intraday("bb", row["day"], row["day"]) or [(row["day"], [])])[0][1]
         return web.json_response(row)
@@ -364,10 +382,15 @@ class WebUI:
             "lactate_threshold",
             "jetlag_trips",
             "cycling_ftp",
+            "workouts",
+            "training_plans",
+            "upcoming_events",
+            "scheduled_workouts",
         ):
             value, fetched = self.db.snapshot(name)
             result[name] = {"data": value, "fetched_at": fetched}
         result["badges"] = self.db.events("badge", limit=500)
+        result["races"] = self.db.events("race", limit=200)
         return web.json_response(result)
 
     async def _events(self, request: web.Request) -> web.Response:

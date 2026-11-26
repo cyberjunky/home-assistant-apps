@@ -126,6 +126,26 @@ function renderLifetime(lifetime, devices) {
     ].join('');
 }
 
+function renderPlans(records) {
+    const el = document.getElementById('plans');
+    const list = (x, ...keys) => { const d = x && x.data; if (Array.isArray(d)) return d; for (const k of keys) if (d && Array.isArray(d[k])) return d[k]; return []; };
+    const plans = list(records.training_plans, 'trainingPlanList');
+    const upcoming = list(records.upcoming_events, 'events');
+    const scheduled = list(records.scheduled_workouts);
+    const workouts = list(records.workouts, 'workouts');
+    const races = records.races || [];
+    const title = e => e.eventName || e.title || e.name || e.workoutName || 'event';
+    const when = e => e.date || e.eventDate || e.startDate || e.day || '';
+    const rows = [];
+    plans.forEach(p => rows.push(infoRow('Training plan', `${escapeHtml(p.name || 'plan')}${p.endDate ? ` · until ${fmtDayY(String(p.endDate).slice(0, 10))}` : ''}`)));
+    upcoming.slice(0, 5).forEach(e => rows.push(infoRow('Coming up', `${escapeHtml(title(e))}${when(e) ? ` · ${fmtDayY(String(when(e)).slice(0, 10))}` : ''}`)));
+    scheduled.slice(0, 5).forEach(e => rows.push(infoRow('Scheduled', `${escapeHtml(title(e))}${when(e) ? ` · ${fmtDayY(String(when(e)).slice(0, 10))}` : ''}`)));
+    races.slice(0, 8).forEach(e => rows.push(infoRow('Race', `${escapeHtml(title(e))} · ${fmtDayY(e.day)}`)));
+    if (workouts.length) rows.push(infoRow('Saved workouts', num(workouts.length)));
+    el.closest('.panel').hidden = !rows.length;
+    el.innerHTML = rows.join('');
+}
+
 async function loadRecords() {
     recordsPeriod.render();
     buildChips('records-bucket', [{key: 'week', label: 'Week'}, {key: 'month', label: 'Month'}, {key: 'year', label: 'Year'}], recordsBucket, key => {
@@ -150,6 +170,7 @@ async function loadRecords() {
         renderGear(records.gear);
         renderBadges(records.badges || []);
         renderLifetime(records.lifetime, records.devices);
+        renderPlans(records);
         renderHeatMap(range);
     } catch (e) {
         toast(e.message, 'error');

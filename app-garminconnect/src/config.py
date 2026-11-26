@@ -21,6 +21,7 @@ DATASET_DEFAULTS = {
     "sleep": True,
     "activities": True,
     "activity_tracks": True,
+    "activity_details": True,
     "training": True,
     "body": True,
     "intraday": True,
@@ -30,6 +31,9 @@ DATASET_DEFAULTS = {
     "nutrition": False,
     "menstrual": False,
     "golf": False,
+    "sleep_detail": False,
+    "intraday_more": False,
+    "planning": False,
 }
 
 

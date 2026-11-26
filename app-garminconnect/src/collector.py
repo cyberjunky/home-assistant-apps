@@ -28,6 +28,8 @@ DEFAULT_HISTORY_YEARS = 10
 RETRY_AFTER = 5 * 60
 # Tracks fetched per turn of the history import
 TRACKS_PER_TURN = 5
+# Activity details: three or four requests per activity, so fewer per turn
+DETAILS_PER_TURN = 2
 MAX_TRACK_POINTS = 800
 
 
@@ -109,6 +111,10 @@ class Collector:
             "error": self.last_error,
             "datasets": sets,
             "tracks": {"enabled": self.config.enabled("activity_tracks"), "missing": tracks_missing or 0},
+            "details": {
+                "enabled": self.config.enabled("activity_details"),
+                "missing": len(self.db.activities_without_details(100000)),
+            },
         }
 
     def wake(self) -> None:
@@ -191,6 +197,8 @@ class Collector:
                 errors += 1
         if self.config.enabled("activity_tracks"):
             await self._fetch_tracks(TRACKS_PER_TURN)
+        if self.config.enabled("activity_details"):
+            await self._fetch_details(DETAILS_PER_TURN)
         self.last_update_at = time.time()
         self.next_update_at = self.last_update_at + self.config.update_interval_minutes * 60
         self.last_error = "" if not errors else f"{errors} data set(s) refused by Garmin on the last update"
@@ -234,14 +242,20 @@ class Collector:
         """Fetch the next piece of history. Returns False when there is nothing left to fetch."""
         pending = self._history_pending()
         tracks_due = self.config.enabled("activity_tracks") and bool(self.db.activities_without_track(1))
-        if not pending and not tracks_due:
+        details_due = self.config.enabled("activity_details") and bool(self.db.activities_without_details(1))
+        if not pending and not tracks_due and not details_due:
             return False
         self.phase = "importing history"
         self._turn += 1
-        # Every few turns the tracks of activities get theirs, newest first
-        if tracks_due and (not pending or self._turn % 4 == 0):
+        # Every few turns the activities get their tracks and details, newest first
+        backlog_turn = not pending or self._turn % 4 in (0, 2)
+        if backlog_turn and tracks_due and (self._turn % 4 == 0 or not details_due):
             self.current = "Activity tracks"
             await self._fetch_tracks(TRACKS_PER_TURN, pause=True)
+            return True
+        if backlog_turn and details_due:
+            self.current = "Activity details"
+            await self._fetch_details(DETAILS_PER_TURN, pause=True)
             return True
         # The day curves need a request per day: they get a turn only every other round
         quick = [d for d in pending if d.kind != "day"]
@@ -293,6 +307,31 @@ class Collector:
             self.db.commit()
             if pause:
                 await asyncio.sleep(PAUSE_BETWEEN_REQUESTS)
+
+    async def _fetch_details(self, limit: int, pause: bool = False) -> None:
+        """Laps, the samples through the activity, weather and (for strength training) the sets."""
+        for activity_id in self.db.activities_without_details(limit):
+            kind = self.db.scalar("SELECT type FROM activities WHERE id = ?", (activity_id,)) or ""
+            calls = [
+                ("splits", "get_activity_splits", (activity_id,)),
+                ("details", "get_activity_details", (activity_id, 2000, 0)),
+                ("weather", "get_activity_weather", (activity_id,)),
+            ]
+            if any(word in kind for word in ("strength", "fitness_equipment", "hiit", "training")):
+                calls.append(("sets", "get_activity_exercise_sets", (activity_id,)))
+            answers = {}
+            for name, method, args in calls:
+                try:
+                    answers[name] = await self.account.call(method, *args)
+                except GarminConnectConnectionError as e:
+                    if not _is_refusal(e):
+                        raise
+                    answers[name] = None
+                if pause:
+                    await asyncio.sleep(PAUSE_BETWEEN_REQUESTS / 2)
+            # Stored even when Garmin had nothing, so it isn't asked for again
+            self.db.put_activity_details(activity_id, answers)
+            self.db.commit()
 
     # ------------------------------------------------------------------
     # Starting over

@@ -19,7 +19,9 @@ configuration:
       Which data to fetch. daily: steps, calories, heart rate, stress, Body
       Battery, intensity minutes, respiration, Pulse Ox. sleep: sleep and
       overnight HRV. activities: the activity list. activity_tracks: the GPS
-      track of every activity (one request each). training: readiness,
+      track of every activity (one request each). activity_details: laps,
+      heart rate, pace and elevation through every activity, weather and
+      strength sets (three or four requests each). training: readiness,
       status and load, VO2 max, race predictions, endurance and hill score,
       fitness age, acclimation. body: weight, body composition and blood
       pressure. intraday: heart rate, stress and Body Battery through the
@@ -28,7 +30,10 @@ configuration:
       Health Snapshot, glucose, Jet Lag Adviser, lifestyle logging.
       performance: running economy, cycling ability, critical swim speed,
       FTP and zones. nutrition: Connect+ food logging. menstrual: cycle
-      tracking. golf: scorecards.
+      tracking. golf: scorecards. sleep_detail: sleep stages, SpO2 and heart
+      rate through the night (one request per night). intraday_more: steps
+      per 15 minutes and breathing through the day (two requests per day).
+      planning: workouts, training plans, scheduled workouts and races.
   log_level:
     name: Log level
     description: How much detail the app writes to its log.

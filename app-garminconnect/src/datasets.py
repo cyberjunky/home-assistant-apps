@@ -864,6 +864,230 @@ def _snapshot_parse(db: Database, data: Any, start: date, end: date) -> int:
 
 
 # ----------------------------------------------------------------------
+# Sleep in detail: stages through the night, and heart rate, HRV, SpO2 and breathing while asleep
+# ----------------------------------------------------------------------
+SLEEP_STAGES = {0: "deep", 1: "light", 2: "rem", 3: "awake"}
+
+
+async def fetch_sleep_detail(account: GarminAccount, start: date, end: date) -> Any:
+    return await account.call("get_sleep_data", iso(start))
+
+
+def _night_points(samples: Any, start_ts: int, stamp_keys: tuple[str, ...], value_keys: tuple[str, ...]) -> list:
+    """[[minutes after falling asleep, value], ...] from Garmin's per-sample lists, whatever they call the fields."""
+    points = []
+    for sample in samples or []:
+        if not isinstance(sample, dict):
+            continue
+        stamp = next((gmt_ts(sample[k]) for k in stamp_keys if sample.get(k) is not None), None)
+        value = next((number(sample[k]) for k in value_keys if number(sample.get(k)) is not None), None)
+        if stamp is not None and value is not None and value >= 0:
+            points.append([round((stamp - start_ts) / 60, 1), value])
+    points.sort()
+    return points
+
+
+def parse_sleep_detail(db: Database, data: Any, start: date, end: date) -> int:
+    summary = dig(data, "dailySleepDTO") or {}
+    day = day_of(summary.get("calendarDate")) or iso(start)
+    start_ts = gmt_ts(summary.get("sleepStartTimestampGMT"))
+    if not start_ts:
+        return 0
+    stages = []
+    for level in dig(data, "sleepLevels") or []:
+        a, b = gmt_ts(level.get("startGMT")), gmt_ts(level.get("endGMT"))
+        level_number = number(level.get("activityLevel"))
+        stage = SLEEP_STAGES.get(int(level_number)) if level_number is not None else None
+        if a is not None and b is not None and stage:
+            stages.append([round((a - start_ts) / 60, 1), round((b - start_ts) / 60, 1), stage])
+    night = {
+        "start": start_ts,
+        "end": gmt_ts(summary.get("sleepEndTimestampGMT")),
+        # Garmin's "local" stamp is local time written as if it were UTC: the difference is the offset
+        "offset_min": round(((gmt_ts(summary.get("sleepStartTimestampLocal")) or start_ts) - start_ts) / 60),
+        "stages": stages,
+        "hr": _night_points(data.get("sleepHeartRate"), start_ts, ("startGMT",), ("value",)),
+        "hrv": _night_points(data.get("hrvData"), start_ts, ("startGMT",), ("value",)),
+        "spo2": _night_points(
+            data.get("wellnessEpochSPO2DataDTOList"), start_ts, ("epochTimestamp", "startGMT"), ("spo2Reading", "value")
+        ),
+        "resp": _night_points(
+            data.get("wellnessEpochRespirationDataDTOList"),
+            start_ts,
+            ("startTimeGMT", "startGMT"),
+            ("respirationValue", "value"),
+        ),
+        "stress": _night_points(data.get("sleepStress"), start_ts, ("startGMT",), ("value",)),
+        "bb": _night_points(data.get("sleepBodyBattery"), start_ts, ("startGMT",), ("value",)),
+        "restless": number(data.get("restlessMomentsCount")),
+    }
+    if not stages and not night["hr"]:
+        return 0
+    db.put_intraday("sleep", day, night)
+    rows = {"restless_moments": night["restless"], "sleep_spo2_low": min((v for _, v in night["spo2"]), default=None)}
+    return 1 + store(db, {day: rows})
+
+
+# ----------------------------------------------------------------------
+# More through the day: steps per 15 minutes and breathing
+# ----------------------------------------------------------------------
+async def fetch_day_more(account: GarminAccount, start: date, end: date) -> Any:
+    return {
+        "steps": await account.call("get_steps_data", iso(start)),
+        "respiration": await account.call("get_respiration_data", iso(start)),
+    }
+
+
+def parse_day_more(db: Database, data: Any, start: date, end: date) -> int:
+    day = iso(start)
+    stored = 0
+    blocks = [b for b in as_list(data.get("steps")) if isinstance(b, dict)]
+    first = min((gmt_ts(b.get("startGMT")) for b in blocks if gmt_ts(b.get("startGMT"))), default=None)
+    steps = []
+    for block in blocks:
+        stamp = gmt_ts(block.get("startGMT"))
+        value = number(block.get("steps"))
+        if stamp is not None and first is not None and value is not None:
+            minute = int((stamp - first) / 60)
+            if 0 <= minute < 1440:
+                steps.append([minute, value])
+    if any(v for _, v in steps):
+        db.put_intraday("steps", day, sorted(steps))
+        stored += 1
+    breathing = data.get("respiration") or {}
+    start_ms = (gmt_ts(breathing.get("startTimestampGMT")) or 0) * 1000
+    if start_ms:
+        points = _buckets(breathing.get("respirationValuesArray"), start_ms, 1)
+        if points:
+            db.put_intraday("resp", day, points)
+            stored += 1
+    return stored
+
+
+# ----------------------------------------------------------------------
+# Planning: workouts, training plans, the calendar and races
+# ----------------------------------------------------------------------
+async def fetch_planning(account: GarminAccount, start: date, end: date) -> Any:
+    today = date.today()
+    result = {}
+    for name, method, args in (
+        ("workouts", "get_workouts", (0, 100)),
+        ("training_plans", "get_training_plans", ()),
+        ("upcoming_events", "get_upcoming_events", (365, 20)),
+        (
+            "scheduled_workouts",
+            "get_scheduled_workouts_by_period",
+            (iso(today - timedelta(days=7)), iso(today + timedelta(days=60))),
+        ),
+    ):
+        try:
+            result[name] = await account.call(method, *args)
+        except (RateLimited, NotSignedIn):
+            raise
+        except Exception as e:
+            logger.debug(f"Planning: {method} failed: {e}")
+    return result
+
+
+async def fetch_races(account: GarminAccount, start: date, end: date) -> Any:
+    return await account.call("get_calendar_events", iso(start), iso(end))
+
+
+def parse_races(db: Database, data: Any, start: date, end: date) -> int:
+    events = []
+    for event in as_list(data, "events", "calendarEvents"):
+        if not isinstance(event, dict):
+            continue
+        day = day_of(event.get("date") or event.get("eventDate") or event.get("startDate"))
+        key = (
+            event.get("id")
+            or event.get("eventUuid")
+            or event.get("uuid")
+            or f"{day}-{event.get('title') or event.get('name')}"
+        )
+        if day:
+            events.append((key, None, day, event))
+    return db.put_events("race", events)
+
+
+# ----------------------------------------------------------------------
+# Activity details: laps, the curves through an activity, weather and strength sets
+# (fetched per activity by the collector, like the tracks)
+# ----------------------------------------------------------------------
+DETAIL_CHANNELS = {
+    "hr": ("directHeartRate",),
+    "speed": ("directSpeed", "directEnhancedSpeed"),
+    "elevation": ("directElevation", "directEnhancedElevation"),
+    "power": ("directPower",),
+    "cadence": ("directRunCadence", "directBikeCadence", "directDoubleCadence"),
+    "distance": ("sumDistance",),
+    "time": ("sumDuration", "sumElapsedDuration"),
+}
+MAX_DETAIL_POINTS = 600
+
+
+def activity_curves(details: Any) -> dict:
+    """The samples of an activity as rows per channel, thinned to MAX_DETAIL_POINTS."""
+    if not isinstance(details, dict):
+        return {}
+    try:
+        from garminconnect import parse_activity_detail_metrics
+
+        samples = parse_activity_detail_metrics(details)
+    except (ImportError, AttributeError, TypeError):
+        return {}
+    samples = thin(samples, MAX_DETAIL_POINTS)
+    curves: dict[str, list] = {}
+    for name, keys in DETAIL_CHANNELS.items():
+        key = next((k for k in keys if any(number(s.get(k)) is not None for s in samples)), None)
+        if key:
+            curves[name] = [number(s.get(key)) for s in samples]
+    return curves if "time" in curves or "distance" in curves else {}
+
+
+def activity_laps(splits: Any) -> list[dict]:
+    laps = []
+    for lap in as_list(splits, "lapDTOs", "laps"):
+        if isinstance(lap, dict):
+            laps.append(
+                {
+                    "distance_m": number(lap.get("distance")),
+                    "duration_s": number(lap.get("duration") or lap.get("elapsedDuration")),
+                    "moving_s": number(lap.get("movingDuration")),
+                    "avg_hr": number(lap.get("averageHR")),
+                    "max_hr": number(lap.get("maxHR")),
+                    "avg_speed": number(lap.get("averageSpeed")),
+                    "climb_m": number(lap.get("elevationGain")),
+                    "avg_power": number(lap.get("averagePower")),
+                    "cadence": number(lap.get("averageRunCadence") or lap.get("averageBikeCadence")),
+                }
+            )
+    return laps
+
+
+def activity_sets(answer: Any) -> list[dict]:
+    sets = []
+    for entry in as_list(answer, "exerciseSets"):
+        if not isinstance(entry, dict) or str(entry.get("setType") or "").upper() == "REST":
+            continue
+        exercises = entry.get("exercises") or []
+        names = [
+            str(e.get("name") or e.get("category") or "").replace("_", " ").lower()
+            for e in exercises
+            if isinstance(e, dict)
+        ]
+        sets.append(
+            {
+                "exercise": next((n for n in names if n), ""),
+                "reps": number(entry.get("repetitionCount")),
+                "weight": number(entry.get("weight")),
+                "duration_s": number(entry.get("duration")),
+            }
+        )
+    return sets
+
+
+# ----------------------------------------------------------------------
 # The registry
 # ----------------------------------------------------------------------
 _running_economy = _generic_range("get_running_economy_range", "running_economy")
@@ -986,6 +1210,35 @@ DATASETS: tuple[Dataset, ...] = (
         recent_days=14,
     ),
     Dataset("golf", "golf", "Golf scorecards", "snapshot", fetch_golf, parse_golf, every_hours=12),
+    Dataset(
+        "sleep_detail",
+        "sleep_detail",
+        "Sleep stages and readings through the night",
+        "day",
+        fetch_sleep_detail,
+        parse_sleep_detail,
+        recent_days=2,
+    ),
+    Dataset(
+        "planning",
+        "planning",
+        "Workouts, training plans and calendar",
+        "snapshot",
+        fetch_planning,
+        _snapshot_parse,
+        every_hours=6,
+    ),
+    Dataset("races", "planning", "Races and events", "range", fetch_races, parse_races, chunk_days=365, recent_days=1),
+    Dataset(
+        "day_more",
+        "intraday_more",
+        "Steps per 15 minutes and breathing through the day",
+        "day",
+        fetch_day_more,
+        parse_day_more,
+        recent_days=2,
+        keep_raw=False,
+    ),
     # Last: two requests for every day of the history
     Dataset(
         "day_curves",
@@ -1013,6 +1266,10 @@ GROUP_TITLES = {
     "nutrition": "Nutrition (Connect+)",
     "menstrual": "Menstrual cycle",
     "golf": "Golf",
+    "activity_details": "Activity details (laps, curves, weather, strength sets)",
+    "sleep_detail": "Sleep in detail",
+    "intraday_more": "Steps and breathing through the day",
+    "planning": "Workouts, training plans and races",
 }
 
 

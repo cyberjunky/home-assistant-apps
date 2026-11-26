@@ -523,6 +523,204 @@ class FakeGarmin:
     def get_lactate_threshold(self):
         return {"speed_and_heart_rate": {"heartRate": 168, "speed": 3.6}}
 
+    # Activity details ---------------------------------------------------
+    def _activity(self, activity_id):
+        day = datetime.strptime(str(activity_id // 10), "%Y%m%d").date()
+        found = self.get_activities_by_date(day.isoformat(), day.isoformat())
+        return found[0] if found else None
+
+    def get_activity_splits(self, activity_id):
+        a = self._activity(activity_id)
+        if not a or not a["distance"]:
+            return {"lapDTOs": []}
+        laps, left = [], a["distance"]
+        r = random.Random(activity_id)
+        while left > 0:
+            d = min(1000.0 if a["activityType"]["typeKey"] != "cycling" else 5000.0, left)
+            laps.append(
+                {
+                    "distance": d,
+                    "duration": d / a["averageSpeed"] * r.uniform(0.92, 1.08),
+                    "averageHR": a["averageHR"] + r.randint(-6, 8),
+                    "maxHR": a["maxHR"] - r.randint(0, 10),
+                    "averageSpeed": a["averageSpeed"] * r.uniform(0.92, 1.08),
+                    "elevationGain": r.uniform(0, 20),
+                }
+            )
+            left -= d
+        return {"lapDTOs": laps}
+
+    def get_activity_details(self, activity_id, maxchart=2000, maxpoly=4000):
+        a = self._activity(activity_id)
+        if not a:
+            return {}
+        r = random.Random(activity_id)
+        n = 400
+        rows = []
+        for i in range(n):
+            t = a["duration"] * i / (n - 1)
+            hr = a["averageHR"] - 25 * math.exp(-i / 40) + 6 * math.sin(i / 30) + r.gauss(0, 2)
+            speed = (a["averageSpeed"] or 0) * (1 + 0.08 * math.sin(i / 23)) + r.gauss(0, 0.05)
+            rows.append(
+                {
+                    "metrics": [
+                        t,
+                        (a["distance"] or 0) * i / (n - 1),
+                        round(hr),
+                        max(0, speed),
+                        5 + 12 * math.sin(i / 60),
+                    ]
+                }
+            )
+        keys = ["sumDuration", "sumDistance", "directHeartRate", "directSpeed", "directElevation"]
+        return {
+            "metricDescriptors": [{"metricsIndex": i, "key": k} for i, k in enumerate(keys)],
+            "activityDetailMetrics": rows,
+        }
+
+    def get_activity_weather(self, activity_id):
+        r = random.Random(activity_id)
+        return {
+            "temp": r.randint(35, 80),
+            "apparentTemp": r.randint(33, 80),
+            "relativeHumidity": r.randint(40, 95),
+            "windSpeed": r.randint(2, 30),
+            "windDirectionCompassPoint": r.choice(["n", "sw", "w"]),
+            "weatherTypeDTO": {"desc": r.choice(["Cloudy", "Sunny", "Light rain"])},
+        }
+
+    def get_activity_exercise_sets(self, activity_id):
+        r = random.Random(activity_id)
+        sets = []
+        for name in ("BENCH_PRESS", "SQUAT", "PULL_UP"):
+            for _ in range(3):
+                sets.append(
+                    {
+                        "setType": "ACTIVE",
+                        "repetitionCount": r.randint(6, 12),
+                        "weight": r.choice([0, 40000, 60000]),
+                        "duration": 40,
+                        "exercises": [{"category": name, "name": name}],
+                    }
+                )
+                sets.append({"setType": "REST", "duration": 90})
+        return {"exerciseSets": sets}
+
+    # Sleep in detail, steps and breathing through the day ---------------
+    def get_sleep_data(self, cdate):
+        day = date.fromisoformat(cdate)
+        sleep = self.get_sleep_daily(cdate, cdate)
+        if not sleep:
+            return {}
+        values = sleep[0]["values"]
+        start_local = values["localSleepStartTimeInMillis"]
+        start = start_local - 3600 * 1000
+        end = start + (values["totalSleepTimeInSeconds"] + 1800) * 1000
+        r = _rng(day, "sleep")
+        levels, at = [], start
+        while at < end:
+            length = r.randint(10, 50) * 60000
+            levels.append(
+                {
+                    "startGMT": _gmt(datetime.fromtimestamp(at / 1000, UTC).replace(tzinfo=None)),
+                    "endGMT": _gmt(datetime.fromtimestamp(min(end, at + length) / 1000, UTC).replace(tzinfo=None)),
+                    "activityLevel": r.choice([0, 1, 1, 1, 2, 2, 3]),
+                }
+            )
+            at += length
+        minutes = range(0, int((end - start) / 60000), 5)
+        return {
+            "dailySleepDTO": {
+                "calendarDate": cdate,
+                "sleepStartTimestampGMT": start,
+                "sleepEndTimestampGMT": end,
+                "sleepStartTimestampLocal": start_local,
+            },
+            "sleepLevels": levels,
+            "sleepHeartRate": [
+                {"value": values["avgHeartRate"] + round(4 * math.sin(m / 50)), "startGMT": start + m * 60000}
+                for m in minutes
+            ],
+            "wellnessEpochSPO2DataDTOList": [
+                {
+                    "epochTimestamp": _gmt(
+                        datetime.fromtimestamp((start + m * 60000) / 1000, UTC).replace(tzinfo=None)
+                    ),
+                    "spo2Reading": 95 + r.randint(-4, 3),
+                }
+                for m in minutes
+            ],
+            "hrvData": [
+                {"value": values["avgOvernightHrv"] + r.randint(-8, 8), "startGMT": start + m * 60000} for m in minutes
+            ],
+            "restlessMomentsCount": r.randint(10, 60),
+        }
+
+    def get_steps_data(self, cdate):
+        day = date.fromisoformat(cdate)
+        p = self._day(day)
+        start = datetime.combine(day, datetime.min.time()) - timedelta(hours=1)
+        weights = [0 if h < 7 or h > 22 else (3 if h in (8, 12, 17, 18) else 1) for h in range(24)]
+        total = sum(weights)
+        blocks = []
+        for i in range(96):
+            share = weights[i // 4] / total / 4
+            blocks.append(
+                {
+                    "startGMT": _gmt(start + timedelta(minutes=15 * i)),
+                    "endGMT": _gmt(start + timedelta(minutes=15 * (i + 1))),
+                    "steps": int(p["steps"] * share * p["r"].uniform(0.5, 1.5)),
+                }
+            )
+        return blocks
+
+    def get_respiration_data(self, cdate):
+        day = date.fromisoformat(cdate)
+        start = datetime.combine(day, datetime.min.time()) - timedelta(hours=1)
+        r = _rng(day, "resp")
+        return {
+            "startTimestampGMT": _gmt(start),
+            "respirationValuesArray": [
+                [_ms(start + timedelta(minutes=2 * i)), 13 + r.randint(0, 5)] for i in range(720)
+            ],
+        }
+
+    # Planning --------------------------------------------------------------
+    def get_workouts(self, start=0, limit=100):
+        return [{"workoutId": 1, "workoutName": "Intervals 6x800", "sportType": {"sportTypeKey": "running"}}]
+
+    def get_training_plans(self, limit=None, start=None, status=None):
+        return {
+            "trainingPlanList": [
+                {
+                    "trainingPlanId": 7,
+                    "name": "Half marathon, intermediate",
+                    "trainingStatus": {"statusKey": "Scheduled"},
+                    "endDate": (date.today() + timedelta(days=60)).isoformat(),
+                }
+            ]
+        }
+
+    def get_upcoming_events(self, days_forward=90, limit=10):
+        return [
+            {
+                "id": 99,
+                "eventName": "City half marathon",
+                "date": (date.today() + timedelta(days=60)).isoformat(),
+                "location": "Utrecht",
+            }
+        ]
+
+    def get_scheduled_workouts_by_period(self, start, end):
+        return [{"title": "Easy run", "date": (date.today() + timedelta(days=1)).isoformat()}]
+
+    def get_calendar_events(self, start, end):
+        return [
+            {"id": 50, "eventName": "Spring 10K", "date": d.isoformat()}
+            for d in _days(start, end)
+            if d.month == 4 and d.day == 14 and d >= CREATED
+        ]
+
     # The optional sets: little or nothing, as for most accounts
     def get_ecg_daily(self, start, end):
         return {"content": []}

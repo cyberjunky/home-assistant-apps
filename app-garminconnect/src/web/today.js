@@ -88,7 +88,34 @@ function renderTodayCurves(data) {
     });
 }
 
-function renderTodaySleep(v) {
+// The night: stages as a band over time, with SpO2 and heart rate below when Garmin measured them
+const STAGE_COLORS = {deep: 'var(--seq-1)', light: 'var(--seq-3)', rem: 'var(--series-5)', awake: 'var(--series-4)'};
+const STAGE_ROW = {awake: 0, rem: 1, light: 2, deep: 3};
+function nightHtml(night) {
+    if (!night || !night.stages || !night.stages.length) return '';
+    const total = Math.max(...night.stages.map(s => s[1])) || 1;
+    const clock = m => fmtClock(((night.start / 60 + (night.offset_min || 0) + m) / 60) % 24);
+    const bars = night.stages.map(([a, b, stage]) => `<i style="left:${(a / total * 100).toFixed(2)}%;width:${Math.max(0.2, (b - a) / total * 100).toFixed(2)}%;top:${STAGE_ROW[stage] * 25}%;background:${STAGE_COLORS[stage]}" title="${stage} ${clock(a)}–${clock(b)}"></i>`).join('');
+    return `<div class="hypno">${bars}</div><div class="hypno-axis"><span>${clock(0)}</span><span>${clock(total / 2)}</span><span>${clock(total)}</span></div>`;
+}
+
+function renderNightChart(night) {
+    const el = document.getElementById('today-night');
+    if (!el) return;
+    const spo2 = (night && night.spo2) || [], hr = (night && night.hr) || [];
+    if (!spo2.length && !hr.length) { el.innerHTML = ''; return; }
+    const minutes = [...new Set([...spo2, ...hr].map(p => p[0]))].sort((a, b) => a - b);
+    const at = pts => { const m = new Map(pts); return minutes.map(x => m.has(x) ? m.get(x) : null); };
+    const clock = m => fmtClock(((night.start / 60 + (night.offset_min || 0) + m) / 60) % 24);
+    const series = [];
+    if (spo2.length) series.push({name: 'SpO2 %', color: 'var(--series-1)', values: at(spo2)});
+    if (hr.length) series.push({name: 'Heart rate', color: 'var(--series-2)', values: at(hr)});
+    lineChart(el, {x: minutes, series, height: 130, formatX: clock, formatY: (v, s) => series[s].name === 'SpO2 %' ? `${num(v)}%` : `${num(v)} bpm`,
+        xTicks: timeTicks(minutes, 3, clock)});
+    document.getElementById('today-night-legend').innerHTML = series.map(s => `<span><i class="line" style="background:${s.color}"></i>${s.name}</span>`).join('');
+}
+
+function renderTodaySleep(v, night) {
     const el = document.getElementById('today-sleep');
     if (missing(v.sleep_s)) { el.innerHTML = '<div class="empty-state">No sleep recorded for this night</div>'; return; }
     const stages = [['Deep', v.sleep_deep_s, 'var(--seq-1)'], ['Light', v.sleep_light_s, 'var(--seq-3)'], ['REM', v.sleep_rem_s, 'var(--series-5)'], ['Awake', v.sleep_awake_s, 'var(--series-4)']];
@@ -98,11 +125,23 @@ function renderTodaySleep(v) {
     el.innerHTML = `
         <div class="share">${stages.filter(s => s[1]).map(s => `<div style="flex:${s[1]};background:${s[2]}" title="${s[0]} ${fmtDuration(s[1])}">${s[1] / total > 0.12 ? s[0] : ''}</div>`).join('')}</div>
         <div class="legend">${stages.map(s => `<span><i style="background:${s[2]}"></i>${s[0]} ${fmtDuration(s[1])}</span>`).join('')}</div>
+        ${nightHtml(night)}<div id="today-night" class="chart" style="margin-top:8px"></div><div id="today-night-legend" class="legend"></div>
         <div class="facts three" style="margin-top:12px">
             <div class="fact"><div class="l">Asleep</div><div class="v">${fmtDuration(v.sleep_s)}</div></div>
             <div class="fact"><div class="l">Needed</div><div class="v">${need ? fmtDuration(need) : '–'}</div></div>
             <div class="fact"><div class="l">${need && v.sleep_s < need ? 'Short by' : 'Over by'}</div><div class="v">${need ? fmtDuration(Math.abs(need - v.sleep_s)) : '–'}</div></div>
         </div>`;
+    renderNightChart(night);
+}
+
+function renderTodaySteps(points) {
+    const el = document.getElementById('today-steps');
+    const panel = el.closest('.panel');
+    panel.hidden = !(points && points.length);
+    if (panel.hidden) return;
+    const per = new Map(points);
+    const data = Array.from({length: 96}, (_, i) => ({label: i % 12 === 0 ? `${String(i / 4).padStart(2, '0')}:00` : '', tipTitle: `${fmtMinute(i * 15)}–${fmtMinute(i * 15 + 15)}`, values: [per.get(i * 15) || 0]}));
+    barChart(el, {data, series: [{name: 'Steps', color: 'var(--series-1)'}], height: 140, format: v => `${num(v)} steps`, labelWidth: 4});
 }
 
 function activityRow(a) {
@@ -172,7 +211,8 @@ async function loadToday() {
         const data = await api(`day?date=${day}`);
         renderTodayTiles(data);
         renderTodayCurves(data);
-        renderTodaySleep(data.values);
+        renderTodaySleep(data.values, data.night);
+        renderTodaySteps(data.curves.steps);
         const acts = document.getElementById('today-acts');
         data.activities.forEach(a => { a.family = sportFamily(a.type); });
         acts.innerHTML = data.activities.length ? data.activities.map(activityRow).join('') : '<div class="empty-state">No activities this day</div>';

@@ -27,6 +27,7 @@ options:
     sleep: true
     activities: true
     activity_tracks: true
+    activity_details: true
     training: true
     body: true
     intraday: true
@@ -36,6 +37,9 @@ options:
     nutrition: false
     menstrual: false
     golf: false
+    sleep_detail: false
+    intraday_more: false
+    planning: false
   log_level: info
 
 schema:
@@ -48,6 +52,7 @@ schema:
     sleep: bool?
     activities: bool?
     activity_tracks: bool?
+    activity_details: bool?
     training: bool?
     body: bool?
     intraday: bool?
@@ -57,4 +62,7 @@ schema:
     nutrition: bool?
     menstrual: bool?
     golf: bool?
+    sleep_detail: bool?
+    intraday_more: bool?
+    planning: bool?
   log_level: list(debug|info|warning|error)?

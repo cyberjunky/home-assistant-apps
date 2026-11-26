@@ -166,13 +166,23 @@ def day_view(db: Database, day: str) -> dict:
             latest = db.latest(metric, day)
             if latest:
                 values[metric] = latest[1]
-    curves = {kind: (db.intraday(kind, day, day) or [(day, [])])[0][1] for kind in ("hr", "stress", "bb")}
+    curves = {
+        kind: (db.intraday(kind, day, day) or [(day, [])])[0][1] for kind in ("hr", "stress", "bb", "steps", "resp")
+    }
+    night = (db.intraday("sleep", day, day) or [(day, None)])[0][1]
     activities = db.query(
         "SELECT id, start_local, type, name, distance_m, duration_s, calories, avg_hr, training_load"
         " FROM activities WHERE day = ? ORDER BY start_ts",
         (day,),
     )
-    return {"day": day, "values": values, "typical": typical, "curves": curves, "activities": activities}
+    return {
+        "day": day,
+        "values": values,
+        "typical": typical,
+        "curves": curves,
+        "night": night,
+        "activities": activities,
+    }
 
 
 # ----------------------------------------------------------------------
@@ -423,6 +433,18 @@ def day_rhythm(db: Database, start: str, end: str, max_days: int = 400) -> dict:
     """The average day: heart rate, stress and Body Battery per hour, and stress per weekday and hour."""
     first = max(start, (date.fromisoformat(end) - timedelta(days=max_days)).isoformat())
     result: dict[str, Any] = {"days": 0}
+    # When you move: steps per weekday and hour (from the steps per 15 minutes)
+    moving: dict[tuple[int, int], list[float]] = defaultdict(list)
+    for day, points in db.intraday("steps", first, end):
+        weekday = date.fromisoformat(day).weekday()
+        per_hour: dict[int, float] = defaultdict(float)
+        for minute, value in points:
+            per_hour[int(minute) // 60] += value
+        for hour in range(24):
+            moving[(weekday, hour)].append(per_hour.get(hour, 0.0))
+    result["steps_grid"] = (
+        [[_r(_mean(moving.get((w, h), [])), 0) for h in range(24)] for w in range(7)] if moving else None
+    )
     for kind in ("hr", "stress", "bb"):
         hours: dict[int, list[float]] = defaultdict(list)
         grid: dict[tuple[int, int], list[float]] = defaultdict(list)

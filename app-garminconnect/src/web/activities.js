@@ -86,6 +86,8 @@ async function showActivity(id) {
     try {
         const a = await api(`activities/${id}`);
         trackLayer.clearLayers();
+        // Opened straight from a link, the map may not have its size yet
+        map.invalidateSize();
         if (a.track && a.track.length > 1) {
             L.polyline(a.track, {weight: 8, className: 'trk-casing', interactive: false}).addTo(trackLayer);
             L.polyline(a.track, {weight: 4, className: 'trk-plain', interactive: false}).addTo(trackLayer);
@@ -99,6 +101,7 @@ async function showActivity(id) {
         dock.innerHTML = activityDetail(a);
         const zoneEl = dock.querySelector('#act-zones');
         if (zoneEl) renderZones(zoneEl, a.zones_s);
+        renderActivityCurves(a);
     } catch (e) {
         dock.innerHTML = `<div class="empty-state">${escapeHtml(e.message)}</div>`;
     }
@@ -132,9 +135,62 @@ function activityDetail(a) {
             <span class="badge">${escapeHtml(typeName(a.type))}</span><span class="when">${fmtDay(a.day)} ${a.start_local.slice(11, 16)}</span></div>
         ${a.location ? `<div class="panel-sub">${escapeHtml(a.location)}</div>` : ''}
         <div class="facts">${facts.join('')}${extras.join('')}</div>
+        ${a.weather ? `<div class="panel-sub">${weatherText(a.weather)}</div>` : ''}
+        ${a.curves && a.curves.hr ? '<div><div class="block-title">Heart rate</div><div id="act-hr" class="chart"></div></div>' : ''}
+        ${a.curves && a.curves.speed ? `<div><div class="block-title">${pacedSport(a.family) ? 'Pace' : 'Speed'}</div><div id="act-speed" class="chart"></div></div>` : ''}
+        ${a.curves && a.curves.elevation ? '<div><div class="block-title">Elevation</div><div id="act-elev" class="chart"></div></div>' : ''}
         ${a.zones_s && a.zones_s.some(z => z) ? '<div><div class="block-title">Heart rate zones</div><div id="act-zones"></div></div>' : ''}
+        ${lapsTable(a)}
+        ${setsTable(a.sets)}
+        ${a.details_fetched ? '' : '<p class="panel-sub">Laps, curves and weather appear once this activity\'s details are fetched.</p>'}
         <div class="detail-actions"><a class="btn btn-small" href="https://connect.garmin.com/modern/activity/${a.id}" target="_blank" rel="noopener">Open in Garmin Connect</a></div>
     </div>`;
+}
+
+// Garmin's activity weather comes in Fahrenheit and miles per hour
+function weatherText(w) {
+    const parts = [];
+    if (w.description) parts.push(escapeHtml(w.description));
+    if (!missing(w.temp)) parts.push(imperial() ? `${num(w.temp)} °F` : `${num((w.temp - 32) * 5 / 9)} °C`);
+    if (!missing(w.apparent_temp) && w.apparent_temp !== w.temp) parts.push(`feels ${imperial() ? num(w.apparent_temp) + ' °F' : num((w.apparent_temp - 32) * 5 / 9) + ' °C'}`);
+    if (!missing(w.humidity)) parts.push(`${num(w.humidity)}% humidity`);
+    if (!missing(w.wind_speed)) parts.push(`wind ${imperial() ? num(w.wind_speed) + ' mph' : num(w.wind_speed * 1.609) + ' km/h'}${w.wind_from ? ' ' + escapeHtml(String(w.wind_from).toUpperCase()) : ''}`);
+    return parts.length ? '🌤 ' + parts.join(' · ') : '';
+}
+
+function renderActivityCurves(a) {
+    const c = a.curves || {};
+    const byDistance = c.distance && c.distance.some(v => v) && a.distance_m > 500;
+    const x = byDistance ? c.distance.map(m => toDist((m || 0) / 1000)) : (c.time || []).map(s => (s || 0) / 60);
+    const formatX = byDistance ? v => `${num(v, 2)} ${distUnit()}` : v => fmtDuration(v * 60);
+    const ticks = timeTicks(x, 4, byDistance ? v => `${num(v, 1)} ${distUnit()}` : v => fmtDuration(v * 60));
+    const draw = (id, values, color, fmt, area, tick) => {
+        const el = document.getElementById(id);
+        if (el) lineChart(el, {x, series: [{name: '', color, values}], height: 120, area, formatX, formatY: fmt, formatTick: tick, xTicks: ticks});
+    };
+    if (c.hr) draw('act-hr', c.hr, 'var(--series-2)', v => `${num(v)} bpm`);
+    // Speed in km/h on the axis; for running and walking the axis and tooltip read as pace
+    const pace = pacedSport(a.family);
+    if (c.speed) draw('act-speed', c.speed.map(v => missing(v) ? null : toDist(v * 3.6)), 'var(--series-1)',
+        v => pace ? fmtPace(v / 3.6 * (imperial() ? KM_PER_MILE : 1)) : `${num(v, 1)} ${imperial() ? 'mph' : 'km/h'}`, false,
+        v => pace && v > 0 ? fmtPace(v / 3.6 * (imperial() ? KM_PER_MILE : 1)).split(' ')[0] : num(v, 1));
+    if (c.elevation) draw('act-elev', c.elevation, 'var(--series-3)', v => fmtElev(v), true);
+}
+
+function lapsTable(a) {
+    const laps = a.laps || [];
+    if (laps.length < 2) return '';
+    const paced = pacedSport(a.family);
+    const rows = laps.map((l, i) => `<tr><td>${i + 1}</td><td>${l.distance_m ? fmtMeters(l.distance_m) : '–'}</td><td>${fmtDuration(l.duration_s)}</td>
+        <td>${missing(l.avg_speed) ? '–' : paced ? fmtPace(l.avg_speed) : fmtSpeed(l.avg_speed)}</td><td>${num(l.avg_hr)}</td><td>${missing(l.climb_m) ? '–' : fmtElev(l.climb_m)}</td></tr>`).join('');
+    return `<div><div class="block-title">Laps</div><table class="laps"><thead><tr><th>#</th><th>Distance</th><th>Time</th><th>${paced ? 'Pace' : 'Speed'}</th><th>HR</th><th>Climb</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function setsTable(sets) {
+    if (!sets || !sets.length) return '';
+    const rows = sets.map((s, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(s.exercise || '–')}</td><td>${num(s.reps)}</td>
+        <td>${s.weight ? fmtWeight(s.weight > 1000 ? s.weight / 1000 : s.weight) : '–'}</td><td>${missing(s.duration_s) ? '–' : fmtDuration(s.duration_s)}</td></tr>`).join('');
+    return `<div><div class="block-title">Sets</div><table class="laps"><thead><tr><th>#</th><th>Exercise</th><th>Reps</th><th>Weight</th><th>Time</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 const ZONE_COLORS = ['var(--seq-5)', 'var(--seq-3)', 'var(--series-3)', 'var(--series-4)', 'var(--series-2)'];

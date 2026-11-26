@@ -78,3 +78,29 @@ async def test_update_fetches_snapshots(collector, db):
     gear, fetched = db.snapshot("gear")
     assert gear and fetched
     assert db.events("badge")
+
+
+async def test_activity_details_backlog(collector, db):
+    await collector.update()
+    await run_history(collector)
+    assert db.activities_without_details(1) == []
+    some = db.scalar("SELECT activity_id FROM activity_details LIMIT 1")
+    assert set(db.activity_details(some)) >= {"splits", "details", "weather"}
+
+
+async def test_optional_new_sets(db, signed_in, monkeypatch):
+    from datetime import timedelta
+
+    from src import collector as collector_module
+    from src.collector import Collector
+    from src.config import Config
+
+    monkeypatch.setattr(collector_module, "PAUSE_BETWEEN_REQUESTS", 0)
+    config = Config(start_date=(date.today() - timedelta(days=6)).isoformat())
+    config.datasets.update(sleep_detail=True, intraday_more=True, planning=True)
+    col = Collector(config, db, signed_in)
+    await col.update()
+    await run_history(col)
+    assert len(db.intraday("sleep", "2000-01-01", "2100-01-01")) >= 6
+    assert len(db.intraday("steps", "2000-01-01", "2100-01-01")) >= 6
+    assert db.snapshot("training_plans")[0]

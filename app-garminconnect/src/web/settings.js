@@ -120,6 +120,11 @@ function renderDatasets() {
                 <span class="ds-state">${state}${s.last_error ? ` <span class="sb-warn" title="${escapeHtml(s.last_error)}">⚠</span>` : ''}</span>
             </div>`;
         }).join('');
+        if (g.key === 'activity_details') {
+            const t = c.details || {};
+            rows += `<div class="ds-row${g.enabled ? '' : ' off'}"><span class="ds-name">Laps, curves, weather, sets: 3–4 requests per activity</span><span class="ds-bar"></span>
+                <span class="ds-state">${!g.enabled ? '<span class="muted">off</span>' : t.missing ? `${num(t.missing)} to fetch` : '<span class="sb-ok">complete</span>'}</span></div>`;
+        }
         if (g.key === 'activity_tracks') {
             const t = c.tracks || {};
             rows += `<div class="ds-row${g.enabled ? '' : ' off'}"><span class="ds-name">GPS tracks, one request per activity</span><span class="ds-bar"></span>

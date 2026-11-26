@@ -40,6 +40,9 @@ CREATE INDEX IF NOT EXISTS activities_start ON activities (start_ts);
 CREATE TABLE IF NOT EXISTS tracks (
     activity_id INTEGER PRIMARY KEY, fetched_at INTEGER NOT NULL, points TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS activity_details (
+    activity_id INTEGER PRIMARY KEY, fetched_at INTEGER NOT NULL, body BLOB NOT NULL
+);
 CREATE TABLE IF NOT EXISTS intraday (
     kind TEXT NOT NULL, day TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY (kind, day)
 ) WITHOUT ROWID;
@@ -176,6 +179,24 @@ class Database:
             (activity_id, int(time.time()), json.dumps(points, separators=(",", ":"))),
         )
 
+    def activities_without_details(self, limit: int) -> list[int]:
+        rows = self._db.execute(
+            "SELECT a.id FROM activities a LEFT JOIN activity_details d ON d.activity_id = a.id"
+            " WHERE d.activity_id IS NULL ORDER BY a.start_ts DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [row[0] for row in rows]
+
+    def put_activity_details(self, activity_id: int, body: Any) -> None:
+        """Garmin's answers about one activity (splits, samples, weather, sets), kept whole."""
+        self._db.execute(
+            "INSERT OR REPLACE INTO activity_details VALUES (?, ?, ?)", (activity_id, int(time.time()), pack(body))
+        )
+
+    def activity_details(self, activity_id: int) -> Any:
+        row = self._db.execute("SELECT body FROM activity_details WHERE activity_id = ?", (activity_id,)).fetchone()
+        return unpack(row[0]) if row else None
+
     def activity_body(self, activity_id: int) -> Any:
         row = self._db.execute("SELECT body FROM activities WHERE id = ?", (activity_id,)).fetchone()
         return unpack(row[0]) if row else None
@@ -267,6 +288,7 @@ class Database:
         return self.query_one(
             "SELECT (SELECT COUNT(DISTINCT day) FROM daily) AS days, (SELECT COUNT(*) FROM daily) AS values_,"
             " (SELECT COUNT(*) FROM activities) AS activities, (SELECT COUNT(*) FROM tracks) AS tracks,"
+            " (SELECT COUNT(*) FROM activity_details) AS details,"
             " (SELECT COUNT(*) FROM intraday) AS curves, (SELECT COUNT(*) FROM events) AS events,"
             " (SELECT COUNT(*) FROM raw) AS answers, (SELECT MIN(day) FROM daily) AS first_day,"
             " (SELECT MAX(day) FROM daily) AS last_day"
@@ -280,7 +302,17 @@ class Database:
 
     def wipe(self) -> None:
         """Empty every table (the Settings danger zone). The history import starts over."""
-        for table in ("raw", "daily", "activities", "tracks", "intraday", "events", "snapshots", "progress"):
+        for table in (
+            "raw",
+            "daily",
+            "activities",
+            "tracks",
+            "activity_details",
+            "intraday",
+            "events",
+            "snapshots",
+            "progress",
+        ):
             self._db.execute(f"DELETE FROM {table}")
         self._changed()
         self._db.execute("VACUUM")

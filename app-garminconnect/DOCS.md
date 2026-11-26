@@ -33,8 +33,8 @@ between the data sets, so every chart fills at the same time. After a restart it
 where it was. How far each data set is shows under **Settings → Data sets**.
 
 A few years of history takes from a few minutes (daily summaries, sleep, activities: one
-request per one to six months) to a few hours (the day curves: two requests per day, and the
-GPS tracks: one request per activity). If Garmin asks to slow down, the app pauses for 15
+request per one to six months) to a few hours (the day curves: two requests per day, the
+GPS tracks: one request per activity, and the activity details: three or four per activity). If Garmin asks to slow down, the app pauses for 15
 minutes and goes on.
 
 After that, the latest days of every data set are fetched every `update_interval_minutes`
@@ -63,6 +63,7 @@ stored answers again**, without asking Garmin for it all again.
 | `sleep` | on | Sleep score, duration and stages, bed and wake-up time, sleep need, overnight HRV with its baseline, skin temperature. |
 | `activities` | on | Every activity with its distance, time, heart rate, training effect and load, HR zones. |
 | `activity_tracks` | on | The GPS track of every activity, for the maps. One request per activity. |
+| `activity_details` | on | Laps, heart rate, pace and elevation through every activity, the weather, and the sets of strength training. Three or four requests per activity. |
 | `training` | on | Training readiness, training status and acute/chronic load, VO2 max, race predictions, endurance and hill score, fitness age, heat and altitude acclimation. |
 | `body` | on | Weight and body composition (every weigh-in), blood pressure. |
 | `intraday` | on | Heart rate, stress and Body Battery through the day, in 5-minute steps. Two requests for every day of history. |
@@ -72,6 +73,9 @@ stored answers again**, without asking Garmin for it all again.
 | `nutrition` | off | Garmin Connect+ food logging: calories, protein, carbs and fat against your goals. |
 | `menstrual` | off | Cycle and period length, logged symptoms. |
 | `golf` | off | Scorecards and club statistics. |
+| `sleep_detail` | off | Sleep stages through the night, with SpO2, heart rate, HRV and breathing while asleep. One request per night. |
+| `intraday_more` | off | Steps per 15 minutes and breathing through the day. Two requests for every day of history. |
+| `planning` | off | Saved workouts, training plans, scheduled workouts, upcoming and past races. |
 
 The optional sets show up in the dashboard's **Explore** chart (Health) once they hold
 values. A set Garmin has nothing for, because your watch doesn't measure it or your account
@@ -104,8 +108,9 @@ doesn't use it, simply stays empty.
     low HRV or a poor recharge. Often the first sign of a cold or a hard week;
   - your week (per weekday), your average day (per hour), when stress hits (weekday × hour),
     year over year, and personal bests among the days.
-- **Activities**: the list with the track of the selected activity on the map, its numbers and
-  heart rate zones.
+- **Activities**: the list with the track of the selected activity on the map, its numbers,
+  heart rate, pace and elevation through the activity, laps, heart rate zones, the weather and
+  the sets of strength training.
 - **Records**: hours of sport per sport, Eddington numbers (E days of at least E km) for running,
   cycling and walking, heart rate zones over all activities, when you train, a heat map of every
   track, Garmin's personal records, gear against its planned life, badges and lifetime totals.

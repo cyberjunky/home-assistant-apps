@@ -89,6 +89,7 @@
                             <div class="legend"><span><i class="line" style="background:var(--series-2)"></i>Stress</span><span><i class="line" style="background:var(--series-3)"></i>Body Battery</span></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="chart-title"><span>Last night</span><span class="hint" id="today-sleep-hint"></span></div><div id="today-sleep"></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="chart-title"><span>Activities</span><span class="hint">click to open</span></div><div id="today-acts" class="activity"></div></div></div>
+                        <div class="panel wide" hidden><div class="panel-body"><div class="chart-title"><span>Steps through the day</span><span class="hint">per 15 minutes</span></div><div id="today-steps" class="chart"></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="chart-title"><span>On this day</span><span class="hint">the same date in earlier years</span></div><div id="today-history"></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="chart-title"><span>Did you know</span><button type="button" class="btn btn-small" onclick="nextFunFact()" title="Another one">🎲</button></div><div id="today-fun" class="fun-one"></div></div></div>
                     </div>
@@ -123,6 +124,7 @@
                         <div class="panel wide"><div class="panel-body"><div class="chart-title"><span>Your average day</span><span class="hint" id="rhythm-hint"></span></div><div id="rhythm-day" class="chart"></div>
                             <div class="legend"><span><i class="line" style="background:var(--series-1)"></i>Heart rate (bpm)</span><span><i class="line" style="background:var(--series-2)"></i>Stress</span><span><i class="line" style="background:var(--series-3)"></i>Body Battery</span></div></div></div>
                         <div class="panel wide"><div class="panel-body"><div class="chart-title"><span>When stress hits</span><span class="hint">average stress per weekday and hour</span></div><div id="stress-grid"></div></div></div>
+                        <div class="panel wide" hidden><div class="panel-body"><div class="chart-title"><span>When you move</span><span class="hint">average steps per weekday and hour</span></div><div id="steps-grid"></div></div></div>
                         <div class="panel wide"><div class="panel-body"><div class="chart-title"><span>Year over year</span><span class="hint"><select class="car-select" id="yoy-metric" aria-label="Metric" onchange="loadYoy()"></select></span></div><div id="yoy" class="chart"></div><div id="yoy-legend" class="legend"></div></div></div>
                         <div class="panel wide"><div class="panel-body"><div class="chart-title"><span>Personal bests</span><span class="hint">days, not activities · click to open the day</span></div><div id="bests" class="records"></div></div></div>
                     </div>
@@ -148,6 +150,7 @@
                         <div class="panel"><div class="panel-body"><div class="chart-title"><span>Gear</span><span class="hint">use against its planned life</span></div><div id="gear" class="bars-list"></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="chart-title"><span>Badges</span><span class="hint" id="badges-hint"></span></div><div id="badges" class="chart"></div></div></div>
                         <div class="panel"><div class="panel-body"><div class="chart-title"><span>Lifetime</span><span class="hint">Garmin's own totals</span></div><div id="lifetime"></div></div></div>
+                        <div class="panel" hidden><div class="panel-body"><div class="chart-title"><span>Plans and races</span><span class="hint">from your Garmin calendar</span></div><div id="plans"></div></div></div>
                     </div>
                 </div>
 

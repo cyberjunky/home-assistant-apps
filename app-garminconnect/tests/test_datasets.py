@@ -104,3 +104,50 @@ def test_generic_range_reads_date_keyed_maps(db):
         "2026-01-01": 61,
         "2026-01-02": 62,
     }
+
+
+def test_sleep_detail_keeps_deep_sleep(db):
+    start = 1767225600000  # 2026-01-01T00:00Z
+    data = {
+        "dailySleepDTO": {
+            "calendarDate": "2026-01-01",
+            "sleepStartTimestampGMT": start,
+            "sleepStartTimestampLocal": start + 3600000,
+        },
+        "sleepLevels": [
+            {"startGMT": "2026-01-01T00:00:00.0", "endGMT": "2026-01-01T00:30:00.0", "activityLevel": 0.0},
+            {"startGMT": "2026-01-01T00:30:00.0", "endGMT": "2026-01-01T01:00:00.0", "activityLevel": 2.0},
+        ],
+        "wellnessEpochSPO2DataDTOList": [{"epochTimestamp": "2026-01-01T00:10:00.0", "spo2Reading": 93}],
+        "sleepHeartRate": [{"value": 52, "startGMT": start + 600000}],
+    }
+    assert datasets.parse_sleep_detail(db, data, date(2026, 1, 1), date(2026, 1, 1)) >= 1
+    night = db.intraday("sleep", "2026-01-01", "2026-01-01")[0][1]
+    assert night["stages"] == [[0.0, 30.0, "deep"], [30.0, 60.0, "rem"]]
+    assert night["spo2"] == [[10.0, 93.0]] and night["offset_min"] == 60
+    assert db.series(["sleep_spo2_low"], "2026-01-01", "2026-01-01")["sleep_spo2_low"] == {"2026-01-01": 93}
+
+
+def test_steps_per_quarter_hour(db):
+    data = {
+        "steps": [
+            {"startGMT": "2025-12-31T23:00:00.0", "steps": 0},
+            {"startGMT": "2026-01-01T07:15:00.0", "steps": 420},
+        ],
+        "respiration": {},
+    }
+    datasets.parse_day_more(db, data, date(2026, 1, 1), date(2026, 1, 1))
+    assert db.intraday("steps", "2026-01-01", "2026-01-01") == [("2026-01-01", [[0, 0.0], [495, 420.0]])]
+
+
+def test_activity_detail_parts():
+    from fake_garmin import FakeGarmin
+
+    fake = FakeGarmin()
+    activity = fake.get_activities_by_date("2026-11-01", "2026-11-30")[0]
+    curves = datasets.activity_curves(fake.get_activity_details(activity["activityId"]))
+    assert {"hr", "time", "distance"} <= set(curves) and len(curves["hr"]) == 400
+    assert datasets.activity_curves({}) == {} and datasets.activity_curves(None) == {}
+    sets = datasets.activity_sets(fake.get_activity_exercise_sets(1))
+    assert len(sets) == 9 and sets[0]["exercise"] == "bench press"
+    assert datasets.activity_laps({"lapDTOs": [{"distance": 1000, "duration": 300}]})[0]["distance_m"] == 1000

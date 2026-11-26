@@ -126,6 +126,12 @@ function renderRhythm(r) {
     heatGrid(document.getElementById('stress-grid'), r.stress_grid || [], v => `stress ${num(v)}`);
 }
 
+function renderMoving(r) {
+    const el = document.getElementById('steps-grid');
+    el.closest('.panel').hidden = !(r && r.steps_grid);
+    if (r && r.steps_grid) heatGrid(el, r.steps_grid, v => `${num(v)} steps`);
+}
+
 function renderBests(bests) {
     const el = document.getElementById('bests');
     const fmt = {steps: v => num(v), floors_up: v => num(v), kcal_active: v => `${num(v)} kcal`, sleep_s: v => fmtDuration(v), sleep_score: v => num(v),
@@ -230,6 +236,7 @@ async function loadInsights() {
         renderAlerts(data.alerts);
         renderWeekdays(data.weekdays);
         renderRhythm(data.rhythm);
+        renderMoving(data.rhythm);
         renderBests(data.bests);
     } catch (e) {
         toast(e.message, 'error');
