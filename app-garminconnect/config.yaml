@@ -1,5 +1,5 @@
 name: Garmin Connect
-version: "0.1.0"
+version: "0.1.1"
 slug: app-garminconnect
 description: "Unofficial Garmin Connect history and statistics for Home Assistant - your full history, kept at home, with insights the Garmin site doesn't show"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-garminconnect"

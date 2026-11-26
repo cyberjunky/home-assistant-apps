@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1
+
+**After updating:** nothing to do.
+
+- **Gaps are filled:** after the app was off (or Garmin couldn't be reached) for days or weeks, the days in between are fetched. Before, only the last few days were, and the rest stayed missing. Data sets fetched per stretch of days catch up on the next update; those fetched a day at a time (day curves, sleep in detail, steps) catch up in the background before the history goes on further back. Settings shows "catching up" while it runs.
+- A stretch of days Garmin refuses is no longer asked for again on every update.
+- This works from the first update after installing 0.1.1: a gap from before that isn't noticed.
+
 ## 0.1.0
 
 First version.
