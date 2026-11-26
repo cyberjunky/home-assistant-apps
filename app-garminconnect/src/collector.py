@@ -332,11 +332,8 @@ class Collector:
         # take months per request, those that take a request per day, and the activities' tracks
         # and details. A kind with nothing left gives its turn to the next one.
         slot = self._turn % len(ROTATION)
-        kind = next(
-            ROTATION[(slot + i) % len(ROTATION)]
-            for i in range(len(ROTATION))
-            if work[ROTATION[(slot + i) % len(ROTATION)]]
-        )
+        order = [ROTATION[(slot + i) % len(ROTATION)] for i in range(len(ROTATION))]
+        kind = next(k for k in order if work[k])
         self._turn += 1
         choices = work[kind]
         pick = choices[self._next[kind] % len(choices)]
