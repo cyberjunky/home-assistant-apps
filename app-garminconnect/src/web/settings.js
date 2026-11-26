@@ -111,6 +111,7 @@ function renderDatasets() {
             const covered = s.covered === null || s.covered === undefined ? null : s.covered;
             const state = !s.enabled ? '<span class="muted">off</span>'
                 : s.kind === 'snapshot' ? (s.last_fetch ? `fetched ${fmtAgo(s.last_fetch)}` : 'not yet')
+                : s.newest && s.kind === 'day' && s.newest < addDays(app.today, -3) ? `catching up from ${fmtDayY(s.newest)}`
                 : s.done ? '<span class="sb-ok">complete</span>'
                 : !c.import_history ? 'latest days only'
                 : s.oldest ? `back to ${fmtDayY(s.oldest)}` : 'waiting';

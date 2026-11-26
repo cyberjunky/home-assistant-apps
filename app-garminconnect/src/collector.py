@@ -94,6 +94,7 @@ class Collector:
                     "last_fetch": row.get("last_fetch"),
                     "last_error": row.get("last_error"),
                     "rows": row.get("rows") or 0,
+                    "newest": row.get("newest"),
                 }
             )
         tracks_missing = self.db.scalar(
@@ -187,10 +188,29 @@ class Collector:
                     if self.db.snapshot_age(dataset.key) >= dataset.every_hours * 3600 or self.next_update_at == 0:
                         await self._fetch(dataset, today, today)
                 elif dataset.kind == "day":
-                    for back in range(dataset.recent_days):
+                    # Oldest first, so the days join on to what the set already has
+                    for back in reversed(range(dataset.recent_days)):
                         await self._fetch(dataset, today - timedelta(days=back), today - timedelta(days=back))
                 else:
-                    await self._fetch(dataset, today - timedelta(days=dataset.recent_days - 1), today)
+                    # From where the data set stopped (the app was off, or Garmin couldn't be reached),
+                    # including its last days then, which Garmin may have filled in since
+                    start = today - timedelta(days=dataset.recent_days - 1)
+                    newest = self.db.newest(dataset.key)
+                    if newest:
+                        start = min(start, date.fromisoformat(newest) - timedelta(days=dataset.recent_days - 1))
+                    start = max(start, self.history_start())
+                    while start <= today:
+                        end = min(start + timedelta(days=dataset.chunk_days - 1), today)
+                        try:
+                            await self._fetch(dataset, start, end)
+                        except GarminConnectConnectionError as e:
+                            if not _is_refusal(e):
+                                raise
+                            # Garmin has nothing for this stretch: don't ask for it on every update
+                            errors += 1
+                            self.db.set_newest(dataset.key, max(self.db.newest(dataset.key) or "", iso(end)))
+                            self.db.commit()
+                        start = end + timedelta(days=1)
             except GarminConnectConnectionError as e:
                 if not _is_refusal(e):
                     raise
@@ -221,6 +241,10 @@ class Collector:
                 self.db.put_raw(dataset.key, key, data)
             rows = dataset.parse(self.db, data, start, end)
         progress = self.db.progress(dataset.key)
+        newest = self.db.newest(dataset.key)
+        if dataset.kind != "snapshot" and (newest is None or start <= date.fromisoformat(newest) + timedelta(days=1)):
+            # Only a piece that joins on moves "complete up to" forward: a jump ahead leaves a gap to fill
+            self.db.set_newest(dataset.key, max(newest or "", iso(end)))
         self.db.set_progress(
             dataset.key,
             last_fetch=int(time.time()),
@@ -238,8 +262,41 @@ class Collector:
             return []
         return [d for d in self.enabled() if d.kind != "snapshot" and not self.db.progress(d.key)["done"]]
 
+    def _behind(self) -> list[Dataset]:
+        """Day-by-day sets with a gap between what they have and the last days the update fetches."""
+        today = date.today()
+        behind = []
+        for dataset in self.enabled():
+            if dataset.kind != "day":
+                continue
+            newest = self.db.newest(dataset.key)
+            if newest and date.fromisoformat(newest) < today - timedelta(days=dataset.recent_days):
+                behind.append(dataset)
+        return behind
+
+    async def _catch_up(self, dataset: Dataset) -> None:
+        """The day after the last one the set has in full."""
+        day = date.fromisoformat(self.db.newest(dataset.key)) + timedelta(days=1)
+        self.current = f"{dataset.title} (catching up)"
+        try:
+            await self._fetch(dataset, day, day)
+        except GarminConnectConnectionError as e:
+            if not _is_refusal(e):
+                raise
+            # Garmin has nothing for that day: count it as done
+            self.db.set_newest(dataset.key, iso(day))
+            self.db.commit()
+
     async def history_turn(self) -> bool:
         """Fetch the next piece of history. Returns False when there is nothing left to fetch."""
+        behind = self._behind()
+        if behind:
+            # A gap in the recent past goes before the far past
+            self.phase = "catching up"
+            await self._catch_up(behind[self._turn % len(behind)])
+            self._turn += 1
+            await asyncio.sleep(PAUSE_BETWEEN_REQUESTS)
+            return True
         pending = self._history_pending()
         tracks_due = self.config.enabled("activity_tracks") and bool(self.db.activities_without_track(1))
         details_due = self.config.enabled("activity_details") and bool(self.db.activities_without_details(1))
