@@ -37,8 +37,10 @@ def host_of(url: str) -> str:
     return parts.hostname + (f":{parts.port}" if parts.port else "") if parts.hostname else url
 
 
-def clean_url(value, what: str) -> str:
+def clean_url(value, what: str, allow_path: bool = False) -> str:
     url = str(value or "").strip().rstrip("/")
+    if url and allow_path and re.match(r"^https?://[^/\s]+(/\S*)?$", url):
+        return url
     if url and not re.match(r"^https?://[^/\s]+$", url):
         raise ValueError(f"{what}: url {url!r} must look like http://192.168.1.50:8332, without a path")
     return url
@@ -105,6 +107,9 @@ class Config:
     tor_control: str = ""
     tor_password: str = ""
 
+    # ckpool's logs folder, served read-only over HTTP. Empty: no Pool page
+    pool_url: str = ""
+
     poll_seconds: int = 15
     history_days: int = 90
 
@@ -135,6 +140,7 @@ class Config:
         bitcoin = options.get("bitcoin") or {}
         lightning = options.get("lightning") or {}
         tor = options.get("tor") or {}
+        pool = options.get("pool") or {}
         mqtt = options.get("mqtt") or {}
         config = cls(
             bitcoin_url=clean_url(bitcoin.get("url"), "bitcoin"),
@@ -146,6 +152,7 @@ class Config:
             lnd_read_only=bool(lightning.get("read_only", True)),
             tor_control=clean_endpoint(tor.get("control"), "tor"),
             tor_password=str(tor.get("password") or ""),
+            pool_url=clean_url(pool.get("url"), "pool", allow_path=True),
             poll_seconds=min(600, max(5, int(options.get("poll_seconds") or 15))),
             history_days=min(3650, max(1, int(options.get("history_days") or 90))),
             mqtt_enabled=bool(mqtt.get("enabled", True)),

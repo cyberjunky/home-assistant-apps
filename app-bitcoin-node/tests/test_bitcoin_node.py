@@ -10,7 +10,7 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
-from src import bitcoin, lightning, mqtt, tor
+from src import bitcoin, lightning, mqtt, pool, tor
 from src.config import Config, certificate_pem, macaroon_hex
 from src.database import SAMPLE_SECONDS, SERIES, Database
 from src.node import Node
@@ -174,7 +174,7 @@ def test_database_keeps_history(tmp_path):
     assert sqlite3.connect(tmp_path / "copy.db").execute("SELECT COUNT(*) FROM samples").fetchone() == (10,)
     counts = db.counts()
     assert counts["samples"] == 10 and counts["events"] == 2 and counts["size"] > 0
-    assert db.wipe() == {"samples": 10, "events": 2}
+    assert db.wipe() == {"samples": 10, "pool_samples": 0, "events": 2}
     assert db.counts()["samples"] == 0 and db.blocks()  # the blocks stay
     db.close()
 
@@ -191,10 +191,10 @@ def test_database_drops_what_is_too_old(tmp_path):
 # ---------------------------------------------------------------------- against the mock node
 @pytest.fixture
 async def mock():
-    """The mock node's three services on free ports, and the options that point at them."""
+    """The mock node's four services on free ports, and the options that point at them."""
     node = mock_node.MockNode(seed=7, fast=False)
     runners, ports = [], []
-    for app in (mock_node.rpc_app(node), mock_node.lnd_app(node)):
+    for app in (mock_node.rpc_app(node), mock_node.lnd_app(node), mock_node.pool_app(node)):
         runner = web.AppRunner(app)
         await runner.setup()
         site = web.TCPSite(runner, "127.0.0.1", 0)
@@ -206,6 +206,7 @@ async def mock():
         "bitcoin": {"url": f"http://127.0.0.1:{ports[0]}", "username": "homeassistant", "password": "secret"},
         "lightning": {"url": f"http://127.0.0.1:{ports[1]}", "macaroon": "0201"},
         "tor": {"control": f"127.0.0.1:{control.sockets[0].getsockname()[1]}", "password": "torpass"},
+        "pool": {"url": f"http://127.0.0.1:{ports[2]}"},
         "mqtt": {"enabled": False},
     }
     yield node, options
@@ -233,6 +234,10 @@ async def read_once(node: Node) -> None:
         node.lightning._set_link(True, "")
     await node.tor.poll()
     node.tor._set_link(True, "")
+    if node.pool.configured:
+        async with aiohttp.ClientSession() as session:
+            await node.pool.poll(session)
+        node.pool._set_link(True, "")
 
 
 async def test_the_node_is_read_and_served(mock, tmp_path):
@@ -271,6 +276,13 @@ async def test_the_node_is_read_and_served(mock, tmp_path):
     assert status["tor"]["bootstrap"] == 100 and status["tor"]["circuits"] == len(served.circuits)
     assert [s["port"] for s in status["tor"]["onion_services"]] == [8333, 9735]
     assert {h["name"]: h["state"] for h in status["health"]}["Channels"] == "warn"
+    p = status["pool"]
+    assert p["connected"] and not p["stale"] and p["active_workers"] == 2 and p["workers"] == 2
+    assert p["hashrate"]["5m"] == pytest.approx(5.55e12, rel=0.1) and 0 < p["odds"]["day"] < 0.001
+    assert p["odds"]["expected_seconds"] > 86400 * 365 and p["best_ever"] > 1e10
+    workers = node.pool.workers()
+    assert [w["label"] for w in workers] == ["bitaxe", "lv08"] and workers[0]["address"] == mock_node.POOL_ADDRESS
+    assert {h["name"]: h for h in status["health"]}["Mining pool"]["state"] == "ok"
     assert not events  # the first reading is the state as found: nothing happened yet
 
     # A new block, a forwarded payment and a channel going offline are told once each
@@ -292,6 +304,9 @@ async def test_the_node_is_read_and_served(mock, tmp_path):
     assert payload["block_height"] == served.tip and payload["synced"] is True and payload["onion"] is True
     assert mqtt.lightning_payload(node, now)["channels_problem"] is True
     assert mqtt.tor_payload(node, now)["bootstrap"] == 100
+    pool_payload = mqtt.pool_payload(node, now)
+    assert pool_payload["workers_mining"] == 2 and pool_payload["worker_problem"] is False
+    assert 0 < pool_payload["chance_day"] < 0.1 and pool_payload["hashrate"] == pytest.approx(5.55, rel=0.1)
     ids = []
     for key in mqtt.DEVICES:
         for topic, message in mqtt.discovery_messages(node, key, "homeassistant", "bitcoin_node"):
@@ -319,6 +334,8 @@ async def test_the_node_is_read_and_served(mock, tmp_path):
         assert len((await (await client.get("/api/peers")).json())["peers"]) == len(served.peers)
         assert (await (await client.get("/api/lightning")).json())["channels"]
         assert (await (await client.get("/api/tor")).json())["circuits"]
+        assert (await (await client.get("/api/pool")).json())["users"][0]["worker"][1]["label"] == "lv08"
+        assert history["pool_hashrate"][-1] > 1e12 and history["pool_workers"][-1] == 2
         assert (await (await client.get("/api/events?limit=2")).json())["events"]
         backup = await client.get("/api/backup")
         assert backup.status == 200 and (await backup.read()).startswith(b"SQLite format 3")
@@ -419,3 +436,41 @@ def test_one_missed_poll_is_not_an_outage(tmp_path):
         "Tor's control port does not answer",
     ]
     database.close()
+
+
+# ---------------------------------------------------------------------- the mining pool
+def test_pool_parsers():
+    assert pool.parse_hashrate("4.56T") == pytest.approx(4.56e12)
+    assert pool.parse_hashrate("870G") == 870e9 and pool.parse_hashrate("0") == 0
+    assert pool.parse_hashrate("12K") == 12e3 and pool.parse_hashrate("junk") is None
+    status = pool.parse_status('{"runtime": 60, "lastupdate": 5}\n{"hashrate1m": "1T"}\nnot json\n{"accepted": 7}\n')
+    assert status == {"runtime": 60, "lastupdate": 5, "hashrate1m": "1T", "accepted": 7}
+    with pytest.raises(pool.PoolError):
+        pool.parse_status("<html>nginx</html>")
+    listing = '<a href="../">..</a><a href="?C=N">sort</a><a href="bc1qabc">bc1qabc</a><a href="sub/">sub/</a>'
+    assert pool.listing_names(listing) == ["bc1qabc"]
+    odds = pool.odds(1e12, 1e21)
+    assert odds["day"] == pytest.approx(144e-9, rel=1e-3) and odds["expected_seconds"] == pytest.approx(6e11)
+    assert pool.odds(None, 1e21) == {} and pool.odds(1e12, None) == {}
+    assert Config.from_options({"pool": {"url": "http://192.168.1.50:3380/"}}).pool_url == "http://192.168.1.50:3380"
+
+
+def test_pool_tells_workers_and_blocks(tmp_path):
+    events = []
+    client = pool.PoolClient(
+        Config.from_options({"pool": {"url": "http://x:1"}}), lambda *a, **k: events.append(a[1]), lambda: 1e14
+    )
+    now = time.time()
+
+    def users(lastshare, bestever):
+        worker = {"workername": "bc1qabc.bitaxe", "lastshare": lastshare, "bestever": bestever, "hashrate5m": "1T"}
+        return [pool.user_view("bc1qabc", {"worker": [worker]}, now)]
+
+    client.users = users(now - 5, 5e9)
+    client._watch(now)
+    assert events == []  # the first reading is the state as found
+    client.users = users(now - 900, 5e9)
+    client._watch(now)
+    client.users = users(now - 5, 2e14)
+    client._watch(now)
+    assert events == ["worker_offline", "worker_online", "block_found"]

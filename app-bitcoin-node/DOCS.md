@@ -28,6 +28,8 @@ lightning:
 tor:
   control: 192.168.1.50:9051
   password: the-control-password
+pool:
+  url: http://192.168.1.50:3380
 poll_seconds: 15
 history_days: 90
 ```
@@ -42,6 +44,7 @@ history_days: 90
 | `lightning.read_only` | `true` | This version only reads, whatever this is. Leave it on: a later version that can pay or manage channels will stay off until you turn this off |
 | `tor.control` | | Address and port of Tor's control port. Empty: the Tor page shows the onion addresses and the peers through Tor, without Tor's own state |
 | `tor.password` | | The password behind `HashedControlPassword` in `torrc` |
+| `pool.url` | | Address of ckpool's logs folder, served read-only on the node (see below). Empty: no Pool page and no pool entities |
 | `poll_seconds` | `15` | How often the node is read (5 to 600) |
 | `history_days` | `90` | How long the numbers behind the charts are kept |
 | `mqtt.enabled` | `true` | Publish the node over MQTT |
@@ -109,9 +112,42 @@ HashedControlPassword 16:...the line "tor --hash-password yourpassword" printed.
 
 The onion addresses and whether the node is reachable through them come from Bitcoin Core and LND, and need none of this.
 
+### Mining pool (ckpool)
+
+Optional, for a solo mining pool on the node: [ckpool](https://github.com/ckolivas/ckpool) started with `-B`, with your miners (a Bitaxe, a Lucky Miner) pointed at it. ckpool has no API; every minute it writes its state as small JSON files in its logs folder: `pool/pool.status`, and one file per payout address under `users/`. Serve that folder read-only to Home Assistant with the web server built into Python. As a service on the node, `/etc/systemd/system/ckpool-status.service`:
+
+```ini
+[Unit]
+Description=ckpool status, read-only for Home Assistant
+After=network-online.target ckpool.service
+Wants=network-online.target
+
+[Service]
+User=ckpool
+Group=ckpool
+ExecStart=/usr/bin/python3 -m http.server 3380 --bind 192.168.1.50 --directory /data/ckpool/logs
+Restart=on-failure
+RestartSec=30
+ProtectSystem=full
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now ckpool-status
+sudo ufw allow from 192.168.1.10 to any port 3380 proto tcp
+```
+
+Use the `logdir` from `ckpool.conf` as `--directory`. Open port 3380 for Home Assistant only: the folder also holds ckpool's log, with your miners' addresses on the network. Then set `pool.url` to `http://192.168.1.50:3380`.
+
 ## How it works
 
-Every `poll_seconds` the app asks Bitcoin Core for the chain, the mempool, the network, the peers and the fee estimates in one request, LND for the node, the balances and the channels, and Tor for its state. A new block is noticed by its hash: its statistics are read once and kept, the last day of blocks. What waits in the mempool per fee rate is read every two minutes, by going through every transaction; a mempool of more than 250,000 transactions is skipped. What LND forwarded, paid and received, and its channel backup, are read every five minutes.
+Every `poll_seconds` the app asks Bitcoin Core for the chain, the mempool, the network, the peers and the fee estimates in one request, LND for the node, the balances and the channels, and Tor for its state. ckpool's status files are read every `poll_seconds` too, but at most every 30 seconds: ckpool rewrites them once a minute.
+
+The chance of a block is the pool's hashrate over the last hour divided by the network's, against 144 blocks a day. It is the same every day: shares don't build up towards a block. A worker's share at least as hard as the network's difficulty is a block, and is told as `block_found`. A new block is noticed by its hash: its statistics are read once and kept, the last day of blocks. What waits in the mempool per fee rate is read every two minutes, by going through every transaction; a mempool of more than 250,000 transactions is skipped. What LND forwarded, paid and received, and its channel backup, are read every five minutes.
 
 A sample of the numbers is stored every two minutes for the charts. Traffic rates are worked out from the node's own byte counters between two polls.
 
@@ -125,6 +161,7 @@ Nothing is sent to the node but questions. The browser only talks to the app: th
 - **Peers** — inbound and outbound, ping, traffic and the number of peers over time, the software the peers run, which networks the node uses, and every peer.
 - **Lightning** — funds, what you can send and receive, every channel with its balance as a bar and a warning when it can hardly send or receive, your fee, volume and uptime per channel, payments forwarded and fees earned per day, the balance over time, where the funds are, recent payments, and the channel backup.
 - **Tor** — the node's onion addresses and the peers through Tor; with the control port also bootstrap, traffic and every circuit with what it is used for.
+- **Pool** (with `pool.url` set) — the pool's hashrate now and over time, every worker with its hashrate, last share and best share, how close the best share came to the network's difficulty, the payout addresses, and your chance of finding a block per day and per year.
 - **Info** — the connections and their state, MQTT, the app's data with a backup and a delete button, and which call every number comes from.
 
 The charts share one period: 24 hours, 7 days or 30 days. Under a chart are its latest, lowest, average and highest value in that period. The theme follows Home Assistant; the button in the top bar switches to light or dark.
@@ -162,7 +199,7 @@ The file is encrypted by LND and useless without the 24 words. Restoring is done
 
 ## In Home Assistant
 
-With MQTT the node becomes up to three devices.
+With MQTT the node becomes up to four devices.
 
 **Bitcoin Core**
 
@@ -193,7 +230,9 @@ With MQTT the node becomes up to three devices.
 
 **Tor** (with the control port set up): Bootstrap, Circuits, Received, Sent, Tor version and Connected.
 
-**Node events** fires with `event_type` `block` (attributes `height`, `transactions`, `median_fee`, `fees_btc`), `synced` and `node`. **Lightning events** fires with `forward`, `received`, `payment` (attributes `amount_sat`, `fee_sat` and `route` or `memo`), `channel_opened`, `channel_closed`, `channel_offline`, `channel_online` (attribute `peer`), `backup` and `node`. Every event has a `text`. For example, a notification when a channel goes offline:
+**Mining pool** (with `pool.url` set): Pool hashrate (last 5 minutes and last hour, in TH/s), Workers mining, Best share ever, Chance of a block per day and per year (in %), Worker offline (a problem: on when a worker sent no share for 10 minutes), Connected, and **Pool events**.
+
+**Node events** fires with `event_type` `block` (attributes `height`, `transactions`, `median_fee`, `fees_btc`), `synced` and `node`. **Lightning events** fires with `forward`, `received`, `payment` (attributes `amount_sat`, `fee_sat` and `route` or `memo`), `channel_opened`, `channel_closed`, `channel_offline`, `channel_online` (attribute `peer`), `backup` and `node`. **Pool events** fires with `block_found` (attributes `worker`, `difficulty`), `worker_offline`, `worker_online` (attribute `worker`) and `pool`. Every event has a `text`. For example, a notification when a channel goes offline:
 
 ```yaml
 triggers:
@@ -214,7 +253,7 @@ actions:
 
 For "no block for an hour", use a template on **Last block** rather than the events.
 
-The state is published on `bitcoin_node/bitcoin/state`, `bitcoin_node/lightning/state` and `bitcoin_node/tor/state`, the events on `…/event`. Forwarded, received and paid amounts are told within five minutes, not at once. Nothing is taken from MQTT.
+The state is published on `bitcoin_node/bitcoin/state`, `bitcoin_node/lightning/state`, `bitcoin_node/tor/state` and `bitcoin_node/pool/state`, the events on `…/event`. Forwarded, received and paid amounts are told within five minutes, not at once. Nothing is taken from MQTT.
 
 Left out on purpose: onion addresses, the node's public key and block hashes, and an entity per peer or per channel (they come and go, and would leave dead entities behind).
 

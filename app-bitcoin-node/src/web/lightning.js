@@ -239,6 +239,7 @@ const SOURCES = [
     ['LND', 'REST', 'getinfo, balance, channels, pending channels, fees', 'every poll: wallet and channels'],
     ['LND', 'REST', 'forwarding history, payments, invoices, channel backup', 'every five minutes: routing, payments, the backup'],
     ['Tor', 'control port', 'GETINFO version, bootstrap phase, traffic, circuit status', 'every poll: bootstrap, traffic, circuits'],
+    ['ckpool', 'HTTP, its logs folder', 'pool/pool.status, users/&lt;address&gt;', 'every poll, at least 30 s: pool, workers, best shares'],
 ];
 
 onTab('info', () => {
@@ -248,6 +249,7 @@ onTab('info', () => {
             ${panel('Bitcoin Core', '', '<div id="info-bitcoin"></div>')}
             ${panel('LND', '', '<div id="info-lnd"></div>')}
             ${panel('Tor', '', '<div id="info-tor"></div>')}
+            ${panel('Mining pool', '', '<div id="info-pool"></div>')}
             ${panel('MQTT', '', '<div id="info-mqtt"></div>')}
         </div>
         <div class="page-section"><span>Data</span><small>what this app keeps itself</small></div>
@@ -266,7 +268,7 @@ onTab('info', () => {
         </div>
         <div class="page-section"><span>Where the numbers come from</span><small>the app only reads</small></div>
         <div class="panel"><div class="panel-body"><div id="info-sources" class="table-wrap"></div></div></div>`);
-    const s = app.status, c = s.config, n = s.node, ln = s.lightning, t = s.tor;
+    const s = app.status, c = s.config, n = s.node, ln = s.lightning, t = s.tor, p = s.pool;
     const link = (configured, connected, error) => !configured ? '<span class="muted">not set up</span>'
         : connected ? stateLabel('ok', 'connected') : `<span class="state bad" title="${escapeHtml(error || '')}">not reachable</span>`;
     fill('info-bitcoin', [
@@ -287,6 +289,11 @@ onTab('info', () => {
         infoRow('Control port', t.configured ? `${link(true, t.connected, t.error)} · ${escapeHtml(c.tor_control)}` : '<span class="muted">not set up · optional</span>'),
         infoRow('Version', escapeHtml(t.version || '–')),
         infoRow('Onion addresses', num(t.onion_services.length)),
+    ].join(''));
+    fill('info-pool', [
+        infoRow('ckpool status', p.configured ? `${link(true, p.connected, p.error)} · ${escapeHtml(c.pool_url)}` : '<span class="muted">not set up · optional</span>'),
+        infoRow('Last status', p.configured ? escapeHtml(fmtAgo(p.last_update)) : '–'),
+        infoRow('Workers', p.configured ? num(p.active_workers) : '–'),
     ].join(''));
     fill('info-mqtt', [
         infoRow('Publishing', c.mqtt_enabled ? 'on' : 'off'),

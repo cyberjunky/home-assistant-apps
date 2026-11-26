@@ -28,6 +28,8 @@ options:
   tor:
     control: ""
     password: ""
+  pool:
+    url: ""
   poll_seconds: 15
   history_days: 90
   mqtt:
@@ -53,6 +55,8 @@ schema:
   tor:
     control: str?
     password: password?
+  pool:
+    url: str?
   poll_seconds: int(5,600)?
   history_days: int(1,3650)?
   mqtt:

@@ -49,6 +49,7 @@ async def main() -> int:
         asyncio.create_task(forever(node.bitcoin.run()), name="bitcoin"),
         asyncio.create_task(forever(node.lightning.run()), name="lightning"),
         asyncio.create_task(forever(node.tor.run()), name="tor"),
+        asyncio.create_task(forever(node.pool.run()), name="pool"),
         asyncio.create_task(node.run(), name="samples"),
     ]
 

@@ -45,6 +45,7 @@ class WebUI:
         self.app.router.add_get("/api/peers", self._peers)
         self.app.router.add_get("/api/lightning", self._lightning)
         self.app.router.add_get("/api/tor", self._tor)
+        self.app.router.add_get("/api/pool", self._pool)
         self.app.router.add_get("/api/events", self._events)
         self.app.router.add_get("/api/backup", self._backup)
         self.app.router.add_get("/api/channel-backup", self._channel_backup)
@@ -94,6 +95,9 @@ class WebUI:
 
     async def _tor(self, request: web.Request) -> web.Response:
         return web.json_response({"circuits": self.node.tor.circuits})
+
+    async def _pool(self, request: web.Request) -> web.Response:
+        return web.json_response(self.node.pool.details())
 
     async def _events(self, request: web.Request) -> web.Response:
         try:

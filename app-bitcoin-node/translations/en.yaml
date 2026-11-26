@@ -48,6 +48,15 @@ configuration:
       password:
         name: Password
         description: The password behind HashedControlPassword in torrc.
+  pool:
+    name: Mining pool (ckpool)
+    description: >-
+      Optional. ckpool's logs folder, served read-only over HTTP on the node,
+      for the Pool page. See the documentation.
+    fields:
+      url:
+        name: Address
+        description: Address of that folder, for example http://192.168.1.50:3380.
   poll_seconds:
     name: Read every (seconds)
     description: How often the node is read.

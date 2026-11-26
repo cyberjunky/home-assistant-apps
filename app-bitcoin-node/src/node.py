@@ -14,6 +14,7 @@ from .bitcoin import BitcoinClient
 from .config import APP_VERSION, Config, host_of
 from .database import Database
 from .lightning import LndClient
+from .pool import PoolClient
 from .tor import TorClient
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,7 @@ def public_config(config: Config) -> dict:
         "lnd_tls_cert": bool(config.lnd_tls_cert),
         "lnd_read_only": config.lnd_read_only,
         "tor_control": config.tor_control,
+        "pool_url": config.pool_url,
         "poll_seconds": config.poll_seconds,
         "history_days": config.history_days,
         "mqtt_enabled": config.mqtt_enabled,
@@ -50,6 +52,7 @@ class Node:
         self.bitcoin = BitcoinClient(config, database, self.emit)
         self.lightning = LndClient(config, Path(data_dir) / "channel-backups", self.emit)
         self.tor = TorClient(config, self.emit)
+        self.pool = PoolClient(config, self.emit, lambda: self.bitcoin.chain.get("difficulty"))
 
     def emit(self, source: str, kind: str, level: str, text: str, ts: float | None = None, **extra) -> None:
         """Something happened: keep it for the Activity lists and pass it on."""
@@ -65,7 +68,7 @@ class Node:
         """Store a sample for the charts whenever one is due."""
         while True:
             await asyncio.sleep(min(30, self.config.poll_seconds))
-            if self.bitcoin.connected or self.lightning.connected or self.tor.connected:
+            if self.bitcoin.connected or self.lightning.connected or self.tor.connected or self.pool.connected:
                 await asyncio.to_thread(self.database.sample, self.sample_values())
 
     def sample_values(self) -> dict:
@@ -92,6 +95,13 @@ class Node:
             )
         if self.tor.connected:
             values.update(tor_read_rate=self.tor.read_rate, tor_written_rate=self.tor.written_rate)
+        if self.pool.connected and not self.pool.stale:
+            pool = self.pool.status(None)
+            values.update(
+                pool_hashrate=pool["hashrate"].get("5m"),
+                pool_hashrate_hour=pool["hashrate"].get("1hr"),
+                pool_workers=pool["active_workers"],
+            )
         return values
 
     def onion_services(self) -> list[dict]:
@@ -195,6 +205,20 @@ class Node:
                     "ok" if ready else "warn",
                     "Connected to the Tor network" if ready else f"Starting: {tor.bootstrap}%",
                 )
+        pool = self.pool
+        if pool.configured:
+            if not pool.connected:
+                add("Mining pool", "bad", pool.error or "No answer yet")
+            elif pool.stale:
+                add("Mining pool", "bad", "ckpool stopped writing its status: is it running?")
+            else:
+                workers = pool.workers()
+                active = sum(1 for w in workers if w["active"])
+                add(
+                    "Mining pool",
+                    "ok" if active and active == len(workers) else "warn",
+                    f"{active} of {len(workers)} workers mining" if workers else "No miner connected yet",
+                )
         return checks
 
     def status(self, mqtt=None) -> dict:
@@ -211,6 +235,7 @@ class Node:
             "net": btc.net_status(),
             "lightning": self.lightning.status(),
             "tor": self.tor.status(self.onion_services()),
+            "pool": self.pool.status(btc.hashrate),
             "health": self.health(now),
             "mqtt": {"connected": bool(mqtt and mqtt.connected), "broker": mqtt.broker if mqtt else ""},
             "database": self.database.counts(),

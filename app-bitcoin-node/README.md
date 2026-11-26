@@ -46,6 +46,9 @@ node. It works with an RPC user that may only read and with LND's read-only maca
 **Tor** — the onion addresses, traffic through Tor and every circuit with what it is used for
 ![Tor](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-bitcoin-node/screenshots/tor-light.webp)
 
+**Pool** — your own solo mining pool (ckpool): hashrate, every worker, how close the best share came to a block, and your chance of finding one
+![Pool](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-bitcoin-node/screenshots/pool-light.webp)
+
 **Info** — the connections, MQTT, the app's data and where every number comes from
 ![Info](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-bitcoin-node/screenshots/info-light.webp)
 
@@ -61,15 +64,17 @@ node. It works with an RPC user that may only read and with LND's read-only maca
 - 🌐 **Peers** — Inbound and outbound, traffic, ping, the software your peers run and which networks the node uses
 - ⚡ **Lightning** — Funds, what you can send and receive, every channel's balance, uptime and fee, payments forwarded and routing fees earned
 - 🧅 **Tor** — The node's onion addresses, whether any peer sees your IP address, and Tor's circuits and traffic
+- ⛏️ **Mining pool** — A ckpool solo pool on the node: hashrate, every worker (Bitaxe, Lucky Miner), the best share against the difficulty and your chance of a block
 - 📈 **Charts and health** — Every number over 24 hours, 7 and 30 days with its low, average and high, and a health list that warns
 - 💾 **Channel backup** — LND's channel backup stored again whenever a channel opens or closes, to download
-- 📨 **MQTT discovery** — Bitcoin Core, Lightning and Tor as devices with their sensors, and event entities for automations
+- 📨 **MQTT discovery** — Bitcoin Core, Lightning, Tor and the mining pool as devices with their sensors, and event entities for automations
 
 ## Requirements
 
 - A Bitcoin Core node with its RPC reachable from Home Assistant, and an RPC user for the app
 - Optional: LND with its REST API reachable, and its read-only macaroon
 - Optional: Tor's control port, for Tor's own state
+- Optional: ckpool's logs folder served read-only, for the Pool page
 - An MQTT broker for the entities in Home Assistant (optional; the dashboard works without one)
 
 ## Installation
