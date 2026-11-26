@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.2
+
+**After updating:** nothing to do. Tracks fetched before are mapped for the heat maps in the background right after the start; the maps say "mapping … tracks" until that's done.
+
+- **Heatmap on the Activities map:** Off, 30 days, 90 days, 1 year or All, for the sport picked in the list. It lies under the track of the selected activity, and the choice is remembered. The "Where you've been" map on Records uses the same data.
+- **Quick heat maps for years of history:** like the Tesla app, every track is mapped to the places of about 100 m it passed through, and the heat maps count those instead of reading every track.
+- **The heat no longer stops at the old edge** of a map that changed size.
+- **The day curves fill in alongside the rest:** the history import now takes turns between the data sets fetched per stretch of days, those fetched a day at a time, and the tracks and details of activities. Before, heart rate, stress and Body Battery through the day (and with them the heartbeat count, your average day and when stress hits) waited until every activity's details were in.
+
 ## 0.1.1
 
 **After updating:** nothing to do.
