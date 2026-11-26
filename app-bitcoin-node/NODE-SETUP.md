@@ -721,7 +721,7 @@ sudo cat /data/ckpool/logs/users/bc1q…your address…
 
 ### Show the pool in the Bitcoin Node app
 
-The app's Pool page reads ckpool's status files. Serve the logs folder read-only to Home Assistant with Python's built-in web server. Create `/etc/systemd/system/ckpool-status.service`:
+The app's Pool page reads ckpool's status files. ckpool has no network interface for its statistics: it only writes them as files in its logs folder, once a minute. So a second, separate service shares that folder read-only with Home Assistant, using Python's built-in web server. The pool runs without it; only the Pool page needs it. Create `/etc/systemd/system/ckpool-status.service`:
 
 ```ini
 [Unit]
