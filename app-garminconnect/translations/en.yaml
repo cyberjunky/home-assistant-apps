@@ -1,0 +1,34 @@
+configuration:
+  update_interval_minutes:
+    name: Update interval (minutes)
+    description: >-
+      How often the latest data is fetched from Garmin Connect. The last few
+      days of every data set are fetched again each time, because Garmin keeps
+      filling them in after a sync. 30 minutes is plenty; lower values only
+      mean more requests to Garmin.
+  history:
+    name: History
+    description: >-
+      import fetches your whole history once, newest first, in small pieces
+      with a pause in between, and continues where it was after a restart.
+      start_date (YYYY-MM-DD) limits how far back; leave it empty to go back
+      to the day your Garmin account was made.
+  datasets:
+    name: Data sets
+    description: >-
+      Which data to fetch. daily: steps, calories, heart rate, stress, Body
+      Battery, intensity minutes, respiration, Pulse Ox. sleep: sleep and
+      overnight HRV. activities: the activity list. activity_tracks: the GPS
+      track of every activity (one request each). training: readiness,
+      status and load, VO2 max, race predictions, endurance and hill score,
+      fitness age, acclimation. body: weight, body composition and blood
+      pressure. intraday: heart rate, stress and Body Battery through the
+      day (two requests for every day of history). records: personal
+      records, badges, gear, devices, lifetime totals. health_monitor: ECG,
+      Health Snapshot, glucose, Jet Lag Adviser, lifestyle logging.
+      performance: running economy, cycling ability, critical swim speed,
+      FTP and zones. nutrition: Connect+ food logging. menstrual: cycle
+      tracking. golf: scorecards.
+  log_level:
+    name: Log level
+    description: How much detail the app writes to its log.

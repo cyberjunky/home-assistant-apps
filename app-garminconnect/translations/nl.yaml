@@ -1,0 +1,34 @@
+configuration:
+  update_interval_minutes:
+    name: Update-interval (minuten)
+    description: >-
+      Hoe vaak de nieuwste gegevens bij Garmin Connect worden opgehaald. De
+      laatste dagen van elke gegevensset worden elke keer opnieuw opgehaald,
+      omdat Garmin ze na een synchronisatie nog aanvult. 30 minuten is ruim
+      voldoende; lager betekent alleen meer verzoeken aan Garmin.
+  history:
+    name: Geschiedenis
+    description: >-
+      import haalt eenmalig je hele geschiedenis op, nieuwste eerst, in kleine
+      stukken met een pauze ertussen, en gaat na een herstart verder waar hij
+      was. start_date (JJJJ-MM-DD) beperkt hoe ver terug; laat leeg om terug
+      te gaan tot de dag dat je Garmin-account is aangemaakt.
+  datasets:
+    name: Gegevenssets
+    description: >-
+      Welke gegevens worden opgehaald. daily: stappen, calorieën, hartslag,
+      stress, Body Battery, intensiteitsminuten, ademhaling, Pulse Ox. sleep:
+      slaap en nachtelijke HRV. activities: de activiteitenlijst.
+      activity_tracks: de GPS-route van elke activiteit (één verzoek per
+      activiteit). training: trainingsgereedheid, -status en -belasting, VO2
+      max, wedstrijdvoorspellingen, endurance- en hill score, fitnessleeftijd,
+      acclimatisatie. body: gewicht, lichaamssamenstelling en bloeddruk.
+      intraday: hartslag, stress en Body Battery door de dag (twee verzoeken
+      per dag geschiedenis). records: persoonlijke records, badges, uitrusting,
+      apparaten, totalen. health_monitor: ECG, Health Snapshot, glucose, Jet
+      Lag Adviser, leefstijlregistratie. performance: running economy, cycling
+      ability, critical swim speed, FTP en zones. nutrition: voedingslogboek
+      (Connect+). menstrual: menstruatiecyclus. golf: scorekaarten.
+  log_level:
+    name: Logniveau
+    description: Hoeveel detail de app in zijn log schrijft.

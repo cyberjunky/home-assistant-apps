@@ -57,6 +57,7 @@ jobs:
           - app-chronicle
           - app-fireservicerota
           - app-freqtrade
+          - app-garminconnect
           - app-goodwe
           - app-meldkamer
           - app-tesla
