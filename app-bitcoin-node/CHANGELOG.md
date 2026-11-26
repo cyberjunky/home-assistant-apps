@@ -4,6 +4,7 @@
 
 **After updating:** nothing to do. For the new Pool page, set up the small status service on the node and `pool.url`: see the documentation, "Mining pool (ckpool)".
 
+- **Node setup guide in the repository:** [NODE-SETUP.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-bitcoin-node/NODE-SETUP.md) sets up Bitcoin Core, Tor, LND and an optional ckpool solo pool in a Proxmox VM, linked from the documentation and the README.
 - **Pool page for your own solo mining pool:** with [ckpool](https://github.com/ckolivas/ckpool) on the node, a new page shows the pool's hashrate now and over time, every worker (a Bitaxe, a Lucky Miner) with its hashrate, last share and best share, how close the best share came to a block, the payout addresses and your chance of finding a block per day and per year. A worker that stops sending shares, or a share hard enough to be a block, is told under Activity and as an event in Home Assistant. With MQTT the pool becomes a device with its sensors.
 
 ## 0.1.5

@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 448" role="img" aria-label="The app reads three APIs; peers go through Tor, miners mine to the node" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">
+  <defs>
+    <marker id="node-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#a3a396"/></marker>
+  </defs>
+  <rect width="760" height="448" rx="12" fill="#ffffff"/>
+  <text x="24" y="28" font-size="15" font-weight="600" fill="#1f2328">The app reads three APIs; peers go through Tor, miners mine to the node</text>
+  <rect x="248" y="48" width="328" height="376" rx="8" fill="#ededea" stroke="#a3a396" stroke-width="1"/>
+  <text x="264" y="72" font-size="11.5" fill="#57606a">Debian VM on Proxmox</text>
+  <g fill="none" stroke="#a3a396" stroke-width="1.25">
+    <path d="M184 116H264" marker-end="url(#node-arrow)"/>
+    <path d="M184 204H264" marker-end="url(#node-arrow)"/>
+    <path d="M184 292H264" marker-end="url(#node-arrow)"/>
+    <path d="M392 144V176" marker-end="url(#node-arrow)"/>
+    <path d="M392 264V232" marker-end="url(#node-arrow)"/>
+    <path d="M392 320V352" marker-end="url(#node-arrow)"/>
+    <path d="M520 204H548V372H520" marker-end="url(#node-arrow)"/>
+    <path d="M520 392H616" marker-start="url(#node-arrow)" marker-end="url(#node-arrow)"/>
+    <path d="M632 116H520" marker-end="url(#node-arrow)"/>
+  </g>
+  <rect x="24" y="88" width="160" height="232" rx="8" fill="#ddeafb" stroke="#1f6feb" stroke-width="2"/>
+  <text x="104" y="242" text-anchor="middle" font-weight="600" fill="#1f2328">Home Assistant</text>
+  <text x="104" y="260" text-anchor="middle" font-size="11.5" fill="#57606a">Bitcoin Node app</text>
+  <text x="104" y="276" text-anchor="middle" font-size="11.5" fill="#57606a">read-only access</text>
+  <g fill="#ededea" stroke="#a3a396" stroke-width="1.25">
+    <rect x="264" y="88" width="256" height="56" rx="8"/>
+    <rect x="264" y="176" width="256" height="56" rx="8"/>
+    <rect x="264" y="264" width="256" height="56" rx="8"/>
+    <rect x="264" y="352" width="256" height="56" rx="8"/>
+  </g>
+  <g fill="#ffffff" stroke="#a3a396" stroke-width="1.25">
+    <rect x="632" y="88" width="104" height="56" rx="8"/>
+    <rect x="616" y="352" width="120" height="56" rx="8"/>
+  </g>
+  <text x="280" y="112" font-weight="600" fill="#1f2328">ckpool</text>
+  <text x="280" y="130" font-size="11.5" fill="#57606a">solo pool, pays the miner's address</text>
+  <text x="280" y="200" font-weight="600" fill="#1f2328">Bitcoin Core</text>
+  <text x="280" y="218" font-size="11.5" fill="#57606a">validates the chain, relays payments</text>
+  <text x="280" y="288" font-weight="600" fill="#1f2328">LND</text>
+  <text x="280" y="306" font-size="11.5" fill="#57606a">Lightning wallet and channels</text>
+  <text x="280" y="376" font-weight="600" fill="#1f2328">Tor</text>
+  <text x="280" y="394" font-size="11.5" fill="#57606a">hides the IP, gives onion addresses</text>
+  <text x="684" y="112" text-anchor="middle" font-weight="600" fill="#1f2328">Miners</text>
+  <text x="684" y="130" text-anchor="middle" font-size="11.5" fill="#57606a">Bitaxe, LV08</text>
+  <text x="676" y="376" text-anchor="middle" font-weight="600" fill="#1f2328">Peers</text>
+  <text x="676" y="394" text-anchor="middle" font-size="11.5" fill="#57606a">Bitcoin, Lightning</text>
+  <g font-size="11.5" fill="#57606a">
+    <text x="224" y="108" text-anchor="middle">status 3380</text>
+    <text x="224" y="196" text-anchor="middle">RPC 8332</text>
+    <text x="224" y="222" text-anchor="middle">read-only user</text>
+    <text x="224" y="284" text-anchor="middle">REST 8080</text>
+    <text x="402" y="164">block templates</text>
+    <text x="402" y="252">chain data</text>
+    <text x="402" y="340">SOCKS 9050</text>
+    <text x="584" y="108">Stratum</text>
+    <text x="584" y="132">3333</text>
+    <text x="596" y="384" text-anchor="middle">onion</text>
+  </g>
+</svg>

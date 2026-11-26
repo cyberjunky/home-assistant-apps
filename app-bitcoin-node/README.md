@@ -71,7 +71,7 @@ node. It works with an RPC user that may only read and with LND's read-only maca
 
 ## Requirements
 
-- A Bitcoin Core node with its RPC reachable from Home Assistant, and an RPC user for the app
+- A Bitcoin Core node with its RPC reachable from Home Assistant, and an RPC user for the app. No node yet? [Bitcoin node on Proxmox](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-bitcoin-node/NODE-SETUP.md) sets one up from scratch
 - Optional: LND with its REST API reachable, and its read-only macaroon
 - Optional: Tor's control port, for Tor's own state
 - Optional: ckpool's logs folder served read-only, for the Pool page

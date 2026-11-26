@@ -57,6 +57,8 @@ The certificate may be pasted on one line: the app puts the line breaks back.
 
 ## The node's side
 
+No node yet? [Bitcoin node on Proxmox](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-bitcoin-node/NODE-SETUP.md) sets one up from scratch: a Debian VM with Bitcoin Core, Tor and LND, the access for this app, backups, and an optional ckpool solo mining pool. The sections below are only what the app needs from a node you already have.
+
 ### Bitcoin Core
 
 Make an RPC user with the `rpcauth.py` script from Bitcoin Core's source (`share/rpcauth/rpcauth.py`); it prints a line for `bitcoin.conf` and a password. Then let that user in from Home Assistant, and limit it to the methods the app reads:
