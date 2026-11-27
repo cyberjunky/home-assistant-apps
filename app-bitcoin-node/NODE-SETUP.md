@@ -473,6 +473,77 @@ Both must answer with JSON. A whitelisted user calling another method, such as `
 
 In the Bitcoin Node app these go in its configuration: the RPC address, user and password under `bitcoin`, the LND address, macaroon and certificate under `lightning`. The certificate may be pasted on one line.
 
+## Phone wallet (Zeus)
+
+[Zeus](https://zeusln.app) on a phone can act as a remote control for your own LND: the funds stay on the node, and the phone only sends the commands. With it you can pay and receive over Lightning, send on-chain, and open and close channels.
+
+Unlike the app in Home Assistant, Zeus needs `admin.macaroon`, so a phone with it can spend everything in the wallet. Give Zeus a PIN or biometric lock, and never hand this macaroon to anyone else.
+
+Print it as hex:
+
+```bash
+sudo od -An -tx1 -v /data/lnd/data/chain/bitcoin/mainnet/admin.macaroon | tr -d ' \n'; echo
+```
+
+There are two ways for the phone to reach LND's REST port: through your own VPN, or through Tor. Both can be set up, each as a separate wallet in Zeus.
+
+### Over your own VPN
+
+The LND configuration above already listens on the VM's LAN address (`restlisten=192.168.1.50:8080`) and puts that address in the certificate (`tlsextraip`), so only the firewall needs a rule.
+
+The address the node sees depends on the VPN. A plain WireGuard or OpenVPN server shows the phone's VPN address, such as `10.8.0.2`. A Cloudflare One client with cloudflared shows the LAN address of the machine running cloudflared, and a WARP Connector usually the phone's `100.96.x.x` address. Instead of guessing, watch the port while Zeus tries to connect, with the phone on mobile data:
+
+```bash
+sudo tcpdump -ni any tcp port 8080 and not host 192.168.1.10
+```
+
+That leaves out Home Assistant (`192.168.1.10`), which polls the same port all the time. The address before `>` is the one to allow:
+
+```bash
+sudo ufw allow from 10.8.0.0/24 to any port 8080 proto tcp
+```
+
+If the address is a machine on your LAN, such as the cloudflared host, the rule lets in everything that comes through it. The VPN's access policies then decide who can reach the node, so limit them to your own devices. If tcpdump shows nothing at all, the VPN doesn't route the LAN yet; with Cloudflare One, check the split tunnel settings and the tunnel's private network route.
+
+In Zeus, add a wallet:
+
+| Field | Value |
+| --- | --- |
+| Interface | LND (REST) |
+| Host | `192.168.1.50` |
+| REST port | `8080` |
+| Macaroon | the hex string printed above |
+| Use Tor | off |
+| Certificate verification | off, or on with `/data/lnd/tls.cert` imported |
+
+### Over Tor
+
+Without a VPN, give the REST port an onion address of its own. Add to `/etc/tor/torrc`:
+
+```
+HiddenServiceDir /var/lib/tor/lnd_rest/
+HiddenServicePort 8080 127.0.0.1:8080
+```
+
+Then restart Tor and print the address:
+
+```bash
+sudo systemctl restart tor
+sudo cat /var/lib/tor/lnd_rest/hostname
+```
+
+This needs the `restlisten=localhost:8080` line in `lnd.conf`. In Zeus, use the `.onion` address as the host, port `8080`, **Use Tor** on and certificate verification off; Tor already encrypts the connection end to end. The first connection takes 10 to 30 seconds.
+
+The onion address and the macaroon are only for you. Other Lightning nodes never need them: they reach your node through LND's own onion address on port 9735, which LND publishes itself (the `uris` in `lncli getinfo`).
+
+### First channel
+
+1. In Zeus, choose **Receive → On-chain** and send 200,000 to 300,000 sat to that address.
+2. After one confirmation, choose **Channels → +**, paste the peer's `pubkey@address` and the amount, and open it.
+3. After about three confirmations the channel is active, and Zeus can pay Lightning invoices from it.
+
+Find peers on [amboss.space](https://amboss.space). For a Tor-only node, prefer peers with an `.onion` address, and check their minimum channel size, uptime and fees. The amount in a channel stays yours: closing it returns it to the on-chain wallet, minus the opening and closing fees. LND keeps about 1% of each channel as a reserve that can't be spent.
+
 ## Backups
 
 Three things protect the funds: the 24 words, the channel backup file, and never starting LND from an old copy of its database.
