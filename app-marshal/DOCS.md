@@ -51,12 +51,32 @@ Not read: packages that Home Assistant itself ships (every installation has thos
 
 | Area | Weight | What is looked for |
 |---|---|---|
-| **Data & credentials** | 27% | Home Assistant's logins and tokens; `secrets.yaml`, `.storage` and SSH keys by name; all config entries; the Supervisor token; credentials in log lines; secrets in code; unredacted diagnostics; telemetry; reading all entities while naming internet hosts |
-| **Code safety** | 23% | `eval`/`exec`; running decoded data; shell commands and other programs; pip at run time; assignments into `homeassistant.*`; pickle and unsafe YAML; compiled binaries; `.pyc` without source; requirements from a URL, withdrawn from PyPI, or with a known vulnerability; a security advisory for the installed version; queries pasted together from text; archives unpacked without checking; broken hashes and ciphers; fixed paths under `/tmp` |
+| **Data & credentials** | 27% | Home Assistant's logins and tokens; `secrets.yaml`, `.storage` and SSH keys by name; all config entries; the Supervisor token; credentials in log lines, in entity states, attributes and events, or written to a file of its own; secrets in code; unredacted diagnostics; telemetry; reading all entities while naming internet hosts |
+| **Code safety** | 23% | `eval`/`exec`; running decoded data; shell commands and other programs; pip at run time; assignments into `homeassistant.*`; pickle and unsafe YAML; compiled binaries; `.pyc` without source; requirements from a URL, withdrawn from PyPI, or with a known vulnerability; a security advisory for the installed version; queries pasted together from text; archives unpacked without checking; broken hashes and ciphers; fixed paths under `/tmp`; actions that any user can call and that write, delete or read a file the caller names, or run a shell command; path checks that let the whole configuration folder through |
 | **Network** | 18% | Views with `requires_auth = False`; paste sites, request catchers and tunnels; chat webhooks; public IP addresses; certificate checks off; plain http; own listening ports; old TLS versions; SSH without host key check; Telnet, FTP and SNMP without encryption; `iot_class: local_*` with internet hosts |
 | **Performance** | 13% | `time.sleep`, `requests`, `urlopen`, subprocesses, sockets and file access called directly from `async def` or `@callback` code; endless loops without an await; listeners on all events; cloud polling under 30 seconds; own HTTP sessions; web requests without a timeout; setup time and log errors |
 | **Code quality** | 10% | Names that are not defined and other code that cannot work as written; patterns that often hide a mistake; errors silently dropped; functions with more than 25 (and more than 50) paths; much unused code; fewer than half of the functions with type hints |
 | **Upkeep** | 9% | Removed from the catalog; no changes for one or two years; custom repository; update waiting; unpinned requirements; missing owner, issue tracker, version or `iot_class` |
+
+## Actions any user can call
+
+Home Assistant gives every logged-in user, also one without admin rights, the right to call actions
+and websocket commands. Only what is registered as an admin action, or checks for an administrator
+itself, is closed to them. So Marshal follows each action an integration registers (with
+`hass.services.async_register`, as an entity action, or as a websocket command) into the functions it
+calls, three steps deep, and looks at what they do:
+
+- **A file or folder the caller names** (`file_path`, `filename`, `directory`, ... in the action's data,
+  or a parameter of an entity action) that is then written, moved or deleted: high. Read: medium.
+  Not reported when the path is checked with Home Assistant's `is_allowed_path`, or when the action
+  takes a file the user uploaded through Home Assistant.
+- **A shell command**: medium. Starting a fixed program, such as ffmpeg, is not reported.
+- **A path check that accepts the whole configuration folder** is a finding of its own, wherever it
+  is: that folder holds `configuration.yaml`, `secrets.yaml` and `.storage`. It also cancels an
+  `is_allowed_path` in the same action.
+
+The follow-through goes by function names, so two functions with the same name count as one. The path
+itself is not traced: once the caller names one, a write anywhere in what the action calls counts.
 
 ## Score and grade
 

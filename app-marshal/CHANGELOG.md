@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+**After updating:** nothing to do. Everything is scanned again at start; integrations with the new findings score lower.
+
+- **Actions any user can call:** Home Assistant lets every logged-in user, also one without admin rights, call actions and websocket commands. Marshal now follows each action an integration registers (plain, entity action or websocket command) into the code it calls, and reports one that writes, moves or deletes a file the caller names (high), reads one (medium), or runs a shell command (medium). Admin-only actions, actions that check for an administrator, paths checked with `is_allowed_path`, and files uploaded through Home Assistant are left out.
+- **Path checks that let the whole configuration folder through:** that folder holds `configuration.yaml`, `secrets.yaml` and `.storage`, so a check that accepts anything inside it is a finding of its own.
+- **Where credentials end up:** a password, token or key put in an entity's state, its attributes or an event (high: every user sees those, and history keeps them), or written to a file of the integration's own (medium).
+
 ## 0.3.0
 
 **After updating:** nothing to do. Everything is scanned again at start, and all scores shift a little: the areas were reweighed to make room for code quality. The app now also connects to `api.github.com`, for security advisories (option **Known vulnerabilities**).

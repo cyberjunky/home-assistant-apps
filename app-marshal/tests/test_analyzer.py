@@ -249,3 +249,131 @@ def test_one_bad_area_is_not_averaged_away():
 def test_a_critical_finding_never_passes():
     report = scan("import base64\nexec(base64.b64decode(x))\n")
     assert report["scores"]["code"] == 40 and report["score"] == 45 and report["grade"] == "F"
+
+
+ACTION = """
+from pathlib import Path
+import voluptuous as vol
+
+def setup_actions(hass):
+    async def handle_save(call):
+        path = Path(hass.config.path(call.data["file_path"]))
+        {check}
+        content = await fetch()
+
+        def _write():
+            path.write_bytes(content)
+
+        await hass.async_add_executor_job(_write)
+
+    {register}
+"""
+
+
+def action(check: str = "", register: str = "hass.services.async_register('demo', 'save', handle_save)") -> set:
+    return rules(scan(ACTION.format(check=check, register=register)))
+
+
+def test_an_action_that_writes_where_the_caller_says():
+    assert "code.action_writes_path" in action()
+
+
+def test_an_admin_action_or_an_allowed_path_may_write():
+    admin = "async_register_admin_service(hass, 'demo', 'save', handle_save)"
+    assert "code.action_writes_path" not in action(register=admin)
+    allowed = "if not hass.config.is_allowed_path(str(path)):\n            raise ValueError"
+    assert "code.action_writes_path" not in action(allowed)
+    asks = "if not (await hass.auth.async_get_user(call.context.user_id)).is_admin:\n            raise Unauthorized"
+    assert "code.action_writes_path" not in action(asks)
+
+
+def test_a_path_check_that_lets_the_whole_config_folder_through():
+    helper = (
+        "\ndef _allowed(hass, path):\n    config_dir = Path(hass.config.config_dir).resolve()\n"
+        "    return path.resolve().is_relative_to(config_dir) or hass.config.is_allowed_path(str(path))\n"
+    )
+    found = rules(
+        scan(
+            ACTION.format(
+                check="if not _allowed(hass, path):\n            raise ValueError",
+                register=("hass.services.async_register('demo', 'save', handle_save)"),
+            )
+            + helper
+        )
+    )
+    assert {"code.config_dir_allowed", "code.action_writes_path"} <= found
+    own = "def ok(hass, path):\n    return path.is_relative_to(Path(hass.config.config_dir) / 'downloads')\n"
+    assert "code.config_dir_allowed" not in rules(scan("from pathlib import Path\n" + own))
+
+
+def test_an_action_with_a_fixed_file_is_fine():
+    code = (
+        "def setup(hass):\n    async def handle(call):\n        Path(hass.config.path('demo.json')).write_text(call.data['name'])\n"
+        "    hass.services.async_register('demo', 'save', handle)\n"
+    )
+    assert "code.action_writes_path" not in rules(scan(code))
+
+
+def test_a_websocket_command_that_reads_what_the_caller_names():
+    code = (
+        "from homeassistant.components import websocket_api\n"
+        "@websocket_api.websocket_command({'type': 'demo/read'})\n"
+        "async def ws_read(hass, connection, msg):\n"
+        "    connection.send_result(msg['id'], await hass.async_add_executor_job(load, msg['path']))\n"
+        "def load(name):\n    with open(name) as handle:\n        return handle.read()\n"
+    )
+    assert "code.action_reads_path" in rules(scan(code))
+    admin = code.replace(
+        "@websocket_api.websocket_command", "@websocket_api.require_admin\n@websocket_api.websocket_command"
+    )
+    assert "code.action_reads_path" not in rules(scan(admin))
+
+
+def test_an_entity_action_that_takes_a_path_and_an_action_with_a_shell():
+    code = (
+        "import subprocess\n"
+        "class Cam:\n    async def async_snapshot(self, filename):\n        open(filename, 'wb').write(self.image)\n"
+        "def setup(platform, hass):\n"
+        "    platform.async_register_entity_service('snapshot', SCHEMA, 'async_snapshot')\n"
+        "    async def run(call):\n        subprocess.run(call.data['cmd'], shell=True)\n"
+        "    async def convert(call):\n        subprocess.run(['ffmpeg', '-i', 'in.mp4', 'out.gif'])\n"
+        "    hass.services.async_register('demo', 'run', run)\n"
+        "    hass.services.async_register('demo', 'convert', convert)\n"
+    )
+    report = scan(code)
+    assert {"code.action_writes_path", "code.action_runs_shell"} <= rules(report)
+    shells = next(f for f in report["findings"] if f["rule"] == "code.action_runs_shell")
+    assert shells["count"] == 1
+
+
+def test_credentials_in_state_attributes_and_events():
+    attributes = "class S:\n    @property\n    def extra_state_attributes(self):\n        return {'api_key': self._key, 'model': 'x'}\n"
+    assert "data.secret_in_state" in rules(scan(attributes))
+    assigned = (
+        "class S:\n    def update(self):\n        self._attr_extra_state_attributes = {'access_token': self.token}\n"
+    )
+    assert "data.secret_in_state" in rules(scan(assigned))
+    event = "def go(hass, token):\n    hass.bus.async_fire('demo_login', {'user': 'me', 'token': token})\n"
+    assert "data.secret_in_state" in rules(scan(event))
+    fine = "class S:\n    @property\n    def extra_state_attributes(self):\n        return {'token_expires': 3, 'model': 'x'}\n"
+    assert "data.secret_in_state" not in rules(scan(fine))
+
+
+def test_credentials_written_to_a_file_of_its_own():
+    dump = "import json\ndef save(path, password):\n    with open(path, 'w') as f:\n        json.dump({'password': password}, f)\n"
+    assert "data.secret_to_file" in rules(scan(dump))
+    handle = "def save(path, token):\n    with open(path, 'w') as f:\n        f.write(token)\n"
+    assert "data.secret_to_file" in rules(scan(handle))
+    stream = "async def login(writer, password):\n    writer.write(password.encode())\n"
+    assert "data.secret_to_file" not in rules(scan(stream))
+
+
+def test_an_uploaded_file_is_not_a_path_the_caller_picks():
+    code = (
+        "import tempfile\nfrom homeassistant.components.file_upload import process_uploaded_file\n"
+        "def stage(hass, file_id):\n    with process_uploaded_file(hass, file_id) as path:\n"
+        "        Path(tempfile.mkstemp()[1]).write_bytes(path.read_bytes())\n"
+        "def setup(hass):\n    async def upload(call):\n        await hass.async_add_executor_job(stage, hass, call.data['file'])\n"
+        "    hass.services.async_register('demo', 'upload', upload)\n"
+    )
+    assert "code.action_writes_path" not in rules(scan(code))

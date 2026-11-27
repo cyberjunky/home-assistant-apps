@@ -106,6 +106,22 @@ RULES: dict[str, Rule] = {
         "Reads the state of everything in Home Assistant (or listens to every change) and also contacts "
         "hosts on the internet. That is how a cloud bridge works, and also how data leaves a house.",
     ),
+    "data.secret_in_state": _r(
+        "data",
+        "high",
+        "Puts a credential in an entity's state, its attributes or an event",
+        "A value named like a password, token or key goes into what Home Assistant shows and stores: an "
+        "entity's state or attributes, or an event on the bus. Every user can see those, also users "
+        "without admin rights, and the history database keeps them.",
+    ),
+    "data.secret_to_file": _r(
+        "data",
+        "medium",
+        "Writes a credential to a file of its own",
+        "A value named like a password, token or key is written to a file. Home Assistant keeps an "
+        "integration's credentials in its config entry; a file of the integration's own is outside that, "
+        "ends up in every backup as it is, and is easy to share by mistake.",
+    ),
     "data.recorder_db": _r(
         "data",
         "medium",
@@ -344,6 +360,41 @@ RULES: dict[str, Rule] = {
         "info",
         "Installs a package version published in the last week",
         "The version that would be installed is less than seven days old. A package that was taken over is usually found within days.",
+    ),
+    "code.action_writes_path": _r(
+        "code",
+        "high",
+        "Any user can make an action write or delete a file they choose",
+        "An action (or websocket command) takes a file or folder from whoever calls it and writes, moves "
+        "or deletes there. It is not limited to administrators, and the path is not checked against "
+        "Home Assistant's allowed folders. Every logged-in user, also one without admin rights, could "
+        "overwrite configuration.yaml, secrets.yaml or the files under .storage.",
+    ),
+    "code.action_reads_path": _r(
+        "code",
+        "medium",
+        "Any user can make an action read a file they choose",
+        "An action (or websocket command) takes a file from whoever calls it and opens it. It is not "
+        "limited to administrators, and the path is not checked against Home Assistant's allowed folders. "
+        "A user without admin rights could have it read secrets.yaml or a file under .storage, and what "
+        "is read may be sent on or shown.",
+    ),
+    "code.action_runs_shell": _r(
+        "code",
+        "medium",
+        "Any user can make an action run a shell command",
+        "An action (or websocket command) that every logged-in user can call runs a command through the "
+        "shell. Text that reaches a shell command can start any program; in Home Assistant itself only "
+        "administrators can run shell commands.",
+    ),
+    "code.config_dir_allowed": _r(
+        "code",
+        "medium",
+        "A path check lets through the whole configuration folder",
+        "Code accepts a path when it lies anywhere inside Home Assistant's configuration folder. That "
+        "folder holds configuration.yaml, secrets.yaml and the private files under .storage. Home "
+        "Assistant's own check, is_allowed_path, only allows the folders listed in allowlist_external_dirs; "
+        "a check for a folder of the integration's own is safer still.",
     ),
     # -- network ------------------------------------------------------------------------------------
     "network.unauth_view": _r(
