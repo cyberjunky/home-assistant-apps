@@ -54,8 +54,8 @@ The screenshots show my own integrations next to five made up for the occasion (
 ## Supported Features
 
 - 🔎 **Everything installed**: each folder under `custom_components`, scanned at start, within five minutes of an install or update, and once a day
-- 🔑 **Data and credentials**: Home Assistant's logins and tokens, `secrets.yaml` and private storage, other integrations' configuration, credentials in log lines, secrets written in code, telemetry, reading every entity while talking to the internet
-- 🧨 **Code safety**: `eval` and `exec`, code hidden in encoded data, shell commands, packages installed while running, changes to Home Assistant's own code, compiled programs, requirements from a URL, queries pasted together from text, archives unpacked without checking
+- 🔑 **Data and credentials**: Home Assistant's logins and tokens, `secrets.yaml` and private storage, other integrations' configuration, credentials in log lines, in entity states and attributes or in files of its own, secrets written in code, telemetry, reading every entity while talking to the internet
+- 🧨 **Code safety**: `eval` and `exec`, code hidden in encoded data, shell commands, packages installed while running, changes to Home Assistant's own code, compiled programs, requirements from a URL, queries pasted together from text, archives unpacked without checking, actions any user can call that write, read or run what the caller names
 - 📦 **The packages it installs**: each direct requirement is downloaded from PyPI and read the same way, with its own grade; its serious findings and the hosts it names count for the integration
 - 🛡️ **Known vulnerabilities**: every requirement and everything it installs in turn, looked up in OSV at the version that would be installed, with the CVE, its severity and the version that fixes it; plus the security advisories the integration's own repository published
 - 🌐 **Network**: every host named in the code, endpoints that need no login, paste sites and tunnels, certificate checks turned off, unencrypted connections, a "local" integration that names internet hosts

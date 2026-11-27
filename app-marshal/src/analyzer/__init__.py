@@ -16,7 +16,7 @@ from datetime import datetime
 
 from . import hosts as host_rules
 from .lint_rules import RULE_FOR as RULE_FOR_LINT
-from .pyscan import Facts, scan
+from .pyscan import PATH_KEY, Body, Facts, scan
 from .rules import CATEGORIES, CATEGORY_WEIGHT, NOT_THE_WEAKEST, RULES, SEVERITIES, WEIGHT
 
 __all__ = [
@@ -168,7 +168,56 @@ def analyze(files: Files, package: bool = False) -> dict:
         _manifest_rules(report, manifest, hits)
     _network_rules(report, facts, hits)
     _interval_rules(report, facts, hits)
+    _action_rules(facts, hits)
     return report
+
+
+def _action_rules(facts: Facts, hits: _Hits) -> None:
+    """Actions every logged-in user can call, followed into the functions they call, three steps deep."""
+    for action in facts.actions:
+        roots = [facts.bodies[h] for h in action["handlers"] if h in facts.bodies]
+        if not roots:
+            continue
+        # What the caller chooses: a path by name in the data, or for an entity action a parameter
+        keys = {k for body in roots for k in body.keys}
+        if action["kind"] == "entity":
+            keys |= {p for body in roots for p in body.params}
+        chosen = sorted(k for k in keys if PATH_KEY.search(k))
+        done = Body()
+        seen: set[str] = set()
+        step = list(action["handlers"])
+        for _ in range(4):
+            following = []
+            for name in step:
+                if name in seen or name not in facts.bodies:
+                    continue
+                seen.add(name)
+                done.merge(facts.bodies[name])
+                following.extend(facts.bodies[name].refs)
+            step = following
+        if done.admin_check:
+            continue
+        label = f"{action['name'] or 'websocket command'}"
+        limited = done.allowed_path and not done.whole_config_dir
+        if chosen and done.writes and not limited:
+            file, line = done.writes
+            hits.add(
+                "code.action_writes_path",
+                action["file"],
+                action["line"],
+                f"{label}: {', '.join(chosen)}, writes in {file}:{line}",
+            )
+        elif chosen and done.reads and not limited:
+            file, line = done.reads
+            hits.add(
+                "code.action_reads_path",
+                action["file"],
+                action["line"],
+                f"{label}: {', '.join(chosen)}, reads in {file}:{line}",
+            )
+        if done.runs:
+            file, line = done.runs
+            hits.add("code.action_runs_shell", action["file"], action["line"], f"{label}: runs in {file}:{line}")
 
 
 def _manifest_rules(report: dict, manifest: dict | None, hits: _Hits) -> None:

@@ -89,6 +89,51 @@ BLOCKING.update(
 )
 BLOCKING_METHODS = {"read_text", "write_text", "read_bytes", "write_bytes"}
 
+# Actions and websocket commands: what the caller can choose, and what the code does with it
+PATH_KEY = re.compile(r"(^|_)(path|file|filename|filepath|dir|directory|folder|dest|destination)$", re.I)
+WRITE_METHODS = {"write_bytes", "write_text", "unlink", "rmdir", "extractall", "hardlink_to", "symlink_to"}
+READ_METHODS = {"read_bytes", "read_text"}
+WRITE_CALLS = {
+    "os.remove", "os.unlink", "os.rename", "os.replace", "os.rmdir", "os.removedirs", "os.truncate",
+    "shutil.rmtree", "shutil.move", "shutil.copy", "shutil.copy2", "shutil.copyfile", "shutil.copytree",
+}  # fmt: skip
+OPENERS = {"open", "io.open", "aiofiles.open", "codecs.open", "gzip.open", "bz2.open", "lzma.open"}
+ACTION_REGISTER = ("services.async_register", "services.register")
+ENTITY_ACTION_REGISTER = {"async_register_entity_service", "async_register_platform_entity_service"}
+ADMIN_CHECKS = {"is_admin", "require_admin", "Unauthorized", "async_register_admin_service"}
+
+
+STATE_ATTRIBUTES = {"_attr_extra_state_attributes", "_attr_state_attributes"}
+ATTRIBUTE_PROPERTIES = {"extra_state_attributes", "state_attributes", "device_state_attributes"}
+FILE_DUMPS = {"json.dump", "yaml.dump", "yaml.safe_dump", "toml.dump", "tomli_w.dump", "pickle.dump"}
+
+
+def secret_name(name: str) -> bool:
+    return bool(name) and bool(SECRET_NAME.search(name)) and not NOT_A_SECRET_NAME.search(name)
+
+
+class Body:
+    """What one function (with the functions inside it) does, for following an action to its code."""
+
+    def __init__(self) -> None:
+        self.params: set[str] = set()
+        self.keys: set[str] = set()  # what it reads from its arguments by name: call.data["file_path"]
+        self.refs: set[str] = set()  # the names it uses: the functions it may call or hand on
+        self.writes: tuple[str, int] | None = None
+        self.reads: tuple[str, int] | None = None
+        self.runs: tuple[str, int] | None = None
+        self.allowed_path = False  # checks with is_allowed_path, or takes an uploaded file
+        self.whole_config_dir = False  # has a check that lets the whole configuration folder through
+        self.admin_check = False
+
+    def merge(self, other: "Body") -> None:
+        self.writes = self.writes or other.writes
+        self.reads = self.reads or other.reads
+        self.runs = self.runs or other.runs
+        self.allowed_path |= other.allowed_path
+        self.whole_config_dir |= other.whole_config_dir
+        self.admin_check |= other.admin_check
+
 
 def entropy(text: str) -> float:
     counts = {c: text.count(c) for c in set(text)}
@@ -119,6 +164,9 @@ class Facts:
         self.lines = 0
         self.functions = 0
         self.typed = 0  # functions that say what they take or give back
+        self.bodies: dict[str, Body] = {}  # by function name; two of the same name count as one
+        # Actions and websocket commands anyone logged in can call: kind, name, handler names, file, line
+        self.actions: list[dict] = []
 
 
 class FileScan(ast.NodeVisitor):
@@ -129,6 +177,8 @@ class FileScan(ast.NodeVisitor):
         self.aliases: dict[str, str] = {}
         self.in_loop: list[bool] = [False]  # is the code we are in run by the event loop?
         self.defined: set[str] = set()
+        self.values: dict[str, ast.AST] = {}  # the last value a plain name was given
+        self.file_handles: set[str] = set()  # names given to files opened with `with`
 
     # -- names --------------------------------------------------------------------------------------
     def name(self, node: ast.AST) -> str:
@@ -199,9 +249,165 @@ class FileScan(ast.NodeVisitor):
             self.facts.typed += 1
         if node.name == "async_get_config_entry_diagnostics" or node.name == "async_get_device_diagnostics":
             self.facts.diagnostics = True
+        self._body(node)
+        self._websocket(node)
+        if node.name in ATTRIBUTE_PROPERTIES:
+            for part in ast.walk(node):
+                if isinstance(part, ast.Return) and part.value is not None:
+                    secret = self._secret_in(part.value)
+                elif isinstance(part, ast.Assign) and isinstance(part.targets[0], ast.Subscript):
+                    secret = self.ident(part.targets[0]) if secret_name(self.ident(part.targets[0])) else ""
+                else:
+                    continue
+                if secret:
+                    self.hit("data.secret_in_state", part.lineno, secret)
         self.in_loop.append(in_loop)
         self.generic_visit(node)
         self.in_loop.pop()
+
+    # -- actions ------------------------------------------------------------------------------------
+    def _body(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        """What a function does with files, programs and its arguments. The functions inside it count too."""
+        body = self.facts.bodies.setdefault(node.name, Body())
+        arguments = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
+        params = {a.arg for a in arguments} - {"self", "cls"}
+        body.params |= params
+        for n in ast.walk(node):
+            if isinstance(n, ast.Assign) and len(n.targets) == 1 and isinstance(n.targets[0], ast.Name):
+                self.values[n.targets[0].id] = n.value
+        for n in ast.walk(node):
+            if isinstance(n, ast.Name):
+                body.refs.add(n.id)
+                body.admin_check |= n.id in ADMIN_CHECKS
+            elif isinstance(n, ast.Attribute):
+                # subprocess.run is not the integration's own run(); self.client.run may be
+                if not (isinstance(n.value, ast.Name) and self.aliases.get(n.value.id, "~") != "~"):
+                    body.refs.add(n.attr)
+                body.admin_check |= n.attr in ADMIN_CHECKS
+            elif isinstance(n, ast.Subscript) and isinstance(n.slice, ast.Constant):
+                self._argument_key(body, params, n.value, n.slice.value)
+            if not isinstance(n, ast.Call):
+                continue
+            name = self.name(n.func)
+            last = name.rsplit(".", 1)[-1]
+            place = (self.path, n.lineno)
+            if last == "get" and isinstance(n.func, ast.Attribute) and n.args and isinstance(n.args[0], ast.Constant):
+                self._argument_key(body, params, n.func.value, n.args[0].value)
+            # Home Assistant's own check, or a file the user uploaded through Home Assistant (an id, not a path)
+            if last in ("is_allowed_path", "process_uploaded_file"):
+                body.allowed_path = True
+            if self._config_dir_check(n, last):
+                body.whole_config_dir = True
+            shell = next((k.value for k in n.keywords if k.arg == "shell"), None)
+            if name in SHELL or (name in SUBPROCESS and isinstance(shell, ast.Constant) and shell.value is True):
+                body.runs = body.runs or place
+            opened = self._opens(n, name, last)
+            if name in WRITE_CALLS or (last in WRITE_METHODS and isinstance(n.func, ast.Attribute)) or opened == "w":
+                body.writes = body.writes or place
+            elif (last in READ_METHODS and isinstance(n.func, ast.Attribute)) or opened == "r":
+                body.reads = body.reads or place
+
+    @staticmethod
+    def _argument_key(body: Body, params: set[str], value: ast.AST, key: object) -> None:
+        """call.data["file_path"], call.data.get("file_path") or msg["path"]: a value the caller picks."""
+        if not isinstance(key, str):
+            return
+        if isinstance(value, ast.Attribute) and value.attr == "data":
+            value = value.value
+        if isinstance(value, ast.Name) and value.id in params:
+            body.keys.add(key)
+
+    def _opens(self, node: ast.Call, name: str, last: str) -> str:
+        """'w' when a call opens a file to write, 'r' to read, '' when it opens no file."""
+        if name in OPENERS and "open" not in self.defined:
+            position = 1
+        elif last == "open" and isinstance(node.func, ast.Attribute) and not name.startswith(("tarfile", "zipfile")):
+            position = 0  # Path.open(mode)
+        else:
+            return ""
+        mode = next((k.value for k in node.keywords if k.arg == "mode"), None)
+        if mode is None and len(node.args) > position:
+            mode = node.args[position]
+        if isinstance(mode, ast.Constant) and isinstance(mode.value, str):
+            return "w" if set(mode.value) & set("wax+") else "r"
+        return "r" if mode is None else "w"
+
+    def _config_dir_check(self, node: ast.Call, last: str) -> bool:
+        """path.is_relative_to(config_dir) or str(path).startswith(hass.config.config_dir), on the folder itself."""
+        if last not in ("is_relative_to", "startswith", "commonpath") or not node.args:
+            return False
+        targets = node.args if last == "commonpath" else node.args[:1]
+        for target in targets:
+            if isinstance(target, ast.List | ast.Tuple):
+                targets = [*targets, *target.elts]
+                continue
+            if isinstance(target, ast.Name):
+                if target.id in ("config_dir", "config_path", "config_folder"):
+                    return True
+                target = self.values.get(target.id, target)
+            parts = list(ast.walk(target))
+            names_folder = any(
+                (isinstance(p, ast.Attribute) and p.attr == "config_dir")
+                or (isinstance(p, ast.Call) and self.name(p.func).endswith("config.path") and not p.args)
+                for p in parts
+            )
+            # A folder of its own under the configuration folder is fine: config_dir / "downloads"
+            narrows = any(
+                isinstance(p, ast.BinOp | ast.JoinedStr)
+                or (
+                    isinstance(p, ast.Call)
+                    and self.name(p.func).endswith(("config.path", "path.join", "joinpath"))
+                    and p.args
+                )
+                for p in parts
+            )
+            if names_folder and not narrows:
+                return True
+        return False
+
+    def _websocket(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        names = [self.name(d.func if isinstance(d, ast.Call) else d) for d in node.decorator_list]
+        if not any(n.endswith("websocket_command") for n in names) or any(n.endswith("require_admin") for n in names):
+            return
+        self.facts.actions.append(
+            {"kind": "websocket", "name": node.name, "handlers": {node.name}, "file": self.path, "line": node.lineno}
+        )
+
+    def _action(self, node: ast.Call, name: str, last: str) -> None:
+        """An action registered for every user: hass.services.async_register and entity actions."""
+        keywords = {k.arg: k.value for k in node.keywords if k.arg}
+        if name.endswith(ACTION_REGISTER):
+            kind, handler = "action", keywords.get("service_func", node.args[2] if len(node.args) > 2 else None)
+            label = node.args[1] if len(node.args) > 1 else keywords.get("service")
+        elif last in ENTITY_ACTION_REGISTER:
+            kind, handler = "entity", keywords.get("func")
+            strings = [a for a in node.args if isinstance(a, ast.Constant) and isinstance(a.value, str)]
+            if handler is None and node.args:
+                handler = node.args[-1]
+            label = keywords.get("name") or (strings[0] if strings else None)
+        else:
+            return
+        if handler is None:
+            return
+        handlers: set[str] = set()
+        for part in ast.walk(handler):
+            if isinstance(part, ast.Name):
+                handlers.add(part.id)
+            elif isinstance(part, ast.Attribute):
+                handlers.add(part.attr)
+            elif isinstance(part, ast.Constant) and isinstance(part.value, str):
+                handlers.add(part.value)  # an entity action names its method
+        if isinstance(label, ast.Constant):
+            label_text = str(label.value)
+        elif label is not None:
+            value = self.values.get(label.id) if isinstance(label, ast.Name) else None
+            known = isinstance(value, ast.Constant) and isinstance(value.value, str)
+            label_text = value.value if known else self.ident(label) or "?"
+        else:
+            label_text = ""
+        self.facts.actions.append(
+            {"kind": kind, "name": label_text, "handlers": handlers, "file": self.path, "line": node.lineno}
+        )
 
     def visit_Lambda(self, node: ast.Lambda) -> None:
         # A lambda is handed to something else to run, most often the executor
@@ -289,6 +495,12 @@ class FileScan(ast.NodeVisitor):
 
         if last == "timedelta":
             self._interval(node)
+        if name.endswith(ACTION_REGISTER) or last in ENTITY_ACTION_REGISTER:
+            self._action(node, name, last)
+        if self._config_dir_check(node, last):
+            self.hit("code.config_dir_allowed", line, last)
+
+        self._secret_kept(node, name, last)
 
         if self.in_loop[-1]:
             rule = BLOCKING.get(name)
@@ -300,6 +512,53 @@ class FileScan(ast.NodeVisitor):
                 self.hit(rule, line, name if rule != "performance.blocking_io" else last)
 
         self.generic_visit(node)
+
+    def _secret_in(self, node: ast.AST) -> str:
+        """The name of a credential in a value: {"token": ...}, self._password, data["api_key"]."""
+        for part in ast.walk(node):
+            if isinstance(part, ast.Dict):
+                for key in part.keys:
+                    if isinstance(key, ast.Constant) and isinstance(key.value, str) and secret_name(key.value):
+                        return key.value
+            elif isinstance(part, ast.Name | ast.Attribute | ast.Subscript):
+                ident = self.ident(part)
+                if secret_name(ident):
+                    return ident
+        return ""
+
+    def _file_write(self, node: ast.Call, last: str) -> bool:
+        """handle.write(...) on a file opened with `with open(...) as handle`, not a socket or a stream."""
+        return (
+            last in ("write", "writelines")
+            and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id in self.file_handles
+        )
+
+    def visit_With(self, node: ast.With | ast.AsyncWith) -> None:
+        for item in node.items:
+            call = item.context_expr
+            if isinstance(call, ast.Call) and isinstance(item.optional_vars, ast.Name):
+                name = self.name(call.func)
+                if name in OPENERS or name.rsplit(".", 1)[-1] == "open":
+                    self.file_handles.add(item.optional_vars.id)
+        self.generic_visit(node)
+
+    visit_AsyncWith = visit_With
+
+    def _secret_kept(self, node: ast.Call, name: str, last: str) -> None:
+        """A credential handed to an entity's state, an event, or a file of the integration's own."""
+        values: list[ast.AST] = []
+        rule = ""
+        if name.endswith(("states.async_set", "states.set", "bus.async_fire", "bus.fire")):
+            rule, values = "data.secret_in_state", [*node.args[1:], *(k.value for k in node.keywords)]
+        elif name in FILE_DUMPS or last in ("write_text", "write_bytes") or self._file_write(node, last):
+            rule, values = "data.secret_to_file", node.args[:1]
+        for value in values:
+            ident = self._secret_in(value)
+            if ident:
+                self.hit(rule, node.lineno, ident)
+                return
 
     @staticmethod
     def _safe_loader(node: ast.Call) -> bool:
@@ -359,6 +618,8 @@ class FileScan(ast.NodeVisitor):
 
     def _assigned(self, target: ast.AST, value: ast.AST, line: int) -> None:
         ident = self.ident(target)
+        if isinstance(target, ast.Name):
+            self.values[target.id] = value
         constant = value.value if isinstance(value, ast.Constant) else None
         if isinstance(target, ast.Attribute):
             root = target
@@ -366,6 +627,14 @@ class FileScan(ast.NodeVisitor):
                 root = root.value
             if isinstance(root, ast.Name) and self.aliases.get(root.id, "").startswith("homeassistant"):
                 self.hit("code.monkeypatch", line, self.name(target))
+        if ident in STATE_ATTRIBUTES or (
+            isinstance(target, ast.Subscript) and self.ident(target.value) in STATE_ATTRIBUTES
+        ):
+            secret = self._secret_in(value) or (secret_name(ident) and ident) or ""
+            if isinstance(target, ast.Subscript) and secret_name(self.ident(target)):
+                secret = self.ident(target)
+            if secret:
+                self.hit("data.secret_in_state", line, secret)
         if ident == "requires_auth" and constant is False:
             self.hit("network.unauth_view", line, "")
         elif ident == "cors_allowed" and constant is True:
