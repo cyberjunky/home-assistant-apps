@@ -122,7 +122,10 @@ function card(item, opts) {
     const again = item.shares > 1 ? `<span class="badge warn" title="Saved ${item.shares} times">${item.shares}×</span>` : '';
     const mine = isMine(item);
     const status = opts.showStatus && mine && item.status !== 'inbox' ? `<span class="badge st-${item.status}">${STATUS_LABELS[item.status]}</span>` : '';
-    const lock = item.private ? '<span class="badge private" title="Private: only you see it">🔒</span>' : '';
+    // Only what differs from the household's default gets a mark: 👪 when shared, or 🔒 when private
+    const sharing = app.status.config.share_by_default;
+    const lock = !mine ? '' : item.private && sharing ? '<span class="badge private" title="Private: only you see it">🔒</span>'
+        : !item.private && !sharing && item.owner ? '<span class="badge shared" title="Shared with the household">👪</span>' : '';
     const actions = !mine
         ? `<button type="button" class="act" data-act="copy" title="Save it to your own MyBrain">+ Save to mine</button>`
         : item.status === 'done' || item.status === 'archived'
@@ -269,7 +272,7 @@ function renderSheet() {
                     <label>Tags</label><input class="input" data-field="tags" value="${escapeHtml((item.tags || []).join(', '))}" placeholder="comma, separated" spellcheck="false">
                     <label title="By when it needs doing">Due</label>${dateField('due', item.due)}
                     <label title="When it happens: an event, a trip, a release">On</label>${dateField('happens_on', item.happens_on)}
-                    <label title="Who else sees it">Seen by</label>${segmented('private', [[0, '👪 Household'], [1, '🔒 Only me']], item.private ? 1 : 0)}
+                    <label title="Who else sees it">Seen by</label>${segmented('private', [[1, '🔒 Only me'], [0, '👪 Household']], item.private ? 1 : 0)}
                 </div>
                 <h3>Your note</h3>
                 <textarea class="input note-edit" data-field="note" rows="3" placeholder="Why did you save this?">${escapeHtml(item.note || '')}</textarea>`

@@ -30,6 +30,11 @@ configuration:
       The household calendar. Empty uses calendar.mybrain: add the Local
       Calendar integration and name the calendar MyBrain. Each person's own
       is a Local Calendar named MyBrain <name>.
+  share_by_default:
+    name: Share with the household by default
+    description: >-
+      Off: what someone saves is only theirs until they share it. On: the
+      household sees new items unless they are marked private.
   categories:
     name: Categories
     description: The categories to sort into. Other is always added.

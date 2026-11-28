@@ -53,6 +53,7 @@ kbd { font-family: var(--mono); font-size: 11px; padding: 1px 5px; border: 1px s
 .badge.date { background: var(--grid-color); color: var(--primary-text-color); font-weight: 500; }
 .badge.date.warn { background: rgba(245,165,36,0.18); color: var(--warning-color); font-weight: 600; }
 .badge.date.bad { background: var(--danger-bg); color: var(--danger-color); font-weight: 600; }
+.badge.shared { background: color-mix(in srgb, var(--primary-color) 14%, transparent); color: var(--primary-color); }
 .badge.private { background: var(--grid-color); color: var(--secondary-text-color); }
 .card-meta .owner { color: var(--primary-color); font-weight: 500; }
 .date-field { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }

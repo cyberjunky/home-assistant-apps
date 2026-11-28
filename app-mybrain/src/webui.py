@@ -114,6 +114,7 @@ class WebUI:
                     "ai_task_entity": self.config.ai_task_entity,
                     "calendar_sync": self.config.calendar_sync,
                     "calendar_entity": self.config.calendar_entity,
+                    "share_by_default": self.config.share_by_default,
                 },
                 "categories": self.config.categories,
                 "purposes": classify.PURPOSES,

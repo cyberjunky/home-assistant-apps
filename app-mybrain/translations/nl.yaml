@@ -30,6 +30,11 @@ configuration:
       De agenda van het huishouden. Leeg gebruikt calendar.mybrain: voeg de
       integratie Local Calendar toe en noem de agenda MyBrain. Ieders eigen
       agenda is een Local Calendar met de naam MyBrain <naam>.
+  share_by_default:
+    name: Standaard delen met het huishouden
+    description: >-
+      Uit: wat iemand bewaart is alleen van hem of haar tot het gedeeld wordt.
+      Aan: het huishouden ziet nieuwe items, tenzij ze privé zijn gemarkeerd.
   categories:
     name: Categorieën
     description: De categorieën om in te sorteren. Other komt er altijd bij.

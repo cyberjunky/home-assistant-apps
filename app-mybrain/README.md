@@ -56,7 +56,7 @@ on date go into a calendar in Home Assistant, and a sensor tells what is next.
 - 🕘 **History** — Every save, open, sort and status change, per item and for everything
 - ♻️ **No doubles** — The same link saved again (other tracking codes, a short link) comes back to the inbox instead of being saved twice
 - 📅 **Dates and a calendar** — A due date or an on date per item (the AI finds them in the content); every open item with a date in a Local Calendar in Home Assistant
-- 👪 **For the household** — Everyone has their own inbox, library and calendar; items are seen by the others unless marked 🔒 private, and can be saved to your own with one tap
+- 👪 **For the household** — Everyone has their own inbox, library and calendar; what you save is yours alone until you share it 👪, and what others share can be saved to your own with one tap
 - 🔢 **Sensors** — per person `sensor.mybrain_next_<name>` with the next item that has a date, and `sensor.mybrain_inbox_<name>` with the size of the inbox
 
 ## Requirements

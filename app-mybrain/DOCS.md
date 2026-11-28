@@ -18,10 +18,10 @@ Every Home Assistant user has their own MyBrain in the same app:
 
 - **What you share is yours.** A share belongs to the user your phone's Home Assistant app is signed in as; what you add on the page belongs to you.
 - **Your own inbox, overview and history.** The overview and the inbox only count your items.
-- **Seen by the household, unless private.** Others can browse your items (**Library → Whose → Everyone**, or a person), open them, and **+ Save to mine** to get their own copy. Set **Seen by → 🔒 Only me** in an item to keep it to yourself: then nobody else sees it, and it stays out of the household calendar.
+- **Yours alone, until you share it.** A new item is only seen by you. Set **Seen by → 👪 Household** in an item to share it: then the others can browse it (**Library → Whose → Everyone**, or a person), open it, and **+ Save to mine** to get their own copy, and it goes into the household calendar. Shared items have 👪 on their card. Turn on `share_by_default` to have it the other way round: everything shared unless marked **🔒 Only me**.
 - **Only you change your items.** Others can't mark them done, change them or delete them.
 - **Per person in Home Assistant:** `sensor.mybrain_inbox_<name>`, `sensor.mybrain_next_<name>` and, when you add a Local Calendar named **MyBrain <name>**, `calendar.mybrain_<name>` with all your items that have a date. `<name>` is the person's name as Home Assistant writes it in an entity id (Anne-Marie → `anne_marie`).
-- **The household calendar** `calendar.mybrain` (a Local Calendar named **MyBrain**) has everyone's items with a date that aren't private, with whose it is after the title.
+- **The household calendar** `calendar.mybrain` (a Local Calendar named **MyBrain**) has everyone's shared items with a date, with whose it is after the title.
 
 Names come from the person entities in Home Assistant. A user who has never saved anything has no sensors yet.
 
@@ -97,7 +97,7 @@ An item can have two dates, each a day or a day with a time:
 
 Set them in the item. With AI sorting on, a date the content names is filled in by itself (only when the item has none yet, and only today or later, within three years).
 
-**The calendars.** With a Local Calendar named **MyBrain <name>** (`calendar.mybrain_<name>`) the app keeps it in step with every open item of that person that has a date; the household calendar **MyBrain** (`calendar.mybrain`, or the one in `calendar_entity`) gets everyone's that aren't private. In both: due dates as ⏰ events, on dates as normal ones, a whole day or half an hour / an hour at the time given. The event has the link and your note. Changing the item changes the event; done, archived or deleted removes it. The app recognises its own events by the last line of their description (`mybrain:<item>:<kind>`) and never touches other events in that calendar, so you may use it for other things too. Changing a MyBrain event in the calendar is undone at the next sync: change the item instead.
+**The calendars.** With a Local Calendar named **MyBrain <name>** (`calendar.mybrain_<name>`) the app keeps it in step with every open item of that person that has a date; the household calendar **MyBrain** (`calendar.mybrain`, or the one in `calendar_entity`) gets everyone's shared ones. In both: due dates as ⏰ events, on dates as normal ones, a whole day or half an hour / an hour at the time given. The event has the link and your note. Changing the item changes the event; done, archived or deleted removes it. The app recognises its own events by the last line of their description (`mybrain:<item>:<kind>`) and never touches other events in that calendar, so you may use it for other things too. Changing a MyBrain event in the calendar is undone at the next sync: change the item instead.
 
 **`sensor.mybrain_next_<name>`** — your next item with a date: overdue due dates first, then whatever comes next. The state is its title; the attributes are `when`, `kind` (`due` or `happens_on`), `days` (negative when overdue), `url`, `item_id`, `category`, `overdue` (how many) and `upcoming` (the next five).
 
@@ -130,6 +130,7 @@ listen_shares: true
 fetch_pages: true
 ai_classify: true
 calendar_sync: true
+share_by_default: false
 categories:
   - Tech
   - Home Assistant
@@ -145,6 +146,7 @@ categories:
 | `ai_task_entity` | *(empty)* | Which AI Task entity, like `ai_task.openai_ai_task`. Empty: the first one |
 | `calendar_sync` | `true` | Keep the calendar in step with the items that have a date |
 | `calendar_entity` | *(empty)* | Which calendar is the household's. Empty: `calendar.mybrain` |
+| `share_by_default` | `false` | Off: a new item is only its owner's until they share it. On: new items are shared with the household unless marked private |
 | `categories` | 14 categories | The categories to sort into. `Other` is always added. Renaming one doesn't move the items that have it: they keep the old name until sorted again or changed |
 | `log_level` | `info` | `debug`, `info`, `warning` or `error` |
 

@@ -52,10 +52,10 @@ So you know what is at stake:
   Home Assistant's ingress says is looking (`X-Remote-User-Id`). Every request
   must come from the ingress proxy, so another app on the network can't claim
   to be someone else. Only the owner changes or deletes an item.
-- **Public by default, private on request.** Everyone in the household can
-  browse an item unless its owner marks it private; a private item is not
-  shown to others, not in the household calendar, and not in what others can
-  copy. Administrators of Home Assistant can of course read the app's database
+- **Private by default, shared on request.** A new item is only seen by its
+  owner until they share it with the household (with `share_by_default` on,
+  the other way round). A private item is not shown to others, not in the
+  household calendar, and not in what others can copy. Administrators of Home Assistant can of course read the app's database
   through a backup.
 - **Only from Home Assistant's signed-in ingress.** Adding, changing and
   deleting are accepted from the ingress proxy and as JSON only. The panel is

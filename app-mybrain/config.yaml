@@ -23,6 +23,7 @@ options:
   fetch_pages: true
   ai_classify: true
   calendar_sync: true
+  share_by_default: false
   categories:
     - Tech
     - Home Assistant
@@ -47,6 +48,7 @@ schema:
   ai_task_entity: str?
   calendar_sync: bool?
   calendar_entity: str?
+  share_by_default: bool?
   categories:
     - str
   log_level: list(debug|info|warning|error)?

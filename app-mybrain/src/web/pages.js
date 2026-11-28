@@ -352,7 +352,7 @@ function drawLibrary() {
     options('lib-source', 'Every source', f.source || {}, sourceName);
     options('lib-purpose', 'Any purpose', f.purpose || {}, k => `${purposeIcon(k)} ${purposeLabel(k)}`);
     document.getElementById('lib-dated').classList.toggle('active', library.dated);
-    // Whose: mine, everyone's, or one person's (only what they didn't mark private)
+    // Whose: mine, everyone's, or one person's (only what they share)
     const others = (app.status.household || []).filter(h => h.owner !== app.status.viewer.id);
     const whoseEl = document.getElementById('lib-whose');
     whoseEl.hidden = !others.length && library.whose === 'mine';
@@ -451,12 +451,12 @@ onTab('info', () => {
         <div class="panel"><div class="panel-body">
             <div class="section-title">Calendar</div>
             ${calendarText(s)}
-            <p class="muted">Open items with a <b>due</b> date (⏰) or an <b>on</b> date (📅) are kept in step: changed when the item changes, removed when it is done or archived. Yours has all of yours; the household calendar has everyone's that aren't private. Add one in Home Assistant with <b>Settings → Devices &amp; services → Add integration → Local Calendar</b>. Events you add there yourself are left alone.</p>
+            <p class="muted">Open items with a <b>due</b> date (⏰) or an <b>on</b> date (📅) are kept in step: changed when the item changes, removed when it is done or archived. Yours has all of yours; the household calendar has what everyone shares. Add one in Home Assistant with <b>Settings → Devices &amp; services → Add integration → Local Calendar</b>. Events you add there yourself are left alone.</p>
             ${infoRow('Sensor', `<span class="mono">${escapeHtml((s.entities || {}).next_sensor || 'sensor.mybrain_next')}</span>: your next item with a date (overdue ones first), with when, how many days, the link and the next five`)}
         </div></div>
         <div class="panel"><div class="panel-body">
             <div class="section-title">In Home Assistant</div>
-            ${infoRow('You', s.viewer.id ? `${escapeHtml(s.viewer.name || 'signed in')}: your own inbox, library and history; the household sees your items unless you mark them 🔒 private` : 'one collection for everyone (the app does not know who is looking)')}
+            ${infoRow('You', s.viewer.id ? `${escapeHtml(s.viewer.name || 'signed in')}: your own inbox, library and history; ${s.config.share_by_default ? 'the household sees your items unless you mark them 🔒 private' : 'what you save is only yours until you share it with the household (👪 in an item)'}` : 'one collection for everyone (the app does not know who is looking)')}
             ${infoRow('Sensor', `<span class="mono">${escapeHtml((s.entities || {}).inbox_sensor || 'sensor.mybrain_inbox')}</span>: items in your inbox; later, done, archived and total as attributes`)}
             ${infoRow('Home Assistant', escapeHtml(s.ha_version || '–'))}
             <p class="muted">Use it for a badge on a dashboard, or an automation that reminds you when the inbox grows.</p>

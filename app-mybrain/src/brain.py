@@ -87,6 +87,8 @@ class Brain:
         note = re.sub(r"[ \t]+", " ", note)
         note = re.sub(r"\n\s*\n+", "\n\n", note).strip(" \n-\u2013\u2014|:")
         extra = {k: v for k, v in (("subject", subject), ("device", device)) if v}
+        # Only for whoever saved it, until they share it (unless the household shares by default)
+        private = 0 if self.config.share_by_default or not owner else 1
 
         if not links:
             if not note and not subject:
@@ -104,6 +106,7 @@ class Brain:
                     "fetch_state": "skipped",
                     "extra": extra,
                     "owner": owner,
+                    "private": private,
                 },
             )
             self._enqueue(item_id)
@@ -132,6 +135,7 @@ class Brain:
                     "fetch_state": "waiting" if self.config.fetch_pages else "skipped",
                     "extra": extra,
                     "owner": owner,
+                    "private": private,
                 },
             )
             self._enqueue(item_id)

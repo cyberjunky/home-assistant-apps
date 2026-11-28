@@ -60,6 +60,8 @@ class Config:
     calendar_sync: bool = True
     # Which calendar; empty is calendar.mybrain (a Local Calendar named MyBrain)
     calendar_entity: str = ""
+    # New items are seen by the household (True) or only by whoever saved them (False, the default)
+    share_by_default: bool = False
     categories: list[str] = field(default_factory=lambda: list(DEFAULT_CATEGORIES))
     log_level: str = "info"
 
@@ -96,6 +98,7 @@ class Config:
             ai_task_entity=entity,
             calendar_sync=bool(options.get("calendar_sync", True)),
             calendar_entity=calendar,
+            share_by_default=bool(options.get("share_by_default", False)),
             categories=categories,
             log_level=str(options.get("log_level") or "info"),
         )

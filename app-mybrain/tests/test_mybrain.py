@@ -427,7 +427,7 @@ async def test_dates_are_edited_and_listed(brain, store):
 
 
 # ----------------------------------------------------------------------
-# Users: own items, public by default, private when marked
+# Users: own items, private by default, shared when marked
 # ----------------------------------------------------------------------
 async def test_each_user_has_their_own_items(brain, store):
     b = brain(ai=False)
@@ -436,6 +436,10 @@ async def test_each_user_has_their_own_items(brain, store):
     assert ron != anne  # the same link is a separate item per user
     [again] = await b.add(text="https://example.com/a?utm_source=x", owner="u-anne")
     assert again == anne
+    # Private until shared
+    assert store.get(anne)["private"] == 1
+    assert store.search(viewer="u-ron", whose="everyone")["total"] == 1
+    await b.edit(anne, {"private": False}, "u-anne")
     assert [i["id"] for i in store.search(viewer="u-ron")["items"]] == [ron]
     assert {i["id"] for i in store.search(viewer="u-ron", whose="everyone")["items"]} == {ron, anne}
     assert [i["id"] for i in store.search(viewer="u-ron", whose="user:u-anne")["items"]] == [anne]
@@ -445,6 +449,8 @@ async def test_each_user_has_their_own_items(brain, store):
 async def test_private_items_stay_private(brain, store):
     b = brain(ai=False)
     [secret] = await b.add(text="a surprise for Ron", owner="u-anne")
+    await b.edit(secret, {"private": False}, "u-anne")
+    assert store.search(viewer="u-ron", whose="everyone")["total"] == 1
     await b.edit(secret, {"private": True}, "u-anne")
     assert store.search(viewer="u-ron", whose="everyone")["total"] == 0
     assert store.search(viewer="u-ron", whose="user:u-anne")["total"] == 0
@@ -458,6 +464,7 @@ async def test_private_items_stay_private(brain, store):
 async def test_only_the_owner_changes_an_item(brain, store):
     b = brain(ai=False)
     [item_id] = await b.add(text="https://example.com/b", owner="u-anne")
+    await b.edit(item_id, {"private": False}, "u-anne")
     for attempt in (
         b.edit(item_id, {"status": "done"}, "u-ron"),
         b.delete(item_id, "u-ron"),
@@ -495,3 +502,10 @@ def test_entity_names_per_user(store):
         [{"id": 1, "title": "Trip", "owner": "u-anne", "due": "", "happens_on": "2026-12-01"}], users
     )
     assert events["mybrain:1:happens_on"]["summary"] == "Trip (Anne-Marie)"
+
+
+async def test_share_by_default_option(tmp_path, store):
+    b = Brain(Config(share_by_default=True), store, FakeHA(False), FakeFetcher(tmp_path, {}))
+    [item_id] = await b.add(text="for everyone", owner="u-anne")
+    assert store.get(item_id)["private"] == 0
+    assert Config.from_options({}).share_by_default is False

@@ -69,8 +69,8 @@ SHARES = [
         "user": "u-anne",
     },
 ]
-# Anne keeps the present to herself
-PRIVATE = ["Birthday present for Ron%"]
+# What is shared with the household (the rest stays private, the default)
+SHARED = ["Pottery%", "Porto%", "Yoga%", "Lisbon%", "Sourdough%", "Risotto%", "Home Assistant"]
 
 
 def wait_until_done() -> None:
@@ -125,8 +125,8 @@ def main(data_dir: Path) -> None:
     ):
         value = time.strftime("%Y-%m-%d", time.localtime(now + offset * day)) + time_of_day
         db.execute(f"UPDATE items SET {kind} = ? WHERE id = ?", (value, item_id))
-    for pattern in PRIVATE:
-        db.execute("UPDATE items SET private = 1 WHERE title LIKE ?", (pattern,))
+    for pattern in SHARED:
+        db.execute("UPDATE items SET private = 0 WHERE title LIKE ?", (pattern,))
     db.commit()
     print(f"{len(ids)} items")
 
