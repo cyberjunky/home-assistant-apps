@@ -52,6 +52,18 @@ On the page, **+ Add** (or the key `n`) takes a link, several links or a note ty
    - Some sites refuse anything that isn't a browser; such an item says **not read** and keeps its link.
 3. **Sorted:** a category, two to five tags, what it is for, a priority and a one-line summary (see [Sorting](#sorting)).
 
+## Bringing in what you already have
+
+A script puts your Google Keep notes, Gmail, browser bookmarks or a text file of links into MyBrain, once. It sends each one to Home Assistant as a share, so MyBrain saves, reads and sorts it as if you had shared it from your phone, and it becomes yours.
+
+1. **Get your data.** At [takeout.google.com](https://takeout.google.com), deselect all, select **Keep** and/or **Mail** (under Mail, *All Mail data included* lets you pick one label, such as your notes to yourself), and download the `.zip`. Bookmarks: export them from the browser as HTML.
+2. **Get a token.** Home Assistant → your profile → **Security** → *Long-lived access tokens* → create one. It must be an administrator's.
+3. **Get the script:** [import_to_mybrain.py](https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-mybrain/tools/import_to_mybrain.py). It needs only Python 3.
+4. **Try it:** `python3 import_to_mybrain.py takeout.zip --dry-run` counts what is in the file and shows the first few.
+5. **Send it:** `python3 import_to_mybrain.py takeout.zip --ha http://homeassistant.local:8123 --token <token>`
+
+Notes in Keep's bin are left out; `--skip-archived` also leaves out archived ones, `--since 2024-01-01` older ones, and `--limit 20` sends only a first few to see how it looks. A link that is already in MyBrain is not saved twice. The original date can't be passed on, so it is written at the end of each note, with the Keep or Gmail labels as #tags. MyBrain then reads and sorts everything in the background; the status bar shows how many are left. With thousands of items that takes a few hours.
+
 ## Sorting
 
 Every item gets:

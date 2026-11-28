@@ -55,6 +55,7 @@ on date go into a calendar in Home Assistant, and a sensor tells what is next.
 - ♻️ **No doubles** — The same link saved again (other tracking codes, a short link) comes back to the inbox instead of being saved twice
 - 📅 **Dates and a calendar** — A due date or an on date per item (the AI finds them in the content); every open item with a date in a Local Calendar in Home Assistant
 - 👪 **For the household** — Everyone has their own inbox, library and calendar; what you save is yours alone until you share it 👪, and what others share can be saved to your own with one tap
+- 📦 **Bring in your backlog** — A script puts Google Keep, Gmail, bookmarks or a text file of links in, once
 - 🔢 **Sensors** — per person `sensor.mybrain_next_<name>` with the next item that has a date, and `sensor.mybrain_inbox_<name>` with the size of the inbox
 
 ## Requirements
@@ -80,6 +81,23 @@ Alternatively:
 MyBrain works without any settings. See
 [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-mybrain/DOCS.md) for sharing from
 your phone, setting up AI sorting, the categories and the other options.
+
+## Bring in what you already have
+
+[`tools/import_to_mybrain.py`](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-mybrain/tools/import_to_mybrain.py)
+puts what is already piling up elsewhere into MyBrain, once: **Google Keep** notes and **Gmail**
+(from a [Google Takeout](https://takeout.google.com) `.zip`), **browser bookmarks** (the HTML export
+of Chrome, Firefox or Edge) and **text files** with links or notes. Each one is sent to Home
+Assistant as a share, so MyBrain reads and sorts it as if you had shared it from your phone. It only
+needs Python 3 and a long-lived access token:
+
+```bash
+python3 import_to_mybrain.py takeout.zip --dry-run       # count, and show the first few
+python3 import_to_mybrain.py takeout.zip --ha http://homeassistant.local:8123 --token <token>
+```
+
+See [Bringing in what you already have](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-mybrain/DOCS.md#bringing-in-what-you-already-have)
+in the documentation for the steps and options.
 
 ## Disclaimer
 
