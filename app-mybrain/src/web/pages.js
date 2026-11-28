@@ -103,7 +103,7 @@ function drawOverview() {
         ${tile('Later', num(c.later), 'kept to look at')}
         ${tile('Saved this week', num(st.week.saved), st.week.again ? `${num(st.week.again)} saved again` : '&nbsp;')}
         ${tile('Handled this week', num(st.week.handled), 'done or archived', st.week.handled >= st.week.saved && st.week.handled ? 'pos' : '')}
-        ${tile('Sorted by AI', st.counts.total ? `${num(sortedAi / st.counts.total * 100)}<small>%</small>` : '–', s.ai.entity ? escapeHtml(s.ai.entity) : 'no AI Task entity: rules only')}
+        ${tile('Sorted by AI', st.counts.total ? `${num(sortedAi / st.counts.total * 100)}<small>%</small>` : '–', s.ai.entity ? escapeHtml(s.ai.entity) : 'no AI Task entity set: rules only')}
     </div>`);
 
     // Saved and handled, per day for 30 days, per week beyond
@@ -427,9 +427,8 @@ onTab('info', () => {
     const s = app.status;
     const c = s.counts;
     const ai = s.ai;
-    const aiText = !ai.enabled ? 'Off in the app options: the built-in rules sort everything.'
-        : ai.entity ? `Sorting with <b>${escapeHtml(ai.entity)}</b>${ai.answers ? ` (${num(ai.answers)} answers since the app started)` : ''}.${ai.error ? `<div class="note warn">Last try failed: ${escapeHtml(ai.error)}. The rules sort for now; it tries again in a few minutes.</div>` : ''}`
-        : 'No AI Task entity in Home Assistant yet, so the built-in rules sort everything. Add an AI integration (DeepSeek, OpenAI, Google Generative AI, Anthropic or Ollama) and its AI Task entity is used automatically.';
+    const aiText = ai.entity ? `Sorting with <b>${escapeHtml(ai.entity)}</b>${ai.answers ? ` (${num(ai.answers)} answers since the app started)` : ''}.${ai.error ? `<div class="note warn">Last try failed: ${escapeHtml(ai.error)}. The rules sort for now; it tries again in a few minutes.</div>` : ''}`
+        : 'No AI Task entity set, so the built-in rules sort everything. Add an AI integration to Home Assistant (DeepSeek, OpenAI, Google Generative AI, Anthropic or Ollama) and put its AI Task entity, such as ai_task.deepseek, in the app option <b>AI Task entity</b>.';
     fill('tab-info', `
     <div class="info-grid">
         <div class="panel"><div class="panel-body">

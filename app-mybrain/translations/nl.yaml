@@ -9,16 +9,12 @@ configuration:
     description: >-
       Lees de pagina achter een link: titel, afbeelding en tekst, zodat je hem
       terugvindt op wat erin staat.
-  ai_classify:
-    name: Sorteer met AI
-    description: >-
-      Laat een AI Task-entiteit in Home Assistant de categorie, tags, waar het
-      voor is en een samenvatting kiezen. Zonder sorteren ingebouwde regels.
   ai_task_entity:
     name: AI Task-entiteit
     description: >-
-      Welke AI Task-entiteit, zoals ai_task.openai_ai_task. Leeg gebruikt de
-      eerste die Home Assistant heeft.
+      De AI Task-entiteit die sorteert (categorie, tags, waar het voor is, een
+      samenvatting en datums), zoals ai_task.deepseek. Leeg: de ingebouwde
+      regels sorteren.
   calendar_sync:
     name: Vul de agenda
     description: >-

@@ -52,9 +52,7 @@ class Config:
     listen_shares: bool = True
     # Read the page behind a link: title, description, picture, text
     fetch_pages: bool = True
-    # Let an AI Task entity in Home Assistant pick the category, tags and a summary
-    ai_classify: bool = True
-    # Which AI Task entity; empty uses the one set as preferred in Home Assistant, or the only one there is
+    # The AI Task entity that sorts (category, tags, summary, dates); empty: the built-in rules sort
     ai_task_entity: str = ""
     # Keep a Local Calendar in Home Assistant in step with the items that have a date
     calendar_sync: bool = True
@@ -94,7 +92,6 @@ class Config:
         return cls(
             listen_shares=bool(options.get("listen_shares", True)),
             fetch_pages=bool(options.get("fetch_pages", True)),
-            ai_classify=bool(options.get("ai_classify", True)),
             ai_task_entity=entity,
             calendar_sync=bool(options.get("calendar_sync", True)),
             calendar_entity=calendar,

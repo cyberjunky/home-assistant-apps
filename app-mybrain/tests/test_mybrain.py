@@ -211,14 +211,16 @@ class FakeHA:
     available = True
     connected = True
     version = "test"
-    devices = {"dev1": "Pixel"}
 
     def __init__(self, ai=True):
         self.ai = ai
         self.asked = []
 
-    async def ai_task_entities(self):
-        return [{"entity_id": "ai_task.test", "name": "Test"}] if self.ai else []
+    async def device_name(self, device_id):
+        return {"dev1": "Pixel"}.get(device_id, "")
+
+    async def people(self):
+        return {"u-ron": "Ron", "u-anne": "Anne"}
 
     async def generate_data(self, entity_id, instructions, structure):
         self.asked.append(instructions)
@@ -245,7 +247,9 @@ class FakeFetcher:
 @pytest.fixture
 def brain(tmp_path, store):
     def make(ai=True, pages=None):
-        return Brain(Config(), store, FakeHA(ai), FakeFetcher(tmp_path, pages or {}))
+        # The AI sorts only when an AI Task entity is set in the options
+        config = Config(ai_task_entity="ai_task.test") if ai else Config()
+        return Brain(config, store, FakeHA(ai), FakeFetcher(tmp_path, pages or {}))
 
     return make
 
@@ -505,7 +509,24 @@ def test_entity_names_per_user(store):
 
 
 async def test_share_by_default_option(tmp_path, store):
-    b = Brain(Config(share_by_default=True), store, FakeHA(False), FakeFetcher(tmp_path, {}))
+    b = Brain(Config(share_by_default=True), store, FakeHA(False), FakeFetcher(tmp_path, {}))  # no AI
     [item_id] = await b.add(text="for everyone", owner="u-anne")
     assert store.get(item_id)["private"] == 0
     assert Config.from_options({}).share_by_default is False
+
+
+async def test_the_ai_is_the_one_in_the_options(brain, store):
+    b = brain(ai=False)
+    assert b.ai_entity() is None  # nothing set: the rules sort, nothing is asked
+    await b.add(text="a note")
+    await run_queue(b)
+    assert b.ha.asked == [] and store.search()["items"][0]["sorted_by"] == "rules"
+    b.config.ai_task_entity = "ai_task.deepseek"
+    assert b.ai_entity() == "ai_task.deepseek"
+
+
+async def test_names_come_from_the_person_entities(brain, store):
+    b = brain(ai=False)
+    await b.on_share({"text": "hi", "device_id": "dev1"}, "u-anne")
+    assert b.users["u-anne"] == "Anne"
+    assert b.last_share["device"] == "Pixel"

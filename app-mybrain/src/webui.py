@@ -99,8 +99,6 @@ class WebUI:
 
     async def _status(self, request: web.Request) -> web.Response:
         user = self._who(request)
-        await self.brain.refresh_people()  # the names of the household, at most every ten minutes
-        await self.brain.ai_entity()  # which AI sorts, looked up at most every ten minutes
         household = await asyncio.to_thread(self.store.household, user)
         agenda = self.brain.agenda
         return web.json_response(
@@ -110,7 +108,6 @@ class WebUI:
                 "config": {
                     "listen_shares": self.config.listen_shares,
                     "fetch_pages": self.config.fetch_pages,
-                    "ai_classify": self.config.ai_classify,
                     "ai_task_entity": self.config.ai_task_entity,
                     "calendar_sync": self.config.calendar_sync,
                     "calendar_entity": self.config.calendar_entity,

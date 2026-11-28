@@ -9,16 +9,11 @@ configuration:
     description: >-
       Read the page behind a link: its title, picture and text, so it can be
       found by what it says.
-  ai_classify:
-    name: Sort with AI
-    description: >-
-      Let an AI Task entity in Home Assistant pick the category, tags, what it
-      is for and a summary. Without one, built-in rules sort.
   ai_task_entity:
     name: AI Task entity
     description: >-
-      Which AI Task entity to use, like ai_task.openai_ai_task. Empty uses the
-      first one Home Assistant has.
+      The AI Task entity that sorts (category, tags, what it is for, a summary
+      and dates), like ai_task.deepseek. Empty: the built-in rules sort.
   calendar_sync:
     name: Fill the calendar
     description: >-

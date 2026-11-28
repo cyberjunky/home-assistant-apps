@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+
+**After updating:** put your AI Task entity in the option **AI Task entity** (for example `ai_task.ai_deepseek_ai_task`). Without it, the built-in rules sort.
+
+- **The AI is the one you choose:** MyBrain no longer looks for an AI Task entity by itself. The option *AI Task entity* says which one sorts; empty means the built-in rules. The option *Sort with AI* is gone, since it would say the same.
+- **Asks Home Assistant only for what it needs:** the household's names come from the person entities, once at the start and when someone new shares; a phone's name is asked for when it shares. Before, the app read all of Home Assistant's states every ten minutes and the whole device list at every connect.
+
 ## 0.1.0
 
 **After updating:** nothing to do. Open **MyBrain** from the sidebar, then on your phone share any link to the **Home Assistant** app.

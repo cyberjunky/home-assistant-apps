@@ -70,10 +70,6 @@ async def websocket(request: web.Request) -> web.WebSocketResponse:
             await ws.send_json({"id": data["id"], "type": "result", "success": True, "result": None})
         elif str(data.get("type", "")).startswith("calendar/event/"):
             await ws.send_json({"id": data["id"], "type": "result", **calendar_command(data)})
-        elif data.get("type") == "config/device_registry/list":
-            await ws.send_json(
-                {"id": data["id"], "type": "result", "success": True, "result": [{"id": DEVICE, "name": "Pixel 9"}]}
-            )
         else:
             await ws.send_json({"id": data.get("id"), "type": "result", "success": False, "error": {"code": "unknown"}})
     return ws
@@ -185,11 +181,22 @@ async def generate_data(request: web.Request) -> web.Response:
     )
 
 
+async def render_template(request: web.Request) -> web.Response:
+    """The two templates the app renders: the person entities, and one device's name."""
+    template = (await request.json()).get("template", "")
+    if "states.person" in template:
+        return web.Response(text=json.dumps([[uid, name] for uid, name in PEOPLE.items()]))
+    if "device_attr" in template:
+        return web.Response(text="Pixel 9" if DEVICE in template else "")
+    return web.json_response({"message": "template not known to the mock"}, status=400)
+
+
 def make_app() -> web.Application:
     app = web.Application()
     app.router.add_get("/core/websocket", websocket)
     app.router.add_post("/mock/share", share)
     app.router.add_get("/core/api/states", get_states)
+    app.router.add_post("/core/api/template", render_template)
     app.router.add_get("/core/api/states/{entity}", get_state)
     app.router.add_post("/core/api/states/{entity}", set_state)
     app.router.add_get("/core/api/calendars/{entity}", get_calendar)

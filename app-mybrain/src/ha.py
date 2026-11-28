@@ -1,7 +1,11 @@
 """Home Assistant, reached through the Supervisor: the share events from the companion app, the AI
-Task entities for sorting, and a sensor with the size of the inbox."""
+Task that sorts, the household's names, and the sensors and calendars.
+
+The app asks only for what it needs, when it needs it: the names through the person entities, a
+phone's name when it shares. It never reads all of Home Assistant's states."""
 
 import asyncio
+import json
 import logging
 import os
 from collections.abc import Awaitable, Callable
@@ -19,6 +23,12 @@ CORE_WS_URL = SUPERVISOR_URL.replace("http://", "ws://", 1).replace("https://", 
 TIMEOUT = aiohttp.ClientTimeout(total=120, connect=10)
 SHARE_EVENT = "mobile_app.share"
 
+# Templates that read only what is asked (the person entities, one device), never all states
+PEOPLE_TEMPLATE = (
+    "[{% for p in states.person if p.attributes.user_id %}"
+    "{{ [p.attributes.user_id, p.name] | tojson }}{{ ',' if not loop.last }}{% endfor %}]"
+)
+
 
 class HAError(Exception):
     """Home Assistant can't be reached, or refused a request."""
@@ -32,7 +42,6 @@ class HA:
         self._session: aiohttp.ClientSession | None = None
         self.connected = False
         self.version = ""
-        self.devices: dict[str, str] = {}
 
     @property
     def available(self) -> bool:
@@ -62,14 +71,23 @@ class HA:
             raise HAError(f"{method} {path}: {message or status}")
         return body
 
-    async def ai_task_entities(self) -> list[dict]:
-        """The AI Task entities Home Assistant has: [{entity_id, name}]."""
-        states = await self.core("GET", "/states")
-        return [
-            {"entity_id": s["entity_id"], "name": (s.get("attributes") or {}).get("friendly_name") or s["entity_id"]}
-            for s in states or []
-            if isinstance(s, dict) and str(s.get("entity_id", "")).startswith("ai_task.")
-        ]
+    async def template(self, template: str) -> str:
+        """Render a template in Home Assistant."""
+        return str(await self.core("POST", "/template", {"template": template}))
+
+    async def people(self) -> dict[str, str]:
+        """Home Assistant user id → name, from the person entities only."""
+        pairs = json.loads(await self.template(PEOPLE_TEMPLATE))
+        return {str(p[0]): str(p[1]) for p in pairs if isinstance(p, list) and len(p) == 2}
+
+    async def device_name(self, device_id: str) -> str:
+        """The name of one device (the phone a share came from)."""
+        quoted = json.dumps(device_id)
+        return (
+            await self.template(
+                f"{{{{ device_attr({quoted}, 'name_by_user') or device_attr({quoted}, 'name') or '' }}}}"
+            )
+        ).strip()
 
     async def generate_data(self, entity_id: str, instructions: str, structure: dict) -> dict:
         """Ask an AI Task entity for structured data. Returns the data it filled in."""
@@ -94,11 +112,9 @@ class HA:
             return False
         return True
 
-    async def commands(self, calls: list[dict]) -> list[str]:
-        """Websocket commands on one connection, in order. Returns an error text per failed call."""
-        errors: list[str] = []
-        if not calls:
-            return errors
+    async def _run(self, calls: list[dict]) -> list[dict]:
+        """Websocket commands on one connection, in order: each one's answer."""
+        answers: list[dict] = []
         session = await self.session()
         try:
             async with session.ws_connect(CORE_WS_URL, heartbeat=30, max_msg_size=0) as ws:
@@ -111,27 +127,25 @@ class HA:
                     while True:
                         answer = await ws.receive_json(timeout=60)
                         if answer.get("id") == number and answer.get("type") == "result":
+                            answers.append(answer)
                             break
-                    if not answer.get("success"):
-                        error = answer.get("error") or {}
-                        errors.append(f"{call['type']}: {error.get('message') or error.get('code') or 'refused'}")
         except (aiohttp.ClientError, TimeoutError, OSError, ValueError, TypeError) as e:
             raise HAError(f"websocket: {e or type(e).__name__}") from e
+        return answers
+
+    async def commands(self, calls: list[dict]) -> list[str]:
+        """Websocket commands on one connection, in order. Returns an error text per failed call."""
+        if not calls:
+            return []
+        errors = []
+        for call, answer in zip(calls, await self._run(calls), strict=False):
+            if not answer.get("success"):
+                error = answer.get("error") or {}
+                errors.append(f"{call['type']}: {error.get('message') or error.get('code') or 'refused'}")
         return errors
 
     async def set_state(self, entity_id: str, state: Any, attributes: dict) -> None:
         await self.core("POST", f"/states/{entity_id}", {"state": state, "attributes": attributes})
-
-    async def people(self) -> dict[str, str]:
-        """Home Assistant user id → name, from the person entities (the names people see)."""
-        states = await self.core("GET", "/states")
-        found = {}
-        for s in states or []:
-            if isinstance(s, dict) and str(s.get("entity_id", "")).startswith("person."):
-                attrs = s.get("attributes") or {}
-                if attrs.get("user_id"):
-                    found[attrs["user_id"]] = attrs.get("friendly_name") or s["entity_id"][7:]
-        return found
 
     async def listen(self, on_share: Callable[[dict, str], Awaitable[None]]) -> None:
         """Receive share events until cancelled, connecting again whenever the connection drops."""
@@ -160,7 +174,6 @@ class HA:
                 raise HAError(f"Home Assistant refused the app's token: {answer.get('message', answer.get('type'))}")
             self.version = answer.get("ha_version", "")
             await ws.send_json({"id": 1, "type": "subscribe_events", "event_type": SHARE_EVENT})
-            await ws.send_json({"id": 2, "type": "config/device_registry/list"})
             self.connected = True
             logger.info(f"Listening for shares from the Home Assistant app (Home Assistant {self.version})")
             async for message in ws:
@@ -171,12 +184,6 @@ class HA:
                 data = message.json()
                 if data.get("type") == "result" and data.get("id") == 1 and not data.get("success"):
                     raise HAError(f"subscribing refused: {(data.get('error') or {}).get('message')}")
-                if data.get("type") == "result" and data.get("id") == 2 and data.get("success"):
-                    self.devices = {
-                        d["id"]: d.get("name_by_user") or d.get("name") or ""
-                        for d in data.get("result") or []
-                        if isinstance(d, dict) and d.get("id")
-                    }
                 if data.get("type") == "event":
                     event = data.get("event") or {}
                     if event.get("event_type") == SHARE_EVENT:
