@@ -1,0 +1,37 @@
+configuration:
+  listen_shares:
+    name: Save what is shared
+    description: >-
+      Save what is shared to the Home Assistant app on your phone (the
+      mobile_app.share event).
+  fetch_pages:
+    name: Read the pages
+    description: >-
+      Read the page behind a link: its title, picture and text, so it can be
+      found by what it says.
+  ai_classify:
+    name: Sort with AI
+    description: >-
+      Let an AI Task entity in Home Assistant pick the category, tags, what it
+      is for and a summary. Without one, built-in rules sort.
+  ai_task_entity:
+    name: AI Task entity
+    description: >-
+      Which AI Task entity to use, like ai_task.openai_ai_task. Empty uses the
+      first one Home Assistant has.
+  calendar_sync:
+    name: Fill the calendar
+    description: >-
+      Keep a Local Calendar in Home Assistant in step with the open items that
+      have a due date or an on date.
+  calendar_entity:
+    name: Calendar entity
+    description: >-
+      Which calendar. Empty uses calendar.mybrain: add the Local Calendar
+      integration and name the calendar MyBrain.
+  categories:
+    name: Categories
+    description: The categories to sort into. Other is always added.
+  log_level:
+    name: Log level
+    description: Amount of logging.

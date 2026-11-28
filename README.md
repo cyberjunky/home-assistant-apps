@@ -225,6 +225,20 @@ Assistant over from another broker in one click.
 
 [:books: Documentation](app-mqtt/DOCS.md) · [:memo: Changelog](app-mqtt/CHANGELOG.md) · [:lock: Security](app-mqtt/SECURITY.md)
 
+### <img src="app-mybrain/icon.png" alt="" width="36" align="absmiddle"> [MyBrain](app-mybrain/)
+
+![Version][mybrain-version-shield]
+![Supports aarch64 Architecture][aarch64-shield]
+![Supports amd64 Architecture][amd64-shield]
+
+Everything you mean to look at later, shared from your phone in two taps: links, posts, videos and
+notes. Each page is read and kept, sorted into a category with tags and what it is for (by an AI
+Task entity in Home Assistant, or built-in rules), and found again by any word on it. An inbox to
+work through, an overview of what is waiting and being forgotten, and items with a date in a
+Home Assistant calendar.
+
+[:books: Documentation](app-mybrain/DOCS.md) · [:memo: Changelog](app-mybrain/CHANGELOG.md) · [:lock: Security](app-mybrain/SECURITY.md)
+
 ### <img src="app-network/icon.png" alt="" width="36" align="absmiddle"> [Network](app-network/)
 
 ![Version][network-version-shield]
@@ -459,6 +473,7 @@ software each app packages keeps its own license, noted in the app's README.
 [nuclei-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-nuclei%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [sdradio-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-sdradio%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [dashboard-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-dashboard%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
+[mybrain-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-mybrain%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [network-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-network%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [proxmox-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-proxmox%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge
 [proxmox-bs-version-shield]: https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcyberjunky%2Fhome-assistant-apps%2Fmain%2Fapp-proxmox-bs%2Fconfig.yaml&query=%24.version&label=version&style=for-the-badge

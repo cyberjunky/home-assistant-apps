@@ -60,6 +60,7 @@ jobs:
           - app-garminconnect
           - app-goodwe
           - app-meldkamer
+          - app-mybrain
           - app-tesla
           - app-toon
           - app-nuclei
