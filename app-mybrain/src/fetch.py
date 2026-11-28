@@ -25,6 +25,9 @@ logger = logging.getLogger(__name__)
 
 # An honest name: sites like Wikipedia refuse clients that pretend to be a browser
 USER_AGENT = "Mozilla/5.0 (compatible; MyBrain/0.1; +https://github.com/cyberjunky/home-assistant-apps)"
+# The picture formats Pillow can open. No AVIF: AliExpress' image server sends AVIF when asked,
+# and Pillow can't read it, so the card got no picture
+IMAGE_ACCEPT = "image/webp,image/jpeg,image/png,image/gif;q=0.9,image/*;q=0.5"
 TIMEOUT = aiohttp.ClientTimeout(total=25, connect=10)
 MAX_PAGE = 4 * 1024 * 1024
 MAX_IMAGE = 8 * 1024 * 1024
@@ -430,7 +433,7 @@ class Fetcher:
     async def thumbnail(self, image_url: str, name: str) -> str:
         """Download a picture and keep a small copy. Returns the file name, or empty."""
         try:
-            _, status, content_type, body = await self.get(image_url, MAX_IMAGE, "image/avif,image/webp,image/*,*/*")
+            _, status, content_type, body = await self.get(image_url, MAX_IMAGE, IMAGE_ACCEPT)
         except FetchError as e:
             logger.debug(f"Picture {image_url}: {e}")
             return ""

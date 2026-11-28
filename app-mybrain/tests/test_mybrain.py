@@ -530,3 +530,11 @@ async def test_names_come_from_the_person_entities(brain, store):
     await b.on_share({"text": "hi", "device_id": "dev1"}, "u-anne")
     assert b.users["u-anne"] == "Anne"
     assert b.last_share["device"] == "Pixel"
+
+
+def test_pictures_are_asked_for_in_a_format_pillow_reads():
+    # AliExpress' image server answers "image/avif" first in the list with AVIF, which Pillow can't open
+    from src.fetch import IMAGE_ACCEPT
+
+    assert "avif" not in IMAGE_ACCEPT
+    assert IMAGE_ACCEPT.startswith("image/webp")
