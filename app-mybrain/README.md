@@ -12,8 +12,6 @@
 
 <img src="https://raw.githubusercontent.com/cyberjunky/home-assistant-apps/main/app-mybrain/icon.png" alt="MyBrain" width="128" align="right">
 
-> **Unofficial.** An independent project, not affiliated with, endorsed by or sponsored by the Home Assistant project.
-
 A place for everything you mean to look at later: links, posts, videos and notes to yourself.
 On your phone you tap **Share → Home Assistant** and it is saved. The app reads the page behind
 the link (title, picture, text), notes where it came from (Reddit, X, YouTube, GitHub, a shop, a
@@ -85,8 +83,7 @@ your phone, setting up AI sorting, the categories and the other options.
 
 ## Disclaimer
 
-This app is an independent project. It is not affiliated with, endorsed by or sponsored by the
-Home Assistant project. It reads the public pages of the links you save; what a site shows to an
+This app reads the public pages of the links you save; what a site shows to an
 app like this can differ from what you see in your browser. With AI sorting on, the title, the
 start of the page's text and your note are sent to the AI service of the integration you chose.
 
