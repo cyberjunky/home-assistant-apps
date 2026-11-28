@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.1.2
+
+**After updating:** nothing to do. Set **AI Task entity** if you haven't yet; it now shows in the form.
 
 - **Bring in what you already have:** `tools/import_to_mybrain.py` puts Google Keep notes and Gmail (from Google Takeout), browser bookmarks or a text file of links into MyBrain, once, as shares. See DOCS.md.
 - **The Add dialog's text field** is a proper box again, not one squashed line.
