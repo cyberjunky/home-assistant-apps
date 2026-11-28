@@ -67,9 +67,9 @@ Every item gets:
 
 **Without AI** the built-in rules sort: the site (GitHub is Tech, a shop is to buy), the subreddit, and words in the title and description. It works, but it is coarse.
 
-**With AI** an AI Task entity in Home Assistant does it. Any AI integration that offers one works: OpenAI, Google Gemini, Anthropic, Ollama, OpenRouter and others. The app uses the first AI Task entity it finds, or the one in `ai_task_entity`. The key for the AI service is in that integration, never in this app.
+**With AI** an AI Task entity in Home Assistant does it. Any AI integration that offers one works: [DeepSeek](https://github.com/cyberjunky/home-assistant-deepseek), OpenAI, Google Gemini, Anthropic, Ollama, OpenRouter and others. The app uses the first AI Task entity it finds, or the one in `ai_task_entity`. The key for the AI service is in that integration, never in this app.
 
-A Home Assistant Yellow or Green can't run a language model itself, so use a cloud service and pick its smallest, cheapest model: sorting needs no big model. One item is about 1,500 tokens in and 150 out, so a thousand items cost cents to about a euro, depending on the service. Mind that free tiers of some services may use what you send to train their models.
+A Home Assistant Yellow or Green can't run a language model itself, so use a cloud service with a small model: sorting needs no big one. The cheapest that does it well is DeepSeek, through the [DeepSeek integration](https://github.com/cyberjunky/home-assistant-deepseek) (HACS) with its default `deepseek-flash`: one item is about 1,500 tokens in and 150 out, so a thousand items cost about 30 cents. Google Gemini's Flash models are similar; a paid key, since free tiers may use what you send for training.
 
 What you change by hand (category, tags, for, priority) stays; **✦ Sort again** in an item asks again. When the AI fails (no credit, the service is down), the rules sort for five minutes and then the AI is tried again.
 

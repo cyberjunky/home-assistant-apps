@@ -429,7 +429,7 @@ onTab('info', () => {
     const ai = s.ai;
     const aiText = !ai.enabled ? 'Off in the app options: the built-in rules sort everything.'
         : ai.entity ? `Sorting with <b>${escapeHtml(ai.entity)}</b>${ai.answers ? ` (${num(ai.answers)} answers since the app started)` : ''}.${ai.error ? `<div class="note warn">Last try failed: ${escapeHtml(ai.error)}. The rules sort for now; it tries again in a few minutes.</div>` : ''}`
-        : 'No AI Task entity in Home Assistant yet, so the built-in rules sort everything. Add an AI integration (OpenAI, Google Generative AI, Anthropic or Ollama) and its AI Task entity is used automatically.';
+        : 'No AI Task entity in Home Assistant yet, so the built-in rules sort everything. Add an AI integration (DeepSeek, OpenAI, Google Generative AI, Anthropic or Ollama) and its AI Task entity is used automatically.';
     fill('tab-info', `
     <div class="info-grid">
         <div class="panel"><div class="panel-body">

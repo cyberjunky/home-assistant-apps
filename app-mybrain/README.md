@@ -63,7 +63,7 @@ on date go into a calendar in Home Assistant, and a sensor tells what is next.
 
 - Home Assistant OS or Supervised
 - The Home Assistant companion app on your phone, to share to it (Android shares a link and the app it came from; iPhone shares the text)
-- Optional: an AI integration that offers an AI Task entity (OpenAI, Google Gemini, Anthropic, Ollama, …) for sorting with AI
+- Optional: an AI integration that offers an AI Task entity for sorting with AI, such as [DeepSeek](https://github.com/cyberjunky/home-assistant-deepseek) (cheap), OpenAI, Google Gemini, Anthropic or Ollama
 - Optional: a Local Calendar named MyBrain, for the calendar
 
 ## Installation
