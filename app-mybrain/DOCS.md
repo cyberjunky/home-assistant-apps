@@ -50,12 +50,12 @@ The browser extension in [`browser-extension`](https://github.com/cyberjunky/hom
 
 Installing it:
 
-1. **Get the folder.** On [the repository](https://github.com/cyberjunky/home-assistant-apps), **Code → Download ZIP**, and unpack it. You need the folder `app-mybrain/browser-extension`.
-2. **Load it.** Open `edge://extensions` (Chrome: `chrome://extensions`), turn on **Developer mode**, press **Load unpacked** and pick that folder. Edge may mention developer-mode extensions at start-up; that is expected for an extension that isn't in the store.
+1. **Download** [mybrain-browser-extension.zip](https://github.com/cyberjunky/home-assistant-apps/raw/main/app-mybrain/mybrain-browser-extension.zip) and unpack it somewhere it can stay: Edge loads the extension from that folder every time it starts.
+2. **Load it.** Open `edge://extensions` (Chrome: `chrome://extensions`), turn on **Developer mode**, press **Load unpacked** and pick the folder `mybrain-extension`. Edge may mention developer-mode extensions at start-up; that is expected for an extension that isn't in the store.
 3. **Get a token.** Home Assistant → your profile → **Security** → *Long-lived access tokens* → create one. It must be an administrator's: only they may send events. Name it after the PC, so you can revoke it there.
 4. **Connect.** The options open by themselves after installing: fill in the address you open Home Assistant with in that browser and the token, then **Save and test**. Edge asks to let the extension reach that address; allow it.
 
-The token stays in that browser's extension storage and is only sent to your Home Assistant. To update the extension, replace the folder and press the reload arrow on its card in `edge://extensions`.
+The token stays in that browser's extension storage and is only sent to your Home Assistant. To update the extension, unpack the new zip over the old folder and press the reload arrow on its card in `edge://extensions`.
 
 ## What happens to a link
 

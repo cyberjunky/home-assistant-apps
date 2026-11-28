@@ -538,3 +538,16 @@ def test_pictures_are_asked_for_in_a_format_pillow_reads():
 
     assert "avif" not in IMAGE_ACCEPT
     assert IMAGE_ACCEPT.startswith("image/webp")
+
+
+def test_extension_zip_matches_the_folder():
+    # The download in the docs must be what is in browser-extension/: run tools/make_extension_zip.py
+    import zipfile
+
+    from tools.make_extension_zip import FOLDER, SOURCE, TARGET, extension_files
+
+    with zipfile.ZipFile(TARGET) as z:
+        packed = {n: z.read(n) for n in z.namelist()}
+    folder = {f"{FOLDER}/{p.relative_to(SOURCE).as_posix()}": p.read_bytes() for p in extension_files()}
+    assert packed.keys() == folder.keys(), "files differ: run python3 -m tools.make_extension_zip"
+    assert packed == folder, "contents differ: run python3 -m tools.make_extension_zip"
