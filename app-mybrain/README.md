@@ -87,8 +87,8 @@ your phone, setting up AI sorting, the categories and the other options.
 
 The [browser extension](https://github.com/cyberjunky/home-assistant-apps/tree/main/app-mybrain/browser-extension)
 for Edge and Chrome saves the page you are on, a link, an image or selected text to MyBrain, the
-same way your phone shares. Load the folder with **Load unpacked** in `edge://extensions` and give
-it your Home Assistant address and a long-lived access token. See
+same way your phone shares. [Download the zip](https://github.com/cyberjunky/home-assistant-apps/raw/main/app-mybrain/mybrain-browser-extension.zip), unpack it, load the folder with **Load unpacked**
+in `edge://extensions` and give it your Home Assistant address and a long-lived access token. See
 [Saving from your PC](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-mybrain/DOCS.md#saving-from-your-pc-edge-chrome)
 in the documentation.
 
