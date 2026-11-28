@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3
+
+**After updating:** open an item that has no picture (AliExpress, for example) and press **⟳ Read again**.
+
+- **Pictures from AliExpress:** its image server sends AVIF when asked for it, a format the app can't open, so those cards showed a letter instead of the product. Pictures are now asked for as WebP, JPEG or PNG.
+
 ## 0.1.2
 
 **After updating:** nothing to do. Set **AI Task entity** if you haven't yet; it now shows in the form.
