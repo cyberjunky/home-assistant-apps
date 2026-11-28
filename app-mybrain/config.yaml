@@ -21,6 +21,8 @@ homeassistant_api: true
 options:
   listen_shares: true
   fetch_pages: true
+  # Always in the form, as the one option to fill in for AI sorting; empty: the built-in rules sort
+  ai_task_entity: ""
   calendar_sync: true
   share_by_default: false
   categories:

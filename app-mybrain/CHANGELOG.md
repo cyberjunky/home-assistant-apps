@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **AI Task entity is always in the form:** it was hidden under "Show unused optional configuration options" until filled in, while it is the one option to fill in for AI sorting.
+
 ## 0.1.1
 
 **After updating:** put your AI Task entity in the option **AI Task entity** (for example `ai_task.ai_deepseek_ai_task`). Without it, the built-in rules sort.
