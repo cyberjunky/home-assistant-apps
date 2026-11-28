@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 _DATE_NAMES = {"due": "due", "happens_on": "on"}
 
 WORKERS = 3
-AI_LOOKUP_SECONDS = 600
 # After an AI Task failure, rules only for a while (the integration may be down or out of credit)
 AI_PAUSE_SECONDS = 300
 
@@ -40,12 +39,11 @@ class Brain:
         self._queued: set[int] = set()
         self._ai_lock = asyncio.Lock()
         self._sensor_dirty = asyncio.Event()
-        self.ai = {"entities": [], "entity": "", "checked_at": 0.0, "error": "", "error_at": 0.0, "answers": 0}
+        self.ai = {"error": "", "error_at": 0.0, "answers": 0}
         self.last_share: dict = {}
         self.agenda: Agenda | None = None
         # Home Assistant user id → name: from the person entities, and from who opened the page
         self.users: dict[str, str] = {}
-        self._people_at = 0.0
 
     # ------------------------------------------------------------------
     # Coming in
@@ -58,7 +56,14 @@ class Brain:
         text = str(data.get("text") or data.get("entered") or "").strip()
         subject = str(data.get("subject") or "").strip()
         caller = str(data.get("caller") or "").strip()
-        device = self.ha.devices.get(str(data.get("device_id") or ""), "")
+        device = ""
+        if data.get("device_id"):
+            try:
+                device = await self.ha.device_name(str(data["device_id"]))
+            except HAError as e:
+                logger.debug(f"Device name: {e}")
+        if user and user not in self.users:
+            await self.refresh_people()
         ids = await self.add(url=url, text=text, subject=subject, via="share", caller=caller, device=device, owner=user)
         self.last_share = {"at": time.time(), "caller": caller, "device": device, "items": ids, "owner": user}
         logger.info(f"Shared from {caller or 'the phone'}: saved as {', '.join(map(str, ids)) or 'nothing'}")
@@ -167,6 +172,7 @@ class Brain:
         """Work through the queue, keep the sensor current, and listen for shares."""
         for item_id in await asyncio.to_thread(self.store.waiting):
             self._enqueue(item_id)
+        await self.refresh_people()
         tasks = [asyncio.create_task(self._worker(n), name=f"worker-{n}") for n in range(WORKERS)]
         tasks.append(asyncio.create_task(self._sensor_loop(), name="sensor"))
         if self.config.listen_shares and self.ha.available:
@@ -268,32 +274,19 @@ class Brain:
     # ------------------------------------------------------------------
     # Sorting
     # ------------------------------------------------------------------
-    async def ai_entity(self) -> str | None:
-        """The AI Task entity to ask: the configured one, else the only/first one. None: no AI."""
-        if not self.config.ai_classify or not self.ha.available:
+    def ai_entity(self) -> str | None:
+        """The AI Task entity set in the options, unless it failed a moment ago. None: the rules sort."""
+        entity = self.config.ai_task_entity
+        if not entity or not self.ha.available:
             return None
-        now = time.time()
-        if now - self.ai["checked_at"] > AI_LOOKUP_SECONDS:
-            try:
-                self.ai["entities"] = await self.ha.ai_task_entities()
-            except HAError as e:
-                logger.debug(f"AI Task entities: {e}")
-            self.ai["checked_at"] = now
-        names = [e["entity_id"] for e in self.ai["entities"]]
-        if self.config.ai_task_entity:
-            self.ai["entity"] = self.config.ai_task_entity if self.config.ai_task_entity in names else ""
-        else:
-            self.ai["entity"] = names[0] if names else ""
-        if not self.ai["entity"]:
+        if self.ai["error_at"] and time.time() - self.ai["error_at"] < AI_PAUSE_SECONDS:
             return None
-        if self.ai["error_at"] and now - self.ai["error_at"] < AI_PAUSE_SECONDS:
-            return None
-        return self.ai["entity"]
+        return entity
 
     async def _sort(self, item: dict) -> None:
         rules = classify.by_rules(item, self.config.categories)
         result = rules
-        entity = await self.ai_entity()
+        entity = self.ai_entity()
         if entity:
             known = await asyncio.to_thread(self.store.known_tags, item.get("owner") or "")
             async with self._ai_lock:
@@ -449,9 +442,9 @@ class Brain:
             self.users[user] = name
 
     async def refresh_people(self) -> None:
-        if not self.ha.available or time.time() - self._people_at < 600:
+        """The names of the household, from the person entities: at the start, and when someone new shows up."""
+        if not self.ha.available:
             return
-        self._people_at = time.time()
         try:
             self.users.update(await self.ha.people())
         except HAError as e:
@@ -470,7 +463,6 @@ class Brain:
                 await asyncio.wait_for(self._sensor_dirty.wait(), timeout=600)
             self._sensor_dirty.clear()
             await asyncio.sleep(2)  # one update for a burst of changes
-            await self.refresh_people()
             if self.agenda:
                 try:
                     await self.agenda.sync()
@@ -484,9 +476,7 @@ class Brain:
             "ha_version": self.ha.version,
             "last_share": self.last_share,
             "ai": {
-                "enabled": self.config.ai_classify,
-                "entity": self.ai["entity"],
-                "entities": self.ai["entities"],
+                "entity": self.config.ai_task_entity,
                 "error": self.ai["error"] if self.ai["error_at"] else "",
                 "answers": self.ai["answers"],
             },

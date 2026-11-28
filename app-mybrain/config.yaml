@@ -1,5 +1,5 @@
 name: MyBrain
-version: "0.1.0"
+version: "0.1.1"
 slug: app-mybrain
 description: "Share links and notes from your phone in two taps; they are read, sorted and kept searchable, with an inbox and a dashboard so nothing saved gets forgotten"
 url: "https://github.com/cyberjunky/home-assistant-apps/tree/main/app-mybrain"
@@ -21,7 +21,6 @@ homeassistant_api: true
 options:
   listen_shares: true
   fetch_pages: true
-  ai_classify: true
   calendar_sync: true
   share_by_default: false
   categories:
@@ -44,7 +43,6 @@ options:
 schema:
   listen_shares: bool?
   fetch_pages: bool?
-  ai_classify: bool?
   ai_task_entity: str?
   calendar_sync: bool?
   calendar_entity: str?

@@ -9,7 +9,7 @@ MyBrain keeps what you mean to look at later: links, posts, videos and notes to 
 
 That is all that is needed. The next two steps make it better:
 
-3. **Sorting with AI** — add an AI integration to Home Assistant (see [Sorting](#sorting)). The app finds its AI Task entity by itself.
+3. **Sorting with AI** — add an AI integration to Home Assistant and put its AI Task entity in the option `ai_task_entity` (see [Sorting](#sorting)).
 4. **The calendars** — go to **Settings → Devices & services → Add integration → Local Calendar** and add a calendar named **MyBrain <your name>** for your own items with a date, and one named **MyBrain** for the household's (see [Dates and the calendar](#dates-and-the-calendar)).
 
 ## Everyone their own MyBrain
@@ -67,7 +67,7 @@ Every item gets:
 
 **Without AI** the built-in rules sort: the site (GitHub is Tech, a shop is to buy), the subreddit, and words in the title and description. It works, but it is coarse.
 
-**With AI** an AI Task entity in Home Assistant does it. Any AI integration that offers one works: [DeepSeek](https://github.com/cyberjunky/home-assistant-deepseek), OpenAI, Google Gemini, Anthropic, Ollama, OpenRouter and others. The app uses the first AI Task entity it finds, or the one in `ai_task_entity`. The key for the AI service is in that integration, never in this app.
+**With AI** an AI Task entity in Home Assistant does it. Any AI integration that offers one works: [DeepSeek](https://github.com/cyberjunky/home-assistant-deepseek), OpenAI, Google Gemini, Anthropic, Ollama, OpenRouter and others. Put the entity you want in the option `ai_task_entity`, for example `ai_task.deepseek`; with several AI integrations you choose which one sorts. The key for the AI service is in that integration, never in this app.
 
 A Home Assistant Yellow or Green can't run a language model itself, so use a cloud service with a small model: sorting needs no big one. The cheapest that does it well is DeepSeek, through the [DeepSeek integration](https://github.com/cyberjunky/home-assistant-deepseek) (HACS) with its default `deepseek-flash`: one item is about 1,500 tokens in and 150 out, so a thousand items cost about 30 cents. Google Gemini's Flash models are similar; a paid key, since free tiers may use what you send for training.
 
@@ -128,7 +128,7 @@ actions:
 ```yaml
 listen_shares: true
 fetch_pages: true
-ai_classify: true
+ai_task_entity: ai_task.deepseek
 calendar_sync: true
 share_by_default: false
 categories:
@@ -142,8 +142,7 @@ categories:
 |---|---|---|
 | `listen_shares` | `true` | Save what is shared to the Home Assistant app on your phone |
 | `fetch_pages` | `true` | Read the page behind a link: title, picture and text. Off: only the link is kept |
-| `ai_classify` | `true` | Sort with an AI Task entity when Home Assistant has one. Off: the rules sort, and nothing is sent to an AI |
-| `ai_task_entity` | *(empty)* | Which AI Task entity, like `ai_task.openai_ai_task`. Empty: the first one |
+| `ai_task_entity` | *(empty)* | The AI Task entity that sorts, like `ai_task.deepseek`. Empty: the built-in rules sort, and nothing is sent to an AI |
 | `calendar_sync` | `true` | Keep the calendar in step with the items that have a date |
 | `calendar_entity` | *(empty)* | Which calendar is the household's. Empty: `calendar.mybrain` |
 | `share_by_default` | `false` | Off: a new item is only its owner's until they share it. On: new items are shared with the household unless marked private |

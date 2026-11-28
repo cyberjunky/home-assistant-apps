@@ -34,14 +34,14 @@ So you know what is at stake:
   name, or to a name that resolves to one, is saved but not opened, and every
   redirect is checked the same way. The app holds no logins and sends no
   cookies.
-- **AI sorting sends a summary of the item.** With `ai_classify` on and an AI
-  Task entity in Home Assistant, the source, link, title, description, your
+- **AI sorting sends a summary of the item.** With an AI Task entity set in
+  `ai_task_entity`, the source, link, title, description, your
   note, the first 2,500 characters of the page and up to 60 of your existing
-  tags go to that entity, and so to the AI service its integration uses. Turn
-  `ai_classify` off to keep everything at home.
+  tags go to that entity, and so to the AI service its integration uses. Leave
+  `ai_task_entity` empty to keep everything at home.
 - **Rights it asks for.** `homeassistant_api` only: to receive the
   `mobile_app.share` events, read the device names (to show which phone shared
-  something), find and call AI Task entities, set `sensor.mybrain_inbox` and
+  something), call the AI Task entity you set, set `sensor.mybrain_inbox` and
   `sensor.mybrain_next`, and read and change the events of one calendar.
 - **The calendar.** With `calendar_sync` on, the title, link and note of each
   open item with a date are written to `calendar.mybrain` (or
