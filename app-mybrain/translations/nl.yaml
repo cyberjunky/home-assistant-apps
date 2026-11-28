@@ -1,0 +1,43 @@
+configuration:
+  listen_shares:
+    name: Bewaar wat gedeeld wordt
+    description: >-
+      Bewaar wat je op je telefoon deelt met de Home Assistant-app (het
+      mobile_app.share-event).
+  fetch_pages:
+    name: Lees de pagina's
+    description: >-
+      Lees de pagina achter een link: titel, afbeelding en tekst, zodat je hem
+      terugvindt op wat erin staat.
+  ai_classify:
+    name: Sorteer met AI
+    description: >-
+      Laat een AI Task-entiteit in Home Assistant de categorie, tags, waar het
+      voor is en een samenvatting kiezen. Zonder sorteren ingebouwde regels.
+  ai_task_entity:
+    name: AI Task-entiteit
+    description: >-
+      Welke AI Task-entiteit, zoals ai_task.openai_ai_task. Leeg gebruikt de
+      eerste die Home Assistant heeft.
+  calendar_sync:
+    name: Vul de agenda
+    description: >-
+      Houd een Local Calendar in Home Assistant bij met de open items die een
+      deadline of een datum hebben.
+  calendar_entity:
+    name: Agenda-entiteit
+    description: >-
+      De agenda van het huishouden. Leeg gebruikt calendar.mybrain: voeg de
+      integratie Local Calendar toe en noem de agenda MyBrain. Ieders eigen
+      agenda is een Local Calendar met de naam MyBrain <naam>.
+  share_by_default:
+    name: Standaard delen met het huishouden
+    description: >-
+      Uit: wat iemand bewaart is alleen van hem of haar tot het gedeeld wordt.
+      Aan: het huishouden ziet nieuwe items, tenzij ze privé zijn gemarkeerd.
+  categories:
+    name: Categorieën
+    description: De categorieën om in te sorteren. Other komt er altijd bij.
+  log_level:
+    name: Logniveau
+    description: Hoeveelheid logging.
