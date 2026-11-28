@@ -110,7 +110,7 @@ kbd { font-family: var(--mono); font-size: 11px; padding: 1px 5px; border: 1px s
 .form-grid > label { font-size: 12px; color: var(--secondary-text-color); }
 .form-grid .select, .form-grid .input { width: 100%; max-width: 360px; }
 .tabs.seg { width: fit-content; max-width: 100%; flex-wrap: wrap; }
-.note-edit { width: 100%; resize: vertical; min-height: 64px; font: inherit; font-size: 13.5px; line-height: 1.5; padding: 8px 10px; }
+.note-edit { width: 100%; height: auto; resize: vertical; min-height: 72px; font: inherit; font-size: 13.5px; line-height: 1.5; padding: 8px 10px; }
 .desc { color: var(--secondary-text-color); }
 .facts { font-size: 13px; }
 .facts .info-value { overflow-wrap: anywhere; }
@@ -119,7 +119,8 @@ kbd { font-family: var(--mono); font-size: 11px; padding: 1px 5px; border: 1px s
 .page-text { margin-top: 8px; max-height: 340px; overflow-y: auto; padding: 10px 12px; border: var(--card-border); border-radius: 6px; line-height: 1.55; color: var(--secondary-text-color); font-size: 12.5px; }
 .detail-actions { display: flex; gap: 8px; align-items: center; margin-top: 16px; flex-wrap: wrap; }
 .add-modal { width: min(560px, calc(100vw - 32px)); }
-.add-modal textarea { width: 100%; resize: vertical; font: inherit; font-size: 14px; line-height: 1.5; padding: 10px 12px; }
+/* .input is a 30px one-line field; a textarea needs its own height */
+.add-modal textarea { width: 100%; height: auto; min-height: 150px; resize: vertical; font: inherit; font-size: 14px; line-height: 1.5; padding: 10px 12px; }
 .add-hint { font-size: 12px; margin-top: 8px; }
 .steps-list { margin: 6px 0 10px 20px; font-size: 13.5px; line-height: 1.7; }
 .info-grid p { font-size: 13px; line-height: 1.55; margin: 6px 0 10px; }

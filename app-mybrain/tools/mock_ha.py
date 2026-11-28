@@ -191,12 +191,27 @@ async def render_template(request: web.Request) -> web.Response:
     return web.json_response({"message": "template not known to the mock"}, status=400)
 
 
+async def fire_event(request: web.Request) -> web.Response:
+    """POST /api/events/<type>, as a long-lived token of Ron's would: the event carries his user."""
+    data = await request.json()
+    for ws, sub_id in list(subscribers):
+        if not ws.closed:
+            event = {
+                "event_type": request.match_info["event_type"],
+                "data": data,
+                "context": {"id": "c", "user_id": "u-ron"},
+            }
+            await ws.send_json({"id": sub_id, "type": "event", "event": event})
+    return web.json_response({"message": f"Event {request.match_info['event_type']} fired."})
+
+
 def make_app() -> web.Application:
     app = web.Application()
     app.router.add_get("/core/websocket", websocket)
     app.router.add_post("/mock/share", share)
     app.router.add_get("/core/api/states", get_states)
     app.router.add_post("/core/api/template", render_template)
+    app.router.add_post("/core/api/events/{event_type}", fire_event)
     app.router.add_get("/core/api/states/{entity}", get_state)
     app.router.add_post("/core/api/states/{entity}", set_state)
     app.router.add_get("/core/api/calendars/{entity}", get_calendar)
