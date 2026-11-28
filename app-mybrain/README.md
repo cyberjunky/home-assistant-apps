@@ -55,6 +55,7 @@ on date go into a calendar in Home Assistant, and a sensor tells what is next.
 - ♻️ **No doubles** — The same link saved again (other tracking codes, a short link) comes back to the inbox instead of being saved twice
 - 📅 **Dates and a calendar** — A due date or an on date per item (the AI finds them in the content); every open item with a date in a Local Calendar in Home Assistant
 - 👪 **For the household** — Everyone has their own inbox, library and calendar; what you save is yours alone until you share it 👪, and what others share can be saved to your own with one tap
+- 💻 **From your PC too** — A browser extension for Edge and Chrome: the toolbar button, right-click or a key saves the page, a link or a selection
 - 📦 **Bring in your backlog** — A script puts Google Keep, Gmail, bookmarks or a text file of links in, once
 - 🔢 **Sensors** — per person `sensor.mybrain_next_<name>` with the next item that has a date, and `sensor.mybrain_inbox_<name>` with the size of the inbox
 
@@ -81,6 +82,15 @@ Alternatively:
 MyBrain works without any settings. See
 [DOCS.md](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-mybrain/DOCS.md) for sharing from
 your phone, setting up AI sorting, the categories and the other options.
+
+## Save from your PC
+
+The [browser extension](https://github.com/cyberjunky/home-assistant-apps/tree/main/app-mybrain/browser-extension)
+for Edge and Chrome saves the page you are on, a link, an image or selected text to MyBrain, the
+same way your phone shares. Load the folder with **Load unpacked** in `edge://extensions` and give
+it your Home Assistant address and a long-lived access token. See
+[Saving from your PC](https://github.com/cyberjunky/home-assistant-apps/blob/main/app-mybrain/DOCS.md#saving-from-your-pc-edge-chrome)
+in the documentation.
 
 ## Bring in what you already have
 

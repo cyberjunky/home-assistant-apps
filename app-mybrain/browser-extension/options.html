@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MyBrain options</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="options">
+    <div class="brand"><img src="icons/icon32.png" alt="">MyBrain</div>
+    <div class="card">
+        <h1>Connect to Home Assistant</h1>
+        <p class="hint">The extension sends what you save to Home Assistant, the same way the phone app shares. It lands in the MyBrain of the person the token belongs to.</p>
+        <form id="form">
+            <label for="ha">Home Assistant address</label>
+            <input id="ha" type="url" placeholder="http://homeassistant.local:8123" required autocomplete="url">
+            <p class="hint">The address you open Home Assistant with in this browser. Nabu Casa's remote address works too.</p>
+
+            <label for="token">Long-lived access token</label>
+            <input id="token" type="password" required autocomplete="off" spellcheck="false">
+            <p class="hint">In Home Assistant: your profile → <b>Security</b> → <b>Long-lived access tokens</b> → <b>Create token</b>. It must be an administrator's: only they may send events. The token stays in this browser.</p>
+
+            <div class="row">
+                <button class="primary" type="submit" id="save">Save and test</button>
+                <span class="status" id="status" role="status"></span>
+            </div>
+        </form>
+    </div>
+    <div class="card">
+        <h1>Saving</h1>
+        <ol>
+            <li>The <b>MyBrain button</b> in the toolbar saves the page you are on, with a note if you like (<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd>).</li>
+            <li><b>Right-click</b> a page, a link, an image or selected text: <b>Save to MyBrain</b>. Selected text goes along as the note.</li>
+            <li><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> saves the page straight away. A ✓ on the button says it worked.</li>
+        </ol>
+        <p class="hint">Change the keys at <b>edge://extensions/shortcuts</b>.</p>
+    </div>
+</main>
+<script type="module" src="options.js"></script>
+</body>
+</html>

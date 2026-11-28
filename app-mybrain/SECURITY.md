@@ -43,6 +43,12 @@ So you know what is at stake:
   `mobile_app.share` events, read the device names (to show which phone shared
   something), call the AI Task entity you set, set `sensor.mybrain_inbox` and
   `sensor.mybrain_next`, and read and change the events of one calendar.
+- **The browser extension** (optional, in `browser-extension`) keeps a
+  long-lived access token of an administrator in that browser's extension
+  storage and sends it only to the Home Assistant address you give it. It asks
+  for permission to reach that one address, and sends the page's address and
+  title, plus your note or selected text, when you save. It reads no pages by
+  itself. Revoke the token in Home Assistant to cut it off.
 - **The calendar.** With `calendar_sync` on, the title, link and note of each
   open item with a date are written to `calendar.mybrain` (or
   `calendar_entity`). The app only changes and removes events that end in its
