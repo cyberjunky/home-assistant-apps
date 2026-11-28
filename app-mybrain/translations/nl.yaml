@@ -27,8 +27,9 @@ configuration:
   calendar_entity:
     name: Agenda-entiteit
     description: >-
-      Welke agenda. Leeg gebruikt calendar.mybrain: voeg de integratie Local
-      Calendar toe en noem de agenda MyBrain.
+      De agenda van het huishouden. Leeg gebruikt calendar.mybrain: voeg de
+      integratie Local Calendar toe en noem de agenda MyBrain. Ieders eigen
+      agenda is een Local Calendar met de naam MyBrain <naam>.
   categories:
     name: Categorieën
     description: De categorieën om in te sorteren. Other komt er altijd bij.

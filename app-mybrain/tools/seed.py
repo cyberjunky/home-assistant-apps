@@ -59,7 +59,18 @@ SHARES = [
     },
     {"text": "Gift idea for mom: a pottery class, ask Anne which studio", "caller": "com.google.android.keep"},
     {"text": "Look at this for the garage https://www.raspberrypi.com/products/raspberry-pi-5/", "caller": ""},
+    # Anne's
+    {"url": "https://en.wikipedia.org/wiki/Pottery", "caller": "com.android.chrome", "user": "u-anne"},
+    {"url": "https://en.wikipedia.org/wiki/Porto", "caller": "com.android.chrome", "user": "u-anne"},
+    {"url": "https://en.wikipedia.org/wiki/Yoga", "caller": "com.android.chrome", "user": "u-anne"},
+    {
+        "text": "Birthday present for Ron: a new soldering station",
+        "caller": "com.google.android.keep",
+        "user": "u-anne",
+    },
 ]
+# Anne keeps the present to herself
+PRIVATE = ["Birthday present for Ron%"]
 
 
 def wait_until_done() -> None:
@@ -114,6 +125,8 @@ def main(data_dir: Path) -> None:
     ):
         value = time.strftime("%Y-%m-%d", time.localtime(now + offset * day)) + time_of_day
         db.execute(f"UPDATE items SET {kind} = ? WHERE id = ?", (value, item_id))
+    for pattern in PRIVATE:
+        db.execute("UPDATE items SET private = 1 WHERE title LIKE ?", (pattern,))
     db.commit()
     print(f"{len(ids)} items")
 

@@ -56,10 +56,16 @@ onTab('overview', async () => {
                 <div id="ov-activity" class="events"></div>
             </div></div>
         </div>
-        <div class="panel"><div class="panel-body">
-            <div class="chart-title"><span>Topics</span><span class="hint">most used tags · click to browse</span></div>
-            <div id="ov-tags" class="tag-cloud"></div>
-        </div></div>`)) {
+        <div class="dash-grid">
+            <div class="panel"><div class="panel-body">
+                <div class="chart-title"><span>Topics</span><span class="hint">your most used tags · click to browse</span></div>
+                <div id="ov-tags" class="tag-cloud"></div>
+            </div></div>
+            <div class="panel" id="ov-household-panel"><div class="panel-body">
+                <div class="chart-title"><span>👪 Household</span><span class="hint">what the others share · click to browse</span></div>
+                <div id="ov-household" class="rows"></div>
+            </div></div>
+        </div>`)) {
         buildChips('ov-days', [{key: '30', label: '30 d'}, {key: '90', label: '90 d'}, {key: '365', label: '1 y'}], String(overviewDays), (k) => {
             overviewDays = Number(k);
             store('days', k);
@@ -176,6 +182,16 @@ function drawOverview() {
     fill('ov-tags', st.tags.length ? st.tags.map(t => `<button type="button" class="tagchip size${Math.ceil(t.n / maxT * 4)}" data-tag="${escapeHtml(t.name)}">#${escapeHtml(t.name)} <small>${t.n}</small></button>`).join('') : '<div class="empty-state">No tags yet</div>');
     // Sorting is noise here: what was saved, opened and handled (History has everything)
     const happened = st.activity.filter(ev => ev.what !== 'sorted');
+    const others = (st.household || []).filter(h => h.owner !== s.viewer.id);
+    document.getElementById('ov-household-panel').hidden = !others.length;
+    const maxH = Math.max(1, ...others.map(h => h.n));
+    fill('ov-household', others.map(h => `<div class="rowline" data-owner="${escapeHtml(h.owner)}">
+        <span class="rl-name">👤 ${escapeHtml(nameOf(h.owner))}</span>
+        <span class="rl-bar"><i style="width:${(h.n / maxH * 100).toFixed(1)}%"></i></span><span class="rl-n">${num(h.n)}</span></div>`).join(''));
+    document.getElementById('ov-household').onclick = (e) => {
+        const r = e.target.closest('[data-owner]');
+        if (r) browse({whose: 'user:' + r.dataset.owner, status: ''});
+    };
     fill('ov-activity', happened.length ? happened.slice(0, 14).map(eventRow).join('') : '<div class="empty-state">Nothing happened yet</div>');
 }
 
@@ -252,10 +268,10 @@ function pager(id, shown, total, more) {
 // =====================================================================
 // Library: everything, searchable
 // =====================================================================
-const library = {q: '', status: 'open', category: '', source: '', purpose: '', tag: '', dated: false, sort: 'new', view: stored('view') || 'grid', items: [], total: 0};
+const library = {q: '', whose: 'mine', status: 'open', category: '', source: '', purpose: '', tag: '', dated: false, sort: 'new', view: stored('view') || 'grid', items: [], total: 0};
 
 function browse(filters) {
-    Object.assign(library, {q: '', status: 'open', category: '', source: '', purpose: '', tag: '', dated: false, sort: 'new'}, filters);
+    Object.assign(library, {q: '', whose: 'mine', status: 'open', category: '', source: '', purpose: '', tag: '', dated: false, sort: 'new'}, filters);
     switchTab('library');
 }
 
@@ -270,6 +286,7 @@ onTab('library', async () => {
             <div class="tabs" id="lib-view"></div>
         </div>
         <div class="filters lib-filters">
+            <select class="select" id="lib-whose" aria-label="Whose"></select>
             <div class="tabs" id="lib-status"></div>
             <select class="select" id="lib-category" aria-label="Category"></select>
             <select class="select" id="lib-source" aria-label="Source"></select>
@@ -291,6 +308,7 @@ onTab('library', async () => {
         });
         buildChips('lib-view', [{key: 'grid', label: '▦'}, {key: 'list', label: '☰'}], library.view, (k) => { library.view = k; store('view', k); drawLibrary(); });
         bindItems(document.getElementById('lib-grid'), () => setTimeout(() => loadLibrary(), 260));
+        document.getElementById('lib-whose').onchange = (e) => { library.whose = e.target.value; loadLibrary(); };
         document.getElementById('lib-dated').onclick = () => { library.dated = !library.dated; loadLibrary(); };
     }
     document.getElementById('lib-q').value = library.q;
@@ -301,7 +319,7 @@ onTab('library', async () => {
 async function loadLibrary(more) {
     const offset = more ? library.items.length : 0;
     const params = new URLSearchParams({sort: library.sort, limit: '60', offset: String(offset)});
-    ['q', 'status', 'category', 'source', 'purpose', 'tag'].forEach(k => { if (library[k]) params.set(k, library[k]); });
+    ['q', 'whose', 'status', 'category', 'source', 'purpose', 'tag'].forEach(k => { if (library[k]) params.set(k, library[k]); });
     if (library.dated) params.set('dated', '1');
     const result = await api('items?' + params);
     library.items = more ? library.items.concat(result.items) : result.items;
@@ -334,6 +352,13 @@ function drawLibrary() {
     options('lib-source', 'Every source', f.source || {}, sourceName);
     options('lib-purpose', 'Any purpose', f.purpose || {}, k => `${purposeIcon(k)} ${purposeLabel(k)}`);
     document.getElementById('lib-dated').classList.toggle('active', library.dated);
+    // Whose: mine, everyone's, or one person's (only what they didn't mark private)
+    const others = (app.status.household || []).filter(h => h.owner !== app.status.viewer.id);
+    const whoseEl = document.getElementById('lib-whose');
+    whoseEl.hidden = !others.length && library.whose === 'mine';
+    whoseEl.innerHTML = [['mine', 'Mine'], ['everyone', 'Everyone']].concat(others.map(h => [`user:${h.owner}`, `👤 ${h.name} (${num(h.n)})`]))
+        .map(([k, l]) => `<option value="${escapeHtml(k)}"${k === library.whose ? ' selected' : ''}>${escapeHtml(l)}</option>`).join('');
+    whoseEl.classList.toggle('active', library.whose !== 'mine');
     document.getElementById('lib-sort').value = library.sort;
     const tagEl = document.getElementById('lib-tag');
     tagEl.innerHTML = library.tag ? `<button type="button" class="tagchip active" title="Show all tags">#${escapeHtml(library.tag)} ✕</button>` : '';
@@ -386,12 +411,17 @@ async function loadHistory(more) {
 // =====================================================================
 // Info
 // =====================================================================
+function calendarLine(c, what, name) {
+    if (!c || !c.entity) return '';
+    const state = !c.found
+        ? `doesn't exist yet: add a <b>Local Calendar</b> named <b>${escapeHtml(name)}</b>`
+        : `${num(c.events || 0)} events${c.synced_at ? `, checked ${fmtAgo(c.synced_at)}` : ''}${c.error ? ` <span class="sev-text medium">(${escapeHtml(c.error)})</span>` : ''}`;
+    return infoRow(what, `<span class="mono">${escapeHtml(c.entity)}</span> · ${state}`);
+}
 function calendarText(s) {
-    const c = s.calendar || {};
-    if (!s.config.calendar_sync) return 'Off in the app options.';
-    if (!c.entity) return 'Not looked at yet.';
-    if (!c.found) return `<b>${escapeHtml(c.entity)}</b> doesn't exist yet. In Home Assistant go to <b>Settings → Devices &amp; services → Add integration → Local Calendar</b> and name it <b>MyBrain</b>; the app fills it within ten minutes, or at once after the next change.`;
-    return `Keeping <b>${escapeHtml(c.entity)}</b> in step: ${num(c.events)} events${c.synced_at ? `, checked ${fmtAgo(c.synced_at)}` : ''}.${c.error ? `<div class="note warn">${escapeHtml(c.error)}</div>` : ''}`;
+    const e = s.entities || {};
+    if (!s.config.calendar_sync) return '<p>Off in the app options.</p>';
+    return (e.mine ? calendarLine(e.mine, 'Yours', e.name_hint) : '') + calendarLine(e.shared, 'Household', 'MyBrain');
 }
 onTab('info', () => {
     const s = app.status;
@@ -420,13 +450,14 @@ onTab('info', () => {
         </div></div>
         <div class="panel"><div class="panel-body">
             <div class="section-title">Calendar</div>
-            <p>${calendarText(s)}</p>
-            <p class="muted">Open items with a <b>due</b> date (⏰) or an <b>on</b> date (📅) are kept in that calendar: changed when the item changes, removed when it is done or archived. Events you add there yourself are left alone.</p>
-            ${infoRow('Sensor', '<span class="mono">sensor.mybrain_next</span>: the next item with a date (overdue ones first), with when, how many days, the link and the next five')}
+            ${calendarText(s)}
+            <p class="muted">Open items with a <b>due</b> date (⏰) or an <b>on</b> date (📅) are kept in step: changed when the item changes, removed when it is done or archived. Yours has all of yours; the household calendar has everyone's that aren't private. Add one in Home Assistant with <b>Settings → Devices &amp; services → Add integration → Local Calendar</b>. Events you add there yourself are left alone.</p>
+            ${infoRow('Sensor', `<span class="mono">${escapeHtml((s.entities || {}).next_sensor || 'sensor.mybrain_next')}</span>: your next item with a date (overdue ones first), with when, how many days, the link and the next five`)}
         </div></div>
         <div class="panel"><div class="panel-body">
             <div class="section-title">In Home Assistant</div>
-            ${infoRow('Sensor', '<span class="mono">sensor.mybrain_inbox</span>: items in the inbox; later, done, archived and total as attributes')}
+            ${infoRow('You', s.viewer.id ? `${escapeHtml(s.viewer.name || 'signed in')}: your own inbox, library and history; the household sees your items unless you mark them 🔒 private` : 'one collection for everyone (the app does not know who is looking)')}
+            ${infoRow('Sensor', `<span class="mono">${escapeHtml((s.entities || {}).inbox_sensor || 'sensor.mybrain_inbox')}</span>: items in your inbox; later, done, archived and total as attributes`)}
             ${infoRow('Home Assistant', escapeHtml(s.ha_version || '–'))}
             <p class="muted">Use it for a badge on a dashboard, or an automation that reminds you when the inbox grows.</p>
         </div></div>

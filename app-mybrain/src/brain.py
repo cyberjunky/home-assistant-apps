@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 _DATE_NAMES = {"due": "due", "happens_on": "on"}
 
 WORKERS = 3
-SENSOR = "sensor.mybrain_inbox"
 AI_LOOKUP_SECONDS = 600
 # After an AI Task failure, rules only for a while (the integration may be down or out of credit)
 AI_PAUSE_SECONDS = 300
@@ -44,23 +43,35 @@ class Brain:
         self.ai = {"entities": [], "entity": "", "checked_at": 0.0, "error": "", "error_at": 0.0, "answers": 0}
         self.last_share: dict = {}
         self.agenda: Agenda | None = None
+        # Home Assistant user id → name: from the person entities, and from who opened the page
+        self.users: dict[str, str] = {}
+        self._people_at = 0.0
 
     # ------------------------------------------------------------------
     # Coming in
     # ------------------------------------------------------------------
-    async def on_share(self, data: dict) -> None:
-        """A mobile_app.share event: {url, text, subject, caller, device_id} on Android, {entered} on iOS."""
+    async def on_share(self, data: dict, user: str = "") -> None:
+        """A mobile_app.share event: {url, text, subject, caller, device_id} on Android, {entered} on iOS.
+
+        It becomes an item of the user the phone is signed in as."""
         url = str(data.get("url") or "").strip()
         text = str(data.get("text") or data.get("entered") or "").strip()
         subject = str(data.get("subject") or "").strip()
         caller = str(data.get("caller") or "").strip()
         device = self.ha.devices.get(str(data.get("device_id") or ""), "")
-        ids = await self.add(url=url, text=text, subject=subject, via="share", caller=caller, device=device)
-        self.last_share = {"at": time.time(), "caller": caller, "device": device, "items": ids}
+        ids = await self.add(url=url, text=text, subject=subject, via="share", caller=caller, device=device, owner=user)
+        self.last_share = {"at": time.time(), "caller": caller, "device": device, "items": ids, "owner": user}
         logger.info(f"Shared from {caller or 'the phone'}: saved as {', '.join(map(str, ids)) or 'nothing'}")
 
     async def add(
-        self, url: str = "", text: str = "", subject: str = "", via: str = "add", caller: str = "", device: str = ""
+        self,
+        url: str = "",
+        text: str = "",
+        subject: str = "",
+        via: str = "add",
+        caller: str = "",
+        device: str = "",
+        owner: str = "",
     ) -> list[int]:
         """Save what was shared or typed. Every link becomes an item; text without a link becomes a note.
 
@@ -92,6 +103,7 @@ class Brain:
                     "caller": caller,
                     "fetch_state": "skipped",
                     "extra": extra,
+                    "owner": owner,
                 },
             )
             self._enqueue(item_id)
@@ -100,7 +112,7 @@ class Brain:
         ids = []
         for n, link in enumerate(links[:20]):
             key = urls.normalize(link)
-            existing = await asyncio.to_thread(self.store.by_url_key, key)
+            existing = await asyncio.to_thread(self.store.by_url_key, key, owner)
             if existing:
                 await self._shared_again(existing, note if n == 0 else "")
                 ids.append(existing["id"])
@@ -119,6 +131,7 @@ class Brain:
                     "caller": caller,
                     "fetch_state": "waiting" if self.config.fetch_pages else "skipped",
                     "extra": extra,
+                    "owner": owner,
                 },
             )
             self._enqueue(item_id)
@@ -196,7 +209,7 @@ class Brain:
 
         final_key = urls.normalize(page.url)
         if final_key != item["url_key"]:
-            other = await asyncio.to_thread(self.store.by_url_key, final_key, item["id"])
+            other = await asyncio.to_thread(self.store.by_url_key, final_key, item.get("owner") or "", item["id"])
             if other:
                 # A short link (t.co, reddit's /s/, bit.ly) to something already saved: one item, not two
                 await asyncio.to_thread(self.store.delete, item["id"])
@@ -278,7 +291,7 @@ class Brain:
         result = rules
         entity = await self.ai_entity()
         if entity:
-            known = await asyncio.to_thread(self.store.known_tags)
+            known = await asyncio.to_thread(self.store.known_tags, item.get("owner") or "")
             async with self._ai_lock:
                 try:
                     answer = await self.ha.generate_data(
@@ -312,11 +325,20 @@ class Brain:
     # ------------------------------------------------------------------
     # Changes from the page
     # ------------------------------------------------------------------
-    async def edit(self, item_id: int, changes: dict) -> dict:
+    async def _own(self, item_id: int, user: str) -> dict:
+        """The item, when this user may change it. Raises LookupError or PermissionError."""
         item = await asyncio.to_thread(self.store.get, item_id)
-        if not item:
+        if not item or not Store.visible(item, user):
             raise LookupError("No such item")
+        if not Store.owns(item, user):
+            raise PermissionError(f"This is {self.name_of(item['owner'])}'s; save it to yours to change it")
+        return item
+
+    async def edit(self, item_id: int, changes: dict, user: str = "") -> dict:
+        item = await self._own(item_id, user)
         fields: dict = {}
+        if "private" in changes:
+            fields["private"] = 1 if changes["private"] else 0
         if "status" in changes:
             status = str(changes["status"])
             if status not in STATUSES:
@@ -367,75 +389,89 @@ class Brain:
         await asyncio.to_thread(self.store.update, item_id, fields)
         if "status" in fields:
             await asyncio.to_thread(self.store.log, item_id, fields["status"])
+        if "private" in fields and fields["private"] != item.get("private"):
+            await asyncio.to_thread(self.store.log, item_id, "private" if fields["private"] else "shared", "", None)
         for key in dates.KINDS:
             if key in fields and fields[key] != item.get(key):
                 await asyncio.to_thread(self.store.log, item_id, "dated", f"{_DATE_NAMES[key]} {fields[key] or 'none'}")
-        other = sorted(k for k in fields if k not in ("status", "done_at", "sorted_by", *dates.KINDS))
+        other = sorted(k for k in fields if k not in ("status", "done_at", "sorted_by", "private", *dates.KINDS))
         if other:
             await asyncio.to_thread(self.store.log, item_id, "edited", ", ".join(other))
         self._sensor_dirty.set()
         return await asyncio.to_thread(self.store.get, item_id, True)
 
-    async def opened(self, item_id: int) -> None:
+    async def opened(self, item_id: int, user: str = "") -> None:
         item = await asyncio.to_thread(self.store.get, item_id)
-        if item and not item.get("opened_at"):
+        # Only the owner opening it counts: someone browsing doesn't make it seen
+        if item and Store.owns(item, user) and not item.get("opened_at"):
             await asyncio.to_thread(self.store.update, item_id, {"opened_at": time.time()}, False)
             await asyncio.to_thread(self.store.log, item_id, "opened")
 
-    async def again(self, item_id: int, what: str) -> None:
+    async def again(self, item_id: int, what: str, user: str = "") -> None:
         """Read the page again (refetch) and/or sort it again (resort)."""
-        item = await asyncio.to_thread(self.store.get, item_id)
-        if not item:
-            raise LookupError("No such item")
+        item = await self._own(item_id, user)
         fields = {"sorted_by": "again"}
         if what == "refetch" and item["kind"] == "link":
             fields["fetch_state"] = "again"
         await asyncio.to_thread(self.store.update, item_id, fields, False)
         self._enqueue(item_id, what == "refetch")
 
-    async def delete(self, item_id: int) -> None:
+    async def delete(self, item_id: int, user: str = "") -> None:
+        await self._own(item_id, user)
         item = await asyncio.to_thread(self.store.delete, item_id)
         if not item:
             raise LookupError("No such item")
         self._remove_thumb(item.get("image"))
         self._sensor_dirty.set()
 
+    async def copy(self, item_id: int, user: str) -> list[int]:
+        """Save someone else's public item to your own: the link (read again) or the note."""
+        item = await asyncio.to_thread(self.store.get, item_id)
+        if not item or not Store.visible(item, user):
+            raise LookupError("No such item")
+        if item["kind"] == "link" and item.get("url"):
+            return await self.add(url=item["url"], via="copy", owner=user)
+        return await self.add(text=item.get("note") or item.get("title") or "", via="copy", owner=user)
+
     # ------------------------------------------------------------------
-    # The sensor
+    # Users
+    # ------------------------------------------------------------------
+    def name_of(self, user: str) -> str:
+        return self.users.get(user) or ("nobody" if not user else "someone")
+
+    def met(self, user: str, name: str) -> None:
+        """A user seen on the page: remember the name until the person entities say otherwise."""
+        if user and name and user not in self.users:
+            self.users[user] = name
+
+    async def refresh_people(self) -> None:
+        if not self.ha.available or time.time() - self._people_at < 600:
+            return
+        self._people_at = time.time()
+        try:
+            self.users.update(await self.ha.people())
+        except HAError as e:
+            logger.debug(f"People: {e}")
+
+    # ------------------------------------------------------------------
+    # The sensors and the calendars
     # ------------------------------------------------------------------
     async def _sensor_loop(self) -> None:
+        """After a change (and every ten minutes, as Home Assistant forgets them on a restart): every
+        user's sensors and calendars."""
         if not self.ha.available:
             return
         while True:
-            # Home Assistant forgets the state on a restart: send it now and then anyway
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(self._sensor_dirty.wait(), timeout=600)
             self._sensor_dirty.clear()
             await asyncio.sleep(2)  # one update for a burst of changes
-            counts = await asyncio.to_thread(self.store.counts)
-            try:
-                await self.ha.set_state(
-                    SENSOR,
-                    counts["by_status"]["inbox"],
-                    {
-                        "friendly_name": "MyBrain inbox",
-                        "icon": "mdi:brain",
-                        "unit_of_measurement": "items",
-                        "state_class": "measurement",
-                        "later": counts["by_status"]["later"],
-                        "done": counts["by_status"]["done"],
-                        "archived": counts["by_status"]["archived"],
-                        "total": counts["total"],
-                        "waiting": counts["waiting"],
-                    },
-                )
-            except HAError as e:
-                logger.debug(f"Sensor: {e}")
+            await self.refresh_people()
             if self.agenda:
                 try:
                     await self.agenda.sync()
                 except Exception:
-                    logger.exception("Calendar and next-item sensor")
+                    logger.exception("Sensors and calendars")
 
     def summary(self) -> dict:
         return {
@@ -443,7 +479,6 @@ class Brain:
             "listening": self.ha.connected,
             "ha_version": self.ha.version,
             "last_share": self.last_share,
-            "calendar": dict(self.agenda.state) if self.agenda else {},
             "ai": {
                 "enabled": self.config.ai_classify,
                 "entity": self.ai["entity"],

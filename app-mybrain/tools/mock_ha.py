@@ -79,21 +79,32 @@ async def websocket(request: web.Request) -> web.WebSocketResponse:
     return ws
 
 
+# Two people, as person entities linked to Home Assistant users
+PEOPLE = {"u-ron": "Ron", "u-anne": "Anne"}
+
+
 async def share(request: web.Request) -> web.Response:
+    """A share from a phone; {"user": "u-anne", ...} shares as Anne (default Ron)."""
     data = await request.json()
     data.setdefault("device_id", DEVICE)
+    user = data.pop("user", "u-ron")
     sent = 0
     for ws, sub_id in list(subscribers):
         if ws.closed:
             subscribers.remove((ws, sub_id))
             continue
-        await ws.send_json({"id": sub_id, "type": "event", "event": {"event_type": "mobile_app.share", "data": data}})
+        event = {"event_type": "mobile_app.share", "data": data, "context": {"id": "c", "user_id": user}}
+        await ws.send_json({"id": sub_id, "type": "event", "event": event})
         sent += 1
     return web.json_response({"sent": sent})
 
 
 async def get_states(request: web.Request) -> web.Response:
     listed = list(states.values())
+    listed += [
+        {"entity_id": f"person.{name.lower()}", "state": "home", "attributes": {"friendly_name": name, "user_id": uid}}
+        for uid, name in PEOPLE.items()
+    ]
     if AI:
         listed.append({"entity_id": "ai_task.mock_ai", "state": "unknown", "attributes": {"friendly_name": "Mock AI"}})
     return web.json_response(listed)

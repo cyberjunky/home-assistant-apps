@@ -21,6 +21,7 @@ function renderChrome() {
         s.queue ? `<span>reading <b>${num(s.queue)}</b></span>` : '',
         s.ai.entity ? `<span>sorting with <b>${escapeHtml(s.ai.entity)}</b>${s.ai.error ? ' <span class="sb-warn">(failing)</span>' : ''}</span>` : '<span>sorting by rules</span>',
         '<span class="spacer"></span>',
+        s.viewer.name ? `<span>👤 <b>${escapeHtml(s.viewer.name)}</b></span>` : '',
         `<span class="sb-extra">${num(s.counts.total)} items · ${fmtBytes(s.database_size)} · v${escapeHtml(s.version)}</span>`,
     ];
     document.getElementById('statusbar').innerHTML = parts.filter(Boolean).join('');
@@ -56,7 +57,8 @@ setInterval(updateClock, 10000);
 // An address can open one item (?item=<id>), search (?q=), or start the Add dialog (?add=<text>)
 poll().then(() => {
     const query = new URLSearchParams(window.location.search);
-    if (query.get('q')) { library.q = query.get('q'); switchTab('library'); }
+    if (query.get('whose')) library.whose = query.get('whose');
+    if (query.get('q') || query.get('whose')) { library.q = query.get('q') || ''; if (query.get('whose')) library.status = ''; switchTab('library'); }
     else switchTab(window.location.hash.slice(1) || stored('tab') || 'overview');
     if (query.get('item')) openItem(Number(query.get('item')));
     if (query.get('add')) openAdd(query.get('add'));

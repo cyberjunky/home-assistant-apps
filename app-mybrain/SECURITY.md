@@ -47,8 +47,19 @@ So you know what is at stake:
   open item with a date are written to `calendar.mybrain` (or
   `calendar_entity`). The app only changes and removes events that end in its
   own marker line; other events in that calendar are left alone.
+- **Per user, decided by Home Assistant.** A share belongs to the user the
+  phone is signed in as (the event's context); the page belongs to the user
+  Home Assistant's ingress says is looking (`X-Remote-User-Id`). Every request
+  must come from the ingress proxy, so another app on the network can't claim
+  to be someone else. Only the owner changes or deletes an item.
+- **Public by default, private on request.** Everyone in the household can
+  browse an item unless its owner marks it private; a private item is not
+  shown to others, not in the household calendar, and not in what others can
+  copy. Administrators of Home Assistant can of course read the app's database
+  through a backup.
 - **Only from Home Assistant's signed-in ingress.** Adding, changing and
-  deleting are accepted from the ingress proxy and as JSON only.
+  deleting are accepted from the ingress proxy and as JSON only. The panel is
+  open to every user, not only administrators.
 - **No telemetry.** Besides the sites you save and the AI you choose, the app
   talks to nothing.
 

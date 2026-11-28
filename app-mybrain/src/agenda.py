@@ -1,8 +1,10 @@
-"""Dates in Home Assistant: a calendar with every open item that has a date, and a sensor with the
-next one.
+"""MyBrain in Home Assistant: per user a sensor with the inbox and one with the next item that has a
+date, a calendar per user with their own items that have a date, and a household calendar with
+everyone's public ones.
 
-The calendar is a Local Calendar in Home Assistant (named MyBrain, so calendar.mybrain). The app
-keeps it in step: it reads the calendar's events, finds its own by the marker at the end of their
+The calendars are Local Calendars in Home Assistant: "MyBrain" (calendar.mybrain) for the household
+and "MyBrain <name>" (calendar.mybrain_<name>) per person, each only when it exists. The app keeps
+them in step: it reads a calendar's events, finds its own by the marker at the end of their
 description, and adds, changes or removes them until they match the items. Events without the
 marker are someone else's and are never touched.
 """
@@ -22,14 +24,24 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CALENDAR = "calendar.mybrain"
 NEXT_SENSOR = "sensor.mybrain_next"
+INBOX_SENSOR = "sensor.mybrain_inbox"
+
+
+def slug(name: str) -> str:
+    """A name as Home Assistant writes it in an entity id: 'Anne-Marie' → 'anne_marie'."""
+    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_") or "user"
+
+
 MARKER_RE = re.compile(r"mybrain:(\d+):(due|happens_on)\s*$")
 
 
-def wanted_events(items: list[dict]) -> dict[str, dict]:
-    """The events the calendar should have: marker → event fields."""
+def wanted_events(items: list[dict], names: dict[str, str] | None = None) -> dict[str, dict]:
+    """The events a calendar should have: marker → event fields. With names, whose it is follows the title."""
     events = {}
     for item in items:
         title = item.get("title") or item.get("url") or "Untitled"
+        if names and names.get(item.get("owner") or ""):
+            title = f"{title} ({names[item['owner']]})"
         for kind in dates.KINDS:
             value = item.get(kind) or ""
             if not value:
@@ -124,54 +136,99 @@ def next_up(items: list[dict], today: dt.date) -> dict:
 
 
 class Agenda:
-    """Keeps the calendar and the next-item sensor in step with the items."""
+    """Keeps every user's sensors and calendars in step with the items."""
 
-    def __init__(self, config: Config, store: Store, ha: HA):
+    def __init__(self, config: Config, store: Store, ha: HA, users: dict[str, str]):
         self.config = config
         self.store = store
         self.ha = ha
-        self.state = {"entity": "", "found": False, "synced_at": 0.0, "events": 0, "error": "", "changes": 0}
+        self.users = users
+        # entity id → {found, events, synced_at, error}
+        self.calendars: dict[str, dict] = {}
+        # Everyone seen since the start, so someone who deletes their last item gets their sensors zeroed
+        self.seen: set[str] = set()
+
+    def suffix(self, owner: str) -> str:
+        """What follows mybrain_inbox, mybrain_next and calendar.mybrain for a user ('' for nobody's)."""
+        if not owner:
+            return ""
+        return "_" + slug(self.users.get(owner) or owner[:8])
+
+    def shared_calendar(self) -> str:
+        return self.config.calendar_entity or DEFAULT_CALENDAR
+
+    def calendar_of(self, owner: str) -> str:
+        return f"{DEFAULT_CALENDAR}{self.suffix(owner)}" if owner else ""
 
     async def sync(self) -> None:
-        items = await asyncio.to_thread(self.store.dated_open)
+        self.seen.update(await asyncio.to_thread(self.store.owners) or [""])
+        owners = sorted(self.seen)
         today = dt.date.today()
-        nxt = next_up(items, today)
-        try:
-            await self.ha.set_state(
-                NEXT_SENSOR,
-                nxt["state"],
-                {"friendly_name": "MyBrain next", "icon": "mdi:calendar-star", **nxt["attributes"]},
-            )
-        except HAError as e:
-            logger.debug(f"Sensor: {e}")
+        for owner in owners:
+            counts = await asyncio.to_thread(self.store.counts, owner)
+            items = await asyncio.to_thread(self.store.dated_open, owner)
+            name = self.users.get(owner, "")
+            label = f" {name}" if name else ""
+            nxt = next_up(items, today)
+            try:
+                await self.ha.set_state(
+                    f"{INBOX_SENSOR}{self.suffix(owner)}",
+                    counts["by_status"]["inbox"],
+                    {
+                        "friendly_name": f"MyBrain inbox{label}",
+                        "icon": "mdi:brain",
+                        "unit_of_measurement": "items",
+                        "state_class": "measurement",
+                        **{s: counts["by_status"][s] for s in ("later", "done", "archived")},
+                        "total": counts["total"],
+                        "waiting": counts["waiting"],
+                    },
+                )
+                await self.ha.set_state(
+                    f"{NEXT_SENSOR}{self.suffix(owner)}",
+                    nxt["state"],
+                    {"friendly_name": f"MyBrain next{label}", "icon": "mdi:calendar-star", **nxt["attributes"]},
+                )
+            except HAError as e:
+                logger.debug(f"Sensors: {e}")
+            if self.config.calendar_sync and owner:
+                await self._calendar(self.calendar_of(owner), items)
         if self.config.calendar_sync:
-            await self._calendar(items)
+            shared = await asyncio.to_thread(self.store.dated_open, None, True)
+            several = len([o for o in owners if o]) > 1
+            await self._calendar(self.shared_calendar(), shared, self.users if several else None)
 
-    async def _calendar(self, items: list[dict]) -> None:
-        entity = self.config.calendar_entity or DEFAULT_CALENDAR
-        self.state["entity"] = entity
+    async def _calendar(self, entity: str, items: list[dict], names: dict[str, str] | None = None) -> None:
+        state = self.calendars.setdefault(entity, {"found": False, "events": 0, "synced_at": 0.0, "error": ""})
         if not await self.ha.entity_exists(entity):
-            self.state.update(found=False, error="")
+            state.update(found=False, error="")
             return
-        self.state["found"] = True
+        state["found"] = True
         start = (dt.datetime.now() - dt.timedelta(days=800)).isoformat(timespec="seconds")
         end = (dt.datetime.now() + dt.timedelta(days=4 * 365)).isoformat(timespec="seconds")
         try:
             existing = await self.ha.calendar_events(entity, start, end)
-            wanted = wanted_events(items)
+            wanted = wanted_events(items, names)
             calls = plan(wanted, existing, entity)
             errors = await self.ha.commands(calls)
         except HAError as e:
-            self.state["error"] = str(e)
+            state["error"] = str(e)
             logger.warning(f"Calendar {entity}: {e}")
             return
         if calls:
             logger.info(f"Calendar {entity}: {len(calls) - len(errors)} of {len(calls)} changes made")
         for error in errors[:3]:
             logger.warning(f"Calendar {entity}: {error}")
-        self.state.update(
-            synced_at=time.time(),
-            events=len(wanted),
-            error=errors[0] if errors else "",
-            changes=self.state["changes"] + len(calls) - len(errors),
-        )
+        state.update(synced_at=time.time(), events=len(wanted), error=errors[0] if errors else "")
+
+    def for_user(self, owner: str) -> dict:
+        """What the Info page shows a user: their entities and both calendars."""
+        mine = self.calendar_of(owner)
+        shared = self.shared_calendar()
+        return {
+            "inbox_sensor": f"{INBOX_SENSOR}{self.suffix(owner)}",
+            "next_sensor": f"{NEXT_SENSOR}{self.suffix(owner)}",
+            "mine": {"entity": mine, **self.calendars.get(mine, {})} if mine else None,
+            "shared": {"entity": shared, **self.calendars.get(shared, {})},
+            "name_hint": f"MyBrain {self.users.get(owner, '')}".strip(),
+        }

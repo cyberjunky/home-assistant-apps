@@ -12,6 +12,8 @@ image: "ghcr.io/cyberjunky/app-mybrain"
 ingress: true
 panel_icon: mdi:brain
 panel_title: MyBrain
+# Everyone in the household has their own MyBrain, so the panel is not for administrators only
+panel_admin: false
 # Shares from the companion app arrive as mobile_app.share events; AI Task entities sort;
 # a Local Calendar gets the items with a date; two sensors: the inbox and the next date
 homeassistant_api: true

@@ -424,3 +424,74 @@ async def test_dates_are_edited_and_listed(brain, store):
     assert store.search(dated=True)["total"] == 1
     await b.edit(item_id, {"status": "done"})
     assert store.dated_open() == []
+
+
+# ----------------------------------------------------------------------
+# Users: own items, public by default, private when marked
+# ----------------------------------------------------------------------
+async def test_each_user_has_their_own_items(brain, store):
+    b = brain(ai=False)
+    [ron] = await b.add(text="https://example.com/a", owner="u-ron")
+    [anne] = await b.add(text="https://example.com/a", owner="u-anne")
+    assert ron != anne  # the same link is a separate item per user
+    [again] = await b.add(text="https://example.com/a?utm_source=x", owner="u-anne")
+    assert again == anne
+    assert [i["id"] for i in store.search(viewer="u-ron")["items"]] == [ron]
+    assert {i["id"] for i in store.search(viewer="u-ron", whose="everyone")["items"]} == {ron, anne}
+    assert [i["id"] for i in store.search(viewer="u-ron", whose="user:u-anne")["items"]] == [anne]
+    assert store.counts("u-anne")["total"] == 1
+
+
+async def test_private_items_stay_private(brain, store):
+    b = brain(ai=False)
+    [secret] = await b.add(text="a surprise for Ron", owner="u-anne")
+    await b.edit(secret, {"private": True}, "u-anne")
+    assert store.search(viewer="u-ron", whose="everyone")["total"] == 0
+    assert store.search(viewer="u-ron", whose="user:u-anne")["total"] == 0
+    assert store.search(viewer="u-anne", whose="user:u-anne")["total"] == 1
+    assert store.household("u-ron") == []
+    assert not Store.visible(store.get(secret), "u-ron")
+    with pytest.raises(LookupError):
+        await b.copy(secret, "u-ron")
+
+
+async def test_only_the_owner_changes_an_item(brain, store):
+    b = brain(ai=False)
+    [item_id] = await b.add(text="https://example.com/b", owner="u-anne")
+    for attempt in (
+        b.edit(item_id, {"status": "done"}, "u-ron"),
+        b.delete(item_id, "u-ron"),
+        b.again(item_id, "resort", "u-ron"),
+    ):
+        with pytest.raises(PermissionError):
+            await attempt
+    await b.opened(item_id, "u-ron")
+    assert store.get(item_id)["opened_at"] is None  # browsing isn't opening
+    [copy] = await b.copy(item_id, "u-ron")
+    assert store.get(copy)["owner"] == "u-ron" and store.get(copy)["url"] == "https://example.com/b"
+    # Items of nobody (an app that doesn't know its users) are everybody's
+    [shared] = await b.add(text="a note")
+    await b.edit(shared, {"status": "later"}, "u-ron")
+
+
+async def test_share_belongs_to_the_phones_user(brain, store):
+    b = brain(ai=False)
+    await b.on_share({"text": "https://example.com/c"}, "u-anne")
+    assert store.search(viewer="u-anne")["items"][0]["owner"] == "u-anne"
+    assert store.stats(30, "u-anne")["counts"]["total"] == 1
+    assert store.stats(30, "u-ron")["counts"]["total"] == 0
+    assert [e["what"] for e in store.history("u-anne")] == ["saved"]
+    assert store.history("u-ron") == []
+
+
+def test_entity_names_per_user(store):
+    users = {"u-ron": "Ron", "u-anne": "Anne-Marie"}
+    a = agenda.Agenda(Config(), store, None, users)
+    assert a.suffix("u-anne") == "_anne_marie"
+    assert a.calendar_of("u-ron") == "calendar.mybrain_ron"
+    assert a.calendar_of("") == "" and a.suffix("") == ""
+    assert a.for_user("u-ron")["next_sensor"] == "sensor.mybrain_next_ron"
+    events = agenda.wanted_events(
+        [{"id": 1, "title": "Trip", "owner": "u-anne", "due": "", "happens_on": "2026-12-01"}], users
+    )
+    assert events["mybrain:1:happens_on"]["summary"] == "Trip (Anne-Marie)"

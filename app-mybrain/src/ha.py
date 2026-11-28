@@ -122,7 +122,18 @@ class HA:
     async def set_state(self, entity_id: str, state: Any, attributes: dict) -> None:
         await self.core("POST", f"/states/{entity_id}", {"state": state, "attributes": attributes})
 
-    async def listen(self, on_share: Callable[[dict], Awaitable[None]]) -> None:
+    async def people(self) -> dict[str, str]:
+        """Home Assistant user id → name, from the person entities (the names people see)."""
+        states = await self.core("GET", "/states")
+        found = {}
+        for s in states or []:
+            if isinstance(s, dict) and str(s.get("entity_id", "")).startswith("person."):
+                attrs = s.get("attributes") or {}
+                if attrs.get("user_id"):
+                    found[attrs["user_id"]] = attrs.get("friendly_name") or s["entity_id"][7:]
+        return found
+
+    async def listen(self, on_share: Callable[[dict, str], Awaitable[None]]) -> None:
         """Receive share events until cancelled, connecting again whenever the connection drops."""
         delay = 5
         while True:
@@ -137,7 +148,7 @@ class HA:
             await asyncio.sleep(delay)
             delay = min(delay * 2, 120)
 
-    async def _listen_once(self, on_share: Callable[[dict], Awaitable[None]]) -> None:
+    async def _listen_once(self, on_share: Callable[[dict, str], Awaitable[None]]) -> None:
         session = await self.session()
         async with session.ws_connect(CORE_WS_URL, heartbeat=30, max_msg_size=0) as ws:
             first = await ws.receive_json(timeout=30)
@@ -170,7 +181,9 @@ class HA:
                     event = data.get("event") or {}
                     if event.get("event_type") == SHARE_EVENT:
                         try:
-                            await on_share(event.get("data") or {})
+                            # The user the phone is signed in as: whose item it becomes
+                            user = str((event.get("context") or {}).get("user_id") or "")
+                            await on_share(event.get("data") or {}, user)
                         except Exception:
                             # One share that can't be saved must not stop the ones after it
                             logger.exception(f"A share could not be saved: {event.get('data')!r}"[:500])

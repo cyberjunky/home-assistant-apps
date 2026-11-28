@@ -37,7 +37,7 @@ async def main() -> int:
         logger.warning("No Supervisor token: shares from the phone only arrive when this runs as a Home Assistant app")
     fetcher = Fetcher(thumb_dir)
     brain = Brain(config, store, ha, fetcher)
-    brain.agenda = Agenda(config, store, ha)
+    brain.agenda = Agenda(config, store, ha, brain.users)
     webui = WebUI(WEB_PORT, config, brain, store, thumb_dir)
 
     services = [

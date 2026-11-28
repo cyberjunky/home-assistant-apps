@@ -25,6 +25,10 @@ const sourceName = s => (app.status && app.status.source_names[s]) || (s ? s[0].
 const purposeLabel = p => (PURPOSES[p] || ['•', p])[1];
 const purposeIcon = p => (PURPOSES[p] || ['•'])[0];
 
+// Whose: an item without an owner is everybody's; someone else's can be browsed and saved, not changed
+const isMine = item => !item.owner || item.owner === app.status.viewer.id;
+const nameOf = id => (app.status.names && app.status.names[id]) || 'someone';
+
 // Items seen on the page, by id, so a card's buttons can act without asking the server first
 const itemCache = new Map();
 
@@ -47,6 +51,7 @@ function metaLine(item) {
     if (item.detail) parts.push(escapeHtml(item.detail));
     else if (item.site && item.source === 'web') parts.push(escapeHtml(item.site));
     parts.push(`<span title="${escapeHtml(fmtDateTime(item.created_at))}">${fmtAge(item.created_at)}</span>`);
+    if (!isMine(item)) parts.push(`<span class="owner">👤 ${escapeHtml(nameOf(item.owner))}</span>`);
     return parts.join('<span class="sep">·</span>');
 }
 
@@ -113,10 +118,14 @@ function card(item, opts) {
         ? '<span class="badge reading">reading…</span>'
         : item.fetch_state === 'dead' ? '<span class="badge bad" title="The site says the page is gone">gone</span>'
         : item.fetch_state === 'failed' ? `<span class="badge warn" title="${escapeHtml(item.fetch_error)}">not read</span>` : '';
-    const prio = item.priority === 2 ? '<span class="prio high" title="High priority">★</span>' : '';
+    const prio = item.priority === 2 && isMine(item) ? '<span class="prio high" title="High priority">★</span>' : '';
     const again = item.shares > 1 ? `<span class="badge warn" title="Saved ${item.shares} times">${item.shares}×</span>` : '';
-    const status = opts.showStatus && item.status !== 'inbox' ? `<span class="badge st-${item.status}">${STATUS_LABELS[item.status]}</span>` : '';
-    const actions = item.status === 'done' || item.status === 'archived'
+    const mine = isMine(item);
+    const status = opts.showStatus && mine && item.status !== 'inbox' ? `<span class="badge st-${item.status}">${STATUS_LABELS[item.status]}</span>` : '';
+    const lock = item.private ? '<span class="badge private" title="Private: only you see it">🔒</span>' : '';
+    const actions = !mine
+        ? `<button type="button" class="act" data-act="copy" title="Save it to your own MyBrain">+ Save to mine</button>`
+        : item.status === 'done' || item.status === 'archived'
         ? `<button type="button" class="act" data-act="inbox" title="Back to the inbox (i)">↩ Inbox</button>`
         : `<button type="button" class="act" data-act="done" title="Done with it (d)">✓ Done</button>`
           + (item.status === 'later' ? `<button type="button" class="act" data-act="inbox" title="Back to the inbox (i)">↩ Inbox</button>`
@@ -131,10 +140,10 @@ function card(item, opts) {
             <div class="card-tags">
                 ${dateBadges(item)}<span class="badge cat">${escapeHtml(item.category)}</span>
                 <span class="purpose" title="${escapeHtml(purposeLabel(item.purpose))}">${purposeIcon(item.purpose)} ${escapeHtml(purposeLabel(item.purpose))}</span>
-                ${status}${state}${again}${tagChips(item)}
+                ${lock}${status}${state}${again}${tagChips(item)}
             </div>
         </div>
-        <div class="card-actions">${actions}<button type="button" class="act star${item.priority === 2 ? ' on' : ''}" data-act="star" title="High priority (h)">★</button></div>
+        <div class="card-actions">${actions}${mine ? `<button type="button" class="act star${item.priority === 2 ? ' on' : ''}" data-act="star" title="High priority (h)">★</button>` : ''}</div>
     </article>`;
 }
 
@@ -173,6 +182,14 @@ function bindItems(el, after) {
 
 async function quickAct(id, act, holder) {
     const item = itemCache.get(id) || {};
+    if (act === 'copy') {
+        try {
+            await apiPost('item/copy', {id});
+            toast('Saved to your MyBrain', 'success');
+            await refreshStatus();
+        } catch (e) { toast(e.message); }
+        return null;
+    }
     const change = act === 'star' ? {priority: item.priority === 2 ? 1 : 2} : {status: act};
     try {
         const updated = await apiPost('item', {id, ...change});
@@ -216,7 +233,9 @@ function renderSheet() {
     const s = app.status;
     const link = item.url ? `<a class="open-link" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer" data-open>${escapeHtml(item.url.replace(/^https?:\/\//, '').slice(0, 90))} ↗</a>` : '';
     const extra = item.extra || {};
+    const mine = item.mine;
     const facts = [
+        !mine ? ['Saved by', `👤 ${escapeHtml(item.owner_name || nameOf(item.owner))}`] : null,
         ['Source', `<span class="src-dot" style="background:${sourceColor(item.source)}"></span>${escapeHtml(sourceName(item.source))}${item.detail ? ' · ' + escapeHtml(item.detail) : ''}`],
         item.author ? ['By', escapeHtml(item.author)] : null,
         item.site ? ['Site', escapeHtml(extra.site_name || item.site)] : null,
@@ -242,7 +261,7 @@ function renderSheet() {
                 ${item.image ? `<a class="sheet-media" href="${escapeHtml(item.url || '#')}" target="_blank" rel="noopener noreferrer" data-open>${thumbHtml(item)}</a>` : ''}
                 ${link}
                 ${item.summary ? `<p class="summary">${escapeHtml(item.summary)}</p>` : ''}
-                <div class="form-grid">
+                ${mine ? `<div class="form-grid">
                     <label>Status</label>${segmented('status', s.statuses.map(k => [k, STATUS_LABELS[k]]), item.status)}
                     <label>Priority</label>${segmented('priority', PRIORITY_LABELS.map((l, i) => [i, i === 2 ? '★ ' + l : l]), item.priority)}
                     <label>Category</label><select class="select" data-field="category">${s.categories.map(c => `<option${c === item.category ? ' selected' : ''}>${escapeHtml(c)}</option>`).join('')}</select>
@@ -250,19 +269,23 @@ function renderSheet() {
                     <label>Tags</label><input class="input" data-field="tags" value="${escapeHtml((item.tags || []).join(', '))}" placeholder="comma, separated" spellcheck="false">
                     <label title="By when it needs doing">Due</label>${dateField('due', item.due)}
                     <label title="When it happens: an event, a trip, a release">On</label>${dateField('happens_on', item.happens_on)}
+                    <label title="Who else sees it">Seen by</label>${segmented('private', [[0, '👪 Household'], [1, '🔒 Only me']], item.private ? 1 : 0)}
                 </div>
                 <h3>Your note</h3>
-                <textarea class="input note-edit" data-field="note" rows="3" placeholder="Why did you save this?">${escapeHtml(item.note || '')}</textarea>
+                <textarea class="input note-edit" data-field="note" rows="3" placeholder="Why did you save this?">${escapeHtml(item.note || '')}</textarea>`
+                : `<div class="badges"><span class="badge cat">${escapeHtml(item.category)}</span><span class="purpose">${purposeIcon(item.purpose)} ${escapeHtml(purposeLabel(item.purpose))}</span>${dateBadges(item)}${tagChips(item, 8)}</div>
+                ${item.note ? `<h3>${escapeHtml(item.owner_name || nameOf(item.owner))}'s note</h3><p>${escapeHtml(item.note)}</p>` : ''}
+                <div class="detail-actions"><button class="btn btn-primary btn-small" data-copy>+ Save to my MyBrain</button></div>`}
                 ${item.description && item.description !== item.summary ? `<h3>From the page</h3><p class="desc">${escapeHtml(item.description)}</p>` : ''}
                 <h3>Details</h3>
                 <div class="facts">${facts.map(([l, v]) => infoRow(l, v)).join('')}</div>
                 ${item.text ? `<details class="saved-text"><summary>Saved text of the page <span class="muted">(${num(item.text.length)} characters, searchable)</span></summary><div class="page-text">${escapeHtml(item.text).replace(/\n\n/g, '<br><br>')}</div></details>` : ''}
-                <div class="detail-actions">
+                ${mine ? `<div class="detail-actions">
                     ${item.kind === 'link' ? '<button class="btn btn-small" data-again="refetch" title="Read the page again: title, picture and text">⟳ Read again</button>' : ''}
                     <button class="btn btn-small" data-again="resort" title="Sort it again${s.ai.entity ? ' with ' + escapeHtml(s.ai.entity) : ' by the rules'}">✦ Sort again</button>
                     <span class="spacer"></span>
                     <button class="btn btn-small btn-danger" data-delete>Delete</button>
-                </div>
+                </div>` : ''}
                 ${history ? `<h3>History</h3><div class="events">${history}</div>` : ''}
             </div>
         </aside>
@@ -290,7 +313,8 @@ function bindSheet() {
         const b = e.target.closest('[data-key]');
         if (!b) return;
         const field = seg.dataset.seg;
-        saveField({[field]: field === 'priority' ? Number(b.dataset.key) : b.dataset.key});
+        const value = field === 'priority' ? Number(b.dataset.key) : field === 'private' ? b.dataset.key === '1' : b.dataset.key;
+        saveField({[field]: value});
     }));
     root.querySelectorAll('select[data-field]').forEach(sel => sel.addEventListener('change', () => saveField({[sel.dataset.field]: sel.value})));
     root.querySelectorAll('input[data-field], textarea[data-field]').forEach(input => {
@@ -314,7 +338,16 @@ function bindSheet() {
             setTimeout(() => sheetItem && openItem(sheetItem.id), 4000);
         } catch (e) { toast(e.message); }
     }));
-    root.querySelector('[data-delete]').addEventListener('click', async () => {
+    const copy = root.querySelector('[data-copy]');
+    if (copy) copy.addEventListener('click', async () => {
+        try {
+            await apiPost('item/copy', {id: sheetItem.id});
+            toast('Saved to your MyBrain', 'success');
+            await refreshStatus();
+        } catch (e) { toast(e.message); }
+    });
+    const remove = root.querySelector('[data-delete]');
+    if (remove) remove.addEventListener('click', async () => {
         const ok = await confirmDialog({title: 'Delete this item?', message: `<p>${escapeHtml(itemTitle(sheetItem))}</p><p class="muted">It is gone for good. Archive keeps it out of the way but findable.</p>`, confirmLabel: 'Delete', danger: true});
         if (!ok) return;
         try {
@@ -354,6 +387,7 @@ document.addEventListener('keydown', (e) => {
     if (document.getElementById('modal-root').innerHTML) return;
     if (e.key === 'Escape' && sheetItem) { closeSheet(); return; }
     if (sheetItem) {
+        if (!sheetItem.mine) return;
         const status = {d: 'done', l: 'later', a: 'archived', i: 'inbox'}[e.key];
         if (status) { saveField({status}); e.preventDefault(); }
         else if (e.key === 'h') { saveField({priority: sheetItem.priority === 2 ? 1 : 2}); e.preventDefault(); }

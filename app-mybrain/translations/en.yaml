@@ -27,8 +27,9 @@ configuration:
   calendar_entity:
     name: Calendar entity
     description: >-
-      Which calendar. Empty uses calendar.mybrain: add the Local Calendar
-      integration and name the calendar MyBrain.
+      The household calendar. Empty uses calendar.mybrain: add the Local
+      Calendar integration and name the calendar MyBrain. Each person's own
+      is a Local Calendar named MyBrain <name>.
   categories:
     name: Categories
     description: The categories to sort into. Other is always added.

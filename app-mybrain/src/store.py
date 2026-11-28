@@ -22,7 +22,19 @@ SORTS = {
     "touched": "i.updated_at DESC",
 }
 # Columns the page may change
-EDITABLE = {"title", "note", "category", "tags", "purpose", "priority", "status", "summary", "due", "happens_on"}
+EDITABLE = {
+    "title",
+    "note",
+    "category",
+    "tags",
+    "purpose",
+    "priority",
+    "status",
+    "summary",
+    "due",
+    "happens_on",
+    "private",
+}
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS items (
@@ -46,6 +58,8 @@ CREATE TABLE IF NOT EXISTS items (
     purpose TEXT NOT NULL DEFAULT 'read',
     priority INTEGER NOT NULL DEFAULT 1,
     status TEXT NOT NULL DEFAULT 'inbox',
+    owner TEXT NOT NULL DEFAULT '',
+    private INTEGER NOT NULL DEFAULT 0,
     due TEXT NOT NULL DEFAULT '',
     happens_on TEXT NOT NULL DEFAULT '',
     sorted_by TEXT NOT NULL DEFAULT '',
@@ -65,6 +79,7 @@ CREATE INDEX IF NOT EXISTS items_url_key ON items(url_key);
 CREATE INDEX IF NOT EXISTS items_status ON items(status, created_at);
 CREATE INDEX IF NOT EXISTS items_created ON items(created_at);
 CREATE INDEX IF NOT EXISTS items_fetch ON items(fetch_state);
+CREATE INDEX IF NOT EXISTS items_owner ON items(owner, status);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(
     title, description, summary, note, text, tags, category, site, detail, author,
@@ -97,17 +112,19 @@ CREATE TABLE IF NOT EXISTS events (
     item_id INTEGER,
     at REAL NOT NULL,
     what TEXT NOT NULL,
-    detail TEXT NOT NULL DEFAULT ''
+    detail TEXT NOT NULL DEFAULT '',
+    owner TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS events_at ON events(at);
 CREATE INDEX IF NOT EXISTS events_item ON events(item_id);
+CREATE INDEX IF NOT EXISTS events_owner ON events(owner, at);
 """
 
 # What the list and the cards need; the page text stays in the database until an item is opened
 CARD_COLUMNS = (
     "i.id, i.kind, i.url, i.title, i.description, i.summary, i.note, i.source, i.site, i.detail, i.author, "
     "i.page_kind, i.image, i.category, i.tags, i.purpose, i.priority, i.status, i.sorted_by, i.fetch_state, "
-    "i.fetch_error, i.via, i.shares, i.due, i.happens_on, i.created_at, i.updated_at, i.opened_at, i.done_at"
+    "i.fetch_error, i.via, i.shares, i.due, i.happens_on, i.owner, i.private, i.created_at, i.updated_at, i.opened_at, i.done_at"
 )
 
 
@@ -161,11 +178,37 @@ class Store:
                     item[key] = empty
         return item
 
+    # ------------------------------------------------------------------
+    # Who sees what. An item belongs to the Home Assistant user who saved it (owner); '' is nobody's,
+    # for an app that doesn't know its users, and is everybody's. Public items can be browsed by all,
+    # private ones only by their owner. Only the owner changes an item.
+    # ------------------------------------------------------------------
+    @staticmethod
+    def scope(viewer: str, whose: str = "mine") -> tuple[str, list]:
+        """SQL (on columns of items, no alias) for the items a viewer looks at: mine, everyone or user:<id>."""
+        if whose == "everyone":
+            return "(owner = ? OR owner = '' OR private = 0)", [viewer]
+        if whose.startswith("user:"):
+            other = whose[5:]
+            if other == viewer:
+                return "(owner = ?)", [viewer]
+            return "(owner = ? AND private = 0)", [other]
+        return "(owner = ? OR owner = '')", [viewer]
+
+    @staticmethod
+    def visible(item: dict, viewer: str) -> bool:
+        return not item.get("private") or item.get("owner") in ("", viewer)
+
+    @staticmethod
+    def owns(item: dict, viewer: str) -> bool:
+        return item.get("owner") in ("", viewer)
+
     def log(self, item_id: int | None, what: str, detail: str = "", at: float | None = None) -> None:
         with self._lock:
             self._db.execute(
-                "INSERT INTO events(item_id, at, what, detail) VALUES (?, ?, ?, ?)",
-                (item_id, at or time.time(), what, detail[:300]),
+                "INSERT INTO events(item_id, at, what, detail, owner) "
+                "VALUES (?, ?, ?, ?, COALESCE((SELECT owner FROM items WHERE id = ?), ''))",
+                (item_id, at or time.time(), what, detail[:300], item_id),
             )
             self._db.commit()
 
@@ -181,8 +224,8 @@ class Store:
             cursor = self._db.execute(f"INSERT INTO items({columns}) VALUES ({marks})", list(values.values()))
             item_id = cursor.lastrowid
             self._db.execute(
-                "INSERT INTO events(item_id, at, what, detail) VALUES (?, ?, 'saved', ?)",
-                (item_id, values["created_at"], values.get("via", "")),
+                "INSERT INTO events(item_id, at, what, detail, owner) VALUES (?, ?, 'saved', ?, ?)",
+                (item_id, values["created_at"], values.get("via", ""), values.get("owner", "")),
             )
             self._db.commit()
         return int(item_id)
@@ -214,10 +257,12 @@ class Store:
                 ]
         return item
 
-    def by_url_key(self, key: str, other_than: int | None = None) -> dict | None:
+    def by_url_key(self, key: str, owner: str = "", other_than: int | None = None) -> dict | None:
+        """The owner's item with this link, if they saved it before (someone else's doesn't count)."""
         with self._lock:
             row = self._db.execute(
-                "SELECT * FROM items WHERE url_key = ? AND id != ? ORDER BY id LIMIT 1", (key, other_than or -1)
+                "SELECT * FROM items WHERE url_key = ? AND owner = ? AND id != ? ORDER BY id LIMIT 1",
+                (key, owner, other_than or -1),
             ).fetchone()
         return self._row(row)
 
@@ -227,8 +272,8 @@ class Store:
             if item:
                 self._db.execute("DELETE FROM items WHERE id = ?", (item_id,))
                 self._db.execute(
-                    "INSERT INTO events(item_id, at, what, detail) VALUES (NULL, ?, 'deleted', ?)",
-                    (time.time(), (item.get("title") or item.get("url") or "")[:300]),
+                    "INSERT INTO events(item_id, at, what, detail, owner) VALUES (NULL, ?, 'deleted', ?, ?)",
+                    (time.time(), (item.get("title") or item.get("url") or "")[:300], item.get("owner") or ""),
                 )
                 self._db.commit()
         return item
@@ -241,18 +286,37 @@ class Store:
             ).fetchall()
         return [r["id"] for r in rows]
 
-    def known_tags(self, limit: int = 80) -> list[str]:
+    def known_tags(self, owner: str = "", limit: int = 80) -> list[str]:
+        """The owner's tags, most used first (what the AI is asked to reuse)."""
         with self._lock:
             rows = self._db.execute(
                 "SELECT j.value AS tag, COUNT(*) AS n FROM items, json_each(items.tags) AS j "
-                "GROUP BY j.value ORDER BY n DESC, tag LIMIT ?",
-                (limit,),
+                "WHERE items.owner = ? GROUP BY j.value ORDER BY n DESC, tag LIMIT ?",
+                (owner, limit),
             ).fetchall()
         return [r["tag"] for r in rows]
+
+    def owners(self) -> list[str]:
+        """Everyone who has items."""
+        with self._lock:
+            rows = self._db.execute("SELECT DISTINCT owner FROM items").fetchall()
+        return sorted({r[0] or "" for r in rows})
+
+    def household(self, viewer: str) -> list[dict]:
+        """Per owner: how many items the viewer may browse."""
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT owner, COUNT(*) AS n FROM items WHERE owner != '' AND (private = 0 OR owner = ?) "
+                "GROUP BY owner ORDER BY n DESC",
+                (viewer,),
+            ).fetchall()
+        return [{"owner": r[0], "n": r[1]} for r in rows]
 
     # ------------------------------------------------------------------
     def search(
         self,
+        viewer: str = "",
+        whose: str = "mine",
         q: str = "",
         status: str = "",
         category: str = "",
@@ -268,7 +332,8 @@ class Store:
         offset: int = 0,
     ) -> dict:
         """Items that match, newest first by default, with the total and per-facet counts."""
-        where, args = [], []
+        sql, scope_args = self.scope(viewer, whose)
+        where, args = [sql.replace("owner", "i.owner").replace("private", "i.private")], list(scope_args)
         match = fts_query(q)
         if match:
             where.append("i.id IN (SELECT rowid FROM items_fts WHERE items_fts MATCH ?)")
@@ -297,10 +362,8 @@ class Store:
         if until:
             where.append("i.created_at < ?")
             args.append(until)
-        clause = f"WHERE {' AND '.join(where)}" if where else ""
+        clause = f"WHERE {' AND '.join(where)}"
         order = SORTS.get(sort, SORTS["new"])
-        if match and sort == "relevance":
-            order = "i.created_at DESC"
         with self._lock:
             total = self._db.execute(f"SELECT COUNT(*) FROM items i {clause}", args).fetchone()[0]
             rows = self._db.execute(
@@ -308,7 +371,7 @@ class Store:
                 [*args, max(1, min(limit, 500)), max(0, offset)],
             ).fetchall()
             facets = {}
-            base = f"WHERE {' AND '.join(base_where)}" if base_where else ""
+            base = f"WHERE {' AND '.join(base_where)}"
             for column in ("status", "category", "source", "purpose"):
                 facets[column] = {
                     r[0]: r[1]
@@ -318,11 +381,17 @@ class Store:
                 }
         return {"total": total, "items": [self._row(r) for r in rows], "facets": facets}
 
-    def counts(self) -> dict:
+    def counts(self, owner: str | None = None) -> dict:
+        """Items per status: of one owner (and nobody's), or of everyone with None."""
+        where, args = ("WHERE owner = ? OR owner = ''", [owner]) if owner is not None else ("", [])
         with self._lock:
-            by_status = dict(self._db.execute("SELECT status, COUNT(*) FROM items GROUP BY status").fetchall())
+            by_status = dict(
+                self._db.execute(f"SELECT status, COUNT(*) FROM items {where} GROUP BY status", args).fetchall()
+            )
             waiting = self._db.execute(
-                "SELECT COUNT(*) FROM items WHERE fetch_state = 'waiting' OR sorted_by = ''"
+                f"SELECT COUNT(*) FROM items {where} {'AND' if where else 'WHERE'} "
+                "(fetch_state = 'waiting' OR sorted_by = '')",
+                args,
             ).fetchone()[0]
         return {
             "total": sum(by_status.values()),
@@ -330,120 +399,128 @@ class Store:
             "waiting": waiting,
         }
 
-    def stats(self, days: int = 90) -> dict:
-        """Everything the overview shows."""
+    def stats(self, days: int = 90, viewer: str = "") -> dict:
+        """Everything the overview shows, about the viewer's own items."""
         now = time.time()
         start = now - days * 86400
+        mine = "(SELECT * FROM items WHERE owner = ? OR owner = '')"
+        my_events = "(SELECT * FROM events WHERE owner = ? OR owner = '')"
+        v = viewer
         with self._lock:
             db = self._db
 
             def grouped(sql: str, *args: Any) -> list[dict]:
                 return [dict(r) for r in db.execute(sql, args)]
 
-            per_day_saved = grouped(
-                "SELECT date(created_at, 'unixepoch', 'localtime') AS day, COUNT(*) AS n FROM items "
-                "WHERE created_at >= ? GROUP BY day",
-                start,
-            )
-            per_day_done = grouped(
-                "SELECT date(at, 'unixepoch', 'localtime') AS day, COUNT(*) AS n FROM events "
-                "WHERE at >= ? AND what IN ('done', 'archived') GROUP BY day",
-                start,
-            )
+            def cards(sql: str, *args: Any) -> list[dict]:
+                return [self._row(r) for r in db.execute(sql, args)]
+
             open_ = "status IN ('inbox', 'later')"
+            week = now - 7 * 86400
             result = {
                 "days": days,
-                "counts": self.counts(),
-                "per_day": {"saved": per_day_saved, "done": per_day_done},
+                "counts": self.counts(viewer),
+                "per_day": {
+                    "saved": grouped(
+                        f"SELECT date(created_at, 'unixepoch', 'localtime') AS day, COUNT(*) AS n FROM {mine} "
+                        "WHERE created_at >= ? GROUP BY day",
+                        v,
+                        start,
+                    ),
+                    "done": grouped(
+                        f"SELECT date(at, 'unixepoch', 'localtime') AS day, COUNT(*) AS n FROM {my_events} "
+                        "WHERE at >= ? AND what IN ('done', 'archived') GROUP BY day",
+                        v,
+                        start,
+                    ),
+                },
                 "categories": grouped(
-                    f"SELECT category AS name, COUNT(*) AS n, SUM({open_}) AS open FROM items "
-                    "GROUP BY category ORDER BY n DESC"
+                    f"SELECT category AS name, COUNT(*) AS n, SUM({open_}) AS open FROM {mine} "
+                    "GROUP BY category ORDER BY n DESC",
+                    v,
                 ),
-                "sources": grouped("SELECT source AS name, COUNT(*) AS n FROM items GROUP BY source ORDER BY n DESC"),
+                "sources": grouped(
+                    f"SELECT source AS name, COUNT(*) AS n FROM {mine} GROUP BY source ORDER BY n DESC", v
+                ),
                 "purposes": grouped(
-                    f"SELECT purpose AS name, COUNT(*) AS n FROM items WHERE {open_} GROUP BY purpose ORDER BY n DESC"
+                    f"SELECT purpose AS name, COUNT(*) AS n FROM {mine} WHERE {open_} GROUP BY purpose ORDER BY n DESC",
+                    v,
                 ),
                 "tags": grouped(
-                    "SELECT j.value AS name, COUNT(*) AS n FROM items, json_each(items.tags) AS j "
-                    "GROUP BY j.value ORDER BY n DESC, name LIMIT 40"
-                ),
-                "sites": grouped(
-                    "SELECT site AS name, COUNT(*) AS n FROM items WHERE site != '' "
-                    "GROUP BY site ORDER BY n DESC LIMIT 12"
+                    f"SELECT j.value AS name, COUNT(*) AS n FROM {mine} AS m, json_each(m.tags) AS j "
+                    "GROUP BY j.value ORDER BY n DESC, name LIMIT 40",
+                    v,
                 ),
                 "week": dict(
                     db.execute(
-                        "SELECT (SELECT COUNT(*) FROM items WHERE created_at >= ?) AS saved, "
-                        "(SELECT COUNT(*) FROM events WHERE at >= ? AND what IN ('done', 'archived')) AS handled, "
-                        "(SELECT COUNT(*) FROM events WHERE at >= ? AND what = 'shared again') AS again",
-                        (now - 7 * 86400, now - 7 * 86400, now - 7 * 86400),
+                        f"SELECT (SELECT COUNT(*) FROM {mine} WHERE created_at >= ?) AS saved, "
+                        f"(SELECT COUNT(*) FROM {my_events} WHERE at >= ? AND what IN ('done', 'archived')) AS handled, "
+                        f"(SELECT COUNT(*) FROM {my_events} WHERE at >= ? AND what = 'shared again') AS again",
+                        (v, week, v, week, v, week),
                     ).fetchone()
                 ),
                 "inbox_age": dict(
                     db.execute(
                         "SELECT SUM(created_at >= ?) AS week, SUM(created_at < ? AND created_at >= ?) AS month, "
                         "SUM(created_at < ? AND created_at >= ?) AS quarter, SUM(created_at < ?) AS older "
-                        "FROM items WHERE status = 'inbox'",
-                        (
-                            now - 7 * 86400,
-                            now - 7 * 86400,
-                            now - 30 * 86400,
-                            now - 30 * 86400,
-                            now - 90 * 86400,
-                            now - 90 * 86400,
-                        ),
+                        f"FROM {mine} WHERE status = 'inbox'",
+                        (week, week, now - 30 * 86400, now - 30 * 86400, now - 90 * 86400, now - 90 * 86400, v),
                     ).fetchone()
                 ),
-                "high": [
-                    self._row(r)
-                    for r in db.execute(
-                        f"SELECT {CARD_COLUMNS} FROM items i WHERE i.{open_} AND i.priority = 2 "
-                        "ORDER BY i.created_at DESC LIMIT 6"
-                    )
-                ],
-                "recent": [
-                    self._row(r)
-                    for r in db.execute(f"SELECT {CARD_COLUMNS} FROM items i ORDER BY i.created_at DESC LIMIT 8")
-                ],
-                # Saved a while ago, never opened, still open: what is being forgotten
-                "forgotten": [
-                    self._row(r)
-                    for r in db.execute(
-                        f"SELECT {CARD_COLUMNS} FROM items i WHERE i.{open_} AND i.opened_at IS NULL "
-                        "AND i.created_at < ? ORDER BY random() LIMIT 6",
-                        (now - 14 * 86400,),
-                    )
-                ],
-                "activity": grouped(
-                    "SELECT e.at, e.what, e.detail, e.item_id, i.title, i.url, i.source FROM events e "
-                    "LEFT JOIN items i ON i.id = e.item_id ORDER BY e.at DESC, e.id DESC LIMIT 25"
+                "high": cards(
+                    f"SELECT {CARD_COLUMNS} FROM {mine} i WHERE i.{open_} AND i.priority = 2 "
+                    "ORDER BY i.created_at DESC LIMIT 6",
+                    v,
                 ),
-                "upcoming": self.dated_open(12),
-                "first": db.execute("SELECT MIN(created_at) FROM items").fetchone()[0],
-                "sorted": dict(db.execute("SELECT sorted_by, COUNT(*) FROM items GROUP BY sorted_by").fetchall()),
-                "failed": db.execute("SELECT COUNT(*) FROM items WHERE fetch_state IN ('failed', 'dead')").fetchone()[
-                    0
-                ],
+                "recent": cards(f"SELECT {CARD_COLUMNS} FROM {mine} i ORDER BY i.created_at DESC LIMIT 8", v),
+                # Saved a while ago, never opened, still open: what is being forgotten
+                "forgotten": cards(
+                    f"SELECT {CARD_COLUMNS} FROM {mine} i WHERE i.{open_} AND i.opened_at IS NULL "
+                    "AND i.created_at < ? ORDER BY random() LIMIT 6",
+                    v,
+                    now - 14 * 86400,
+                ),
+                "activity": grouped(
+                    f"SELECT e.at, e.what, e.detail, e.item_id, i.title, i.url, i.source FROM {my_events} e "
+                    "LEFT JOIN items i ON i.id = e.item_id ORDER BY e.at DESC, e.id DESC LIMIT 25",
+                    v,
+                ),
+                "upcoming": self.dated_open(owner=viewer, limit=12),
+                "first": db.execute(f"SELECT MIN(created_at) FROM {mine}", (v,)).fetchone()[0],
+                "sorted": dict(
+                    db.execute(f"SELECT sorted_by, COUNT(*) FROM {mine} GROUP BY sorted_by", (v,)).fetchall()
+                ),
+                "household": self.household(viewer),
             }
         return result
 
-    def dated_open(self, limit: int = 500) -> list[dict]:
-        """Open items with a date, the first date first (overdue ones at the top)."""
+    def dated_open(self, owner: str | None = None, public_only: bool = False, limit: int = 500) -> list[dict]:
+        """Open items with a date, the first date first (overdue ones at the top).
+
+        owner: only that owner's (and nobody's); public_only: only items that aren't private.
+        """
+        where, args = ["i.status IN ('inbox', 'later')", "(i.due != '' OR i.happens_on != '')"], []
+        if owner is not None:
+            where.append("(i.owner = ? OR i.owner = '')")
+            args.append(owner)
+        if public_only:
+            where.append("i.private = 0")
         with self._lock:
             rows = self._db.execute(
-                f"SELECT {CARD_COLUMNS}, {NEXT_DATE} AS next_date FROM items i "
-                "WHERE i.status IN ('inbox', 'later') AND (i.due != '' OR i.happens_on != '') "
+                f"SELECT {CARD_COLUMNS}, {NEXT_DATE} AS next_date FROM items i WHERE {' AND '.join(where)} "
                 f"ORDER BY {NEXT_DATE}, i.id LIMIT ?",
-                (limit,),
+                (*args, limit),
             ).fetchall()
         return [self._row(r) for r in rows]
 
-    def history(self, limit: int = 200, before: float | None = None) -> list[dict]:
+    def history(self, viewer: str = "", limit: int = 200, before: float | None = None) -> list[dict]:
+        """What happened to the viewer's own items, newest first."""
         with self._lock:
             rows = self._db.execute(
                 "SELECT e.id, e.at, e.what, e.detail, e.item_id, i.title, i.url, i.source, i.image FROM events e "
-                "LEFT JOIN items i ON i.id = e.item_id WHERE e.at < ? ORDER BY e.at DESC, e.id DESC LIMIT ?",
-                (before or time.time() + 1, max(1, min(limit, 1000))),
+                "LEFT JOIN items i ON i.id = e.item_id WHERE (e.owner = ? OR e.owner = '') AND e.at < ? "
+                "ORDER BY e.at DESC, e.id DESC LIMIT ?",
+                (viewer, before or time.time() + 1, max(1, min(limit, 1000))),
             ).fetchall()
         return [dict(r) for r in rows]
 
