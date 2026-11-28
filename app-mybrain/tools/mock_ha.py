@@ -205,12 +205,18 @@ async def fire_event(request: web.Request) -> web.Response:
     return web.json_response({"message": f"Event {request.match_info['event_type']} fired."})
 
 
+async def api_root(request: web.Request) -> web.Response:
+    """GET /api/: what the browser extension's connection test asks."""
+    return web.json_response({"message": "API running."})
+
+
 def make_app() -> web.Application:
     app = web.Application()
     app.router.add_get("/core/websocket", websocket)
     app.router.add_post("/mock/share", share)
     app.router.add_get("/core/api/states", get_states)
     app.router.add_post("/core/api/template", render_template)
+    app.router.add_get("/core/api/", api_root)
     app.router.add_post("/core/api/events/{event_type}", fire_event)
     app.router.add_get("/core/api/states/{entity}", get_state)
     app.router.add_post("/core/api/states/{entity}", set_state)

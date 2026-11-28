@@ -40,6 +40,23 @@ Files and photos can't be shared to Home Assistant; the companion app only passe
 
 On the page, **+ Add** (or the key `n`) takes a link, several links or a note typed or pasted.
 
+## Saving from your PC (Edge, Chrome)
+
+The browser extension in [`browser-extension`](https://github.com/cyberjunky/home-assistant-apps/tree/main/app-mybrain/browser-extension) does on a PC what the share sheet does on a phone. It sends the same `mobile_app.share` event to Home Assistant, so the item is read and sorted like any other share, and lands in the MyBrain of the person whose token it uses.
+
+- **The MyBrain button** in the toolbar saves the page you are on, with a note if you like (`Alt+Shift+M` opens it, `Ctrl+Enter` saves).
+- **Right-click** a page, a link, an image or selected text: *Save to MyBrain*. Selected text goes along as the note.
+- **`Alt+Shift+S`** saves the page straight away. A ✓ on the button says it worked, a ! says it didn't (hover it for why).
+
+Installing it:
+
+1. **Get the folder.** On [the repository](https://github.com/cyberjunky/home-assistant-apps), **Code → Download ZIP**, and unpack it. You need the folder `app-mybrain/browser-extension`.
+2. **Load it.** Open `edge://extensions` (Chrome: `chrome://extensions`), turn on **Developer mode**, press **Load unpacked** and pick that folder. Edge may mention developer-mode extensions at start-up; that is expected for an extension that isn't in the store.
+3. **Get a token.** Home Assistant → your profile → **Security** → *Long-lived access tokens* → create one. It must be an administrator's: only they may send events. Name it after the PC, so you can revoke it there.
+4. **Connect.** The options open by themselves after installing: fill in the address you open Home Assistant with in that browser and the token, then **Save and test**. Edge asks to let the extension reach that address; allow it.
+
+The token stays in that browser's extension storage and is only sent to your Home Assistant. To update the extension, replace the folder and press the reload arrow on its card in `edge://extensions`.
+
 ## What happens to a link
 
 1. **Saved at once**, with where it came from.
@@ -169,7 +186,6 @@ See [SECURITY.md](SECURITY.md) for what leaves your Home Assistant: the sites of
 
 ## Limitations
 
-- Importing what you already have (Google Keep, mails to yourself) is not in this version yet.
 - Reddit, and sites that block anything but a browser, give little more than what the link says.
 - The search matches words, not meaning: "heat pump" doesn't find "warmtepomp".
 - This first version was tried against a stand-in Home Assistant with a stand-in AI and calendar. Please report what it gets wrong on yours.
